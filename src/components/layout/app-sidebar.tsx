@@ -94,10 +94,10 @@ export function AppSidebar() {
       <div className="p-4 border-t border-slate-800">
         <div className="flex items-center gap-3 mb-4 p-2 rounded-sm hover:bg-white/5 cursor-pointer">
           <Avatar className="h-8 w-8 rounded-sm">
-            <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">MM</AvatarFallback>
+            <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">AD</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-xs font-bold truncate">Admin Console</p>
+            <p className="text-xs font-bold truncate">Admin Konsole</p>
             <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Super Admin • Acme Corp</p>
           </div>
         </div>
