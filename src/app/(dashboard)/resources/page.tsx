@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { 
   Plus, 
   Search, 
-  Filter, 
   MoreHorizontal, 
   ExternalLink,
   Shield,
@@ -326,7 +325,7 @@ export default function ResourcesPage() {
                           <DropdownMenuItem 
                             className="font-bold" 
                             onSelect={(e) => {
-                              e.preventDefault(); 
+                              e.preventDefault(); // Prevents pointer-events trap
                               setSelectedResource(resource);
                               setIsEntitlementOpen(true);
                             }}

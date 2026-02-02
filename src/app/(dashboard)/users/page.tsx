@@ -18,14 +18,11 @@ import {
   Filter, 
   MoreHorizontal, 
   RefreshCw,
-  User as UserIcon,
-  ChevronRight,
+  Plus,
+  UserCircle,
   ShieldCheck,
   Building2,
-  Loader2,
-  Plus,
-  Mail,
-  UserCircle
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -314,7 +311,7 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem className="font-medium" onSelect={(e) => {
-                          e.preventDefault();
+                          e.preventDefault(); // Prevents pointer-events trap
                           setSelectedUser(user);
                           setIsProfileOpen(true);
                         }}>
