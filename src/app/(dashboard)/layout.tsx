@@ -20,7 +20,7 @@ export default function DashboardLayout({
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <Input 
-                placeholder="Search resources, users or entitlements..." 
+                placeholder="Ressourcen, Benutzer oder Berechtigungen suchen..." 
                 className="pl-10 h-10 border-none bg-accent/50 focus-visible:ring-1 focus-visible:ring-primary w-full max-w-md transition-all" 
               />
             </div>

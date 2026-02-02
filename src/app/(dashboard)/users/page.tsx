@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -47,7 +46,6 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
 export default function UsersPage() {
-  const { tenantId } = useParams();
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
   const [search, setSearch] = useState('');
@@ -61,8 +59,8 @@ export default function UsersPage() {
   const [newTitle, setNewTitle] = useState('');
 
   const usersQuery = useMemoFirebase(() => {
-    return collection(db, 'tenants', tenantId as string, 'users');
-  }, [db, tenantId]);
+    return collection(db, 'users');
+  }, [db]);
 
   const { data: users, isLoading } = useCollection(usersQuery);
 
@@ -71,24 +69,23 @@ export default function UsersPage() {
     setTimeout(() => {
       setIsSyncing(false);
       toast({
-        title: "Sync Completed",
-        description: "LDAP directory is up to date.",
+        title: "Synchronisierung abgeschlossen",
+        description: "Das LDAP-Verzeichnis ist auf dem neuesten Stand.",
       });
     }, 2000);
   };
 
   const handleAddUser = () => {
     if (!newDisplayName || !newEmail) {
-      toast({ variant: "destructive", title: "Required", description: "Name and email are required." });
+      toast({ variant: "destructive", title: "Erforderlich", description: "Name und E-Mail sind erforderlich." });
       return;
     }
 
     const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
-    const userRef = doc(db, 'tenants', tenantId as string, 'users', userId);
+    const userRef = doc(db, 'users', userId);
     
     const userData = {
       id: userId,
-      tenantId: tenantId as string,
       externalId: `MANUAL_${userId}`,
       displayName: newDisplayName,
       email: newEmail,
@@ -101,18 +98,17 @@ export default function UsersPage() {
     updateDocumentNonBlocking(userRef, userData);
 
     // Audit Log
-    const auditRef = doc(collection(db, 'tenants', tenantId as string, 'auditEvents'));
+    const auditRef = doc(collection(db, 'auditEvents'));
     updateDocumentNonBlocking(auditRef, {
       id: auditRef.id,
-      tenantId,
       actorUid: authUser?.uid || 'system',
-      action: 'Create User',
+      action: 'Benutzer erstellen',
       entityType: 'user',
       entityId: userId,
       timestamp: new Date().toISOString()
     });
 
-    toast({ title: "User Added", description: `${newDisplayName} has been added to the directory.` });
+    toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde dem Verzeichnis hinzugefügt.` });
     setIsAddOpen(false);
     setNewDisplayName('');
     setNewEmail('');
@@ -130,8 +126,8 @@ export default function UsersPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">User Directory</h1>
-          <p className="text-muted-foreground mt-1">Managed users synchronized via LDAP/Active Directory.</p>
+          <h1 className="text-3xl font-bold">Benutzerverzeichnis</h1>
+          <p className="text-muted-foreground mt-1">Verwaltete Benutzer, die über LDAP/Active Directory synchronisiert werden.</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -141,20 +137,20 @@ export default function UsersPage() {
             disabled={isSyncing}
           >
             <RefreshCw className={cn("w-5 h-5", isSyncing && "animate-spin")} />
-            {isSyncing ? "Syncing LDAP..." : "Sync from LDAP"}
+            {isSyncing ? "LDAP wird synchronisiert..." : "Von LDAP synchronisieren"}
           </Button>
           
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20">
-                <Plus className="w-5 h-5" /> Add User
+                <Plus className="w-5 h-5" /> Benutzer hinzufügen
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Add Directory User</DialogTitle>
+                <DialogTitle>Verzeichnisbenutzer hinzufügen</DialogTitle>
                 <DialogDescription>
-                  Manually create a user entry in this tenant's directory.
+                  Manuelles Erstellen eines Benutzereintrags im Verzeichnis.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -163,20 +159,20 @@ export default function UsersPage() {
                   <Input id="name" value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <Label htmlFor="email" className="text-right">E-Mail</Label>
                   <Input id="email" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="department" className="text-right">Dept</Label>
+                  <Label htmlFor="department" className="text-right">Abteilung</Label>
                   <Input id="department" value={newDepartment} onChange={e => setNewDepartment(e.target.value)} className="col-span-3" />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="title" className="text-right">Title</Label>
+                  <Label htmlFor="title" className="text-right">Titel</Label>
                   <Input id="title" value={newTitle} onChange={e => setNewTitle(e.target.value)} className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={handleAddUser}>Save User</Button>
+                <Button onClick={handleAddUser}>Benutzer speichern</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -187,17 +183,17 @@ export default function UsersPage() {
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by name, email, department..." 
+            placeholder="Suche nach Name, E-Mail, Abteilung..." 
             className="pl-10 h-11 bg-card"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <Button variant="outline" className="h-11 gap-2">
-          <Building2 className="w-4 h-4" /> All Departments
+          <Building2 className="w-4 h-4" /> Alle Abteilungen
         </Button>
         <Button variant="outline" className="h-11 gap-2">
-          <Filter className="w-4 h-4" /> More Filters
+          <Filter className="w-4 h-4" /> Weitere Filter
         </Button>
       </div>
 
@@ -205,17 +201,17 @@ export default function UsersPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground font-medium">Loading directory...</p>
+            <p className="text-muted-foreground font-medium">Verzeichnis wird geladen...</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-accent/30">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[350px] py-4">Employee</TableHead>
-                <TableHead>Department</TableHead>
+                <TableHead className="w-[350px] py-4">Mitarbeiter</TableHead>
+                <TableHead>Abteilung</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Last Synced</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>Zuletzt synchronisiert</TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -246,11 +242,11 @@ export default function UsersPage() {
                       )}
                       variant="outline"
                     >
-                      {user.enabled ? "ENABLED" : "DISABLED"}
+                      {user.enabled ? "AKTIVIERT" : "DEAKTIVIERT"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
-                    {user.lastSyncedAt ? new Date(user.lastSyncedAt).toLocaleDateString() : 'Never'}
+                    {user.lastSyncedAt ? new Date(user.lastSyncedAt).toLocaleDateString() : 'Nie'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -261,10 +257,10 @@ export default function UsersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
                         <DropdownMenuItem className="font-medium">
-                          View Profile <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                          Profil anzeigen <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
                         </DropdownMenuItem>
                         <DropdownMenuItem className="font-medium">
-                          View Assignments <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                          Zuweisungen anzeigen <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -274,7 +270,7 @@ export default function UsersPage() {
               {!isLoading && filteredUsers?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center">
-                    No users found matching your search.
+                    Keine Benutzer gefunden, die Ihrer Suche entsprechen.
                   </TableCell>
                 </TableRow>
               )}

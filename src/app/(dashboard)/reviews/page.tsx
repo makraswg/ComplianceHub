@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -33,20 +32,19 @@ import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 export default function AccessReviewsPage() {
-  const { tenantId } = useParams();
   const db = useFirestore();
   const { user } = useUser();
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
 
   const assignmentsQuery = useMemoFirebase(() => {
-    return collection(db, 'tenants', tenantId as string, 'assignments');
-  }, [db, tenantId]);
+    return collection(db, 'assignments');
+  }, [db]);
 
   const { data: assignments, isLoading } = useCollection(assignmentsQuery);
 
   const handleReview = (assignmentId: string, action: 'certify' | 'revoke') => {
-    const docRef = doc(db, 'tenants', tenantId as string, 'assignments', assignmentId);
+    const docRef = doc(db, 'assignments', assignmentId);
     
     const updates = {
       status: action === 'certify' ? 'active' : 'removed',
@@ -57,20 +55,19 @@ export default function AccessReviewsPage() {
     updateDocumentNonBlocking(docRef, updates);
     
     // Also create audit event (simplified for demo)
-    const auditRef = doc(collection(db, 'tenants', tenantId as string, 'auditEvents'));
+    const auditRef = doc(collection(db, 'auditEvents'));
     updateDocumentNonBlocking(auditRef, {
       id: auditRef.id,
-      tenantId,
       actorUid: user?.uid || 'system',
-      action: action === 'certify' ? 'Certify Assignment' : 'Revoke Assignment',
+      action: action === 'certify' ? 'Zuweisung zertifizieren' : 'Zuweisung widerrufen',
       entityType: 'assignment',
       entityId: assignmentId,
       timestamp: new Date().toISOString()
     });
 
     toast({
-      title: action === 'certify' ? "Assignment Certified" : "Assignment Revoked",
-      description: `The access rights have been updated successfully.`,
+      title: action === 'certify' ? "Zuweisung zertifiziert" : "Zuweisung widerrufen",
+      description: `Die Zugriffsrechte wurden erfolgreich aktualisiert.`,
     });
   };
 
@@ -100,54 +97,54 @@ export default function AccessReviewsPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-headline">Access Reviews</h1>
-          <p className="text-muted-foreground mt-1">Certify or revoke user entitlements for quarterly compliance.</p>
+          <h1 className="text-3xl font-bold font-headline">Zugriffsüberprüfungen</h1>
+          <p className="text-muted-foreground mt-1">Zertifizieren oder widerrufen Sie Benutzerberechtigungen für die vierteljährliche Compliance.</p>
         </div>
         <Button variant="outline" className="gap-2 h-11 px-6 border-primary text-primary hover:bg-primary/5">
-          <History className="w-4 h-4" /> Review History
+          <History className="w-4 h-4" /> Überprüfungsverlauf
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="border-none shadow-sm bg-primary/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Campaign Progress</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Kampagnenfortschritt</CardTitle>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-primary">{progressPercent}%</span>
-              <span className="text-xs text-muted-foreground">Q3 Review</span>
+              <span className="text-xs text-muted-foreground">Q3-Überprüfung</span>
             </div>
           </CardHeader>
           <CardContent>
             <Progress value={progressPercent} className="h-2 bg-primary/10" />
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-              {stats.completed} of {stats.total} reviews completed
+              {stats.completed} von {stats.total} Überprüfungen abgeschlossen
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm border-l-4 border-l-red-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Awaiting Review</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Warten auf Überprüfung</CardTitle>
             <div className="flex items-baseline gap-2 text-red-600">
               <span className="text-3xl font-bold">{stats.overdue}</span>
               <AlertCircle className="w-4 h-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">High risk or stale assignments requiring certification.</p>
+            <p className="text-xs text-muted-foreground">Hochriskante oder veraltete Zuweisungen, die eine Zertifizierung erfordern.</p>
           </CardContent>
         </Card>
 
         <Card className="border-none shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Certified</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Zertifiziert</CardTitle>
             <div className="flex items-baseline gap-2 text-green-600">
               <span className="text-3xl font-bold">{stats.completed}</span>
               <CheckCircle className="w-4 h-4" />
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Items verified during current campaign.</p>
+            <p className="text-xs text-muted-foreground">Elemente, die während der aktuellen Kampagne überprüft wurden.</p>
           </CardContent>
         </Card>
       </div>
@@ -161,7 +158,7 @@ export default function AccessReviewsPage() {
               className="flex-1 md:flex-none"
               onClick={() => setActiveFilter('pending')}
             >
-              Pending Reviews
+              Ausstehende Überprüfungen
             </Button>
             <Button 
               variant={activeFilter === 'completed' ? 'default' : 'ghost'} 
@@ -169,7 +166,7 @@ export default function AccessReviewsPage() {
               className="flex-1 md:flex-none"
               onClick={() => setActiveFilter('completed')}
             >
-              Completed
+              Abgeschlossen
             </Button>
             <Button 
               variant={activeFilter === 'all' ? 'default' : 'ghost'} 
@@ -177,14 +174,14 @@ export default function AccessReviewsPage() {
               className="flex-1 md:flex-none"
               onClick={() => setActiveFilter('all')}
             >
-              All Items
+              Alle Elemente
             </Button>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
             <div className="relative flex-1 md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="Filter by user or ID..." 
+                placeholder="Nach Benutzer oder ID filtern..." 
                 className="pl-10 h-10 bg-card" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -202,11 +199,11 @@ export default function AccessReviewsPage() {
             <Table>
               <TableHeader className="bg-accent/5">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[280px] py-4">User ID</TableHead>
-                  <TableHead>Entitlement ID</TableHead>
+                  <TableHead className="w-[280px] py-4">Benutzer-ID</TableHead>
+                  <TableHead>Berechtigungs-ID</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Grant Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Gewährungsdatum</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -241,14 +238,14 @@ export default function AccessReviewsPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>{assignment.grantedAt ? new Date(assignment.grantedAt).toLocaleDateString() : 'Unknown'}</span>
+                        <span>{assignment.grantedAt ? new Date(assignment.grantedAt).toLocaleDateString() : 'Unbekannt'}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       {assignment.lastReviewedAt ? (
                         <Badge variant="outline" className="gap-1.5">
                           <CheckCircle className="w-3 h-3 text-green-600" />
-                          Certified
+                          Zertifiziert
                         </Badge>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
@@ -258,14 +255,14 @@ export default function AccessReviewsPage() {
                             className="h-8 gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 border-red-100 font-bold px-3"
                             onClick={() => handleReview(assignment.id, 'revoke')}
                           >
-                            <XCircle className="w-3.5 h-3.5" /> Revoke
+                            <XCircle className="w-3.5 h-3.5" /> Widerrufen
                           </Button>
                           <Button 
                             size="sm" 
                             className="h-8 gap-1.5 bg-green-600 hover:bg-green-700 text-white font-bold px-3"
                             onClick={() => handleReview(assignment.id, 'certify')}
                           >
-                            <CheckCircle className="w-3.5 h-3.5" /> Certify
+                            <CheckCircle className="w-3.5 h-3.5" /> Zertifizieren
                           </Button>
                         </div>
                       )}
@@ -275,7 +272,7 @@ export default function AccessReviewsPage() {
                 {!isLoading && filteredAssignments?.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      No assignments found matching these criteria.
+                      Keine Zuweisungen gefunden, die diesen Kriterien entsprechen.
                     </TableCell>
                   </TableRow>
                 )}

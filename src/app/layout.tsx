@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'AccessHub - Multi-Tenant Entitlement Registry',
-  description: 'Manage IT access and permissions for your entire organization.',
+  title: 'AccessHub - Mandantenfähige Berechtigungsregistrierung',
+  description: 'Verwalten Sie den IT-Zugriff und die Berechtigungen für Ihre gesamte Organisation.',
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="de">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />

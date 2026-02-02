@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -48,7 +47,6 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 export default function ResourcesPage() {
-  const { tenantId } = useParams();
   const db = useFirestore();
   const { user: authUser } = useUser();
   const [search, setSearch] = useState('');
@@ -69,20 +67,19 @@ export default function ResourcesPage() {
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
 
-  const resourcesQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'resources'), [db, tenantId]);
-  const entitlementsQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'entitlements'), [db, tenantId]);
+  const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
+  const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
 
   const { data: resources, isLoading } = useCollection(resourcesQuery);
   const { data: entitlements } = useCollection(entitlementsQuery);
 
   const handleCreateResource = () => {
     if (!newName || !newOwner) {
-      toast({ variant: "destructive", title: "Required", description: "Name and Owner are required." });
+      toast({ variant: "destructive", title: "Erforderlich", description: "Name und Besitzer sind erforderlich." });
       return;
     }
 
     const resourceData = {
-      tenantId: tenantId as string,
       name: newName,
       type: newType,
       owner: newOwner,
@@ -92,26 +89,25 @@ export default function ResourcesPage() {
       createdAt: new Date().toISOString()
     };
 
-    addDocumentNonBlocking(collection(db, 'tenants', tenantId as string, 'resources'), resourceData);
+    addDocumentNonBlocking(collection(db, 'resources'), resourceData);
     setIsCreateOpen(false);
-    toast({ title: "Resource Added", description: `${newName} cataloged successfully.` });
+    toast({ title: "Ressource hinzugefügt", description: `${newName} erfolgreich katalogisiert.` });
   };
 
   const handleAddEntitlement = () => {
     if (!entName || !selectedResource) return;
 
     const entData = {
-      tenantId: tenantId as string,
       resourceId: selectedResource.id,
       name: entName,
       riskLevel: entRisk,
       description: entDesc,
     };
 
-    addDocumentNonBlocking(collection(db, 'tenants', tenantId as string, 'entitlements'), entData);
+    addDocumentNonBlocking(collection(db, 'entitlements'), entData);
     setEntName('');
     setEntDesc('');
-    toast({ title: "Entitlement Added", description: `"${entName}" role defined for ${selectedResource.name}.` });
+    toast({ title: "Berechtigung hinzugefügt", description: `Die Rolle "${entName}" wurde für ${selectedResource.name} definiert.` });
   };
 
   const filteredResources = resources?.filter(res => 
@@ -123,20 +119,20 @@ export default function ResourcesPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Resource Catalog</h1>
-          <p className="text-muted-foreground mt-1">Documentation of systems, applications and internal tools.</p>
+          <h1 className="text-3xl font-bold">Ressourcenkatalog</h1>
+          <p className="text-muted-foreground mt-1">Dokumentation von Systemen, Anwendungen und internen Werkzeugen.</p>
         </div>
         
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20">
-              <Plus className="w-5 h-5" /> Add Resource
+              <Plus className="w-5 h-5" /> Ressource hinzufügen
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Add New Resource</DialogTitle>
-              <DialogDescription>Register a new system in the tenant inventory.</DialogDescription>
+              <DialogTitle>Neue Ressource hinzufügen</DialogTitle>
+              <DialogDescription>Registrieren Sie ein neues System im Inventar.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
@@ -144,7 +140,7 @@ export default function ResourcesPage() {
                 <Input value={newName} onChange={e => setNewName(e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Type</Label>
+                <Label className="text-right">Typ</Label>
                 <Select value={newType} onValueChange={setNewType}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
@@ -152,12 +148,12 @@ export default function ResourcesPage() {
                   <SelectContent>
                     <SelectItem value="SaaS">SaaS</SelectItem>
                     <SelectItem value="OnPrem">On-Premises</SelectItem>
-                    <SelectItem value="Tool">Internal Tool</SelectItem>
+                    <SelectItem value="Tool">Internes Werkzeug</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Owner</Label>
+                <Label className="text-right">Besitzer</Label>
                 <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -165,21 +161,21 @@ export default function ResourcesPage() {
                 <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">Criticality</Label>
+                <Label className="text-right">Kritikalität</Label>
                 <Select value={newCriticality} onValueChange={setNewCriticality}>
                   <SelectTrigger className="col-span-3">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreateResource}>Save Resource</Button>
+              <Button onClick={handleCreateResource}>Ressource speichern</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -188,39 +184,39 @@ export default function ResourcesPage() {
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Manage Entitlements: {selectedResource?.name}</DialogTitle>
-            <DialogDescription>Define access levels and roles for this resource.</DialogDescription>
+            <DialogTitle>Berechtigungen verwalten: {selectedResource?.name}</DialogTitle>
+            <DialogDescription>Definieren Sie Zugriffsebenen und Rollen für diese Ressource.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
             <div className="space-y-4 p-4 border rounded-xl bg-accent/5">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Role Name</Label>
-                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="e.g. Read-Only" />
+                  <Label>Rollenname</Label>
+                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Nur Lesen" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Risk Level</Label>
+                  <Label>Risikostufe</Label>
                   <Select value={entRisk} onValueChange={setEntRisk}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
-                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Describe permissions..." />
+                <Label>Beschreibung</Label>
+                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Berechtigungen beschreiben..." />
               </div>
-              <Button onClick={handleAddEntitlement} className="w-full">Add Entitlement</Button>
+              <Button onClick={handleAddEntitlement} className="w-full">Berechtigung hinzufügen</Button>
             </div>
 
             <div className="space-y-2">
-              <Label className="font-bold">Existing Entitlements</Label>
+              <Label className="font-bold">Vorhandene Berechtigungen</Label>
               <div className="border rounded-xl divide-y bg-card">
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
                   <div key={e.id} className="p-3 flex items-center justify-between group">
@@ -234,13 +230,13 @@ export default function ResourcesPage() {
                         <p className="text-[10px] text-muted-foreground">{e.description}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteDocumentNonBlocking(doc(db, 'tenants', tenantId as string, 'entitlements', e.id))}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 ))}
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
-                  <p className="p-6 text-center text-xs text-muted-foreground">No entitlements defined yet.</p>
+                  <p className="p-6 text-center text-xs text-muted-foreground">Noch keine Berechtigungen definiert.</p>
                 )}
               </div>
             </div>
@@ -252,7 +248,7 @@ export default function ResourcesPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search resources..." 
+            placeholder="Ressourcen suchen..." 
             className="pl-10 h-11 bg-card"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -264,17 +260,17 @@ export default function ResourcesPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground font-medium">Loading catalog...</p>
+            <p className="text-muted-foreground font-medium">Lade Katalog...</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-accent/30">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[300px] py-4">Resource</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Criticality</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[300px] py-4">Ressource</TableHead>
+                <TableHead>Typ</TableHead>
+                <TableHead>Kritikalität</TableHead>
+                <TableHead>Rollen</TableHead>
+                <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -306,7 +302,7 @@ export default function ResourcesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-bold">{resourceEnts.length} Entitlements</Badge>
+                      <Badge variant="outline" className="font-bold">{resourceEnts.length} Berechtigungen</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -315,10 +311,10 @@ export default function ResourcesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem className="font-bold" onClick={() => { setSelectedResource(resource); setIsEntitlementOpen(true); }}>
-                            Manage Entitlements
+                            Berechtigungen verwalten
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive font-bold" onClick={() => deleteDocumentNonBlocking(doc(db, 'tenants', tenantId as string, 'resources', resource.id))}>
-                            Delete Resource
+                          <DropdownMenuItem className="text-destructive font-bold" onClick={() => deleteDocumentNonBlocking(doc(db, 'resources', resource.id))}>
+                            Ressource löschen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

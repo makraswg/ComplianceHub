@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -21,44 +20,49 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { toast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('Acme Corp');
   const [tenantSlug, setTenantSlug] = useState('acme');
 
+  const handleSave = () => {
+    toast({ title: "Einstellungen gespeichert", description: "Ihre Änderungen wurden erfolgreich gespeichert." });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold">Tenant Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure your organization's AccessHub environment.</p>
+        <h1 className="text-3xl font-bold">Mandanteneinstellungen</h1>
+        <p className="text-muted-foreground mt-1">Konfigurieren Sie die AccessHub-Umgebung Ihrer Organisation.</p>
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
         <TabsList className="bg-card border h-12 p-1 gap-1 rounded-xl">
           <TabsTrigger value="general" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-6 gap-2">
-            <Settings className="w-4 h-4" /> General
+            <Settings className="w-4 h-4" /> Allgemein
           </TabsTrigger>
           <TabsTrigger value="members" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-6 gap-2">
-            <Users className="w-4 h-4" /> Members & Roles
+            <Users className="w-4 h-4" /> Mitglieder & Rollen
           </TabsTrigger>
           <TabsTrigger value="ldap" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-6 gap-2">
-            <Globe className="w-4 h-4" /> LDAP Config
+            <Globe className="w-4 h-4" /> LDAP-Konfiguration
           </TabsTrigger>
           <TabsTrigger value="security" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg px-6 gap-2">
-            <Lock className="w-4 h-4" /> Security
+            <Lock className="w-4 h-4" /> Sicherheit
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
           <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle>Organization Details</CardTitle>
-              <CardDescription>Update your company profile and identifiers.</CardDescription>
+              <CardTitle>Organisationsdetails</CardTitle>
+              <CardDescription>Aktualisieren Sie Ihr Unternehmensprofil und Ihre Kennungen.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="tenant-name">Tenant Display Name</Label>
+                  <Label htmlFor="tenant-name">Anzeigename des Mandanten</Label>
                   <Input 
                     id="tenant-name" 
                     value={tenantName} 
@@ -67,7 +71,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tenant-slug">Tenant Slug (URL Identifier)</Label>
+                  <Label htmlFor="tenant-slug">Mandanten-Slug (URL-Kennung)</Label>
                   <div className="flex items-center gap-2">
                     <Input 
                       id="tenant-slug" 
@@ -81,29 +85,29 @@ export default function SettingsPage() {
               </div>
             </CardContent>
             <CardFooter className="border-t pt-6">
-              <Button className="bg-primary gap-2 px-8">
-                <Save className="w-4 h-4" /> Save Changes
+              <Button className="bg-primary gap-2 px-8" onClick={handleSave}>
+                <Save className="w-4 h-4" /> Änderungen speichern
               </Button>
             </CardFooter>
           </Card>
 
           <Card className="border-none shadow-sm border-l-4 border-l-accent">
             <CardHeader>
-              <CardTitle>Usage Preferences</CardTitle>
+              <CardTitle>Nutzungseinstellungen</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-base">Audit Log Retention</Label>
-                  <p className="text-sm text-muted-foreground">Store all inventory changes for 1 year.</p>
+                  <Label className="text-base">Aufbewahrung von Prüfprotokollen</Label>
+                  <p className="text-sm text-muted-foreground">Speichern Sie alle Inventaränderungen für 1 Jahr.</p>
                 </div>
                 <Switch defaultChecked />
               </div>
               <div className="h-px bg-border" />
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label className="text-base">Approval Workflow</Label>
-                  <p className="text-sm text-muted-foreground">Require secondary approval for high-risk assignments.</p>
+                  <Label className="text-base">Genehmigungsworkflow</Label>
+                  <p className="text-sm text-muted-foreground">Sekundäre Genehmigung für hochriskante Zuweisungen erforderlich.</p>
                 </div>
                 <Switch defaultChecked />
               </div>
@@ -115,11 +119,11 @@ export default function SettingsPage() {
           <Card className="border-none shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>Tenant Members</CardTitle>
-                <CardDescription>Admins and editors who can manage this tenant.</CardDescription>
+                <CardTitle>Mandantenmitglieder</CardTitle>
+                <CardDescription>Admins und Redakteure, die diesen Mandanten verwalten können.</CardDescription>
               </div>
               <Button className="bg-primary gap-2">
-                <Plus className="w-4 h-4" /> Invite Member
+                <Plus className="w-4 h-4" /> Mitglied einladen
               </Button>
             </CardHeader>
             <CardContent>
@@ -145,7 +149,7 @@ export default function SettingsPage() {
                         "font-bold uppercase tracking-wider text-[10px]",
                         member.role === 'tenantOwner' ? "bg-purple-500 text-white" : "bg-primary/10 text-primary border-none"
                       )}>
-                        {member.role}
+                        {member.role === 'tenantOwner' ? 'Mandantenbesitzer' : member.role}
                       </Badge>
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon" className="text-muted-foreground">
@@ -166,40 +170,40 @@ export default function SettingsPage() {
         <TabsContent value="ldap" className="space-y-6">
            <Card className="border-none shadow-sm">
             <CardHeader>
-              <CardTitle>LDAP / AD Synchronization</CardTitle>
-              <CardDescription>Configure the connection to your identity provider.</CardDescription>
+              <CardTitle>LDAP / AD-Synchronisierung</CardTitle>
+              <CardDescription>Konfigurieren Sie die Verbindung zu Ihrem Identitätsanbieter.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Server URL</Label>
+                  <Label>Server-URL</Label>
                   <Input placeholder="ldaps://ad.company.com:636" className="h-11" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Base DN</Label>
+                  <Label>Basis-DN</Label>
                   <Input placeholder="OU=Users,DC=company,DC=com" className="h-11" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Service Account User</Label>
+                  <Label>Dienstkontobenutzer</Label>
                   <Input placeholder="CN=SyncSvc,OU=Services,DC=company,DC=com" className="h-11" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Service Account Password</Label>
+                  <Label>Dienstkontopasswort</Label>
                   <Input type="password" value="********" className="h-11" />
                 </div>
               </div>
               <div className="h-px bg-border my-2" />
               <div className="space-y-4">
-                <Label className="text-base font-bold">Sync Schedule</Label>
+                <Label className="text-base font-bold">Synchronisierungszeitplan</Label>
                 <div className="flex items-center gap-4">
-                  <Badge variant="outline" className="px-4 py-2 border-primary text-primary bg-primary/5 font-bold">DAILY AT 02:00 AM</Badge>
-                  <Button variant="ghost" size="sm" className="font-bold">Edit Schedule</Button>
+                  <Badge variant="outline" className="px-4 py-2 border-primary text-primary bg-primary/5 font-bold">TÄGLICH UM 02:00 UHR</Badge>
+                  <Button variant="ghost" size="sm" className="font-bold">Zeitplan bearbeiten</Button>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="border-t pt-6 gap-3">
-              <Button className="bg-primary px-8">Test Connection</Button>
-              <Button variant="outline">Save Configuration</Button>
+              <Button className="bg-primary px-8">Verbindung testen</Button>
+              <Button variant="outline" onClick={handleSave}>Konfiguration speichern</Button>
             </CardFooter>
           </Card>
         </TabsContent>

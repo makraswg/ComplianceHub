@@ -11,31 +11,25 @@ import {
   Activity, 
   Settings, 
   LogOut, 
-  ChevronRight,
-  LayoutDashboard,
-  Search,
-  Bell
+  LayoutDashboard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useParams } from 'next/navigation';
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const params = useParams();
-  const tenantId = params.tenantId as string;
 
   const navItems = [
-    { name: 'Dashboard', href: `/${tenantId}/dashboard`, icon: LayoutDashboard },
-    { name: 'User Directory', href: `/${tenantId}/users`, icon: Users },
-    { name: 'Resource Catalog', href: `/${tenantId}/resources`, icon: Layers },
-    { name: 'Assignments', href: `/${tenantId}/assignments`, icon: Shield },
-    { name: 'Access Reviews', href: `/${tenantId}/reviews`, icon: CheckCircle },
-    { name: 'Audit Log', href: `/${tenantId}/audit`, icon: Activity },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
+    { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
+    { name: 'Zuweisungen', href: '/assignments', icon: Shield },
+    { name: 'Zugriffsüberprüfungen', href: '/reviews', icon: CheckCircle },
+    { name: 'Prüfprotokoll', href: '/audit', icon: Activity },
   ];
 
   const adminItems = [
-    { name: 'Tenant Settings', href: `/${tenantId}/settings`, icon: Settings },
+    { name: 'Einstellungen', href: '/settings', icon: Settings },
   ];
 
   return (
@@ -50,7 +44,7 @@ export function AppSidebar() {
       <div className="px-3 flex-1 overflow-y-auto space-y-6">
         <div>
           <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Overview
+            Überblick
           </p>
           <nav className="space-y-1">
             {navItems.map((item) => (
@@ -76,7 +70,7 @@ export function AppSidebar() {
 
         <div>
           <p className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Administration
+            Verwaltung
           </p>
           <nav className="space-y-1">
             {adminItems.map((item) => (
@@ -103,16 +97,16 @@ export function AppSidebar() {
 
       <div className="p-4 border-t space-y-2">
         <div className="flex items-center gap-3 p-2">
-          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">JD</div>
+          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">MM</div>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-semibold truncate">John Doe</p>
-            <p className="text-xs text-muted-foreground truncate">john@acme.com</p>
+            <p className="text-sm font-semibold truncate">Max Mustermann</p>
+            <p className="text-xs text-muted-foreground truncate">max@acme.com</p>
           </div>
         </div>
         <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive gap-3 px-2 h-9" asChild>
           <Link href="/">
             <LogOut className="w-5 h-5" />
-            <span className="text-sm font-medium">Sign Out</span>
+            <span className="text-sm font-medium">Abmelden</span>
           </Link>
         </Button>
       </div>

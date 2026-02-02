@@ -62,12 +62,12 @@ export default function AuditLogPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-headline">Audit Logs</h1>
-          <p className="text-muted-foreground mt-1">Immutable trail of all security and administrative actions.</p>
+          <h1 className="text-3xl font-bold font-headline">Prüfprotokolle</h1>
+          <p className="text-muted-foreground mt-1">Unveränderlicher Verlauf aller Sicherheits- und Verwaltungsaktionen.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2 h-11 px-6 border-primary text-primary hover:bg-primary/5">
-            <Download className="w-5 h-5" /> Export Logs
+            <Download className="w-5 h-5" /> Protokolle exportieren
           </Button>
         </div>
       </div>
@@ -76,17 +76,17 @@ export default function AuditLogPage() {
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by actor, action or entity ID..." 
+            placeholder="Suche nach Akteur, Aktion oder Entitäts-ID..." 
             className="pl-10 h-11 bg-card"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <Button variant="outline" className="h-11 gap-2 border-dashed">
-          <Filter className="w-4 h-4" /> Action Type
+          <Filter className="w-4 h-4" /> Aktionstyp
         </Button>
         <Button variant="outline" className="h-11 gap-2 border-dashed">
-          <Clock className="w-4 h-4" /> Date Range
+          <Clock className="w-4 h-4" /> Datumsbereich
         </Button>
       </div>
 
@@ -94,16 +94,16 @@ export default function AuditLogPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground font-medium">Loading audit history...</p>
+            <p className="text-muted-foreground font-medium">Lade Audit-Verlauf...</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-accent/30">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[200px] py-4">Timestamp</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Target Entity</TableHead>
+                <TableHead className="w-[200px] py-4">Zeitstempel</TableHead>
+                <TableHead>Akteur</TableHead>
+                <TableHead>Aktion</TableHead>
+                <TableHead>Zielentität</TableHead>
                 <TableHead className="text-right">Details</TableHead>
               </TableRow>
             </TableHeader>
@@ -111,7 +111,7 @@ export default function AuditLogPage() {
               {filteredLogs?.map((log) => (
                 <TableRow key={log.id} className="group transition-colors hover:bg-accent/10">
                   <TableCell className="py-4 text-xs font-medium text-muted-foreground">
-                    {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
+                    {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Gerade jetzt'}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -145,7 +145,7 @@ export default function AuditLogPage() {
               {!isLoading && filteredLogs?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                    No audit events recorded yet.
+                    Noch keine Audit-Ereignisse aufgezeichnet.
                   </TableCell>
                 </TableRow>
               )}

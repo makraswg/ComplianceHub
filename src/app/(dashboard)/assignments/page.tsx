@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -45,7 +44,6 @@ import { toast } from '@/hooks/use-toast';
 import { getAccessAdvice, type AccessAdvisorOutput } from '@/ai/flows/access-advisor-flow';
 
 export default function AssignmentsPage() {
-  const { tenantId } = useParams();
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
   
@@ -64,10 +62,10 @@ export default function AssignmentsPage() {
   const [aiAdvice, setAiAdvice] = useState<AccessAdvisorOutput | null>(null);
 
   // Data Queries
-  const assignmentsQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'assignments'), [db, tenantId]);
-  const usersQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'users'), [db, tenantId]);
-  const entitlementsQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'entitlements'), [db, tenantId]);
-  const resourcesQuery = useMemoFirebase(() => collection(db, 'tenants', tenantId as string, 'resources'), [db, tenantId]);
+  const assignmentsQuery = useMemoFirebase(() => collection(db, 'assignments'), [db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
+  const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
+  const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
 
   const { data: assignments, isLoading } = useCollection(assignmentsQuery);
   const { data: users } = useCollection(usersQuery);
@@ -76,12 +74,11 @@ export default function AssignmentsPage() {
 
   const handleCreateAssignment = () => {
     if (!selectedUserId || !selectedEntitlementId) {
-      toast({ variant: "destructive", title: "Required Fields", description: "Select a user and an entitlement." });
+      toast({ variant: "destructive", title: "Erforderliche Felder", description: "Wählen Sie einen Benutzer und eine Berechtigung aus." });
       return;
     }
 
     const assignmentData = {
-      tenantId: tenantId as string,
       userId: selectedUserId,
       entitlementId: selectedEntitlementId,
       status: 'active',
@@ -91,19 +88,18 @@ export default function AssignmentsPage() {
       notes,
     };
 
-    addDocumentNonBlocking(collection(db, 'tenants', tenantId as string, 'assignments'), assignmentData);
+    addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
     
     // Audit log
-    addDocumentNonBlocking(collection(db, 'tenants', tenantId as string, 'auditEvents'), {
-      tenantId,
+    addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: authUser?.uid || 'system',
-      action: 'Grant Assignment',
+      action: 'Zuweisung erteilen',
       entityType: 'assignment',
       entityId: 'new',
       timestamp: new Date().toISOString()
     });
 
-    toast({ title: "Assignment Created", description: "Access has been granted successfully." });
+    toast({ title: "Zuweisung erstellt", description: "Der Zugriff wurde erfolgreich erteilt." });
     setIsCreateOpen(false);
     setSelectedUserId('');
     setSelectedEntitlementId('');
@@ -123,9 +119,9 @@ export default function AssignmentsPage() {
       const ent = entitlements?.find(e => e.id === a.entitlementId);
       const res = resources?.find(r => r.id === ent?.resourceId);
       return {
-        resourceName: res?.name || 'Unknown',
-        entitlementName: ent?.name || 'Unknown',
-        riskLevel: ent?.riskLevel || 'medium'
+        resourceName: res?.name || 'Unbekannt',
+        entitlementName: ent?.name || 'Unbekannt',
+        riskLevel: ent?.riskLevel || 'mittel'
       };
     });
 
@@ -138,15 +134,27 @@ export default function AssignmentsPage() {
       });
       setAiAdvice(advice);
     } catch (e) {
-      toast({ variant: "destructive", title: "AI Error", description: "Could not generate advice." });
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Rat konnte nicht generiert werden." });
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const filteredAssignments = assignments?.filter(assignment => {
-    const matchesSearch = assignment.id.toLowerCase().includes(search.toLowerCase()) || 
-                         assignment.userId.toLowerCase().includes(search.toLowerCase());
+    const user = users?.find(u => u.id === assignment.userId);
+    const entitlement = entitlements?.find(e => e.id === assignment.entitlementId);
+    const resource = resources?.find(r => r.id === entitlement?.resourceId);
+
+    const searchLower = search.toLowerCase();
+
+    const matchesSearch = (
+      assignment.id.toLowerCase().includes(searchLower) ||
+      (user && user.displayName.toLowerCase().includes(searchLower)) ||
+      (user && user.email.toLowerCase().includes(searchLower)) ||
+      (entitlement && entitlement.name.toLowerCase().includes(searchLower)) ||
+      (resource && resource.name.toLowerCase().includes(searchLower))
+    );
+    
     const matchesTab = activeTab === 'all' || assignment.status === activeTab;
     return matchesSearch && matchesTab;
   });
@@ -155,27 +163,27 @@ export default function AssignmentsPage() {
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Assignments</h1>
-          <p className="text-muted-foreground mt-1">Management of user entitlements and permissions.</p>
+          <h1 className="text-3xl font-bold">Zuweisungen</h1>
+          <p className="text-muted-foreground mt-1">Verwaltung von Benutzerberechtigungen und -rechten.</p>
         </div>
         
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20">
-              <Plus className="w-5 h-5" /> New Assignment
+              <Plus className="w-5 h-5" /> Neue Zuweisung
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Create New Assignment</DialogTitle>
-              <DialogDescription>Link a directory user to a specific system entitlement.</DialogDescription>
+              <DialogTitle>Neue Zuweisung erstellen</DialogTitle>
+              <DialogDescription>Verknüpfen Sie einen Verzeichnisbenutzer mit einer bestimmten Systemberechtigung.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
-                <Label>User</Label>
+                <Label>Benutzer</Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a user..." />
+                    <SelectValue placeholder="Benutzer auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
                     {users?.map(u => (
@@ -185,10 +193,10 @@ export default function AssignmentsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Entitlement</Label>
+                <Label>Berechtigung</Label>
                 <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select entitlement..." />
+                    <SelectValue placeholder="Berechtigung auswählen..." />
                   </SelectTrigger>
                   <SelectContent>
                     {entitlements?.map(e => {
@@ -203,16 +211,16 @@ export default function AssignmentsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Ticket Reference (Optional)</Label>
-                <Input placeholder="e.g. SNOW-12345" value={ticketRef} onChange={e => setTicketRef(e.target.value)} />
+                <Label>Ticket-Referenz (Optional)</Label>
+                <Input placeholder="z.B. SNOW-12345" value={ticketRef} onChange={e => setTicketRef(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Reason / Notes</Label>
-                <Input placeholder="Why is this access needed?" value={notes} onChange={e => setNotes(e.target.value)} />
+                <Label>Grund / Notizen</Label>
+                <Input placeholder="Warum wird dieser Zugriff benötigt?" value={notes} onChange={e => setNotes(e.target.value)} />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreateAssignment} className="w-full">Grant Access</Button>
+              <Button onClick={handleCreateAssignment} className="w-full">Zugriff gewähren</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -222,37 +230,37 @@ export default function AssignmentsPage() {
         <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 animate-in zoom-in-95 duration-300">
           <div className="flex items-center gap-2 mb-4">
             <BrainCircuit className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-lg">AI Access Risk Advisor</h3>
+            <h3 className="font-bold text-lg">KI-Zugriffsrisikoberater</h3>
             <Badge className="ml-auto font-bold" variant={aiAdvice.riskScore > 70 ? 'destructive' : 'default'}>
-              Risk Score: {aiAdvice.riskScore}
+              Risikobewertung: {aiAdvice.riskScore}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mb-4">{aiAdvice.summary}</p>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-red-600">Concerns</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-red-600">Bedenken</p>
               <ul className="text-xs space-y-1 text-muted-foreground">
                 {aiAdvice.concerns.map((c, i) => <li key={i}>• {c}</li>)}
               </ul>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-green-600">Recommendations</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-green-600">Empfehlungen</p>
               <ul className="text-xs space-y-1 text-muted-foreground">
                 {aiAdvice.recommendations.map((r, i) => <li key={i}>• {r}</li>)}
               </ul>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="mt-4 text-primary h-7 p-0 hover:bg-transparent" onClick={() => setAiAdvice(null)}>Dismiss</Button>
+          <Button variant="ghost" size="sm" className="mt-4 text-primary h-7 p-0 hover:bg-transparent" onClick={() => setAiAdvice(null)}>Verwerfen</Button>
         </div>
       )}
 
       <div className="flex flex-col gap-6">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           {[
-            { id: 'all', label: 'All Assignments', icon: ShieldCheck },
-            { id: 'active', label: 'Active', icon: CheckCircle2 },
-            { id: 'requested', label: 'Requested', icon: Clock },
-            { id: 'removed', label: 'Removed', icon: XCircle },
+            { id: 'all', label: 'Alle Zuweisungen', icon: ShieldCheck },
+            { id: 'active', label: 'Aktiv', icon: CheckCircle2 },
+            { id: 'requested', label: 'Angefordert', icon: Clock },
+            { id: 'removed', label: 'Entfernt', icon: XCircle },
           ].map((tab) => (
             <Button
               key={tab.id}
@@ -273,14 +281,14 @@ export default function AssignmentsPage() {
           <div className="md:col-span-2 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
-              placeholder="Search by user ID..." 
+              placeholder="Suche nach Benutzer, E-Mail, Berechtigung oder Ressource..." 
               className="pl-10 h-11 bg-card"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <Button variant="outline" className="h-11 gap-2 border-dashed">
-            <Filter className="w-4 h-4" /> Filters
+            <Filter className="w-4 h-4" /> Filter
           </Button>
         </div>
 
@@ -288,17 +296,17 @@ export default function AssignmentsPage() {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <p className="text-muted-foreground font-medium">Loading assignments...</p>
+              <p className="text-muted-foreground font-medium">Zuweisungen werden geladen...</p>
             </div>
           ) : (
             <Table>
               <TableHeader className="bg-accent/30">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="py-4">User</TableHead>
-                  <TableHead>Entitlement</TableHead>
+                  <TableHead className="py-4">Benutzer</TableHead>
+                  <TableHead>Berechtigung</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ticket</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -348,7 +356,7 @@ export default function AssignmentsPage() {
                           disabled={isAnalyzing === assignment.userId}
                         >
                           {isAnalyzing === assignment.userId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5" />}
-                          Risk AI
+                          Risiko-KI
                         </Button>
                       </TableCell>
                     </TableRow>
