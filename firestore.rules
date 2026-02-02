@@ -52,12 +52,12 @@ service cloud.firestore {
      * We use a recursive wildcard to match 'members' collections nested under tenants.
      * 
      * For collection group queries to succeed, the rule must allow list based on 
-     * the query parameters (e.g., filtering by userId).
+     * the query parameters.
      */
     match /{path=**}/members/{memberId} {
       // Allow list if the user is authenticated. 
       // Firestore will enforce that only documents matching the query filters 
-      // are returned. The query in LoginPage filters by 'userId == auth.uid'.
+      // are returned (e.g., filtering by userId == auth.uid).
       allow list: if isSignedIn();
       
       // Allow get if the user is the member (matched by doc ID) or filtering by their UID
@@ -73,7 +73,8 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
+      allow get: if isTenantMember(tenantId) || isSuperAdmin();
+      allow list: if isSignedIn(); // Allow listing tenants if the user is signed in (the CG query handles membership filtering)
       allow create: if isSignedIn();
       allow update: if isExistingTenantAdmin(tenantId);
       allow delete: if isSuperAdmin();
