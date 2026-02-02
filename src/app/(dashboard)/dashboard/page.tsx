@@ -7,13 +7,11 @@ import {
   Users, 
   Layers, 
   ShieldCheck, 
-  AlertTriangle, 
-  ArrowRight,
-  Activity,
-  ChevronRight,
-  Loader2,
+  Activity, 
   RefreshCw,
-  TrendingUp
+  TrendingUp,
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -30,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
 
 const activityData = [
   { name: 'Mo', active: 400 },
@@ -42,8 +41,8 @@ const activityData = [
 ];
 
 const riskData = [
-  { name: 'Niedrig', value: 40, color: '#29ABE2' },
-  { name: 'Mittel', value: 30, color: '#FF9800' },
+  { name: 'Niedrig', value: 40, color: '#3b82f6' },
+  { name: 'Mittel', value: 30, color: '#f59e0b' },
   { name: 'Hoch', value: 15, color: '#ef4444' },
 ];
 
@@ -65,114 +64,96 @@ export default function DashboardPage() {
     setMounted(true);
   }, []);
 
-  const stats = [
-    { title: 'Benutzer', value: users?.length || 0, icon: Users, trend: 'LDAP Sync', color: 'bg-blue-500', loading: usersLoading },
-    { title: 'Systeme', value: resources?.length || 0, icon: Layers, trend: 'Inventarisiert', color: 'bg-purple-500', loading: resourcesLoading },
-    { title: 'Zugriffe', value: assignments?.length || 0, icon: ShieldCheck, trend: 'Zertifiziert', color: 'bg-green-500', loading: assignmentsLoading },
-    { title: 'Aktionen', value: auditLogs?.length || 0, icon: Activity, trend: 'Audit Trail', color: 'bg-orange-500', loading: auditLoading },
-  ];
-
   if (!mounted) return null;
 
+  const stats = [
+    { title: 'Benutzer', value: users?.length || 0, icon: Users, label: 'LDAP Sync', color: 'text-blue-600', bg: 'bg-blue-50', loading: usersLoading },
+    { title: 'Systeme', value: resources?.length || 0, icon: Layers, label: 'Inventar', color: 'text-indigo-600', bg: 'bg-indigo-50', loading: resourcesLoading },
+    { title: 'Zuweisungen', value: assignments?.length || 0, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-50', loading: assignmentsLoading },
+    { title: 'Aktionen', value: auditLogs?.length || 0, icon: Activity, label: 'Audit Log', color: 'text-orange-600', bg: 'bg-orange-50', loading: auditLoading },
+  ];
+
   return (
-    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-4xl font-bold font-headline tracking-tighter">Willkommen, Max</h1>
-          <p className="text-muted-foreground mt-2 font-medium">Ihre Sicherheitsumgebung ist auf dem neuesten Stand.</p>
+          <h1 className="text-2xl font-bold tracking-tight">System-Übersicht</h1>
+          <p className="text-sm text-muted-foreground">Aktueller Status der Identitäts- und Zugriffsumgebung.</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="h-12 px-6 rounded-xl border-2 hover:bg-accent/10 transition-all font-bold">
-            <Activity className="w-5 h-5 mr-2" />
-            Bericht generieren
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-semibold">
+            <Activity className="w-4 h-4 mr-2" /> Bericht
           </Button>
-          <Button className="h-12 px-8 rounded-xl bg-primary shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all font-bold">
-            <RefreshCw className="w-5 h-5 mr-2" />
-            LDAP Synchronisieren
+          <Button size="sm" className="h-9 font-semibold">
+            <RefreshCw className="w-4 h-4 mr-2" /> LDAP Sync
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="border-none shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 glass-card">
-            <CardContent className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className={cn("p-4 rounded-2xl text-white shadow-lg", stat.color)}>
-                  <stat.icon className="w-6 h-6" />
+          <Card key={stat.title} className="shadow-none rounded-md">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-4">
+                <div className={cn("p-2 rounded-md", stat.bg, stat.color)}>
+                  <stat.icon className="w-5 h-5" />
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{stat.trend}</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                {stat.loading ? (
-                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                ) : (
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{stat.label}</p>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-4xl font-bold tracking-tighter">{stat.value}</h3>
-                    <TrendingUp className="w-4 h-4 text-green-500" />
+                    {stat.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <h3 className="text-2xl font-bold">{stat.value}</h3>}
+                    <span className="text-xs font-medium text-muted-foreground">{stat.title}</span>
                   </div>
-                )}
-                <p className="text-sm text-muted-foreground font-bold uppercase tracking-tight mt-1">{stat.title}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <Card className="lg:col-span-2 border-none shadow-xl glass-card">
-          <CardHeader className="p-8">
-            <CardTitle className="text-xl font-bold">Synchronisations-Aktivität</CardTitle>
-            <CardDescription>Verlauf der Benutzeränderungen über die letzte Woche.</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 shadow-none rounded-md">
+          <CardHeader className="border-b bg-muted/10 py-4">
+            <CardTitle className="text-base">Benutzer-Aktivität (Synchronisation)</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px] p-8 pt-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} dy={15} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12, fontWeight: 600}} />
-                <Tooltip 
-                  cursor={{fill: 'rgba(41, 171, 226, 0.05)'}}
-                  contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)'}}
-                />
-                <Bar dataKey="active" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="p-6">
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activityData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <Tooltip cursor={{fill: 'rgba(0,0,0,0.02)'}} />
+                  <Bar dataKey="active" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-xl glass-card">
-          <CardHeader className="p-8">
-            <CardTitle className="text-xl font-bold">Risiko-Profil</CardTitle>
-            <CardDescription>Berechtigungs-Klassifizierung.</CardDescription>
+        <Card className="shadow-none rounded-md">
+          <CardHeader className="border-b bg-muted/10 py-4">
+            <CardTitle className="text-base">Risiko-Profil</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px] p-8 pt-0 flex flex-col items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={riskData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={110}
-                  paddingAngle={8}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {riskData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="grid grid-cols-3 gap-4 mt-8 w-full">
+          <CardContent className="p-6">
+            <div className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={riskData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value" stroke="none">
+                    {riskData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-2 mt-4">
               {riskData.map(item => (
-                <div key={item.name} className="flex flex-col items-center gap-1">
-                  <div className="w-full h-1.5 rounded-full" style={{backgroundColor: item.color}} />
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{item.name}</span>
+                <div key={item.name} className="flex items-center justify-between text-xs font-medium">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: item.color}} />
+                    <span>{item.name} Risiko</span>
+                  </div>
+                  <span className="text-muted-foreground">{item.value}%</span>
                 </div>
               ))}
             </div>
@@ -180,76 +161,34 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
-        <Card className="border-none shadow-xl glass-card">
-          <CardHeader className="p-8 flex flex-row items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-xl font-bold">Letzte Audit-Ereignisse</CardTitle>
-              <CardDescription>Sicherheitsrelevante Änderungen.</CardDescription>
-            </div>
-            <Button variant="ghost" className="rounded-xl font-bold text-primary hover:bg-primary/5">
-              Alle Logs <ChevronRight className="ml-2 w-4 h-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="px-8 pb-8">
-            <div className="space-y-4">
-              {auditLoading ? (
-                <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>
-              ) : auditLogs && auditLogs.length > 0 ? (
-                auditLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-accent/5 transition-all group border border-transparent hover:border-accent/10">
-                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors shadow-sm">
-                      <Activity className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{log.action}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1 font-medium">
-                        Akteur: <span className="text-foreground">{log.actorUid}</span> • {log.entityType}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="rounded-lg text-[10px] font-bold py-1 border-muted text-muted-foreground">
-                      {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'JETZT'}
-                    </Badge>
+      <Card className="shadow-none rounded-md">
+        <CardHeader className="border-b bg-muted/10 py-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Letzte Audit-Ereignisse</CardTitle>
+          <Button variant="ghost" size="sm" className="h-8 text-xs font-bold" asChild>
+            <a href="/audit">Alle anzeigen <ChevronRight className="ml-1 w-3 h-3" /></a>
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="divide-y">
+            {auditLogs?.slice(0, 5).map((log) => (
+              <div key={log.id} className="flex items-center justify-between p-4 hover:bg-muted/5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-500">
+                    <Activity className="w-4 h-4" />
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-12 text-muted-foreground font-medium italic">Keine aktuellen Aktivitäten.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-xl border-l-8 border-l-accent glass-card overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-            <AlertTriangle className="w-32 h-32" />
+                  <div>
+                    <p className="text-sm font-bold">{log.action}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{log.actorUid} • {log.entityType}</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-[10px] uppercase font-bold px-2 py-0">
+                  {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'Jetzt'}
+                </Badge>
+              </div>
+            ))}
           </div>
-          <CardHeader className="p-8">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-accent/20">
-                <AlertTriangle className="w-6 h-6 text-accent" />
-              </div>
-              <CardTitle className="text-xl font-bold">Compliance-Fokus</CardTitle>
-            </div>
-            <CardDescription className="font-medium mt-2">
-              Kritische Aufgaben für die aktuelle Zertifizierungsperiode.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-8 pb-8 space-y-6">
-            <div className="p-6 bg-accent/5 rounded-2xl border border-accent/10 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-accent/5 translate-x-full group-hover:translate-x-0 transition-transform duration-500" />
-              <div className="relative">
-                <p className="text-sm font-bold text-foreground/90">Quartals-Review fällig</p>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  34 hochriskante Berechtigungen müssen innerhalb der nächsten 48 Stunden zertifiziert werden.
-                </p>
-              </div>
-            </div>
-            <Button className="w-full h-12 bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 rounded-xl font-bold transition-all">
-              Zertifizierungs-Kampagne starten <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

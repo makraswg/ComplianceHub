@@ -30,23 +30,23 @@ export function AppSidebar() {
   ];
 
   return (
-    <div className="w-72 border-r bg-card/50 backdrop-blur-sm flex flex-col h-screen sticky top-0 z-40 sidebar-gradient">
-      <div className="p-8 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30 rotate-3 group-hover:rotate-0 transition-transform">
-          <ShieldCheck className="w-6 h-6 text-white" />
+    <div className="w-64 sidebar-admin flex flex-col h-screen sticky top-0 z-40">
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-8 h-8 bg-primary rounded flex items-center justify-center">
+          <ShieldCheck className="w-5 h-5 text-white" />
         </div>
         <div>
-          <span className="font-headline font-bold text-2xl tracking-tighter text-foreground block leading-none">AccessHub</span>
-          <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase mt-1 block">Enterprise IAM</span>
+          <span className="font-headline font-bold text-xl tracking-tight block">AccessHub</span>
+          <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase block">Enterprise IAM</span>
         </div>
       </div>
 
-      <div className="px-4 flex-1 overflow-y-auto space-y-8 pt-4">
+      <div className="px-3 flex-1 overflow-y-auto space-y-6 pt-4">
         <div>
-          <p className="px-4 mb-3 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
-            Navigation
+          <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Hauptmenü
           </p>
-          <nav className="space-y-1.5">
+          <nav className="space-y-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -54,20 +54,14 @@ export function AppSidebar() {
                   key={item.name} 
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group relative",
+                    "flex items-center gap-3 px-3 py-2 rounded-md transition-all text-sm font-medium",
                     isActive 
                       ? "active-nav-item" 
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      : "text-slate-400 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <item.icon className={cn(
-                    "w-5 h-5 transition-transform duration-300 group-hover:scale-110",
-                    isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-                  )} />
-                  <span className="font-semibold text-sm">{item.name}</span>
-                  {isActive && (
-                    <span className="absolute right-2 w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  )}
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.name}</span>
                 </Link>
               );
             })}
@@ -75,48 +69,44 @@ export function AppSidebar() {
         </div>
 
         <div>
-          <p className="px-4 mb-3 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">
-            Administration
+          <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            System
           </p>
-          <nav className="space-y-1.5">
+          <nav className="space-y-1">
             <Link 
               href="/settings"
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
+                "flex items-center gap-3 px-3 py-2 rounded-md transition-all text-sm font-medium",
                 pathname === '/settings' 
                   ? "active-nav-item" 
-                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  : "text-slate-400 hover:bg-white/10 hover:text-white"
               )}
             >
-              <Settings className={cn(
-                "w-5 h-5",
-                pathname === '/settings' ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
-              )} />
-              <span className="font-semibold text-sm">Einstellungen</span>
+              <Settings className="w-4 h-4" />
+              <span>Einstellungen</span>
             </Link>
           </nav>
         </div>
       </div>
 
-      <div className="p-6 border-t bg-accent/5">
-        <div className="flex items-center gap-3 mb-6 p-2 rounded-2xl transition-colors hover:bg-accent/10 cursor-pointer">
-          <Avatar className="h-10 w-10 border-2 border-primary/20">
-            <AvatarImage src="" />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">MM</AvatarFallback>
+      <div className="p-4 border-t border-slate-800">
+        <div className="flex items-center gap-3 mb-4 p-2 rounded hover:bg-white/5 cursor-pointer">
+          <Avatar className="h-8 w-8 rounded-sm">
+            <AvatarFallback className="bg-primary/20 text-primary font-bold text-xs">MM</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-bold truncate text-foreground/90">Max Mustermann</p>
-            <p className="text-[10px] text-muted-foreground truncate uppercase font-medium">Compliance Officer</p>
+            <p className="text-xs font-bold truncate">Max Mustermann</p>
+            <p className="text-[10px] text-slate-500 truncate uppercase">Admin</p>
           </div>
         </div>
         <Button 
           variant="ghost" 
-          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/5 gap-3 px-4 h-11 rounded-xl transition-colors" 
+          className="w-full justify-start text-slate-400 hover:text-red-400 hover:bg-red-400/10 gap-2 px-2 h-9 rounded-md transition-colors" 
           asChild
         >
           <Link href="/">
-            <LogOut className="w-5 h-5" />
-            <span className="text-sm font-bold">Abmelden</span>
+            <LogOut className="w-4 h-4" />
+            <span className="text-xs font-bold">Abmelden</span>
           </Link>
         </Button>
       </div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -69,19 +68,14 @@ export default function UsersPage() {
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      toast({ title: "Synchronisierung abgeschlossen", description: "Das LDAP-Verzeichnis ist auf dem neuesten Stand." });
-    }, 2000);
+      toast({ title: "Synchronisierung abgeschlossen", description: "LDAP-Status aktualisiert." });
+    }, 1500);
   };
 
   const handleAddUser = () => {
-    if (!newDisplayName || !newEmail) {
-      toast({ variant: "destructive", title: "Erforderlich", description: "Name und E-Mail sind erforderlich." });
-      return;
-    }
+    if (!newDisplayName || !newEmail) return;
 
     const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
-    const userRef = doc(db, 'users', userId);
-    
     const userData = {
       id: userId,
       externalId: `MANUAL_${userId}`,
@@ -91,16 +85,16 @@ export default function UsersPage() {
       lastSyncedAt: new Date().toISOString()
     };
 
-    setDocumentNonBlocking(userRef, userData, { merge: true });
+    setDocumentNonBlocking(doc(db, 'users', userId), userData);
     addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: authUser?.uid || 'system',
-      action: 'Benutzer erstellen',
+      action: 'Benutzer manuell erstellt',
       entityType: 'user',
       entityId: userId,
       timestamp: new Date().toISOString()
     });
 
-    toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde dem Verzeichnis hinzugefügt.` });
+    toast({ title: "Benutzer hinzugefügt" });
     setIsAddOpen(false);
     setNewDisplayName('');
     setNewEmail('');
@@ -112,109 +106,97 @@ export default function UsersPage() {
     user.department?.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (!mounted) return <div className="p-8 h-screen"><Loader2 className="animate-spin" /></div>;
+  if (!mounted) return null;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-3xl font-bold">Benutzerverzeichnis</h1>
-          <p className="text-muted-foreground mt-1">Verwaltete Benutzer, die über LDAP/Active Directory synchronisiert werden.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Benutzerverzeichnis</h1>
+          <p className="text-sm text-muted-foreground">Verwaltete Benutzer aus LDAP/Active Directory.</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            className="gap-2 h-11 px-6 border-primary text-primary hover:bg-primary/5"
-            onClick={handleSync}
-            disabled={isSyncing}
-          >
-            <RefreshCw className={cn("w-5 h-5", isSyncing && "animate-spin")} />
-            {isSyncing ? "LDAP wird synchronisiert..." : "Von LDAP synchronisieren"}
+          <Button variant="outline" size="sm" className="h-9 font-semibold" onClick={handleSync} disabled={isSyncing}>
+            <RefreshCw className={cn("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
+            {isSyncing ? "Sync..." : "LDAP Sync"}
           </Button>
-          
-          <Button 
-            onClick={() => setIsAddOpen(true)}
-            className="bg-primary gap-2 h-11 px-6 shadow-lg shadow-primary/20"
-          >
-            <Plus className="w-5 h-5" /> Benutzer hinzufügen
+          <Button size="sm" className="h-9 font-semibold" onClick={() => setIsAddOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Hinzufügen
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-2 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Suche nach Name, E-Mail, Abteilung..." 
-            className="pl-10 h-11 bg-card"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input 
+          placeholder="Suche nach Name, E-Mail, Abteilung..." 
+          className="pl-10 h-10 shadow-none border-border"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
-      <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
+      <div className="admin-card overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground font-medium">Verzeichnis wird geladen...</p>
           </div>
         ) : (
           <Table>
-            <TableHeader className="bg-accent/30">
+            <TableHeader className="bg-muted/30">
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[350px] py-4">Mitarbeiter</TableHead>
-                <TableHead>Abteilung</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Synchronisiert</TableHead>
-                <TableHead className="text-right">Aktionen</TableHead>
+                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Mitarbeiter</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Abteilung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Letzter Sync</TableHead>
+                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers?.map((user) => (
-                <TableRow key={user.id} className="group transition-colors hover:bg-accent/10">
+                <TableRow key={user.id} className="group hover:bg-muted/5 border-b">
                   <TableCell className="py-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-primary font-bold uppercase">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase">
                         {user.displayName.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-bold">{user.displayName}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{user.email}</div>
+                        <div className="font-bold text-sm">{user.displayName}</div>
+                        <div className="text-[10px] text-muted-foreground">{user.email}</div>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium text-sm">{user.department || 'N/A'}</span>
-                      <span className="text-[10px] text-muted-foreground">{user.title}</span>
+                      <span className="font-medium text-xs">{user.department || '—'}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase">{user.title}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={cn("font-bold", user.enabled ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600")} variant="outline">
-                      {user.enabled ? "AKTIVIERT" : "DEAKTIVIERT"}
+                    <Badge variant="outline" className={cn("text-[9px] font-bold uppercase px-2 py-0", user.enabled ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200")}>
+                      {user.enabled ? "AKTIV" : "INAKTIV"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {user.lastSyncedAt ? new Date(user.lastSyncedAt).toLocaleDateString() : 'Nie'}
+                  <TableCell className="text-muted-foreground text-[10px] font-bold uppercase">
+                    {user.lastSyncedAt ? new Date(user.lastSyncedAt).toLocaleDateString() : '—'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-muted-foreground">
-                          <MoreHorizontal className="w-5 h-5" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded">
+                          <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuContent align="end" className="w-48 p-1">
                         <DropdownMenuItem onSelect={(e) => {
                           e.preventDefault();
                           setSelectedUser(user);
-                          setTimeout(() => setIsProfileOpen(true), 10);
+                          setTimeout(() => setIsProfileOpen(true), 150);
                         }}>
                           <UserCircle className="w-4 h-4 mr-2" /> Profil anzeigen
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}>
-                          <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen anzeigen
+                          <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -226,61 +208,45 @@ export default function UsersPage() {
         )}
       </div>
 
+      {/* Dialogs */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Verzeichnisbenutzer hinzufügen</DialogTitle>
-            <DialogDescription>Manuelles Erstellen eines Benutzereintrags.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Name</Label>
-              <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} className="col-span-3" />
+        <DialogContent className="max-w-sm rounded-lg">
+          <DialogHeader><DialogTitle>Benutzer anlegen</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase">Name</Label>
+              <Input value={newDisplayName} onChange={e => setNewDisplayName(e.target.value)} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">E-Mail</Label>
-              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase">E-Mail</Label>
+              <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleAddUser}>Benutzer speichern</Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleAddUser} className="w-full">Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Benutzerprofil</DialogTitle>
-            <DialogDescription>Details zum Verzeichnisbenutzer.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-md rounded-lg">
+          <DialogHeader><DialogTitle>Benutzerprofil</DialogTitle></DialogHeader>
           {selectedUser && (
-            <div className="space-y-6 py-4">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-accent/10 border">
-                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold uppercase">
-                  {selectedUser.displayName.charAt(0)}
-                </div>
+            <div className="space-y-4 py-4 text-sm">
+              <div className="flex items-center gap-4 p-4 border rounded-md">
+                <div className="w-12 h-12 rounded bg-primary text-white flex items-center justify-center font-bold text-lg">{selectedUser.displayName.charAt(0)}</div>
                 <div>
-                  <h3 className="text-xl font-bold">{selectedUser.displayName}</h3>
-                  <p className="text-sm text-muted-foreground">{selectedUser.title}</p>
-                  <Badge className="mt-2 bg-green-500/10 text-green-600 border-none">AKTIV</Badge>
+                  <h3 className="font-bold">{selectedUser.displayName}</h3>
+                  <p className="text-xs text-muted-foreground">{selectedUser.email}</p>
                 </div>
               </div>
-              <div className="grid gap-2 text-sm">
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">E-Mail:</span>
-                  <span className="font-medium">{selectedUser.email}</span>
-                </div>
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">Abteilung:</span>
-                  <span className="font-medium">{selectedUser.department || 'N/A'}</span>
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Abteilung</Label><p>{selectedUser.department || 'N/A'}</p></div>
+                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Titel</Label><p>{selectedUser.title || 'N/A'}</p></div>
+                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">External ID</Label><p className="font-mono text-[10px]">{selectedUser.externalId}</p></div>
+                <div><Label className="text-[10px] uppercase font-bold text-muted-foreground">Status</Label><p>{selectedUser.enabled ? 'Aktiviert' : 'Deaktiviert'}</p></div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={() => setIsProfileOpen(false)}>Schließen</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setIsProfileOpen(false)} className="w-full">Schließen</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

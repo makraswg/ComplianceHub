@@ -102,7 +102,7 @@ export default function ResourcesPage() {
 
   const handleCreateResource = () => {
     if (!newName || !newOwner) {
-      toast({ variant: "destructive", title: "Erforderlich", description: "Name und Besitzer sind erforderlich." });
+      toast({ variant: "destructive", title: "Fehler", description: "Name und Besitzer sind erforderlich." });
       return;
     }
 
@@ -116,7 +116,7 @@ export default function ResourcesPage() {
     });
     
     setIsCreateOpen(false);
-    toast({ title: "Ressource hinzugefügt" });
+    toast({ title: "System registriert" });
     setNewName('');
     setNewOwner('');
     setNewUrl('');
@@ -176,111 +176,103 @@ export default function ResourcesPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500 pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Ressourcenkatalog</h1>
-          <p className="text-muted-foreground mt-1 font-medium italic">Zentrale Dokumentation aller autorisierten IT-Systeme.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
+          <p className="text-sm text-muted-foreground">Inventar aller registrierten IT-Systeme.</p>
         </div>
         
-        <Button 
-          onClick={() => setIsCreateOpen(true)}
-          className="bg-primary hover:bg-primary/90 gap-2 h-12 px-8 rounded-xl shadow-lg shadow-primary/30 font-bold transition-all"
-        >
-          <Plus className="w-5 h-5" /> Ressource registrieren
+        <Button size="sm" className="h-9 font-semibold" onClick={() => setIsCreateOpen(true)}>
+          <Plus className="w-4 h-4 mr-2" /> System hinzufügen
         </Button>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input 
-          placeholder="Ressourcen, Eigentümer oder IDs suchen..." 
-          className="pl-12 h-14 bg-card border-none shadow-sm rounded-2xl focus-visible:ring-primary focus-visible:ring-2 transition-all font-medium"
+          placeholder="Systeme, Eigentümer oder IDs filtern..." 
+          className="pl-10 h-10 shadow-none border-border"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-card rounded-[2rem] border-none shadow-2xl overflow-hidden glass-card">
+      <div className="admin-card overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Inventar wird geladen...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground text-[10px] font-bold uppercase">Inventar wird geladen...</p>
           </div>
         ) : (
           <Table>
-            <TableHeader className="bg-accent/5">
-              <TableRow className="hover:bg-transparent border-b-muted">
-                <TableHead className="w-[350px] py-6 font-bold uppercase tracking-wider text-[10px] pl-8">Ressourcen-Details</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Typ</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Kritikalität</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Berechtigungen</TableHead>
-                <TableHead className="text-right pr-8 font-bold uppercase tracking-wider text-[10px]">Management</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Anwendung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Typ</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Kritikalität</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Berechtigungen</TableHead>
+                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Management</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredResources?.map((resource) => {
                 const resourceEnts = entitlements?.filter(e => e.resourceId === resource.id) || [];
                 return (
-                  <TableRow key={resource.id} className="group transition-all hover:bg-primary/5 border-b-muted/30">
-                    <TableCell className="py-6 pl-8">
-                      <div className="flex items-center gap-5">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shadow-inner">
-                          <Layers className="w-6 h-6" />
+                  <TableRow key={resource.id} className="group transition-colors hover:bg-muted/5 border-b">
+                    <TableCell className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded bg-primary/10 flex items-center justify-center text-primary">
+                          <Layers className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="font-bold text-lg flex items-center gap-2">
+                          <div className="font-bold text-sm flex items-center gap-2">
                             {resource.name}
-                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary transition-colors"><ExternalLink className="w-4 h-4" /></a>}
+                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary"><ExternalLink className="w-3 h-3" /></a>}
                           </div>
-                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-tight mt-0.5">{resource.owner}</div>
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase">{resource.owner}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="rounded-lg px-3 py-1 font-bold border-none bg-accent/10 text-accent" variant="outline">
-                        {resource.type}
-                      </Badge>
+                      <Badge variant="outline" className="text-[10px] uppercase font-bold py-0">{resource.type}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge className={cn(
-                        "rounded-lg px-3 py-1 font-bold border-none shadow-sm uppercase tracking-tighter text-[10px]",
-                        resource.criticality === 'high' ? "bg-red-500 text-white" : "bg-blue-500 text-white"
+                        "rounded font-bold uppercase text-[9px] px-2 py-0 border-none",
+                        resource.criticality === 'high' ? "bg-red-500 text-white" : "bg-blue-600 text-white"
                       )}>
                         {resource.criticality}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-primary" />
-                        <span className="font-bold text-sm">{resourceEnts.length} Rollen</span>
+                      <div className="flex items-center gap-2 text-xs font-semibold">
+                        <Shield className="w-3.5 h-3.5 text-primary" />
+                        <span>{resourceEnts.length} Rollen</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right pr-8">
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary transition-colors">
-                            <MoreHorizontal className="w-6 h-6" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded hover:bg-muted">
+                            <MoreHorizontal className="w-5 h-5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-none glass-card">
-                          <DropdownMenuItem className="rounded-xl p-3 font-bold" onSelect={(e) => {
+                        <DropdownMenuContent align="end" className="w-48 p-1 shadow-xl">
+                          <DropdownMenuItem onSelect={(e) => {
                             e.preventDefault();
                             setSelectedResource(resource);
                             resetEntitlementForm();
                             setTimeout(() => setIsEntitlementOpen(true), 150);
                           }}>
-                            <Shield className="w-4 h-4 mr-3 text-primary" /> Berechtigungen
+                            <Shield className="w-4 h-4 mr-2" /> Rollen verwalten
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="rounded-xl p-3 font-bold text-destructive hover:bg-destructive/10" 
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setSelectedResource(resource);
-                              setTimeout(() => setIsDeleteDialogOpen(true), 150);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 mr-3" /> System löschen
+                          <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onSelect={(e) => {
+                            e.preventDefault();
+                            setSelectedResource(resource);
+                            setTimeout(() => setIsDeleteDialogOpen(true), 150);
+                          }}>
+                            <Trash2 className="w-4 h-4 mr-2" /> System entfernen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -295,153 +287,118 @@ export default function ResourcesPage() {
 
       {/* Create Resource Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
+        <DialogContent className="max-w-md rounded-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold font-headline">System registrieren</DialogTitle>
-            <DialogDescription className="font-medium">Erfassen Sie eine neue Ressource im Katalog.</DialogDescription>
+            <DialogTitle>System registrieren</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-6 py-6">
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Anwendungsname</Label>
-              <Input value={newName} onChange={e => setNewName(e.target.value)} className="h-12 rounded-xl bg-accent/5 border-none font-medium" />
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Name</Label>
+              <Input value={newName} onChange={e => setNewName(e.target.value)} className="h-10" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Typ</Label>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Typ</Label>
                 <Select value={newType} onValueChange={setNewType}>
-                  <SelectTrigger className="h-12 rounded-xl bg-accent/5 border-none font-medium">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl p-2">
-                    <SelectItem value="SaaS" className="rounded-lg">Cloud / SaaS</SelectItem>
-                    <SelectItem value="OnPrem" className="rounded-lg">On-Premises</SelectItem>
-                    <SelectItem value="Tool" className="rounded-lg">Internes Tool</SelectItem>
+                  <SelectContent>
+                    <SelectItem value="SaaS">Cloud / SaaS</SelectItem>
+                    <SelectItem value="OnPrem">On-Premises</SelectItem>
+                    <SelectItem value="Tool">Internes Tool</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">Kritikalität</Label>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Kritikalität</Label>
                 <Select value={newCriticality} onValueChange={setNewCriticality}>
-                  <SelectTrigger className="h-12 rounded-xl bg-accent/5 border-none font-medium">
+                  <SelectTrigger className="h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl p-2">
-                    <SelectItem value="low" className="rounded-lg">Niedrig (Standard)</SelectItem>
-                    <SelectItem value="medium" className="rounded-lg">Mittel (Wichtig)</SelectItem>
-                    <SelectItem value="high" className="rounded-lg">Hoch (Kritisch)</SelectItem>
+                  <SelectContent>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground ml-1">System-Besitzer</Label>
-              <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="h-12 rounded-xl bg-accent/5 border-none font-medium" placeholder="Abteilungsleiter oder Admin" />
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Besitzer</Label>
+              <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="h-10" placeholder="Verantwortlicher Admin" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase text-muted-foreground">URL</Label>
+              <Input value={newUrl} onChange={e => setNewUrl(e.target.value)} className="h-10" placeholder="https://..." />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleCreateResource} className="w-full h-14 bg-primary rounded-xl font-bold text-lg shadow-lg shadow-primary/20">System speichern</Button>
+            <Button onClick={handleCreateResource} className="w-full">Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Resource Confirmation */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-3 text-destructive text-2xl font-bold font-headline">
-              <AlertTriangle className="w-8 h-8" /> System entfernen?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-base font-medium leading-relaxed pt-4">
-              Sind Sie sicher, dass Sie <strong>{selectedResource?.name}</strong> unwiderruflich löschen möchten? Alle Rollen und Berechtigungen gehen verloren.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl h-12 font-bold border-2">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteResource} className="rounded-xl h-12 bg-destructive hover:bg-destructive/90 font-bold px-8">System endgültig löschen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Entitlement Management Dialog */}
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
-        <DialogContent className="sm:max-w-[700px] rounded-[2rem] border-none shadow-2xl glass-card overflow-hidden">
-          <DialogHeader className="p-2">
-            <DialogTitle className="text-2xl font-bold font-headline">Rollenmanagement: {selectedResource?.name}</DialogTitle>
-            <DialogDescription className="font-medium">Definieren Sie Berechtigungsstufen für dieses System.</DialogDescription>
+        <DialogContent className="max-w-2xl rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Rollenmanagement: {selectedResource?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-8 p-2">
-            <div className={cn(
-              "space-y-6 p-6 rounded-[1.5rem] border-2 transition-all duration-500",
-              editingEntitlementId ? "bg-primary/5 border-primary/30" : "bg-accent/5 border-accent/10"
-            )}>
+          <div className="space-y-6">
+            <div className="p-4 border rounded-md bg-muted/20 space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-black uppercase tracking-widest text-primary">{editingEntitlementId ? "Rolle bearbeiten" : "Neue Rolle definieren"}</Label>
-                {editingEntitlementId && (
-                  <Button variant="ghost" size="sm" onClick={resetEntitlementForm} className="h-8 rounded-lg font-bold">
-                    <X className="w-4 h-4 mr-2" /> Abbrechen
-                  </Button>
-                )}
+                <Label className="text-xs font-bold uppercase text-primary">
+                  {editingEntitlementId ? "Rolle bearbeiten" : "Neue Rolle hinzufügen"}
+                </Label>
+                {editingEntitlementId && <Button variant="ghost" size="sm" onClick={resetEntitlementForm}><X className="w-4 h-4" /></Button>}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs uppercase text-muted-foreground">Rollenname</Label>
-                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. IT-Sicherheits-Admin" className="h-12 rounded-xl bg-white/50 border-none font-bold" />
+                  <Label className="text-xs font-bold">Rollenname</Label>
+                  <Input value={entName} onChange={e => setEntName(e.target.value)} className="h-9" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="font-bold text-xs uppercase text-muted-foreground">Risikostufe</Label>
+                  <Label className="text-xs font-bold">Risiko</Label>
                   <Select value={entRisk} onValueChange={setEntRisk}>
-                    <SelectTrigger className="h-12 rounded-xl bg-white/50 border-none font-bold">
+                    <SelectTrigger className="h-9">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-none shadow-2xl">
-                      <SelectItem value="low">Geringes Risiko</SelectItem>
-                      <SelectItem value="medium">Mittel (Audit-relevant)</SelectItem>
-                      <SelectItem value="high">Kritisch (Genehmigungspflichtig)</SelectItem>
+                    <SelectContent>
+                      <SelectItem value="low">Niedrig</SelectItem>
+                      <SelectItem value="medium">Mittel</SelectItem>
+                      <SelectItem value="high">Hoch</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label className="font-bold text-xs uppercase text-muted-foreground">Berechtigungs-Scope (Optional)</Label>
-                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Zweck dieser Rolle..." className="h-12 rounded-xl bg-white/50 border-none font-medium" />
-              </div>
-              <Button onClick={handleAddOrUpdateEntitlement} className="w-full h-14 rounded-xl font-black text-lg shadow-xl shadow-primary/10">
-                {editingEntitlementId ? "Änderungen speichern" : "Rolle hinzufügen"}
+              <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10">
+                {editingEntitlementId ? "Aktualisieren" : "Hinzufügen"}
               </Button>
             </div>
 
-            <div className="space-y-4">
-              <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Aktuell definierte Rollen</Label>
-              <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Aktuelle Rollen</Label>
+              <div className="divide-y border rounded-md max-h-48 overflow-auto">
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className="p-4 flex items-center justify-between group rounded-[1.2rem] bg-card border-none shadow-sm hover:shadow-md hover:bg-primary/5 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center shadow-inner",
-                        e.riskLevel === 'high' ? "bg-red-500/10 text-red-500" : e.riskLevel === 'medium' ? "bg-orange-500/10 text-orange-500" : "bg-blue-500/10 text-blue-500"
-                      )}>
-                        <Shield className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm tracking-tight">{e.name}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{e.riskLevel} Risk • {e.description || 'Keine Notizen'}</p>
-                      </div>
+                  <div key={e.id} className="flex items-center justify-between p-3 hover:bg-muted/5">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className={cn(
+                        "text-[9px] uppercase font-bold",
+                        e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
+                      )}>{e.riskLevel}</Badge>
+                      <span className="text-sm font-bold">{e.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-lg hover:bg-primary/10 text-primary" onClick={() => {
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
                         setEditingEntitlementId(e.id);
                         setEntName(e.name);
                         setEntRisk(e.riskLevel);
-                        setEntDesc(e.description || '');
-                      }}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-lg hover:bg-destructive/10 text-destructive" onClick={() => {
+                      }}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
                         setSelectedEntitlement(e);
                         setIsDeleteEntitlementOpen(true);
-                      }}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      }}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                 ))}
@@ -451,18 +408,29 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Entitlement Confirmation */}
-      <AlertDialog open={isDeleteEntitlementOpen} onOpenChange={setIsDeleteEntitlementOpen}>
-        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
+      {/* Delete Alerts */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-2xl font-bold font-headline">Rolle entfernen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-base font-medium leading-relaxed pt-4">
-              Sind Sie sicher, dass Sie die Rolle <strong>{selectedEntitlement?.name}</strong> löschen möchten? Alle Benutzerzuweisungen für diese Rolle werden ebenfalls entfernt.
-            </AlertDialogDescription>
+            <AlertDialogTitle className="text-red-600">System löschen?</AlertDialogTitle>
+            <AlertDialogDescription>Alle Rollen und Zuweisungen werden unwiderruflich entfernt.</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl h-12 font-bold border-2" onClick={() => setSelectedEntitlement(null)}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteEntitlement} className="rounded-xl h-12 bg-destructive hover:bg-destructive/90 font-bold px-8">Rolle löschen</AlertDialogAction>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteResource} className="bg-red-600">Löschen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeleteEntitlementOpen} onOpenChange={setIsDeleteEntitlementOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rolle entfernen?</AlertDialogTitle>
+            <AlertDialogDescription>Die Rolle wird aus dem System entfernt.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEntitlement} className="bg-red-600">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

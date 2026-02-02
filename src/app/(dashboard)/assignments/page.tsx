@@ -101,9 +101,7 @@ export default function AssignmentsPage() {
 
   useEffect(() => {
     setMounted(true);
-    const initialSearch = searchParams.get('search');
-    if (initialSearch) setSearch(initialSearch);
-  }, [searchParams]);
+  }, []);
 
   const resetForm = () => {
     setSelectedAssignmentId(null);
@@ -117,7 +115,7 @@ export default function AssignmentsPage() {
 
   const handleCreateAssignment = () => {
     if (!selectedUserId || !selectedEntitlementId) {
-      toast({ variant: "destructive", title: "Erforderlich", description: "Benutzer und Berechtigung wählen." });
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte Benutzer und Berechtigung wählen." });
       return;
     }
 
@@ -155,7 +153,7 @@ export default function AssignmentsPage() {
   const confirmDeleteAssignment = () => {
     if (selectedAssignmentId) {
       deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
-      toast({ title: "Zuweisung entfernt" });
+      toast({ title: "Zuweisung gelöscht" });
       setIsDeleteDialogOpen(false);
       resetForm();
     }
@@ -169,8 +167,6 @@ export default function AssignmentsPage() {
     setValidUntil(assignment.validUntil || '');
     setNotes(assignment.notes || '');
     setStatus(assignment.status || 'active');
-    
-    // UI Stabilization: Small delay to let dropdown close
     setTimeout(() => setIsEditDialogOpen(true), 150);
   };
 
@@ -197,46 +193,43 @@ export default function AssignmentsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500 pb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Zugriffszuweisungen</h1>
-          <p className="text-muted-foreground mt-1 font-medium">Verwaltung von Berechtigungen und deren Laufzeiten.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Zugriffszuweisungen</h1>
+          <p className="text-sm text-muted-foreground">Verwaltung aktiver Berechtigungen und deren Laufzeiten.</p>
         </div>
         
-        <Dialog open={isCreateOpen} onOpenChange={(open) => {
-          setIsCreateOpen(open);
-          if (!open) resetForm();
-        }}>
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary hover:bg-primary/90 h-12 px-8 rounded-xl shadow-lg shadow-primary/30 font-bold">
-              <Plus className="w-5 h-5 mr-2" /> Neue Zuweisung
+            <Button size="sm" className="h-9 font-semibold">
+              <Plus className="w-4 h-4 mr-2" /> Neue Zuweisung
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
+          <DialogContent className="max-w-md rounded-lg">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold font-headline">Zugriff gewähren</DialogTitle>
-              <DialogDescription>Wählen Sie einen Benutzer und die entsprechende Berechtigung aus.</DialogDescription>
+              <DialogTitle>Zugriff gewähren</DialogTitle>
+              <DialogDescription>Mitarbeiter und entsprechende Berechtigung auswählen.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-5 py-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Mitarbeiter</Label>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Mitarbeiter</Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger className="h-12 rounded-xl bg-accent/5 border-none font-medium">
-                    <SelectValue placeholder="Mitarbeiter suchen..." />
+                  <SelectTrigger className="h-10 rounded-md">
+                    <SelectValue placeholder="Mitarbeiter wählen..." />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                    {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.email})</SelectItem>)}
+                  <SelectContent>
+                    {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">System & Rolle</Label>
+                <Label className="text-xs font-bold uppercase text-muted-foreground">System & Rolle</Label>
                 <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
-                  <SelectTrigger className="h-12 rounded-xl bg-accent/5 border-none font-medium">
+                  <SelectTrigger className="h-10 rounded-md">
                     <SelectValue placeholder="Berechtigung wählen..." />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl">
+                  <SelectContent>
                     {entitlements?.map(e => {
                       const res = resources?.find(r => r.id === e.resourceId);
                       return (
@@ -250,73 +243,66 @@ export default function AssignmentsPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Referenz (Ticket)</Label>
-                  <Input 
-                    value={ticketRef} 
-                    onChange={e => setTicketRef(e.target.value)} 
-                    placeholder="z.B. IT-9982" 
-                    className="h-12 rounded-xl bg-accent/5 border-none"
-                  />
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Ticket / Ref.</Label>
+                  <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="IT-123" className="h-10" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Gültig bis (Optional)</Label>
-                  <Input 
-                    type="date"
-                    value={validUntil} 
-                    onChange={e => setValidUntil(e.target.value)} 
-                    className="h-12 rounded-xl bg-accent/5 border-none"
-                  />
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Gültig bis</Label>
+                  <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-10" />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Notizen</Label>
+                <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Interne Bemerkung..." className="h-10" />
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreateAssignment} className="w-full h-14 bg-primary rounded-xl font-bold text-lg shadow-lg">Zuweisung speichern</Button>
+              <Button onClick={handleCreateAssignment} className="w-full">Zuweisung speichern</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-        <Input 
-          placeholder="Suche nach Benutzer, System oder Referenz..." 
-          className="pl-12 h-14 bg-card border-none shadow-sm rounded-2xl focus-visible:ring-primary focus-visible:ring-2 font-medium"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Suche nach Benutzer, System oder Referenz..." 
+            className="pl-10 h-10 shadow-none border-border"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex border rounded-md p-1 bg-muted/20">
+          {['all', 'active', 'requested', 'removed'].map(id => (
+            <Button 
+              key={id} 
+              variant={activeTab === id ? 'default' : 'ghost'} 
+              size="sm"
+              onClick={() => setActiveTab(id as any)} 
+              className="h-8 text-xs font-semibold px-4 rounded"
+            >
+              {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Pending' : 'Inaktiv'}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {['all', 'active', 'requested', 'removed'].map(id => (
-          <Button 
-            key={id} 
-            variant={activeTab === id ? 'default' : 'outline'} 
-            onClick={() => setActiveTab(id as any)} 
-            className={cn(
-              "capitalize rounded-full px-6 font-bold transition-all",
-              activeTab === id ? "bg-primary shadow-md" : "hover:bg-primary/5"
-            )}
-          >
-            {id === 'all' ? 'Alle' : id === 'active' ? 'Aktiv' : id === 'requested' ? 'Angefagt' : 'Entfernt'}
-          </Button>
-        ))}
-      </div>
-
-      <div className="bg-card rounded-[2rem] border-none shadow-2xl overflow-hidden glass-card">
+      <div className="admin-card overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <p className="text-muted-foreground font-bold uppercase tracking-widest text-xs">Lade Zuweisungen...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground text-xs font-bold uppercase">Lade Daten...</p>
           </div>
         ) : (
           <Table>
-            <TableHeader className="bg-accent/5">
-              <TableRow className="hover:bg-transparent border-b-muted">
-                <TableHead className="py-6 font-bold uppercase tracking-wider text-[10px] pl-8">Mitarbeiter</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Berechtigung</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Gültigkeit</TableHead>
-                <TableHead className="font-bold uppercase tracking-wider text-[10px]">Status</TableHead>
-                <TableHead className="text-right pr-8 font-bold uppercase tracking-wider text-[10px]">Aktionen</TableHead>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Mitarbeiter</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">System / Rolle</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Gültigkeit</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
+                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -327,60 +313,60 @@ export default function AssignmentsPage() {
                 const isExpired = assignment.validUntil && new Date(assignment.validUntil) < new Date();
 
                 return (
-                  <TableRow key={assignment.id} className="group transition-all hover:bg-primary/5 border-b-muted/30">
-                    <TableCell className="py-6 pl-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-bold text-sm shadow-inner">
-                          {user?.displayName?.charAt(0) || assignment.userId.charAt(0)}
+                  <TableRow key={assignment.id} className="group transition-colors hover:bg-muted/5 border-b">
+                    <TableCell className="py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs uppercase">
+                          {user?.displayName?.charAt(0) || 'U'}
                         </div>
                         <div>
                           <div className="font-bold text-sm">{user?.displayName || assignment.userId}</div>
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">{assignment.ticketRef || 'KEIN TICKET'}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase">{assignment.ticketRef || 'KEIN TICKET'}</div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-bold text-sm text-foreground">{res?.name}</span>
+                        <span className="font-bold text-sm">{res?.name}</span>
                         <span className="text-xs text-muted-foreground">{ent?.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       {assignment.validUntil ? (
                         <div className={cn(
-                          "flex items-center gap-2 font-bold text-xs",
-                          isExpired ? "text-red-500" : "text-muted-foreground"
+                          "flex items-center gap-1.5 font-medium text-xs",
+                          isExpired ? "text-red-600" : "text-slate-600"
                         )}>
-                          <Calendar className="w-3.5 h-3.5" />
+                          <Calendar className="w-3 h-3" />
                           {new Date(assignment.validUntil).toLocaleDateString()}
-                          {isExpired && <Badge variant="destructive" className="h-4 text-[8px] px-1 uppercase">Abgelaufen</Badge>}
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground/50 italic">Unbefristet</span>
+                        <span className="text-xs text-muted-foreground italic">Unbefristet</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn(
-                        "rounded-lg px-3 py-1 font-bold border-none shadow-sm uppercase tracking-tighter text-[10px]",
-                        assignment.status === 'active' ? "bg-green-500 text-white" : 
-                        assignment.status === 'requested' ? "bg-orange-500 text-white" : "bg-red-500 text-white"
+                      <Badge variant="outline" className={cn(
+                        "rounded font-bold uppercase text-[9px] px-2 py-0",
+                        assignment.status === 'active' ? "border-emerald-200 bg-emerald-50 text-emerald-700" : 
+                        assignment.status === 'requested' ? "border-amber-200 bg-amber-50 text-amber-700" : 
+                        "border-red-200 bg-red-50 text-red-700"
                       )}>
                         {assignment.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right pr-8">
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary">
-                            <MoreHorizontal className="w-6 h-6" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded hover:bg-muted">
+                            <MoreHorizontal className="w-5 h-5" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-none glass-card">
-                          <DropdownMenuItem className="rounded-xl p-3 font-bold" onSelect={() => openEdit(assignment)}>
-                            <Pencil className="w-4 h-4 mr-3 text-primary" /> Bearbeiten
+                        <DropdownMenuContent align="end" className="w-48 p-1 shadow-xl">
+                          <DropdownMenuItem onSelect={() => openEdit(assignment)}>
+                            <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="rounded-xl p-3 font-bold text-destructive hover:bg-destructive/10" onSelect={() => openDelete(assignment)}>
-                            <Trash2 className="w-4 h-4 mr-3" /> Zuweisung löschen
+                          <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onSelect={() => openDelete(assignment)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Zuweisung löschen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -390,11 +376,9 @@ export default function AssignmentsPage() {
               })}
               {!isLoading && filteredAssignments?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-64 text-center">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <History className="w-12 h-12 opacity-20" />
-                      <p className="font-medium">Keine Zuweisungen gefunden.</p>
-                    </div>
+                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                    <History className="w-8 h-8 mx-auto opacity-20 mb-2" />
+                    <p className="text-xs">Keine Einträge gefunden.</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -404,90 +388,60 @@ export default function AssignmentsPage() {
       </div>
 
       {/* Edit Assignment Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
-        setIsEditDialogOpen(open);
-        if (!open) resetForm();
-      }}>
-        <DialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md rounded-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold font-headline">Zuweisung verwalten</DialogTitle>
-            <DialogDescription>Aktualisieren Sie Status, Referenz oder Laufzeit.</DialogDescription>
+            <DialogTitle>Zuweisung bearbeiten</DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div className="flex items-center gap-4 p-4 rounded-xl bg-accent/5">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                <Shield className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold">{users?.find(u => u.id === selectedUserId)?.displayName || selectedUserId}</p>
-                <p className="text-xs text-muted-foreground">Berechtigung bleibt unverändert.</p>
-              </div>
-            </div>
-            
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Status</Label>
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Status</Label>
               <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                <SelectTrigger className="h-12 rounded-xl bg-accent/5 border-none font-medium">
+                <SelectTrigger className="h-10 rounded-md">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-none shadow-2xl">
+                <SelectContent>
                   <SelectItem value="active">Aktiv</SelectItem>
-                  <SelectItem value="requested">Angefragt / Pending</SelectItem>
-                  <SelectItem value="removed">Entfernt / Deaktiviert</SelectItem>
+                  <SelectItem value="requested">Pending</SelectItem>
+                  <SelectItem value="removed">Inaktiv</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Referenz (Ticket)</Label>
-                <Input 
-                  value={ticketRef} 
-                  onChange={e => setTicketRef(e.target.value)} 
-                  className="h-12 rounded-xl bg-accent/5 border-none"
-                />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Ticket / Ref.</Label>
+                <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} className="h-10" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Gültig bis</Label>
-                <Input 
-                  type="date"
-                  value={validUntil} 
-                  onChange={e => setValidUntil(e.target.value)} 
-                  className="h-12 rounded-xl bg-accent/5 border-none"
-                />
+                <Label className="text-xs font-bold uppercase text-muted-foreground">Gültig bis</Label>
+                <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="h-10" />
               </div>
             </div>
-
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase text-muted-foreground ml-1">Interne Notizen</Label>
-              <Input 
-                value={notes} 
-                onChange={e => setNotes(e.target.value)} 
-                placeholder="Grund der Änderung..." 
-                className="h-12 rounded-xl bg-accent/5 border-none"
-              />
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Notizen</Label>
+              <Input value={notes} onChange={e => setNotes(e.target.value)} className="h-10" />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleUpdateAssignment} className="w-full h-14 bg-primary rounded-xl font-bold text-lg shadow-lg">Änderungen speichern</Button>
+            <Button onClick={handleUpdateAssignment} className="w-full">Änderungen speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Assignment Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl glass-card">
+        <AlertDialogContent className="rounded-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-3 text-destructive text-2xl font-bold font-headline">
-              <AlertTriangle className="w-8 h-8" /> Zuweisung löschen?
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" /> Zuweisung löschen?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-base font-medium leading-relaxed pt-4">
-              Möchten Sie diesen Zugriff wirklich dauerhaft entfernen? Dieser Vorgang kann nicht rückgängig gemacht werden und wird im Audit-Log protokolliert.
+            <AlertDialogDescription>
+              Dieser Vorgang kann nicht rückgängig gemacht werden. Der Zugriff wird dauerhaft entfernt.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl h-12 font-bold border-2" onClick={() => setSelectedAssignmentId(null)}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAssignment} className="rounded-xl h-12 bg-destructive hover:bg-destructive/90 font-bold px-8">Zuweisung endgültig löschen</AlertDialogAction>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAssignment} className="bg-red-600 hover:bg-red-700">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
