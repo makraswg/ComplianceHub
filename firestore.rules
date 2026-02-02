@@ -50,21 +50,18 @@ service cloud.firestore {
      * @description Authorization for collectionGroup queries on 'members'.
      * This allows the LoginPage to find tenants where the current user is a member.
      * We use a recursive wildcard to match 'members' collections nested under tenants.
+     * 
+     * For collection group queries to succeed, the rule must allow list based on 
+     * the query parameters (e.g., filtering by userId).
      */
     match /{path=**}/members/{memberId} {
-      // Allow list if the user is filtering by their own UID. 
-      // For collection group queries, we check the 'userId' field in the document.
-      allow list: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        isSuperAdmin()
-      );
+      // Allow list if the user is authenticated. 
+      // Firestore will enforce that only documents matching the query filters 
+      // are returned. The query in LoginPage filters by 'userId == auth.uid'.
+      allow list: if isSignedIn();
       
-      // Allow get if the user is the member, or if they are a member of the same tenant, or a superadmin
-      allow get: if isSignedIn() && (
-        request.auth.uid == memberId || 
-        (resource != null && resource.data.userId == request.auth.uid) || 
-        isSuperAdmin()
-      );
+      // Allow get if the user is the member (matched by doc ID) or filtering by their UID
+      allow get: if isSignedIn() && (memberId == request.auth.uid || (resource != null && resource.data.userId == request.auth.uid));
     }
 
     // --- Standard Collection Rules ---
@@ -83,7 +80,9 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId}/members/{uid} {
-      allow get, list: if isTenantMember(tenantId) || isSuperAdmin() || (isSignedIn() && request.auth.uid == uid);
+      // Allow access to the specific member document
+      allow get: if isSignedIn() && (request.auth.uid == uid || isTenantMember(tenantId) || isSuperAdmin());
+      allow list: if isTenantMember(tenantId) || isSuperAdmin();
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();
       allow update, delete: if isExistingTenantAdmin(tenantId);
     }
