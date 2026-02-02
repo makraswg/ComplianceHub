@@ -26,7 +26,10 @@ import {
   AlertTriangle,
   FileDown,
   FileText,
-  Network
+  Network,
+  ChevronRight,
+  ChevronDown,
+  CornerDownRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -62,7 +65,14 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { 
+  useFirestore, 
+  useCollection, 
+  useMemoFirebase, 
+  addDocumentNonBlocking, 
+  deleteDocumentNonBlocking, 
+  updateDocumentNonBlocking 
+} from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -92,6 +102,7 @@ export default function ResourcesPage() {
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
   const [entInheritable, setEntInheritable] = useState(false);
+  const [entParentId, setEntParentId] = useState<string | null>(null);
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
   const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
@@ -132,6 +143,7 @@ export default function ResourcesPage() {
       riskLevel: entRisk,
       description: entDesc,
       isInheritable: entInheritable,
+      parentId: entParentId === "none" ? null : entParentId,
       tenantId: 't1'
     };
     if (editingEntitlementId) {
@@ -149,6 +161,7 @@ export default function ResourcesPage() {
     setEntDesc('');
     setEntRisk('medium');
     setEntInheritable(false);
+    setEntParentId(null);
     setEditingEntitlementId(null);
   };
 
@@ -194,6 +207,48 @@ export default function ResourcesPage() {
   const handleExportPdf = async () => {
     if (!filteredResources || !entitlements) return;
     await exportResourcesPdf(filteredResources, entitlements);
+  };
+
+  // Hilfsfunktion zum Rendern des Rollenbaums
+  const renderEntitlementTree = (parentId: string | null = null, depth: number = 0) => {
+    const children = entitlements?.filter(e => e.resourceId === selectedResource?.id && (e.parentId === parentId || (!e.parentId && parentId === null)));
+    
+    if (!children || children.length === 0) return null;
+
+    return children.map(e => (
+      <div key={e.id} className="space-y-1">
+        <div className={cn(
+          "flex items-center justify-between p-3 transition-colors hover:bg-muted/5 group",
+          depth > 0 && "ml-6 border-l pl-4"
+        )}>
+          <div className="flex items-center gap-3">
+            {depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/50" />}
+            <Badge variant="outline" className={cn(
+              "text-[9px] uppercase font-bold",
+              e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
+            )}>{e.riskLevel}</Badge>
+            <span className="text-sm font-bold flex items-center gap-2">
+              {e.name}
+              {e.isInheritable && <Network className="w-3 h-3 text-muted-foreground" title="Vererbbar" />}
+            </span>
+          </div>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+              setEditingEntitlementId(e.id);
+              setEntName(e.name);
+              setEntRisk(e.riskLevel);
+              setEntInheritable(e.isInheritable || false);
+              setEntParentId(e.parentId || "none");
+            }}><Pencil className="w-3.5 h-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
+              setSelectedEntitlement(e);
+              setIsDeleteEntitlementOpen(true);
+            }}><Trash2 className="w-3.5 h-3.5" /></Button>
+          </div>
+        </div>
+        {renderEntitlementTree(e.id, depth + 1)}
+      </div>
+    ));
   };
 
   if (!mounted) return null;
@@ -372,7 +427,10 @@ export default function ResourcesPage() {
 
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="max-w-2xl rounded-lg">
-          <DialogHeader><DialogTitle>Rollenmanagement: {selectedResource?.name}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Rollen-Hierarchie: {selectedResource?.name}</DialogTitle>
+            <DialogDescription>Bauen Sie einen Berechtigungsbaum durch Auswahl von übergeordneten Rollen auf.</DialogDescription>
+          </DialogHeader>
           <div className="space-y-6">
             <div className="p-4 border rounded-md bg-muted/20 space-y-4">
               <div className="flex items-center justify-between">
@@ -384,7 +442,19 @@ export default function ResourcesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-bold">Rollenname</Label>
-                  <Input value={entName} onChange={e => setEntName(e.target.value)} className="h-9" />
+                  <Input value={entName} onChange={e => setEntName(e.target.value)} className="h-9" placeholder="z.B. Team Lead" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold">Übergeordnete Rolle (Vererbung)</Label>
+                  <Select value={entParentId || "none"} onValueChange={setEntParentId}>
+                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine (Wurzel-Rolle)</SelectItem>
+                      {entitlements?.filter(e => e.resourceId === selectedResource?.id && e.id !== editingEntitlementId).map(e => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-bold">Risiko</Label>
@@ -397,50 +467,33 @@ export default function ResourcesPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2 flex flex-col justify-end">
+                   <div className="flex items-center space-x-2 pb-2">
+                    <Checkbox 
+                      id="inheritable" 
+                      checked={entInheritable} 
+                      onCheckedChange={(checked) => setEntInheritable(!!checked)} 
+                    />
+                    <Label htmlFor="inheritable" className="text-xs font-medium leading-none cursor-pointer">
+                      Rolle ist vererbbar
+                    </Label>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="inheritable" 
-                  checked={entInheritable} 
-                  onCheckedChange={(checked) => setEntInheritable(!!checked)} 
-                />
-                <Label htmlFor="inheritable" className="text-sm font-medium leading-none cursor-pointer">
-                  Rolle ist vererbbar (Inheritable)
-                </Label>
-              </div>
-              <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10">
+              <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10 font-bold uppercase text-[10px]">
                 {editingEntitlementId ? "Aktualisieren" : "Hinzufügen"}
               </Button>
             </div>
+            
             <div className="space-y-2">
-              <Label className="text-xs font-bold uppercase text-muted-foreground">Aktuelle Rollen</Label>
-              <div className="divide-y border rounded-md max-h-48 overflow-auto">
-                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className="flex items-center justify-between p-3 hover:bg-muted/5">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className={cn(
-                        "text-[9px] uppercase font-bold",
-                        e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
-                      )}>{e.riskLevel}</Badge>
-                      <span className="text-sm font-bold flex items-center gap-2">
-                        {e.name}
-                        {e.isInheritable && <Network className="w-3 h-3 text-muted-foreground" title="Vererbbar" />}
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                        setEditingEntitlementId(e.id);
-                        setEntName(e.name);
-                        setEntRisk(e.riskLevel);
-                        setEntInheritable(e.isInheritable || false);
-                      }}><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => {
-                        setSelectedEntitlement(e);
-                        setIsDeleteEntitlementOpen(true);
-                      }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                    </div>
-                  </div>
-                ))}
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Aktuelle Baumstruktur</Label>
+              <div className="border rounded-md max-h-64 overflow-auto bg-card">
+                <div className="divide-y">
+                  {renderEntitlementTree()}
+                  {!isLoading && entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
+                    <div className="p-8 text-center text-xs text-muted-foreground italic">Keine Rollen definiert.</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -464,7 +517,9 @@ export default function ResourcesPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Rolle entfernen?</AlertDialogTitle>
-            <AlertDialogDescription>Die Rolle wird aus dem System entfernt.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Die Rolle wird aus dem System entfernt. Achtung: Untergeordnete Rollen verlieren ihren Bezug.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>

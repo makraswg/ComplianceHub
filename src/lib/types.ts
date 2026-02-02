@@ -39,6 +39,7 @@ export interface Resource {
 export interface Entitlement {
   id: string;
   resourceId: string;
+  parentId?: string;
   name: string;
   description: string;
   riskLevel: 'low' | 'medium' | 'high';

@@ -184,7 +184,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Entitlement",
       "type": "object",
-      "description": "Represents an entitlement for a resource, defining the access level or permissions.",
+      "description": "Represents an entitlement for a resource, defining the access level or permissions with support for hierarchical inheritance.",
       "properties": {
         "id": {
           "type": "string",
@@ -197,6 +197,10 @@
         "resourceId": {
           "type": "string",
           "description": "Reference to Resource. (Relationship: Resource 1:N Entitlement)"
+        },
+        "parentId": {
+          "type": "string",
+          "description": "Reference to another Entitlement within the same resource to build a hierarchy."
         },
         "name": {
           "type": "string",
