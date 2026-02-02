@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -48,6 +48,7 @@ import { toast } from '@/hooks/use-toast';
 export default function UsersPage() {
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -63,6 +64,10 @@ export default function UsersPage() {
   }, [db]);
 
   const { data: users, isLoading } = useCollection(usersQuery);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -121,6 +126,8 @@ export default function UsersPage() {
     user.email.toLowerCase().includes(search.toLowerCase()) ||
     user.department?.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">

@@ -82,7 +82,7 @@ export function useCollection<T>(
             operation: 'list',
             path: path,
           });
-          setError(customError);
+          setError(customError as any);
           errorEmitter.emit('permission-error', customError);
         } else {
           setError(err);

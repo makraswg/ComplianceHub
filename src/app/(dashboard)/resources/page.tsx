@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 export default function ResourcesPage() {
   const db = useFirestore();
   const { user: authUser } = useUser();
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEntitlementOpen, setIsEntitlementOpen] = useState(false);
@@ -72,6 +73,10 @@ export default function ResourcesPage() {
 
   const { data: resources, isLoading } = useCollection(resourcesQuery);
   const { data: entitlements } = useCollection(entitlementsQuery);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleCreateResource = () => {
     if (!newName || !newOwner) {
@@ -114,6 +119,8 @@ export default function ResourcesPage() {
     res.name.toLowerCase().includes(search.toLowerCase()) ||
     res.owner.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">

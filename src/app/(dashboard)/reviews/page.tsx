@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -34,6 +34,7 @@ import { toast } from '@/hooks/use-toast';
 export default function AccessReviewsPage() {
   const db = useFirestore();
   const { user } = useUser();
+  const [mounted, setMounted] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
 
@@ -42,6 +43,10 @@ export default function AccessReviewsPage() {
   }, [db]);
 
   const { data: assignments, isLoading } = useCollection(assignmentsQuery);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleReview = (assignmentId: string, action: 'certify' | 'revoke') => {
     const docRef = doc(db, 'assignments', assignmentId);
@@ -92,6 +97,8 @@ export default function AccessReviewsPage() {
   };
 
   const progressPercent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">

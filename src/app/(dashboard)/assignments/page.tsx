@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -46,6 +46,7 @@ import { getAccessAdvice, type AccessAdvisorOutput } from '@/ai/flows/access-adv
 export default function AssignmentsPage() {
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
+  const [mounted, setMounted] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'requested' | 'removed'>('all');
   const [search, setSearch] = useState('');
@@ -71,6 +72,10 @@ export default function AssignmentsPage() {
   const { data: users } = useCollection(usersQuery);
   const { data: entitlements } = useCollection(entitlementsQuery);
   const { data: resources } = useCollection(resourcesQuery);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleCreateAssignment = () => {
     if (!selectedUserId || !selectedEntitlementId) {
@@ -158,6 +163,8 @@ export default function AssignmentsPage() {
     const matchesTab = activeTab === 'all' || assignment.status === activeTab;
     return matchesSearch && matchesTab;
   });
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">

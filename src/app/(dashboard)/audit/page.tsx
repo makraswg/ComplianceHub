@@ -26,22 +26,27 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 export default function AuditLogPage() {
   const { tenantId } = useParams();
   const db = useFirestore();
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
 
   const auditQuery = useMemoFirebase(() => {
     return query(
-      collection(db, 'tenants', tenantId as string, 'auditEvents'),
+      collection(db, 'auditEvents'),
       orderBy('timestamp', 'desc')
     );
-  }, [db, tenantId]);
+  }, [db]);
 
   const { data: auditLogs, isLoading } = useCollection(auditQuery);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getEntityIcon = (type: string) => {
     switch (type) {
@@ -57,6 +62,8 @@ export default function AuditLogPage() {
     log.actorUid.toLowerCase().includes(search.toLowerCase()) ||
     log.entityId.toLowerCase().includes(search.toLowerCase())
   );
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">

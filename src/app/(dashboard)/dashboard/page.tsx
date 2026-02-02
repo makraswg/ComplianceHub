@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -47,6 +47,7 @@ const riskData = [
 
 export default function DashboardPage() {
   const db = useFirestore();
+  const [mounted, setMounted] = useState(false);
 
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const resourcesQuery = useMemo(() => collection(db, 'resources'), [db]);
@@ -58,12 +59,18 @@ export default function DashboardPage() {
   const { data: assignments, isLoading: assignmentsLoading } = useCollection(assignmentsQuery);
   const { data: auditLogs, isLoading: auditLoading } = useCollection(auditQuery);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const stats = [
     { title: 'Benutzer insgesamt', value: users?.length || 0, icon: Users, trend: 'LDAP-synchronisiert', color: 'text-blue-500', loading: usersLoading },
     { title: 'Ressourcen', value: resources?.length || 0, icon: Layers, trend: 'Verwaltet', color: 'text-purple-500', loading: resourcesLoading },
     { title: 'Aktive Zuweisungen', value: assignments?.length || 0, icon: ShieldCheck, trend: 'Zertifiziert', color: 'text-green-500', loading: assignmentsLoading },
     { title: 'Letzte Ereignisse', value: auditLogs?.length || 0, icon: Activity, trend: 'Aufgezeichnet', color: 'text-orange-500', loading: auditLoading },
   ];
+
+  if (!mounted) return null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -190,7 +197,7 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {new Date(log.timestamp).toLocaleDateString()}
+                      {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                 ))
