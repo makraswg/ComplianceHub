@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,13 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Filter, 
-  MoreHorizontal, 
   RefreshCw,
   Plus,
   UserCircle,
   ShieldCheck,
-  Building2,
+  MoreHorizontal,
   Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -59,8 +56,6 @@ export default function UsersPage() {
 
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newDepartment, setNewDepartment] = useState('');
-  const [newTitle, setNewTitle] = useState('');
 
   const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
   const { data: users, isLoading } = useCollection(usersQuery);
@@ -91,8 +86,6 @@ export default function UsersPage() {
       externalId: `MANUAL_${userId}`,
       displayName: newDisplayName,
       email: newEmail,
-      department: newDepartment,
-      title: newTitle,
       enabled: true,
       lastSyncedAt: new Date().toISOString()
     };
@@ -232,10 +225,10 @@ export default function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onSelect={(e) => {
-                          e.preventDefault();
+                        <DropdownMenuItem onSelect={() => {
                           setSelectedUser(user);
-                          setIsProfileOpen(true);
+                          // Delay opening the dialog to prevent focus/pointer-events issues with the menu
+                          setTimeout(() => setIsProfileOpen(true), 10);
                         }}>
                           <UserCircle className="w-4 h-4 mr-2" /> Profil anzeigen
                         </DropdownMenuItem>

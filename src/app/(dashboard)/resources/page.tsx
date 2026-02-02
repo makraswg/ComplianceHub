@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -264,10 +263,10 @@ export default function ResourcesPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
                             className="font-bold" 
-                            onSelect={(e) => {
-                              e.preventDefault();
+                            onSelect={() => {
                               setSelectedResource(resource);
-                              setIsEntitlementOpen(true);
+                              // Delay opening dialog to allow menu cleanup
+                              setTimeout(() => setIsEntitlementOpen(true), 10);
                             }}
                           >
                             Berechtigungen verwalten
@@ -301,7 +300,7 @@ export default function ResourcesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Risikostufe</Label>
-                  <Select value={entRisk} onValueChange={entRisk}>
+                  <Select value={entRisk} onValueChange={setEntRisk}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
