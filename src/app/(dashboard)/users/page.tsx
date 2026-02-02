@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
   Table, 
   TableBody, 
@@ -21,7 +23,9 @@ import {
   ShieldCheck,
   Building2,
   Loader2,
-  Plus
+  Plus,
+  Mail,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -52,6 +56,10 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  
+  // Profile View State
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
 
   // Form state
   const [newDisplayName, setNewDisplayName] = useState('');
@@ -100,10 +108,8 @@ export default function UsersPage() {
       lastSyncedAt: new Date().toISOString()
     };
 
-    // Use setDocumentNonBlocking for creation with a specific ID
     setDocumentNonBlocking(userRef, userData, { merge: true });
 
-    // Audit Log - Use addDocumentNonBlocking for auto-ID collection
     addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: authUser?.uid || 'system',
       action: 'Benutzer erstellen',
@@ -185,6 +191,51 @@ export default function UsersPage() {
         </div>
       </div>
 
+      <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Benutzerprofil</DialogTitle>
+            <DialogDescription>Details zum Verzeichnisbenutzer und Systemstatus.</DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-6 py-4">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-accent/10 border">
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold uppercase shadow-inner">
+                  {selectedUser.displayName.charAt(0)}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{selectedUser.displayName}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedUser.title}</p>
+                  <Badge className="mt-2 bg-green-500/10 text-green-600 border-none font-bold">AKTIV</Badge>
+                </div>
+              </div>
+              
+              <div className="grid gap-4 text-sm">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">E-Mail:</span>
+                  <span className="font-medium">{selectedUser.email}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Abteilung:</span>
+                  <span className="font-medium">{selectedUser.department || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Externe ID:</span>
+                  <span className="font-mono text-xs">{selectedUser.externalId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Zuletzt synchronisiert:</span>
+                  <span className="font-medium">{selectedUser.lastSyncedAt ? new Date(selectedUser.lastSyncedAt).toLocaleString() : 'Nie'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsProfileOpen(false)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -262,11 +313,17 @@ export default function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem className="font-medium">
-                          Profil anzeigen <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                        <DropdownMenuItem className="font-medium" onSelect={(e) => {
+                          e.preventDefault();
+                          setSelectedUser(user);
+                          setIsProfileOpen(true);
+                        }}>
+                          <UserCircle className="w-4 h-4 mr-2" /> Profil anzeigen
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="font-medium">
-                          Zuweisungen anzeigen <ChevronRight className="ml-auto w-4 h-4 text-muted-foreground" />
+                        <DropdownMenuItem className="font-medium" asChild>
+                          <Link href={`/assignments?search=${user.displayName}`} className="flex w-full items-center">
+                            <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen anzeigen
+                          </Link>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

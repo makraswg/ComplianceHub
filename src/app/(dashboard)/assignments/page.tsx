@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -45,11 +47,12 @@ import { getAccessAdvice, type AccessAdvisorOutput } from '@/ai/flows/access-adv
 
 export default function AssignmentsPage() {
   const db = useFirestore();
+  const searchParams = useSearchParams();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'requested' | 'removed'>('all');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   
   // Assignment Creation State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -75,7 +78,11 @@ export default function AssignmentsPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    const initialSearch = searchParams.get('search');
+    if (initialSearch) {
+      setSearch(initialSearch);
+    }
+  }, [searchParams]);
 
   const handleCreateAssignment = () => {
     if (!selectedUserId || !selectedEntitlementId) {
@@ -116,7 +123,7 @@ export default function AssignmentsPage() {
     const targetUser = users?.find(u => u.id === userId);
     if (!targetUser) return;
 
-    setIsAnalyzing(userId === 'global' ? true : userId);
+    setIsAnalyzing(userId);
     setAiAdvice(null);
 
     const userAssignments = assignments?.filter(a => a.userId === userId) || [];

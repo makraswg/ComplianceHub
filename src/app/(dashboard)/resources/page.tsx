@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -82,14 +83,6 @@ export default function ResourcesPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Cleanup selection when dialog closes
-  useEffect(() => {
-    if (!isEntitlementOpen) {
-      const timer = setTimeout(() => setSelectedResource(null), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isEntitlementOpen]);
 
   const handleCreateResource = () => {
     if (!newName || !newOwner) {
