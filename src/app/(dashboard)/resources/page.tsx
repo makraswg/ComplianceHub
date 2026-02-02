@@ -21,7 +21,8 @@ import {
   Loader2,
   Trash2,
   Pencil,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -39,6 +40,16 @@ import {
   DialogDescription,
   DialogTrigger
 } from '@/components/ui/dialog';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { 
   Select, 
@@ -47,7 +58,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -57,9 +68,15 @@ export default function ResourcesPage() {
   const { user: authUser } = useUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  
+  // Dialog States
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEntitlementOpen, setIsEntitlementOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleteEntitlementOpen, setIsDeleteEntitlementOpen] = useState(false);
+  
   const [selectedResource, setSelectedResource] = useState<any>(null);
+  const [selectedEntitlement, setSelectedEntitlement] = useState<any>(null);
 
   // Resource Form State
   const [newName, setNewName] = useState('');
@@ -67,7 +84,6 @@ export default function ResourcesPage() {
   const [newOwner, setNewOwner] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newCriticality, setNewCriticality] = useState('medium');
-  const [newNotes, setNewNotes] = useState('');
 
   // Entitlement Form State
   const [editingEntitlementId, setEditingEntitlementId] = useState<string | null>(null);
@@ -91,19 +107,17 @@ export default function ResourcesPage() {
       return;
     }
 
-    const resourceData = {
+    addDocumentNonBlocking(collection(db, 'resources'), {
       name: newName,
       type: newType,
       owner: newOwner,
       url: newUrl,
       criticality: newCriticality,
-      notes: newNotes,
       createdAt: new Date().toISOString()
-    };
-
-    addDocumentNonBlocking(collection(db, 'resources'), resourceData);
+    });
+    
     setIsCreateOpen(false);
-    toast({ title: "Ressource hinzugefügt", description: `${newName} erfolgreich katalogisiert.` });
+    toast({ title: "Ressource hinzugefügt" });
     setNewName('');
     setNewOwner('');
     setNewUrl('');
@@ -137,11 +151,21 @@ export default function ResourcesPage() {
     setEditingEntitlementId(null);
   };
 
-  const startEditEntitlement = (ent: any) => {
-    setEditingEntitlementId(ent.id);
-    setEntName(ent.name);
-    setEntRisk(ent.riskLevel);
-    setEntDesc(ent.description);
+  const confirmDeleteResource = () => {
+    if (selectedResource) {
+      deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
+      toast({ title: "Ressource gelöscht" });
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
+  const confirmDeleteEntitlement = () => {
+    if (selectedEntitlement) {
+      deleteDocumentNonBlocking(doc(db, 'entitlements', selectedEntitlement.id));
+      toast({ title: "Berechtigung gelöscht" });
+      setIsDeleteEntitlementOpen(false);
+      setSelectedEntitlement(null);
+    }
   };
 
   const filteredResources = resources?.filter(res => 
@@ -156,7 +180,7 @@ export default function ResourcesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Ressourcenkatalog</h1>
-          <p className="text-muted-foreground mt-1">Dokumentation von Systemen, Anwendungen und internen Werkzeugen.</p>
+          <p className="text-muted-foreground mt-1">Dokumentation von Systemen und Anwendungen.</p>
         </div>
         
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -165,9 +189,9 @@ export default function ResourcesPage() {
               <Plus className="w-5 h-5" /> Ressource hinzufügen
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>Neue Ressource hinzufügen</DialogTitle>
+              <DialogTitle>Neue Ressource</DialogTitle>
               <DialogDescription>Registrieren Sie ein neues System im Inventar.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -211,22 +235,20 @@ export default function ResourcesPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleCreateResource}>Ressource speichern</Button>
+              <Button onClick={handleCreateResource}>Speichern</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Ressourcen suchen..." 
-            className="pl-10 h-11 bg-card"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input 
+          placeholder="Ressourcen suchen..." 
+          className="pl-10 h-11 bg-card"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
@@ -238,11 +260,11 @@ export default function ResourcesPage() {
         ) : (
           <Table>
             <TableHeader className="bg-accent/30">
-              <TableRow className="hover:bg-transparent">
+              <TableRow>
                 <TableHead className="w-[300px] py-4">Ressource</TableHead>
                 <TableHead>Typ</TableHead>
                 <TableHead>Kritikalität</TableHead>
-                <TableHead>Rollen</TableHead>
+                <TableHead>Berechtigungen</TableHead>
                 <TableHead className="text-right">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -259,9 +281,9 @@ export default function ResourcesPage() {
                         <div>
                           <div className="font-bold flex items-center gap-1.5">
                             {resource.name}
-                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary" rel="noopener noreferrer"><ExternalLink className="w-3 h-3" /></a>}
+                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary"><ExternalLink className="w-3 h-3" /></a>}
                           </div>
-                          <div className="text-xs text-muted-foreground truncate max-w-[150px]">{resource.owner}</div>
+                          <div className="text-xs text-muted-foreground">{resource.owner}</div>
                         </div>
                       </div>
                     </TableCell>
@@ -275,7 +297,7 @@ export default function ResourcesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-bold">{resourceEnts.length} Berechtigungen</Badge>
+                      <Badge variant="outline">{resourceEnts.length} Rollen</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -283,18 +305,22 @@ export default function ResourcesPage() {
                           <Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            className="font-bold" 
-                            onSelect={(e) => {
-                              e.preventDefault(); // Prevents UI focus issues
-                              setSelectedResource(resource);
-                              resetEntitlementForm();
-                              setTimeout(() => setIsEntitlementOpen(true), 10);
-                            }}
-                          >
+                          <DropdownMenuItem onSelect={(e) => {
+                            e.preventDefault();
+                            setSelectedResource(resource);
+                            resetEntitlementForm();
+                            setTimeout(() => setIsEntitlementOpen(true), 10);
+                          }}>
                             Berechtigungen verwalten
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive font-bold" onClick={() => deleteDocumentNonBlocking(doc(db, 'resources', resource.id))}>
+                          <DropdownMenuItem 
+                            className="text-destructive font-bold" 
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              setSelectedResource(resource);
+                              setTimeout(() => setIsDeleteDialogOpen(true), 10);
+                            }}
+                          >
                             Ressource löschen
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -308,11 +334,31 @@ export default function ResourcesPage() {
         )}
       </div>
 
+      {/* Delete Resource Confirmation */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" /> Ressource löschen?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Dies wird die Ressource <strong>{selectedResource?.name}</strong> unwiderruflich aus dem System entfernen. Alle zugehörigen Berechtigungen werden ebenfalls gelöscht.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90">
+              Endgültig löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Entitlement Management Dialog */}
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Berechtigungen verwalten: {selectedResource?.name}</DialogTitle>
-            <DialogDescription>Definieren Sie Zugriffsebenen und Rollen für diese Ressource.</DialogDescription>
+            <DialogTitle>Berechtigungen: {selectedResource?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
             <div className={cn(
@@ -320,7 +366,7 @@ export default function ResourcesPage() {
               editingEntitlementId ? "bg-primary/5 border-primary/20" : "bg-accent/5"
             )}>
               <div className="flex items-center justify-between">
-                <Label className="font-bold">{editingEntitlementId ? "Berechtigung bearbeiten" : "Neue Berechtigung"}</Label>
+                <Label className="font-bold">{editingEntitlementId ? "Rolle bearbeiten" : "Neue Rolle"}</Label>
                 {editingEntitlementId && (
                   <Button variant="ghost" size="sm" onClick={resetEntitlementForm} className="h-6 gap-1">
                     <X className="w-3 h-3" /> Abbrechen
@@ -330,14 +376,12 @@ export default function ResourcesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Rollenname</Label>
-                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Nur Lesen" />
+                  <Input value={entName} onChange={e => setEntName(e.target.value)} placeholder="z.B. Administrator" />
                 </div>
                 <div className="space-y-2">
                   <Label>Risikostufe</Label>
                   <Select value={entRisk} onValueChange={setEntRisk}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Niedrig</SelectItem>
                       <SelectItem value="medium">Mittel</SelectItem>
@@ -348,21 +392,18 @@ export default function ResourcesPage() {
               </div>
               <div className="space-y-2">
                 <Label>Beschreibung</Label>
-                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Berechtigungen beschreiben..." />
+                <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Zweck der Berechtigung..." />
               </div>
               <Button onClick={handleAddOrUpdateEntitlement} className="w-full">
-                {editingEntitlementId ? "Änderungen speichern" : "Berechtigung hinzufügen"}
+                {editingEntitlementId ? "Änderungen speichern" : "Hinzufügen"}
               </Button>
             </div>
 
             <div className="space-y-2">
-              <Label className="font-bold">Vorhandene Berechtigungen</Label>
+              <Label className="font-bold">Definierte Rollen</Label>
               <div className="border rounded-xl divide-y bg-card max-h-[300px] overflow-y-auto">
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className={cn(
-                    "p-3 flex items-center justify-between group transition-colors",
-                    editingEntitlementId === e.id ? "bg-primary/10" : "hover:bg-accent/5"
-                  )}>
+                  <div key={e.id} className="p-3 flex items-center justify-between group hover:bg-accent/5 transition-colors">
                     <div className="flex items-center gap-3">
                       <Shield className={cn(
                         "w-4 h-4",
@@ -374,33 +415,46 @@ export default function ResourcesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-muted-foreground hover:text-primary" 
-                        onClick={() => startEditEntitlement(e)}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                        setEditingEntitlementId(e.id);
+                        setEntName(e.name);
+                        setEntRisk(e.riskLevel);
+                        setEntDesc(e.description || '');
+                      }}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive" 
-                        onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}
-                      >
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
+                        setSelectedEntitlement(e);
+                        setIsDeleteEntitlementOpen(true);
+                      }}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
                 ))}
-                {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
-                  <p className="p-6 text-center text-xs text-muted-foreground">Noch keine Berechtigungen definiert.</p>
-                )}
               </div>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Entitlement Confirmation */}
+      <AlertDialog open={isDeleteEntitlementOpen} onOpenChange={setIsDeleteEntitlementOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Berechtigung entfernen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sind Sie sicher, dass Sie die Rolle <strong>{selectedEntitlement?.name}</strong> löschen möchten? Bestehende Zuweisungen an Benutzer könnten dadurch ungültig werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setSelectedEntitlement(null)}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEntitlement} className="bg-destructive hover:bg-destructive/90">
+              Löschen bestätigen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
