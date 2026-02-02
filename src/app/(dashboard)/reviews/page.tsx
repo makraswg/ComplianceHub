@@ -16,20 +16,21 @@ import {
   XCircle, 
   AlertCircle, 
   Search, 
-  Filter, 
   ShieldAlert,
   Layers,
   Calendar,
-  History,
-  Loader2
+  Loader2,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function AccessReviewsPage() {
   const db = useFirestore();
@@ -38,11 +39,15 @@ export default function AccessReviewsPage() {
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
 
-  const assignmentsQuery = useMemoFirebase(() => {
-    return collection(db, 'assignments');
-  }, [db]);
+  const assignmentsQuery = useMemoFirebase(() => collection(db, 'assignments'), [db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
+  const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
+  const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
 
   const { data: assignments, isLoading } = useCollection(assignmentsQuery);
+  const { data: users } = useCollection(usersQuery);
+  const { data: entitlements } = useCollection(entitlementsQuery);
+  const { data: resources } = useCollection(resourcesQuery);
 
   useEffect(() => {
     setMounted(true);
@@ -51,46 +56,49 @@ export default function AccessReviewsPage() {
   const handleReview = (assignmentId: string, action: 'certify' | 'revoke') => {
     const docRef = doc(db, 'assignments', assignmentId);
     
-    const updates = {
+    updateDocumentNonBlocking(docRef, {
       status: action === 'certify' ? 'active' : 'removed',
       lastReviewedAt: new Date().toISOString(),
-      reviewedBy: user?.uid || 'unknown'
-    };
+      reviewedBy: user?.uid || 'system'
+    });
 
-    updateDocumentNonBlocking(docRef, updates);
-    
-    // Audit log - Use addDocumentNonBlocking for auto-ID collection
     addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: user?.uid || 'system',
-      action: action === 'certify' ? 'Zuweisung zertifizieren' : 'Zuweisung widerrufen',
+      action: action === 'certify' ? 'Zertifizierung' : 'Widerruf (Review)',
       entityType: 'assignment',
       entityId: assignmentId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      tenantId: 't1'
     });
 
     toast({
       title: action === 'certify' ? "Zuweisung zertifiziert" : "Zuweisung widerrufen",
-      description: `Die Zugriffsrechte wurden erfolgreich aktualisiert.`,
+      description: "Die Compliance-Anforderung wurde erfüllt.",
     });
   };
 
   const filteredAssignments = assignments?.filter(assignment => {
-    const matchesSearch = assignment.userId.toLowerCase().includes(search.toLowerCase()) || 
-                         assignment.entitlementId.toLowerCase().includes(search.toLowerCase());
+    const userDoc = users?.find(u => u.id === assignment.userId);
+    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+    const res = resources?.find(r => r.id === ent?.resourceId);
+    
+    const matchesSearch = 
+      userDoc?.displayName.toLowerCase().includes(search.toLowerCase()) || 
+      res?.name.toLowerCase().includes(search.toLowerCase());
     
     const isCompleted = !!assignment.lastReviewedAt;
-    if (activeFilter === 'pending') return matchesSearch && !isCompleted;
+    if (activeFilter === 'pending') return matchesSearch && !isCompleted && assignment.status !== 'removed';
     if (activeFilter === 'completed') return matchesSearch && isCompleted;
     return matchesSearch;
   });
 
   const stats = {
-    total: assignments?.length || 0,
+    total: assignments?.filter(a => a.status !== 'removed').length || 0,
     completed: assignments?.filter(a => !!a.lastReviewedAt).length || 0,
     overdue: assignments?.filter(a => {
       if (!a.grantedAt) return false;
       const days = (new Date().getTime() - new Date(a.grantedAt).getTime()) / (1000 * 3600 * 24);
-      return days > 90 && !a.lastReviewedAt;
+      return days > 90 && !a.lastReviewedAt && a.status !== 'removed';
     }).length || 0
   };
 
@@ -99,192 +107,163 @@ export default function AccessReviewsPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-3xl font-bold font-headline">Zugriffsüberprüfungen</h1>
-          <p className="text-muted-foreground mt-1">Zertifizieren oder widerrufen Sie Benutzerberechtigungen für die vierteljährliche Compliance.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Access Reviews</h1>
+          <p className="text-sm text-muted-foreground">Vierteljährliche Überprüfung kritischer Berechtigungen.</p>
         </div>
-        <Button variant="outline" className="gap-2 h-11 px-6 border-primary text-primary hover:bg-primary/5">
-          <History className="w-4 h-4" /> Überprüfungsverlauf
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-semibold">
+            <RefreshCw className="w-4 h-4 mr-2" /> Neue Kampagne
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-none shadow-sm bg-primary/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Kampagnenfortschritt</CardTitle>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-primary">{progressPercent}%</span>
-              <span className="text-xs text-muted-foreground">Q3-Überprüfung</span>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="shadow-none rounded-none border">
+          <CardHeader className="py-3 bg-muted/20 border-b">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Fortschritt</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Progress value={progressPercent} className="h-2 bg-primary/10" />
-            <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-              {stats.completed} von {stats.total} Überprüfungen abgeschlossen
+          <CardContent className="pt-4">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-3xl font-bold">{progressPercent}%</span>
+              <span className="text-[10px] text-muted-foreground uppercase font-bold">Q3 Kampagne</span>
+            </div>
+            <Progress value={progressPercent} className="h-1 rounded-none" />
+            <p className="text-[10px] text-muted-foreground mt-2 font-bold uppercase">
+              {stats.completed} von {stats.total} abgeschlossen
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm border-l-4 border-l-red-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Warten auf Überprüfung</CardTitle>
-            <div className="flex items-baseline gap-2 text-red-600">
-              <span className="text-3xl font-bold">{stats.overdue}</span>
-              <AlertCircle className="w-4 h-4" />
-            </div>
+        <Card className="shadow-none rounded-none border border-red-200">
+          <CardHeader className="py-3 bg-red-50/50 border-b border-red-200">
+            <CardTitle className="text-xs font-bold uppercase text-red-700">Kritisch / Überfällig</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Hochriskante oder veraltete Zuweisungen, die eine Zertifizierung erfordern.</p>
+          <CardContent className="pt-4 flex items-center justify-between">
+            <span className="text-3xl font-bold text-red-600">{stats.overdue}</span>
+            <AlertCircle className="w-8 h-8 text-red-200" />
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Zertifiziert</CardTitle>
-            <div className="flex items-baseline gap-2 text-green-600">
-              <span className="text-3xl font-bold">{stats.completed}</span>
-              <CheckCircle className="w-4 h-4" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Elemente, die während der aktuellen Kampagne überprüft wurden.</p>
-          </CardContent>
-        </Card>
+        <Alert className="rounded-none border shadow-none bg-blue-50/30">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertTitle className="text-xs font-bold uppercase text-blue-800">Review Guide</AlertTitle>
+          <AlertDescription className="text-xs text-blue-700">
+            Prüfen Sie insbesondere "High Risk" Rollen. Widerrufen Sie Zugriff, der länger als 90 Tage nicht genutzt wurde.
+          </AlertDescription>
+        </Alert>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex bg-card p-1 rounded-xl border w-full md:w-auto">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex border rounded-none p-1 bg-muted/20 w-full md:w-auto">
+          {['pending', 'completed', 'all'].map(id => (
             <Button 
-              variant={activeFilter === 'pending' ? 'default' : 'ghost'} 
+              key={id}
+              variant={activeFilter === id ? 'default' : 'ghost'} 
               size="sm" 
-              className="flex-1 md:flex-none"
-              onClick={() => setActiveFilter('pending')}
+              className="flex-1 md:flex-none text-[10px] font-bold uppercase rounded-none h-8"
+              onClick={() => setActiveFilter(id as any)}
             >
-              Ausstehende Überprüfungen
+              {id === 'pending' ? 'Ausstehend' : id === 'completed' ? 'Erledigt' : 'Alle'}
             </Button>
-            <Button 
-              variant={activeFilter === 'completed' ? 'default' : 'ghost'} 
-              size="sm"
-              className="flex-1 md:flex-none"
-              onClick={() => setActiveFilter('completed')}
-            >
-              Abgeschlossen
-            </Button>
-            <Button 
-              variant={activeFilter === 'all' ? 'default' : 'ghost'} 
-              size="sm"
-              className="flex-1 md:flex-none"
-              onClick={() => setActiveFilter('all')}
-            >
-              Alle Elemente
-            </Button>
-          </div>
-          <div className="flex gap-2 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Nach Benutzer oder ID filtern..." 
-                className="pl-10 h-10 bg-card" 
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
+          ))}
         </div>
+        <div className="relative flex-1 md:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input 
+            placeholder="Suchen..." 
+            className="pl-10 h-10 rounded-none bg-white" 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
 
-        <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-          {isLoading ? (
-            <div className="flex justify-center py-20">
-              <Loader2 className="animate-spin w-8 h-8 text-primary" />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader className="bg-accent/5">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[280px] py-4">Benutzer-ID</TableHead>
-                  <TableHead>Berechtigungs-ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Gewährungsdatum</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssignments?.map((assignment) => (
-                  <TableRow key={assignment.id} className="group hover:bg-accent/5 transition-colors">
+      <div className="admin-card overflow-hidden rounded-none shadow-none">
+        {isLoading ? (
+          <div className="flex justify-center py-20"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Benutzer</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Ressource / Rolle</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Risiko</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
+                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Review Aktion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAssignments?.map((assignment) => {
+                const userDoc = users?.find(u => u.id === assignment.userId);
+                const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+                const res = resources?.find(r => r.id === ent?.resourceId);
+                
+                return (
+                  <TableRow key={assignment.id} className="group hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
-                          {assignment.userId.charAt(0)}
+                        <div className="w-8 h-8 rounded-sm bg-slate-100 flex items-center justify-center text-[10px] font-bold">
+                          {userDoc?.displayName?.charAt(0) || '?'}
                         </div>
-                        <div className="font-bold text-sm truncate max-w-[150px]">{assignment.userId}</div>
+                        <div>
+                          <div className="font-bold text-sm">{userDoc?.displayName || assignment.userId}</div>
+                          <div className="text-[10px] text-muted-foreground uppercase">{userDoc?.department}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded bg-blue-100 text-blue-600">
-                          <Layers className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="font-bold text-sm">{assignment.entitlementId}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm">{res?.name}</span>
+                        <span className="text-xs text-muted-foreground">{ent?.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={cn(
-                        "border-none font-bold text-[10px]",
-                        assignment.status === 'active' ? "bg-green-500/10 text-green-600" :
-                        assignment.status === 'requested' ? "bg-orange-500/10 text-orange-600" :
-                        "bg-red-500/10 text-red-600"
+                      <Badge variant="outline" className={cn(
+                        "rounded-none font-bold uppercase text-[9px]",
+                        ent?.riskLevel === 'high' ? "border-red-200 text-red-600 bg-red-50" : "border-blue-200 text-blue-600 bg-blue-50"
                       )}>
-                        {assignment.status?.toUpperCase()}
+                        {ent?.riskLevel || 'MEDIUM'}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>{assignment.grantedAt ? new Date(assignment.grantedAt).toLocaleDateString() : 'Unbekannt'}</span>
-                      </div>
+                      <Badge variant="outline" className="text-[9px] font-bold uppercase border-none bg-muted/50">
+                        {assignment.status}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {assignment.lastReviewedAt ? (
-                        <Badge variant="outline" className="gap-1.5">
-                          <CheckCircle className="w-3 h-3 text-green-600" />
-                          Zertifiziert
-                        </Badge>
+                        <div className="flex items-center justify-end gap-1 text-emerald-600 font-bold text-[10px] uppercase">
+                          <CheckCircle className="w-3.5 h-3.5" /> Zertifiziert
+                        </div>
                       ) : (
                         <div className="flex items-center justify-end gap-2">
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            className="h-8 gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 border-red-100 font-bold px-3"
+                            className="h-8 text-[10px] font-bold uppercase rounded-none border-red-200 text-red-600 hover:bg-red-50"
                             onClick={() => handleReview(assignment.id, 'revoke')}
                           >
-                            <XCircle className="w-3.5 h-3.5" /> Widerrufen
+                            <XCircle className="w-3 h-3 mr-1" /> Widerruf
                           </Button>
                           <Button 
                             size="sm" 
-                            className="h-8 gap-1.5 bg-green-600 hover:bg-green-700 text-white font-bold px-3"
+                            className="h-8 text-[10px] font-bold uppercase rounded-none bg-emerald-600 hover:bg-emerald-700"
                             onClick={() => handleReview(assignment.id, 'certify')}
                           >
-                            <CheckCircle className="w-3.5 h-3.5" /> Zertifizieren
+                            <CheckCircle className="w-3 h-3 mr-1" /> Bestätigen
                           </Button>
                         </div>
                       )}
                     </TableCell>
                   </TableRow>
-                ))}
-                {!isLoading && filteredAssignments?.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      Keine Zuweisungen gefunden, die diesen Kriterien entsprechen.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </div>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );
