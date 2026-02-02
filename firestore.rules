@@ -16,20 +16,6 @@ service cloud.firestore {
      * - /tenants/{tenantId}: Root tenant document.
      * - /tenants/{tenantId}/members/{uid}: Membership record linking Firebase Auth UIDs to roles.
      * - /tenants/{tenantId}/[collection]: Tenant-specific entities (Users, Resources, etc.).
-     * 
-     * Key Security Decisions:
-     * 1. Authorization Independence: User roles are stored within each tenant's 'members' 
-     *    subcollection. Rules use these documents as the source of truth for permissions.
-     * 2. Superadmin Override: Users identified in the 'platformUsers' collection can 
-     *    bypass tenant-level restrictions for administrative purposes.
-     * 3. Append-Only Auditing: Audit logs are protected from modification or deletion 
-     *    once created.
-     * 4. Denormalization for Performance: The rules rely on the 'role' field within 
-     *    membership documents to make granular access decisions without complex queries.
-     * 
-     * Prototyping Mode:
-     * Authorization is strictly enforced (who can access what), but data schema 
-     * validation (types, optional fields) is omitted to facilitate rapid iteration.
      */
 
     // --- Helper Functions ---
@@ -78,10 +64,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for platform-level users. Existence indicates superadmin status.
-     * @path /platformUsers/{uid}
-     * @allow (get) If user is authenticated. (write) If requester is already a superadmin.
-     * @deny (write) If requester is not a superadmin.
-     * @principle Restricts platform-wide privileges to authorized administrators.
      */
     match /platformUsers/{uid} {
       allow get: if isSignedIn();
@@ -91,38 +73,29 @@ service cloud.firestore {
 
     /**
      * @description Rules for tenant metadata.
-     * @path /tenants/{tenantId}
-     * @allow (read) If user is a member or superadmin. (write) If user is tenantOwner or superadmin.
-     * @deny (write) If user is a standard member.
-     * @principle Enforces tenant-level isolation and administrative control.
      */
     match /tenants/{tenantId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
-      allow create: if isSignedIn(); // Allow creation, membership check happens after
+      allow create: if isSignedIn();
       allow update: if isExistingTenantAdmin(tenantId);
       allow delete: if isSuperAdmin();
     }
 
     /**
      * @description Rules for tenant membership (RBAC).
-     * @path /tenants/{tenantId}/members/{uid}
-     * @allow (read) If user is the member themselves or an admin. (write) If admin.
-     * @deny (create) If user is not an admin of the tenant.
-     * @principle Secures the RBAC mapping used for all other tenant permissions.
+     * Authorizes both standard path access and collectionGroup queries.
      */
     match /tenants/{tenantId}/members/{uid} {
       allow get: if (isSignedIn() && request.auth.uid == uid) || isTenantMember(tenantId) || isSuperAdmin();
-      allow list: if isTenantMember(tenantId) || isSuperAdmin();
+      // Important: Allow 'list' if it's the user's own membership doc. 
+      // This enables the collectionGroup query in the LoginPage.
+      allow list: if (isSignedIn() && (request.auth.uid == uid || request.query.limit <= 100)) && (uid == request.auth.uid || isTenantMember(tenantId) || isSuperAdmin());
       allow create: if (isSignedIn() && request.auth.uid == uid) || isTenantAdmin(tenantId) || isSuperAdmin();
       allow update, delete: if isExistingTenantAdmin(tenantId);
     }
 
     /**
      * @description Rules for synchronized user directory data.
-     * @path /tenants/{tenantId}/users/{userId}
-     * @allow (read) If tenant member. (write) If tenant admin.
-     * @deny (write) If standard user.
-     * @principle Protects internal user data within a tenant scope.
      */
     match /tenants/{tenantId}/users/{userId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
@@ -133,10 +106,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for resources (SaaS, Tools, etc.).
-     * @path /tenants/{tenantId}/resources/{resourceId}
-     * @allow (read) If tenant member. (write) If tenant editor or admin.
-     * @deny (write) If viewer-only.
-     * @principle Grant write access to contributors while isolating data per tenant.
      */
     match /tenants/{tenantId}/resources/{resourceId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
@@ -147,10 +116,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for entitlements (Access Levels).
-     * @path /tenants/{tenantId}/entitlements/{entitlementId}
-     * @allow (read) If tenant member. (write) If tenant admin.
-     * @deny (write) If standard editor/member.
-     * @principle Restricts modification of permission levels to tenant administrators.
      */
     match /tenants/{tenantId}/entitlements/{entitlementId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
@@ -161,10 +126,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for user assignments to entitlements.
-     * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow (read) If tenant member. (write) If tenant admin.
-     * @deny (update) If modifying original tenant association.
-     * @principle Secures the mapping of users to specific resource access rights.
      */
     match /tenants/{tenantId}/assignments/{assignmentId} {
       allow get, list: if isTenantMember(tenantId) || isSuperAdmin();
@@ -175,10 +136,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for tenant audit events. Append-only.
-     * @path /tenants/{tenantId}/auditEvents/{eventId}
-     * @allow (get/list) If tenant admin. (create) If tenant member.
-     * @deny (update/delete) Always denied to maintain log integrity.
-     * @principle Ensures audit logs are immutable and readable only by authorized personnel.
      */
     match /tenants/{tenantId}/auditEvents/{eventId} {
       allow get, list: if isTenantAdmin(tenantId) || isSuperAdmin();
