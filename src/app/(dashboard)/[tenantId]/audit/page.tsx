@@ -1,6 +1,6 @@
-
 "use client";
 
+import { useParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -20,19 +20,28 @@ import {
   Layers,
   Shield,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 export default function AuditLogPage() {
-  const auditLogs = [
-    { id: '1', timestamp: '2024-03-15T10:30:00Z', actor: 'John Doe', action: 'Update Resource', entity: 'GitHub Enterprise', type: 'resource', status: 'success' },
-    { id: '2', timestamp: '2024-03-15T09:15:00Z', actor: 'Security Bot', action: 'Revoke Access', entity: 'Expired validUntil', type: 'assignment', status: 'success' },
-    { id: '3', timestamp: '2024-03-14T16:45:00Z', actor: 'Jane Smith', action: 'Create Entitlement', entity: 'Billing Admin (AWS)', type: 'entitlement', status: 'success' },
-    { id: '4', timestamp: '2024-03-14T14:20:00Z', actor: 'System', action: 'Sync LDAP', entity: '243 users updated', type: 'system', status: 'warning' },
-    { id: '5', timestamp: '2024-03-14T11:00:00Z', actor: 'Admin User', action: 'Login Success', entity: 'Web Console', type: 'auth', status: 'success' },
-    { id: '6', timestamp: '2024-03-13T18:30:00Z', actor: 'Jane Smith', action: 'Approve Request', entity: 'u123 -> AWS Admin', type: 'assignment', status: 'success' },
-  ];
+  const { tenantId } = useParams();
+  const db = useFirestore();
+  const [search, setSearch] = useState('');
+
+  const auditQuery = useMemoFirebase(() => {
+    return query(
+      collection(db, 'tenants', tenantId as string, 'auditEvents'),
+      orderBy('timestamp', 'desc')
+    );
+  }, [db, tenantId]);
+
+  const { data: auditLogs, isLoading } = useCollection(auditQuery);
 
   const getEntityIcon = (type: string) => {
     switch (type) {
@@ -42,6 +51,12 @@ export default function AuditLogPage() {
       default: return <Activity className="w-3.5 h-3.5" />;
     }
   };
+
+  const filteredLogs = auditLogs?.filter(log => 
+    log.action.toLowerCase().includes(search.toLowerCase()) ||
+    log.actorUid.toLowerCase().includes(search.toLowerCase()) ||
+    log.entityId.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-2 duration-500">
@@ -63,6 +78,8 @@ export default function AuditLogPage() {
           <Input 
             placeholder="Search by actor, action or entity ID..." 
             className="pl-10 h-11 bg-card"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <Button variant="outline" className="h-11 gap-2 border-dashed">
@@ -74,62 +91,67 @@ export default function AuditLogPage() {
       </div>
 
       <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader className="bg-accent/30">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[200px] py-4">Timestamp</TableHead>
-              <TableHead>Actor</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Target Entity</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Details</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {auditLogs.map((log) => (
-              <TableRow key={log.id} className="group transition-colors hover:bg-accent/10">
-                <TableCell className="py-4 text-xs font-medium text-muted-foreground">
-                  {new Date(log.timestamp).toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold text-primary">
-                      {log.actor.charAt(0)}
-                    </div>
-                    <span className="font-bold text-sm">{log.actor}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="font-medium text-sm text-foreground">{log.action}</span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="p-1 rounded bg-muted text-muted-foreground">
-                      {getEntityIcon(log.type)}
-                    </div>
-                    <span className="text-xs font-medium truncate max-w-[150px]">{log.entity}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    className={cn(
-                      "font-bold text-[10px] border-none px-2",
-                      log.status === 'success' ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"
-                    )}
-                    variant="outline"
-                  >
-                    {log.status.toUpperCase()}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/5 h-8 w-8">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </TableCell>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-muted-foreground font-medium">Loading audit history...</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-accent/30">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[200px] py-4">Timestamp</TableHead>
+                <TableHead>Actor</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Target Entity</TableHead>
+                <TableHead className="text-right">Details</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredLogs?.map((log) => (
+                <TableRow key={log.id} className="group transition-colors hover:bg-accent/10">
+                  <TableCell className="py-4 text-xs font-medium text-muted-foreground">
+                    {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center text-[10px] font-bold text-primary">
+                        {log.actorUid.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-bold text-sm truncate max-w-[120px]">{log.actorUid}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium text-sm text-foreground">{log.action}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1 rounded bg-muted text-muted-foreground">
+                        {getEntityIcon(log.entityType)}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold">{log.entityType.toUpperCase()}</span>
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{log.entityId}</span>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/5 h-8 w-8">
+                      <ExternalLink className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && filteredLogs?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    No audit events recorded yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   );
