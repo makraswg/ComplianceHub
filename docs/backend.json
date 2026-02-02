@@ -1,0 +1,515 @@
+{
+  "entities": {
+    "Tenant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tenant",
+      "type": "object",
+      "description": "Represents a tenant in the system, isolating data for different organizations or customers.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the tenant."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the tenant."
+        },
+        "slug": {
+          "type": "string",
+          "description": "A URL-friendly slug for the tenant."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the tenant was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "slug",
+        "createdAt"
+      ]
+    },
+    "TenantMember": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TenantMember",
+      "type": "object",
+      "description": "Represents a user's membership within a tenant, including their role and status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the tenant member."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N TenantMember)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N TenantMember)"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the member within the tenant (e.g., tenantOwner, admin, editor, viewer)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the member was added to the tenant.",
+          "format": "date-time"
+        },
+        "invitedBy": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N TenantMember) The user who invited this member."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the membership (e.g., active, invited)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "userId",
+        "role",
+        "createdAt",
+        "status"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user synchronized from LDAP or a similar directory service.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user within the tenant."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N User)"
+        },
+        "externalId": {
+          "type": "string",
+          "description": "External identifier from the LDAP directory."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "department": {
+          "type": "string",
+          "description": "The department the user belongs to."
+        },
+        "title": {
+          "type": "string",
+          "description": "The job title of the user."
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Indicates whether the user is enabled."
+        },
+        "lastSyncedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user was last synchronized from LDAP.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "externalId",
+        "displayName",
+        "email",
+        "enabled"
+      ]
+    },
+    "Resource": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Resource",
+      "type": "object",
+      "description": "Represents a resource within a tenant, such as a SaaS application or internal tool.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the resource."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Resource)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the resource."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of resource (e.g., SaaS, OnPrem, Shop, Tool, Other)."
+        },
+        "owner": {
+          "type": "string",
+          "description": "The owner of the resource."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL of the resource.",
+          "format": "uri"
+        },
+        "criticality": {
+          "type": "string",
+          "description": "The criticality level of the resource (e.g., low, medium, high)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the resource."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name",
+        "type",
+        "owner",
+        "criticality"
+      ]
+    },
+    "Entitlement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Entitlement",
+      "type": "object",
+      "description": "Represents an entitlement for a resource, defining the access level or permissions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the entitlement."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Entitlement)"
+        },
+        "resourceId": {
+          "type": "string",
+          "description": "Reference to Resource. (Relationship: Resource 1:N Entitlement)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the entitlement (e.g., Viewer, Editor, Admin)."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the entitlement."
+        },
+        "riskLevel": {
+          "type": "string",
+          "description": "The risk level associated with the entitlement (e.g., low, medium, high)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "resourceId",
+        "name",
+        "riskLevel"
+      ]
+    },
+    "Assignment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Assignment",
+      "type": "object",
+      "description": "Represents the assignment of an entitlement to a user for a specific resource.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the assignment."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Assignment)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Assignment)"
+        },
+        "entitlementId": {
+          "type": "string",
+          "description": "Reference to Entitlement. (Relationship: Entitlement 1:N Assignment)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the assignment (e.g., active, requested, removed)."
+        },
+        "grantedBy": {
+          "type": "string",
+          "description": "The user who granted the assignment."
+        },
+        "grantedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the assignment was granted.",
+          "format": "date-time"
+        },
+        "ticketRef": {
+          "type": "string",
+          "description": "Reference to a ticket or request associated with the assignment."
+        },
+        "validUntil": {
+          "type": "string",
+          "description": "Timestamp indicating when the assignment is valid until.",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the assignment."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "userId",
+        "entitlementId",
+        "status"
+      ]
+    },
+    "AuditEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditEvent",
+      "type": "object",
+      "description": "Represents an audit event, logging changes to resources, entitlements, and assignments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the audit event."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N AuditEvent)"
+        },
+        "actorUid": {
+          "type": "string",
+          "description": "The user who performed the action."
+        },
+        "action": {
+          "type": "string",
+          "description": "The action performed (e.g., create, update, delete)."
+        },
+        "entityType": {
+          "type": "string",
+          "description": "The type of entity that was modified (e.g., resource, entitlement, assignment)."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "The ID of the entity that was modified."
+        },
+        "before": {
+          "type": "string",
+          "description": "The state of the entity before the change (JSON string)."
+        },
+        "after": {
+          "type": "string",
+          "description": "The state of the entity after the change (JSON string)."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp indicating when the event occurred.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "actorUid",
+        "action",
+        "entityType",
+        "entityId",
+        "timestamp"
+      ]
+    },
+    "PlatformUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlatformUser",
+      "type": "object",
+      "description": "Represents a platform-level user, potentially with superadmin privileges.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the platform user."
+        },
+        "isSuperAdmin": {
+          "type": "boolean",
+          "description": "Indicates whether the user has superadmin privileges."
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "tenants/{tenantId}",
+        "definition": {
+          "entityName": "Tenant",
+          "schema": {
+            "$ref": "#/backend/entities/Tenant"
+          },
+          "description": "Stores tenant-specific data. Used for tenant isolation.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/members/{uid}",
+        "definition": {
+          "entityName": "TenantMember",
+          "schema": {
+            "$ref": "#/backend/entities/TenantMember"
+          },
+          "description": "Stores tenant membership information, including the user's role within the tenant. This collection is critical for authorization independence; security rules will validate the existence of this document based on the user's UID to grant access. Includes denormalized role for efficient authorization.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "uid",
+              "description": "The Firebase Auth UID of the user who is a member of the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data synchronized from LDAP or a similar directory service. Each user belongs to a specific tenant. The `userId` corresponds to the user's unique identifier within the tenant, and not necessarily the Firebase Auth UID. This allows for internal user management separate from authentication.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user within the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/resources/{resourceId}",
+        "definition": {
+          "entityName": "Resource",
+          "schema": {
+            "$ref": "#/backend/entities/Resource"
+          },
+          "description": "Stores resource data for each tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "resourceId",
+              "description": "The unique identifier for the resource."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/entitlements/{entitlementId}",
+        "definition": {
+          "entityName": "Entitlement",
+          "schema": {
+            "$ref": "#/backend/entities/Entitlement"
+          },
+          "description": "Stores entitlement data for each resource within a tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "entitlementId",
+              "description": "The unique identifier for the entitlement."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/assignments/{assignmentId}",
+        "definition": {
+          "entityName": "Assignment",
+          "schema": {
+            "$ref": "#/backend/entities/Assignment"
+          },
+          "description": "Stores assignment data, linking users to entitlements for specific resources within a tenant.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "assignmentId",
+              "description": "The unique identifier for the assignment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "tenants/{tenantId}/auditEvents/{eventId}",
+        "definition": {
+          "entityName": "AuditEvent",
+          "schema": {
+            "$ref": "#/backend/entities/AuditEvent"
+          },
+          "description": "Stores audit events for each tenant. This collection is append-only.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "The unique identifier for the tenant."
+            },
+            {
+              "name": "eventId",
+              "description": "The unique identifier for the audit event."
+            }
+          ]
+        }
+      },
+      {
+        "path": "platformUsers/{uid}",
+        "definition": {
+          "entityName": "PlatformUser",
+          "schema": {
+            "$ref": "#/backend/entities/PlatformUser"
+          },
+          "description": "Stores platform user data, including superadmin privileges. Existence of a document at this path indicates superadmin status.",
+          "params": [
+            {
+              "name": "uid",
+              "description": "The Firebase Auth UID of the platform user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support a multi-tenant application with role-based access control. Each tenant's data is isolated within its own collections, ensuring data privacy and security. Authorization Independence is achieved by storing tenant membership information (role) directly within the `tenantMembers` collection, which avoids costly and insecure `get()` calls in the security rules. Superadmin privileges are checked via a separate `platformUsers` collection, offering an efficient way to bypass tenant-level restrictions when necessary.\n\nThe structure supports the required QAPs (Queries Aware Permissions) by:\n\n1.  **Segregation:**  Each tenant's data resides in its own top-level collections (e.g., `tenants/{tenantId}/resources`). This ensures that list operations can be securely performed within a tenant's scope.\n2.  **Membership Model:** The `tenants/{tenantId}/members/{uid}` collection explicitly defines the role of each user within a tenant. This model is pivotal for authorization checks in security rules, enabling secure and efficient filtering based on user roles."
+  }
+}
