@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -42,9 +42,11 @@ import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, a
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export default function UsersPage() {
   const db = useFirestore();
+  const router = useRouter();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -225,17 +227,15 @@ export default function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onSelect={() => {
+                        <DropdownMenuItem onSelect={(e) => {
+                          e.preventDefault(); // Prevents UI focus issues
                           setSelectedUser(user);
-                          // Delay opening the dialog to prevent focus/pointer-events issues with the menu
                           setTimeout(() => setIsProfileOpen(true), 10);
                         }}>
                           <UserCircle className="w-4 h-4 mr-2" /> Profil anzeigen
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/assignments?search=${user.displayName}`} className="flex w-full items-center">
-                            <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen anzeigen
-                          </Link>
+                        <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}>
+                          <ShieldCheck className="w-4 h-4 mr-2" /> Zuweisungen anzeigen
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

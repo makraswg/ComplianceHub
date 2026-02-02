@@ -19,7 +19,9 @@ import {
   Shield,
   Layers,
   Loader2,
-  Trash2
+  Trash2,
+  Pencil,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -45,7 +47,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking, useUser, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -68,6 +70,7 @@ export default function ResourcesPage() {
   const [newNotes, setNewNotes] = useState('');
 
   // Entitlement Form State
+  const [editingEntitlementId, setEditingEntitlementId] = useState<string | null>(null);
   const [entName, setEntName] = useState('');
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
@@ -106,7 +109,7 @@ export default function ResourcesPage() {
     setNewUrl('');
   };
 
-  const handleAddEntitlement = () => {
+  const handleAddOrUpdateEntitlement = () => {
     if (!entName || !selectedResource) return;
 
     const entData = {
@@ -116,10 +119,29 @@ export default function ResourcesPage() {
       description: entDesc,
     };
 
-    addDocumentNonBlocking(collection(db, 'entitlements'), entData);
+    if (editingEntitlementId) {
+      updateDocumentNonBlocking(doc(db, 'entitlements', editingEntitlementId), entData);
+      toast({ title: "Berechtigung aktualisiert" });
+    } else {
+      addDocumentNonBlocking(collection(db, 'entitlements'), entData);
+      toast({ title: "Berechtigung hinzugefügt" });
+    }
+
+    resetEntitlementForm();
+  };
+
+  const resetEntitlementForm = () => {
     setEntName('');
     setEntDesc('');
-    toast({ title: "Berechtigung hinzugefügt", description: `Die Rolle "${entName}" wurde für ${selectedResource.name} definiert.` });
+    setEntRisk('medium');
+    setEditingEntitlementId(null);
+  };
+
+  const startEditEntitlement = (ent: any) => {
+    setEditingEntitlementId(ent.id);
+    setEntName(ent.name);
+    setEntRisk(ent.riskLevel);
+    setEntDesc(ent.description);
   };
 
   const filteredResources = resources?.filter(res => 
@@ -263,9 +285,10 @@ export default function ResourcesPage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem 
                             className="font-bold" 
-                            onSelect={() => {
+                            onSelect={(e) => {
+                              e.preventDefault(); // Prevents UI focus issues
                               setSelectedResource(resource);
-                              // Delay opening dialog to allow menu cleanup
+                              resetEntitlementForm();
                               setTimeout(() => setIsEntitlementOpen(true), 10);
                             }}
                           >
@@ -292,7 +315,18 @@ export default function ResourcesPage() {
             <DialogDescription>Definieren Sie Zugriffsebenen und Rollen für diese Ressource.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
-            <div className="space-y-4 p-4 border rounded-xl bg-accent/5">
+            <div className={cn(
+              "space-y-4 p-4 border rounded-xl transition-colors",
+              editingEntitlementId ? "bg-primary/5 border-primary/20" : "bg-accent/5"
+            )}>
+              <div className="flex items-center justify-between">
+                <Label className="font-bold">{editingEntitlementId ? "Berechtigung bearbeiten" : "Neue Berechtigung"}</Label>
+                {editingEntitlementId && (
+                  <Button variant="ghost" size="sm" onClick={resetEntitlementForm} className="h-6 gap-1">
+                    <X className="w-3 h-3" /> Abbrechen
+                  </Button>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Rollenname</Label>
@@ -316,14 +350,19 @@ export default function ResourcesPage() {
                 <Label>Beschreibung</Label>
                 <Input value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Berechtigungen beschreiben..." />
               </div>
-              <Button onClick={handleAddEntitlement} className="w-full">Berechtigung hinzufügen</Button>
+              <Button onClick={handleAddOrUpdateEntitlement} className="w-full">
+                {editingEntitlementId ? "Änderungen speichern" : "Berechtigung hinzufügen"}
+              </Button>
             </div>
 
             <div className="space-y-2">
               <Label className="font-bold">Vorhandene Berechtigungen</Label>
               <div className="border rounded-xl divide-y bg-card max-h-[300px] overflow-y-auto">
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className="p-3 flex items-center justify-between group">
+                  <div key={e.id} className={cn(
+                    "p-3 flex items-center justify-between group transition-colors",
+                    editingEntitlementId === e.id ? "bg-primary/10" : "hover:bg-accent/5"
+                  )}>
                     <div className="flex items-center gap-3">
                       <Shield className={cn(
                         "w-4 h-4",
@@ -334,9 +373,24 @@ export default function ResourcesPage() {
                         <p className="text-[10px] text-muted-foreground">{e.description}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary" 
+                        onClick={() => startEditEntitlement(e)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive" 
+                        onClick={() => deleteDocumentNonBlocking(doc(db, 'entitlements', e.id))}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
