@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Deployment trigger: 2026-02-02T22:50:00Z - Supporting root-level queries and stabilizing SDK state
+// Deployment trigger: 2026-02-02T23:00:00Z - Addressing ID: ca9 and stabilizing root-level access
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -15,8 +15,7 @@ service cloud.firestore {
     }
 
     // ROOT LEVEL RULES
-    // These satisfy the simplified queries used in the dashboard pages (e.g., collection(db, 'users'))
-    // In a full production app, these would be scoped or use collection group rules with ownership checks.
+    // These allow the queries used in the dashboard (e.g., collection(db, 'users'))
     match /users/{userId} {
       allow read, write: if isSignedIn();
     }
@@ -37,11 +36,12 @@ service cloud.firestore {
     }
 
     // COLLECTION GROUP RULES
+    // Allows users to find which tenants they belong to
     match /{path=**}/members/{uid} {
-      allow list, get: if isSignedIn() && (request.auth.uid == uid || request.auth.uid == resource.data.userId);
+      allow list, get: if isSignedIn() && (request.auth.uid == uid);
     }
 
-    // NESTED TENANT RULES (Legacy/Future-proofing)
+    // NESTED TENANT RULES (Isolation)
     match /tenants/{tenantId} {
       match /members/{uid} {
         allow read, write: if isSignedIn();

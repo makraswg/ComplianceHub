@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Query,
   onSnapshot,
@@ -34,16 +34,22 @@ export function useCollection<T>(
   targetRefOrQuery: Query<T, DocumentData> | CollectionReference<T, DocumentData> | null,
   options?: { includeMetadataChanges?: boolean }
 ): UseCollectionResult<T> {
+  // Stabilize the query reference
   const memoizedTargetRefOrQuery = useMemoFirebase(
     () => targetRefOrQuery,
     [targetRefOrQuery]
   );
 
   const [data, setData] = useState<WithId<T>[] | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(!!memoizedTargetRefOrQuery);
   const [error, setError] = useState<Error | null>(null);
+  
+  // Guard against state updates on unmounted components which can trigger SDK assertion errors
+  const isMounted = useRef(true);
 
   useEffect(() => {
+    isMounted.current = true;
+    
     if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
@@ -58,6 +64,8 @@ export function useCollection<T>(
       memoizedTargetRefOrQuery,
       { includeMetadataChanges: options?.includeMetadataChanges },
       (snapshot: QuerySnapshot<T, DocumentData>) => {
+        if (!isMounted.current) return;
+        
         const docs = snapshot.docs.map((doc) => ({
           ...(doc.data() as T),
           id: doc.id,
@@ -67,16 +75,24 @@ export function useCollection<T>(
         setError(null);
       },
       (err: FirestoreError) => {
-        if (err.code === 'permission-denied') {
-          // Robust path resolution without relying on internal SDK properties
-          const path = (memoizedTargetRefOrQuery as any).path || 'collection-group-query';
+        if (!isMounted.current) return;
 
-          const customError = new FirestorePermissionError({
+        if (err.code === 'permission-denied') {
+          // Resolve path safely
+          let path = 'collection-group-query';
+          if ('path' in memoizedTargetRefOrQuery) {
+             path = (memoizedTargetRefOrQuery as any).path;
+          } else if ('_query' in (memoizedTargetRefOrQuery as any)) {
+             path = (memoizedTargetRefOrQuery as any)._query.path.canonicalString();
+          }
+
+          const contextualError = new FirestorePermissionError({
             operation: 'list',
             path: path,
           });
-          setError(customError);
-          errorEmitter.emit('permission-error', customError);
+          
+          setError(contextualError);
+          errorEmitter.emit('permission-error', contextualError);
         } else {
           setError(err);
         }
@@ -84,8 +100,8 @@ export function useCollection<T>(
       }
     );
 
-    // Cleanup listener on unmount
     return () => {
+      isMounted.current = false;
       unsubscribe();
     };
   }, [memoizedTargetRefOrQuery, options?.includeMetadataChanges]);
