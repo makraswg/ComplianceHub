@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, useUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
@@ -59,10 +59,8 @@ export default function AccessReviewsPage() {
 
     updateDocumentNonBlocking(docRef, updates);
     
-    // Also create audit event (simplified for demo)
-    const auditRef = doc(collection(db, 'auditEvents'));
-    updateDocumentNonBlocking(auditRef, {
-      id: auditRef.id,
+    // Audit log - Use addDocumentNonBlocking for auto-ID collection
+    addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: user?.uid || 'system',
       action: action === 'certify' ? 'Zuweisung zertifizieren' : 'Zuweisung widerrufen',
       entityType: 'assignment',

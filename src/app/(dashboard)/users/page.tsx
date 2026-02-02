@@ -40,7 +40,7 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -100,12 +100,11 @@ export default function UsersPage() {
       lastSyncedAt: new Date().toISOString()
     };
 
-    updateDocumentNonBlocking(userRef, userData);
+    // Use setDocumentNonBlocking for creation with a specific ID
+    setDocumentNonBlocking(userRef, userData, { merge: true });
 
-    // Audit Log
-    const auditRef = doc(collection(db, 'auditEvents'));
-    updateDocumentNonBlocking(auditRef, {
-      id: auditRef.id,
+    // Audit Log - Use addDocumentNonBlocking for auto-ID collection
+    addDocumentNonBlocking(collection(db, 'auditEvents'), {
       actorUid: authUser?.uid || 'system',
       action: 'Benutzer erstellen',
       entityType: 'user',
