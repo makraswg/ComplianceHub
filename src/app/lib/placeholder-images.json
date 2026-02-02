@@ -1,0 +1,17 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-dashboard",
+      "description": "Abstract security dashboard visualization",
+      "imageUrl": "https://picsum.photos/seed/accesshub-hero/1200/800",
+      "imageHint": "security dashboard"
+    },
+    {
+      "id": "avatar-1",
+      "description": "User avatar",
+      "imageUrl": "https://picsum.photos/seed/user1/100/100",
+      "imageHint": "user avatar"
+    }
+  ]
+}
