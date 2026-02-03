@@ -69,7 +69,7 @@ body[style*="pointer-events: none"] {
 }
 
 .admin-card {
-  @apply bg-card border border-border shadow-sm rounded-lg;
+  @apply bg-card border border-border shadow-sm rounded-none;
 }
 
 .sidebar-admin {
@@ -88,5 +88,5 @@ body[style*="pointer-events: none"] {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: hsl(var(--muted));
-  border-radius: 10px;
+  border-radius: 0;
 }
