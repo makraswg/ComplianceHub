@@ -5,12 +5,10 @@ import { JiraConfig, JiraSyncItem } from '@/lib/types';
 
 /**
  * Hilfsfunktion zum Bereinigen der Jira-URL.
- * Entfernt trailing slashes und versehentlich mitkopierte API-Pfade.
  */
 function cleanJiraUrl(url: string): string {
   if (!url) return '';
   let cleaned = url.trim().replace(/\/$/, '');
-  // Falls der User den API-Pfad mitkopiert hat, extrahieren wir nur die Basis
   if (cleaned.includes('/rest/api/')) {
     cleaned = cleaned.split('/rest/api/')[0];
   }
@@ -26,8 +24,7 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 }
 
 /**
- * Testet die Jira-Verbindung und führt eine Probesuche aus.
- * Nutzt den Endpunkt /rest/api/3/search/jql wie von der Migration gefordert.
+ * Testet die Jira-Verbindung.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
@@ -43,7 +40,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // 1. Einfacher Ping an /myself um Auth zu prüfen
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -63,7 +59,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
-    // 2. Test-Suche mit POST /search/jql (Vorgeschriebener Endpunkt für JQL Suchen)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
     const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
@@ -151,7 +146,7 @@ export async function createJiraTicket(configId: string, summary: string, descri
 
 /**
  * Ruft genehmigte Zugriffsanfragen aus Jira ab.
- * Nutzt ebenfalls den Endpunkt /rest/api/3/search/jql.
+ * Sucht die Ziel-E-Mail in ALLEN Feldern (inkl. Custom Fields wie 'Genehmigung für Mitarbeiter').
  */
 export async function fetchJiraApprovedRequests(configId: string): Promise<JiraSyncItem[]> {
   const configs = await getJiraConfigs();
@@ -178,7 +173,8 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       body: JSON.stringify({
         jql: jql,
         maxResults: 50,
-        fields: ["summary", "status", "reporter", "created", "description"]
+        // Fordert alle navigierbaren Felder an, um Custom Fields zu erhalten
+        fields: ["summary", "status", "reporter", "created", "description", "*navigable"]
       }),
       cache: 'no-store'
     });
@@ -193,25 +189,55 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
     return data.issues.map((issue: any) => {
       let extractedEmail = '';
-      const description = issue.fields.description;
-
-      const findEmailInNodes = (nodes: any[]): string | null => {
-        if (!nodes || !Array.isArray(nodes)) return null;
-        for (const node of nodes) {
-          if (node.text) {
-            const match = node.text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-            if (match) return match[0];
-          }
-          if (node.content) {
-            const found = findEmailInNodes(node.content);
-            if (found) return found;
-          }
-        }
-        return null;
+      
+      // Hilfsfunktion zur E-Mail-Suche
+      const findEmailInText = (text: string): string | null => {
+        if (!text || typeof text !== 'string') return null;
+        const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        return match ? match[0] : null;
       };
 
-      if (description && description.content) {
-        extractedEmail = findEmailInNodes(description.content) || '';
+      // 1. Durchsuche ALLE Felder (für Custom Fields wie "Genehmigung für Mitarbeiter")
+      for (const fieldKey in issue.fields) {
+        const fieldValue = issue.fields[fieldKey];
+        
+        // Falls das Feld ein User-Objekt ist (typisch für JSM Felder)
+        if (fieldValue && typeof fieldValue === 'object' && fieldValue.emailAddress) {
+          extractedEmail = fieldValue.emailAddress;
+          break;
+        }
+        
+        // Falls das Feld ein String ist (Custom Field Text)
+        if (typeof fieldValue === 'string') {
+          const found = findEmailInText(fieldValue);
+          if (found) {
+            extractedEmail = found;
+            break;
+          }
+        }
+      }
+
+      // 2. Falls immer noch nichts gefunden, durchsuche die ADF-Beschreibung (Fallback)
+      if (!extractedEmail) {
+        const description = issue.fields.description;
+        const findEmailInADFNodes = (nodes: any[]): string | null => {
+          if (!nodes || !Array.isArray(nodes)) return null;
+          for (const node of nodes) {
+            if (node.text) {
+              const found = findEmailInText(node.text);
+              if (found) return found;
+            }
+            if (node.content) {
+              const found = findEmailInADFNodes(node.content);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+
+        if (description && description.content) {
+          extractedEmail = findEmailInADFNodes(description.content) || '';
+        }
       }
 
       return {

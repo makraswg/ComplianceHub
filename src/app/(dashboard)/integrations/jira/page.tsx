@@ -21,7 +21,8 @@ import {
   History,
   Info,
   Terminal,
-  XCircle
+  XCircle,
+  Search
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -109,7 +110,7 @@ export default function JiraSyncPage() {
       validFrom: timestamp.split('T')[0],
       jiraIssueKey: ticket.key,
       ticketRef: ticket.key,
-      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Antragsteller: ${ticket.reporter}`,
+      notes: `Automatisch erstellt via Jira Ticket ${ticket.key}. Antragsteller (Beneficiary): ${ticket.requestedUserEmail}`,
       tenantId: 't1'
     };
 
@@ -193,7 +194,7 @@ export default function JiraSyncPage() {
                 <TableRow>
                   <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Jira Key</TableHead>
                   <TableHead className="font-bold uppercase tracking-widest text-[10px]">Anfrage / Inhalt</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Antragsteller</TableHead>
+                  <TableHead className="font-bold uppercase tracking-widest text-[10px]">Ziel-Identität</TableHead>
                   <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status (Jira)</TableHead>
                   <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
                 </TableRow>
@@ -209,12 +210,24 @@ export default function JiraSyncPage() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-bold text-sm">{ticket.summary}</span>
-                        <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                          {ticket.requestedUserEmail ? `Ziel-User: ${ticket.requestedUserEmail}` : "Keine E-Mail in Beschreibung gefunden"}
+                        <span className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">
+                          Von: {ticket.reporter}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs font-bold text-slate-600 uppercase">{ticket.reporter}</TableCell>
+                    <TableCell>
+                      {ticket.requestedUserEmail ? (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 rounded-none text-[9px] font-bold uppercase px-2 py-0.5">
+                            {ticket.requestedUserEmail}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-red-500 font-bold text-[9px] uppercase">
+                          <AlertTriangle className="w-3 h-3" /> E-Mail nicht gefunden
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[9px] font-bold uppercase px-2">{ticket.status}</Badge>
                     </TableCell>
@@ -238,12 +251,12 @@ export default function JiraSyncPage() {
                         <div className="space-y-1">
                           <p className="text-muted-foreground font-bold text-xs uppercase">Keine passenden Tickets gefunden</p>
                           <p className="text-[10px] text-muted-foreground max-w-md mx-auto">
-                            Stellen Sie sicher, dass Tickets in Jira den Status "{activeConfig.approvedStatusName}" und den Anfragetyp "{activeConfig.issueTypeName}" besitzen.
+                            Die App durchsucht nun automatisch die Ticket-Beschreibung UND alle benutzerdefinierten Felder (wie „Genehmigung für Mitarbeiter“) nach einer E-Mail-Adresse.
                           </p>
                         </div>
                         <div className="bg-slate-50 border p-3 rounded-none w-full max-w-lg text-left">
                           <p className="text-[9px] font-bold uppercase text-slate-400 mb-2 flex items-center gap-1.5">
-                            <Terminal className="w-3 h-3" /> Verwendete JQL-Abfrage:
+                            <Terminal className="w-3 h-3" /> Aktuelle JQL-Diagnose:
                           </p>
                           <code className="text-[10px] font-mono text-blue-600 break-all select-all">
                             {debugJql}
@@ -260,7 +273,13 @@ export default function JiraSyncPage() {
       )}
 
       <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Die API nutzt den POST /search Endpunkt für maximale Kompatibilität.
+        <div className="flex items-start gap-2">
+          <Info className="w-4 h-4 shrink-0" />
+          <p>
+            Hinweis: Das System durchsucht automatisch alle Felder des Jira-Tickets nach einer gültigen E-Mail-Adresse. 
+            Es werden sowohl Text-Felder als auch User-Picker-Felder (z.B. „Genehmigung für Mitarbeiter“) unterstützt.
+          </p>
+        </div>
       </div>
     </div>
   );
