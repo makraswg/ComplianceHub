@@ -155,7 +155,7 @@ export default function SettingsPage() {
                   <Input placeholder="ITSM" value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Vorgangstyp (Issue Type)</Label>
+                  <Label className="text-[10px] font-bold uppercase">Anfragetyp (Request Type)</Label>
                   <Input placeholder="Service Request" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
