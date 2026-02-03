@@ -120,10 +120,10 @@ export default function ResourcesPage() {
   const [entPasswordManagerUrl, setEntPasswordManagerUrl] = useState('');
 
   // Data Loading
-  const { data: resources, isLoading, refresh } = usePluggableCollection<any>('resources');
-  const { data: entitlements } = usePluggableCollection<any>('entitlements');
-  const { data: assignments } = usePluggableCollection<any>('assignments');
-  const { data: users } = usePluggableCollection<any>('users');
+  const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<any>('resources');
+  const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
+  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
+  const { data: users, refresh: refreshUsers } = usePluggableCollection<any>('users');
 
   useEffect(() => {
     setMounted(true);
@@ -161,7 +161,7 @@ export default function ResourcesPage() {
     toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
     setIsCreateOpen(false);
     resetResourceForm();
-    refresh();
+    refreshResources();
   };
 
   const handleAddOrUpdateEntitlement = async () => {
@@ -188,7 +188,7 @@ export default function ResourcesPage() {
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
     resetEntitlementForm();
-    refresh();
+    refreshEntitlements();
   };
 
   const confirmDeleteResource = async () => {
@@ -201,7 +201,7 @@ export default function ResourcesPage() {
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
       setSelectedResource(null);
-      refresh();
+      refreshResources();
     }
   };
 
@@ -215,7 +215,7 @@ export default function ResourcesPage() {
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
       setSelectedEntitlement(null);
-      refresh();
+      refreshEntitlements();
     }
   };
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -75,10 +76,10 @@ export default function UsersPage() {
   const [newDepartment, setNewDepartment] = useState('');
   const [newTitle, setNewTitle] = useState('');
 
-  const { data: users, isLoading, refresh } = usePluggableCollection<any>('users');
-  const { data: assignments } = usePluggableCollection<any>('assignments');
-  const { data: entitlements } = usePluggableCollection<any>('entitlements');
-  const { data: resources } = usePluggableCollection<any>('resources');
+  const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
+  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
+  const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
+  const { data: resources, refresh: refreshResources } = usePluggableCollection<any>('resources');
 
   useEffect(() => {
     setMounted(true);
@@ -109,15 +110,14 @@ export default function UsersPage() {
         toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
         return;
       }
-      refresh(); // Liste neu laden
     } else {
       setDocumentNonBlocking(doc(db, 'users', userId), userData);
-      // Firestore onSnapshot aktualisiert automatisch
     }
     
     setIsAddOpen(false);
     toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde im Verzeichnis angelegt.` });
     resetForm();
+    refreshUsers();
   };
 
   const resetForm = () => {
@@ -176,7 +176,7 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">Zentrale Verwaltung aller Identitäten ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { setIsSyncing(true); setTimeout(() => { setIsSyncing(false); refresh(); }, 1500); }} disabled={isSyncing}>
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { setIsSyncing(true); setTimeout(() => { setIsSyncing(false); refreshUsers(); }, 1500); }} disabled={isSyncing}>
             <RefreshCw className={cn("w-3 h-3 mr-2", isSyncing && "animate-spin")} /> LDAP Sync
           </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => setIsAddOpen(true)}>
