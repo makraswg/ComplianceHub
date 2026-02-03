@@ -113,12 +113,16 @@ export default function GroupsPage() {
 
     // 1. Create or update assignments for group members
     for (const uid of userIds) {
+      const user = users?.find(u => u.id === uid);
       for (const eid of entIds) {
+        const ent = entitlements?.find(e => e.id === eid);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+        
         // Create deterministic ID for the user-entitlement pair within this group
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
-        // Update if not existing, or if validity has changed
+        // Update if not existing, or if validity/status has changed
         if (!existing || existing.status === 'removed' || existing.validFrom !== gValidFrom || existing.validUntil !== gValidUntil) {
           const assignmentData = {
             id: assId,
@@ -135,10 +139,25 @@ export default function GroupsPage() {
             tenantId: 't1'
           };
 
+          const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+          const auditData = {
+            id: auditId,
+            actorUid: authUser?.uid || 'system',
+            action: `Zuweisung [${ent?.name}] für [${user?.displayName || uid}] via Gruppe [${groupName}] ${existing ? 'aktualisiert' : 'erstellt'}`,
+            entityType: 'assignment',
+            entityId: assId,
+            timestamp,
+            tenantId: 't1',
+            before: existing || null,
+            after: assignmentData
+          };
+
           if (dataSource === 'mysql') {
             await saveCollectionRecord('assignments', assId, assignmentData);
+            await saveCollectionRecord('auditEvents', auditId, auditData);
           } else {
             setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData, { merge: true });
+            addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
           }
         }
       }
@@ -151,14 +170,37 @@ export default function GroupsPage() {
       const entStillInGroup = entIds.includes(a.entitlementId);
 
       if ((!userStillInGroup || !entStillInGroup) && a.status !== 'removed') {
+        const user = users?.find(u => u.id === a.userId);
+        const ent = entitlements?.find(e => e.id === a.entitlementId);
+        
+        const updatedAssignment = { 
+          ...a, 
+          status: 'removed',
+          notes: `${a.notes || ''} [Entfernt via Gruppen-Sync ${today}]`.trim()
+        };
+        
+        const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+        const auditData = {
+          id: auditId,
+          actorUid: authUser?.uid || 'system',
+          action: `Zuweisung [${ent?.name}] für [${user?.displayName || a.userId}] via Gruppen-Sync [${groupName}] entfernt`,
+          entityType: 'assignment',
+          entityId: a.id,
+          timestamp,
+          tenantId: 't1',
+          before: a,
+          after: updatedAssignment
+        };
+
         if (dataSource === 'mysql') {
-          const updated = { ...a, status: 'removed', notes: `${a.notes} [Entfernt via Gruppen-Sync ${today}]` };
-          await saveCollectionRecord('assignments', a.id, updated);
+          await saveCollectionRecord('assignments', a.id, updatedAssignment);
+          await saveCollectionRecord('auditEvents', auditId, auditData);
         } else {
           setDocumentNonBlocking(doc(db, 'assignments', a.id), { 
             status: 'removed',
             notes: `${a.notes || ''} [Entfernt via Gruppen-Sync ${today}]`
           }, { merge: true });
+          addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
         }
       }
     }
@@ -183,8 +225,9 @@ export default function GroupsPage() {
       tenantId: 't1'
     };
 
+    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
     const auditData = {
-      id: `audit-${Math.random().toString(36).substring(2, 9)}`,
+      id: auditId,
       actorUid: authUser?.uid || 'system',
       action: selectedGroup 
         ? `Zuweisungsgruppe [${name}] aktualisiert (${selectedUserIds.length} Mitglieder, ${selectedEntitlementIds.length} Rollen)`
@@ -193,7 +236,7 @@ export default function GroupsPage() {
       entityId: groupId,
       timestamp,
       tenantId: 't1',
-      before: selectedGroup,
+      before: selectedGroup || null,
       after: groupData
     };
 
@@ -203,13 +246,13 @@ export default function GroupsPage() {
         toast({ variant: "destructive", title: "Fehler", description: result.error });
         return;
       }
-      await saveCollectionRecord('auditEvents', auditData.id, auditData);
+      await saveCollectionRecord('auditEvents', auditId, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // Synergize with assignments table
+    // Synergize with assignments table and create individual audits
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil);
 
     setIsEditOpen(false);
@@ -217,7 +260,6 @@ export default function GroupsPage() {
     toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
     resetForm();
     
-    // Slight delay to allow backend to finish writes
     setTimeout(() => {
       refreshGroups();
       refreshAssignments();
@@ -228,10 +270,12 @@ export default function GroupsPage() {
     if (selectedGroup) {
       const timestamp = new Date().toISOString();
       const today = timestamp.split('T')[0];
-      const auditData = {
-        id: `audit-${Math.random().toString(36).substring(2, 9)}`,
+      
+      const groupAuditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+      const groupAuditData = {
+        id: groupAuditId,
         actorUid: authUser?.uid || 'system',
-        action: `Zuweisungsgruppe [${selectedGroup.name}] gelöscht (alle zugehörigen Zuweisungen entzogen)`,
+        action: `Zuweisungsgruppe [${selectedGroup.name}] gelöscht (alle Zuweisungen einzeln entzogen)`,
         entityType: 'group',
         entityId: selectedGroup.id,
         timestamp,
@@ -241,18 +285,41 @@ export default function GroupsPage() {
 
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('groups', selectedGroup.id);
-        // Soft delete all group assignments
-        const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
-        for (const a of groupAssignments) {
-          await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed', validUntil: today });
-        }
-        await saveCollectionRecord('auditEvents', auditData.id, auditData);
+        await saveCollectionRecord('auditEvents', groupAuditId, groupAuditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
-        assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
-          setDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed', validUntil: today }, { merge: true });
-        });
-        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
+        addDocumentNonBlocking(collection(db, 'auditEvents'), groupAuditData);
+      }
+
+      // Soft delete and audit all group assignments individually
+      const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
+      for (const a of groupAssignments) {
+        if (a.status !== 'removed') {
+          const user = users?.find(u => u.id === a.userId);
+          const ent = entitlements?.find(e => e.id === a.entitlementId);
+          
+          const updatedAssignment = { ...a, status: 'removed', validUntil: today };
+          const assAuditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
+          const assAuditData = {
+            id: assAuditId,
+            actorUid: authUser?.uid || 'system',
+            action: `Zuweisung [${ent?.name}] für [${user?.displayName || a.userId}] via Gruppen-Löschung [${selectedGroup.name}] entfernt`,
+            entityType: 'assignment',
+            entityId: a.id,
+            timestamp,
+            tenantId: 't1',
+            before: a,
+            after: updatedAssignment
+          };
+
+          if (dataSource === 'mysql') {
+            await saveCollectionRecord('assignments', a.id, updatedAssignment);
+            await saveCollectionRecord('auditEvents', assAuditId, assAuditData);
+          } else {
+            setDocumentNonBlocking(doc(db, 'assignments', a.id), { status: 'removed', validUntil: today }, { merge: true });
+            addDocumentNonBlocking(collection(db, 'auditEvents'), assAuditData);
+          }
+        }
       }
       
       setIsDeleteOpen(false);
@@ -472,7 +539,7 @@ export default function GroupsPage() {
                 <div className="p-4 bg-blue-50 border border-blue-100 text-[10px] text-blue-700 uppercase font-bold leading-relaxed mt-6">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <p>Hinweis: Die gewählten Zeiträume werden auf alle generierten Zuweisungen übertragen. Änderungen an der Gruppe synchronisieren die Termine aller Mitglieder automatisch nach.</p>
+                    <p>Hinweis: Die gewählten Zeiträume werden auf alle generierten Zuweisungen übertragen. Änderungen an der Gruppe synchronisieren die Termine aller Mitglieder automatisch nach und werden einzeln protokolliert.</p>
                   </div>
                 </div>
               </TabsContent>
@@ -603,7 +670,7 @@ export default function GroupsPage() {
               <AlertTriangle className="w-5 h-5" /> Gruppe löschen?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              Dies löscht die Gruppe "{selectedGroup?.name}". Alle automatischen Zuweisungen dieser Gruppe werden ebenfalls sofort auf 'removed' gesetzt.
+              Dies löscht die Gruppe "{selectedGroup?.name}". Alle automatischen Zuweisungen dieser Gruppe werden ebenfalls sofort als 'removed' markiert und im Audit Log für jeden Nutzer protokolliert.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
