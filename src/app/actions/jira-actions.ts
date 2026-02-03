@@ -5,14 +5,27 @@ import { JiraConfig, JiraSyncItem, Resource, Entitlement } from '@/lib/types';
 
 /**
  * Hilfsfunktion zum Bereinigen der Jira-URL.
+ * Extrahiert die Basis-Domain, auch wenn der User eine tiefe URL aus dem Browser kopiert hat.
  */
 function cleanJiraUrl(url: string): string {
   if (!url) return '';
-  let cleaned = url.trim().replace(/\/$/, '');
-  if (cleaned.includes('/rest/')) {
-    cleaned = cleaned.split('/rest/')[0];
+  let cleaned = url.trim();
+  
+  try {
+    // Versuch, die URL zu parsen und nur Protokoll + Host zu behalten
+    const parsed = new URL(cleaned);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch (e) {
+    // Fallback: Manuelle Bereinigung bekannter Pfade
+    cleaned = cleaned.replace(/\/$/, '');
+    const segments = ['/rest/', '/jira/', '/assets/', '/browse/', '/projects/'];
+    for (const segment of segments) {
+      if (cleaned.includes(segment)) {
+        cleaned = cleaned.split(segment)[0];
+      }
+    }
+    return cleaned;
   }
-  return cleaned;
 }
 
 /**
@@ -39,8 +52,6 @@ export async function getJiraWorkspacesAction(configData: { email: string; apiTo
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    console.log(`[Jira Assets] Rufe Workspaces ab für: ${configData.email}`);
-    // Wir nutzen den offiziellen Cloud-Discovery Endpunkt
     const response = await fetch(`https://api.atlassian.com/jsm/assets/workspace`, {
       method: 'GET',
       headers: {
@@ -53,25 +64,21 @@ export async function getJiraWorkspacesAction(configData: { email: string; apiTo
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[Jira Assets] API Fehler ${response.status}:`, errorText);
       return { 
         success: false, 
-        error: `Jira API Fehler (${response.status})`,
+        error: `Jira Assets API Fehler (${response.status})`,
         details: errorText.substring(0, 200) || response.statusText
       };
     }
 
     const data = await response.json();
-    // Der Endpunkt gibt ein Array von Workspace-Objekten zurück
     const workspaces = (data.values || data || []).map((w: any) => ({
       id: w.workspaceId || w.id,
       name: w.workspaceName || w.name || w.workspaceId || w.id
     }));
 
-    console.log(`[Jira Assets] ${workspaces.length} Workspaces gefunden.`);
     return { success: true, workspaces };
   } catch (e: any) {
-    console.error(`[Jira Assets] Kritischer Fehler:`, e);
     return { success: false, error: 'Verbindungsfehler zur Atlassian Cloud', details: e.message };
   }
 }
@@ -93,7 +100,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // 1. Core API Test
+    // 1. Basis Authentifizierungstest
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -107,17 +114,17 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       return { 
         success: false, 
         message: `Authentifizierungsfehler (${testRes.status})`,
-        details: `Jira-Antwort: ${errorText.substring(0, 300)}`
+        details: `Jira-Antwort auf /myself: ${errorText.substring(0, 300)}`
       };
     }
 
     const userData = await testRes.json();
     
-    // 2. JQL Search Test (v3 JQL search endpoint)
-    // Wir nutzen den von Jira geforderten /rest/api/3/search/jql Endpunkt
+    // 2. JQL Search Test (POST Methode zur Umgehung von "API removed" Fehlern)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
-    const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
+    // Wir nutzen /rest/api/3/search per POST
+    const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
@@ -136,8 +143,8 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       const errorText = await searchRes.text();
       return { 
         success: false, 
-        message: `JQL Suche fehlgeschlagen (${searchRes.status})`,
-        details: `Fehlermeldung: ${errorText.substring(0, 500)}`
+        message: `Suche fehlgeschlagen (${searchRes.status})`,
+        details: `Endpoint: ${url}/rest/api/3/search. Antwort: ${errorText.substring(0, 500)}`
       };
     }
 
@@ -219,7 +226,7 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     }
     jql += ` ORDER BY created DESC`;
 
-    const response = await fetch(`${url}/rest/api/3/search/jql`, {
+    const response = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: { 
         'Authorization': `Basic ${auth}`,
@@ -239,7 +246,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     const data = await response.json();
     if (!data.issues) return [];
 
-    // Lade lokale Ressourcen/Entitlements für das Matching
     const resData = await getCollectionData('resources');
     const entData = await getCollectionData('entitlements');
     const localResources = (resData.data as Resource[]) || [];
@@ -253,7 +259,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       const findInObject = (obj: any): string | null => {
         if (!obj) return null;
         
-        // Wenn es ein User-Picker Feld ist (Object mit emailAddress)
         if (obj.emailAddress) {
           extractedEmail = obj.emailAddress;
           return extractedEmail;
@@ -261,13 +266,11 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
         const text = JSON.stringify(obj).toLowerCase();
         
-        // Suche nach E-Mail
         if (!extractedEmail) {
           const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
           if (emailMatch) extractedEmail = emailMatch[0];
         }
 
-        // Suche nach Rollen-Namen
         if (!matchedRoleName) {
           for (const ent of localEntitlements) {
             if (text.includes(ent.name.toLowerCase())) {
@@ -281,7 +284,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
         return null;
       };
 
-      // Durchsuche alle Felder des Tickets
       for (const fieldKey in issue.fields) {
         findInObject(issue.fields[fieldKey]);
       }
@@ -325,7 +327,6 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
       return { success: false, message: 'Schema ID oder Objekttyp IDs fehlen in den Einstellungen.' };
     }
 
-    // Prototyp-Simulation: Wir zeigen den Erfolg an.
     const statusMessage = `Erfolg: ${resourcesList.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlementsList.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
 
     return { 

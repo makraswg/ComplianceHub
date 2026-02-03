@@ -244,7 +244,10 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label>
+                    <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Die Haupt-URL Ihrer Instanz, z.B. https://company.atlassian.net. Wir bereinigen tiefe Pfade automatisch.</TooltipContent></Tooltip></TooltipProvider>
+                  </div>
                   <Input placeholder="https://company.atlassian.net" value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none" />
                 </div>
                 <div className="space-y-2">
