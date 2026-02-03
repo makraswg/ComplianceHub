@@ -3,6 +3,7 @@
 
 import { useCollection as useFirestoreCollection, UseCollectionResult } from '@/firebase/firestore/use-collection';
 import { useMockCollection } from '@/hooks/data/use-mock-collection';
+import { useMysqlCollection } from '@/hooks/data/use-mysql-collection';
 import { Document } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { useFirestore } from '@/firebase';
@@ -11,14 +12,13 @@ import { useMemo } from 'react';
 
 /**
  * Ein austauschbarer Daten-Hook, der je nach globalen Einstellungen die Datenquelle wählt.
- * Erstellt eine korrekte CollectionReference für Firestore oder deaktiviert den Hook.
+ * Erstellt eine korrekte CollectionReference für Firestore oder nutzt MySQL/Mock Hooks.
  */
 export function usePluggableCollection<T extends Document>(collectionName: string): UseCollectionResult<T> {
   const { dataSource } = useSettings();
   const db = useFirestore();
 
   // Erstellt eine memoisierte Collection-Referenz für Firestore.
-  // Diese ist `null`, wenn die Datenquelle nicht 'firestore' ist.
   const collectionRef = useMemo(() => {
     if (dataSource === 'firestore' && db) {
       return collection(db, collectionName) as CollectionReference<T, DocumentData>;
@@ -26,16 +26,25 @@ export function usePluggableCollection<T extends Document>(collectionName: strin
     return null;
   }, [dataSource, db, collectionName]);
 
-  // useFirestoreCollection wird jetzt korrekt mit einer Referenz oder `null` aufgerufen.
-  // Wenn die Referenz `null` ist, tut der Hook nichts.
+  // Firestore Hook (Real-time onSnapshot)
   const firestoreResult = useFirestoreCollection<T>(collectionRef);
   
-  // useMockCollection wird deaktiviert, wenn die Datenquelle nicht 'mock' ist.
+  // MySQL Hook
+  const mysqlResult = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
+  
+  // Mock Hook
   const mockResult = useMockCollection<T>(collectionName, { disabled: dataSource !== 'mock' });
 
   // Gibt das Ergebnis basierend auf der ausgewählten Datenquelle zurück.
   if (dataSource === 'firestore') {
     return firestoreResult;
+  } else if (dataSource === 'mysql') {
+    // Umwandlung des mysqlResult Typs in UseCollectionResult<T>
+    return {
+      data: mysqlResult.data ? (mysqlResult.data as any) : null,
+      isLoading: mysqlResult.isLoading,
+      error: mysqlResult.error ? new Error(mysqlResult.error) : null
+    } as UseCollectionResult<T>;
   } else {
     return mockResult;
   }

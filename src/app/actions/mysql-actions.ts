@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -20,7 +21,6 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
   const tableName = collectionToTableMap[collectionName];
 
   if (!tableName) {
-    console.warn(`Attempted to query an invalid collection: ${collectionName}`);
     return { data: null, error: `Die Sammlung '${collectionName}' ist nicht für den Zugriff freigegeben.` };
   }
 
@@ -30,7 +30,6 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
     const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
     connection.release();
     
-    // JSON Parsing für Listenfelder in Gruppen
     let data = JSON.parse(JSON.stringify(rows));
     
     if (tableName === 'groups') {
@@ -49,6 +48,61 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
       connection.release();
     }
     return { data: null, error: `Datenbankfehler: ${error.message}` };
+  }
+}
+
+/**
+ * Speichert oder aktualisiert einen Datensatz in MySQL.
+ */
+export async function saveCollectionRecord(collectionName: string, id: string, data: any): Promise<{ success: boolean; error: string | null }> {
+  const tableName = collectionToTableMap[collectionName];
+  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
+
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    
+    // Bereite Daten für MySQL vor (JSON-Felder konvertieren)
+    const preparedData = { ...data };
+    if (tableName === 'groups') {
+      if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
+      if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
+    }
+
+    const keys = Object.keys(preparedData);
+    const values = Object.values(preparedData);
+    
+    const placeholders = keys.map(() => '?').join(', ');
+    const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
+    
+    const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
+    
+    await connection.execute(sql, values);
+    connection.release();
+    return { success: true, error: null };
+  } catch (error: any) {
+    console.error("MySQL Save Error:", error);
+    if (connection) connection.release();
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Löscht einen Datensatz aus MySQL.
+ */
+export async function deleteCollectionRecord(collectionName: string, id: string): Promise<{ success: boolean; error: string | null }> {
+  const tableName = collectionToTableMap[collectionName];
+  if (!tableName) return { success: false, error: 'Ungültige Tabelle' };
+
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
+    connection.release();
+    return { success: true, error: null };
+  } catch (error: any) {
+    if (connection) connection.release();
+    return { success: false, error: error.message };
   }
 }
 

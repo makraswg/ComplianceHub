@@ -45,7 +45,6 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useFirestore, setDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -53,26 +52,25 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { getAccessAdvice } from '@/ai/flows/access-advisor-flow';
+import { useSettings } from '@/context/settings-context';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 
 export default function UsersPage() {
   const db = useFirestore();
   const router = useRouter();
-  const { user: authUser } = useAuthUser();
+  const { dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Dialog States
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   
-  // Data States
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
 
-  // Form States
   const [newDisplayName, setNewDisplayName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
@@ -87,22 +85,14 @@ export default function UsersPage() {
     setMounted(true);
   }, []);
 
-  const handleSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      toast({ title: "Synchronisierung abgeschlossen", description: "LDAP-Status wurde erfolgreich aktualisiert." });
-    }, 1500);
-  };
-
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newDisplayName || !newEmail) {
       toast({ variant: "destructive", title: "Fehler", description: "Name und E-Mail sind erforderlich." });
       return;
     }
     
     const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
-    setDocumentNonBlocking(doc(db, 'users', userId), {
+    const userData = {
       id: userId,
       externalId: `MANUAL_${userId}`,
       displayName: newDisplayName,
@@ -112,11 +102,28 @@ export default function UsersPage() {
       enabled: true,
       lastSyncedAt: new Date().toISOString(),
       tenantId: 't1'
-    });
+    };
+
+    if (dataSource === 'mysql') {
+      const result = await saveCollectionRecord('users', userId, userData);
+      if (!result.success) {
+        toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
+        return;
+      }
+    } else {
+      setDocumentNonBlocking(doc(db, 'users', userId), userData);
+    }
     
     setIsAddOpen(false);
     toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde im Verzeichnis angelegt.` });
     resetForm();
+    
+    // Im MySQL Modus müssen wir ggf. die Liste manuell refreshen, 
+    // falls wir keinen Echtzeit-Listener haben. 
+    // usePluggableCollection regelt das über den State der Seite.
+    if (dataSource === 'mysql') {
+        router.refresh();
+    }
   };
 
   const resetForm = () => {
@@ -172,10 +179,10 @@ export default function UsersPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground font-headline">Benutzerverzeichnis</h1>
-          <p className="text-sm text-muted-foreground">Zentrale Verwaltung aller Identitäten und deren Status.</p>
+          <p className="text-sm text-muted-foreground">Zentrale Verwaltung aller Identitäten ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={handleSync} disabled={isSyncing}>
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => setIsSyncing(true)} disabled={isSyncing}>
             <RefreshCw className={cn("w-3 h-3 mr-2", isSyncing && "animate-spin")} /> LDAP Sync
           </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => setIsAddOpen(true)}>
@@ -438,7 +445,7 @@ export default function UsersPage() {
 
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                    <Info className="w-4 h-4" /> Analyse-Zusammenfassung
+                    <span className="w-4 h-4 flex items-center justify-center bg-primary text-white rounded-full text-[8px]">!</span> Analyse-Zusammenfassung
                   </h4>
                   <p className="text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 border italic">
                     "{aiAdvice.summary}"
