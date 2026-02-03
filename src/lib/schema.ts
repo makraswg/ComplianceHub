@@ -1,4 +1,3 @@
-
 // src/lib/schema.ts
 
 /**
@@ -7,64 +6,100 @@
 export interface TableDefinition {
   /**
    * Eine Map von Spaltennamen zu ihren SQL-Typ-Definitionen.
-   * z.B. { id: 'VARCHAR(255) PRIMARY KEY', name: 'VARCHAR(255) NOT NULL' }
    */
   columns: {
     [columnName: string]: string;
   };
-  /**
-   * Zukünftige Erweiterungen könnten hier definiert werden, z.B. Indizes oder Foreign Keys.
-   * indexes?: { [indexName: string]: string[] };
-   */
 }
 
 /**
  * Definiert das gesamte Datenbankschema der Anwendung als eine Sammlung von Tabellen.
- * Dies ist die "Single Source of Truth" für die Datenbankstruktur.
- * Jede Änderung an der Datenbankstruktur (neue Tabelle, neue Spalte) wird hier deklariert.
  */
 export interface AppSchema {
   [tableName: string]: TableDefinition;
 }
 
-// Die konkrete Implementierung des Schemas für unsere Anwendung.
+// Die konkrete Implementierung des Schemas basierend auf backend.json
 export const appSchema: AppSchema = {
-  users: {
+  tenants: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       name: 'VARCHAR(255) NOT NULL',
-      email: 'VARCHAR(255) UNIQUE NOT NULL',
+      slug: 'VARCHAR(100) UNIQUE NOT NULL',
+      createdAt: 'VARCHAR(50) NOT NULL',
+    },
+  },
+  users: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      externalId: 'VARCHAR(255)',
+      displayName: 'VARCHAR(255) NOT NULL',
+      email: 'VARCHAR(255) NOT NULL',
+      department: 'VARCHAR(255)',
+      title: 'VARCHAR(255)',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      lastSyncedAt: 'VARCHAR(50)',
     },
   },
   groups: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
+      entitlementIds: 'TEXT', // Gespeichert als JSON-String
+      userIds: 'TEXT',        // Gespeichert als JSON-String
     },
   },
   resources: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       type: 'VARCHAR(100)',
+      owner: 'VARCHAR(255)',
+      url: 'TEXT',
+      documentationUrl: 'TEXT',
+      criticality: 'VARCHAR(20) DEFAULT "medium"',
     },
   },
   entitlements: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      name: 'VARCHAR(255) NOT NULL',
+      tenantId: 'VARCHAR(255) NOT NULL',
       resourceId: 'VARCHAR(255) NOT NULL',
-      // Ein Foreign Key könnte hier als zusätzliche Eigenschaft definiert werden,
-      // aber für die grundlegende Migration halten wir es einfach.
+      parentId: 'VARCHAR(255)',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      riskLevel: 'VARCHAR(20) DEFAULT "medium"',
+      isSharedAccount: 'BOOLEAN DEFAULT FALSE',
+      passwordManagerUrl: 'TEXT',
     },
   },
   assignments: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      principalType: 'VARCHAR(50) NOT NULL', // 'user' oder 'group'
-      principalId: 'VARCHAR(255) NOT NULL',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      userId: 'VARCHAR(255) NOT NULL',
       entitlementId: 'VARCHAR(255) NOT NULL',
+      originGroupId: 'VARCHAR(255)',
+      status: 'VARCHAR(50) DEFAULT "active"',
+      grantedBy: 'VARCHAR(255)',
+      grantedAt: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      lastReviewedAt: 'VARCHAR(50)',
+    },
+  },
+  auditEvents: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      actorUid: 'VARCHAR(255) NOT NULL',
+      action: 'VARCHAR(255) NOT NULL',
+      entityType: 'VARCHAR(50) NOT NULL',
+      entityId: 'VARCHAR(255) NOT NULL',
+      timestamp: 'VARCHAR(50) NOT NULL',
     },
   },
 };
