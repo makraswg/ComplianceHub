@@ -1,3 +1,4 @@
+
 // src/lib/schema.ts
 
 /**
@@ -89,6 +90,7 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(50) DEFAULT "active"',
       grantedBy: 'VARCHAR(255)',
       grantedAt: 'VARCHAR(50)',
+      validFrom: 'VARCHAR(50)',
       validUntil: 'VARCHAR(50)',
       lastReviewedAt: 'VARCHAR(50)',
       ticketRef: 'VARCHAR(255)',

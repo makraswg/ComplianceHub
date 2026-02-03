@@ -175,7 +175,8 @@
         "status": { "type": "string", "enum": ["active", "requested", "removed"] },
         "grantedBy": { "type": "string" },
         "grantedAt": { "type": "string", "format": "date-time" },
-        "validUntil": { "type": "string", "format": "date-time" },
+        "validFrom": { "type": "string", "format": "date" },
+        "validUntil": { "type": "string", "format": "date" },
         "lastReviewedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]

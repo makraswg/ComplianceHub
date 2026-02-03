@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,7 +25,8 @@ import {
   AlertTriangle,
   FileDown,
   Users,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -95,6 +97,7 @@ export default function AssignmentsPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
   const [ticketRef, setTicketRef] = useState('');
+  const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'active' | 'requested' | 'removed'>('active');
@@ -127,8 +130,9 @@ export default function AssignmentsPage() {
       status: 'active',
       grantedBy: authUser?.uid || 'system',
       grantedAt: timestamp,
-      ticketRef,
+      validFrom: validFrom || timestamp.split('T')[0],
       validUntil,
+      ticketRef,
       notes,
       tenantId: 't1'
     };
@@ -136,7 +140,7 @@ export default function AssignmentsPage() {
     const auditData = {
       id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
-      action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || user?.name || selectedUserId}] auf [${res?.name}] erstellt`,
+      action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || selectedUserId}] auf [${res?.name}] erstellt`,
       entityType: 'assignment',
       entityId: assignmentId,
       timestamp,
@@ -166,13 +170,16 @@ export default function AssignmentsPage() {
     if (!selectedAssignmentId) return;
 
     const existing = assignments?.find(a => a.id === selectedAssignmentId);
-    const user = users?.find(u => u.id === existing?.userId);
-    const ent = entitlements?.find(e => e.id === existing?.entitlementId);
+    if (!existing) return;
+
+    const user = users?.find(u => u.id === existing.userId);
+    const ent = entitlements?.find(e => e.id === existing.entitlementId);
 
     const timestamp = new Date().toISOString();
     const updateData = {
       status,
       ticketRef,
+      validFrom,
       validUntil,
       notes,
     };
@@ -180,7 +187,7 @@ export default function AssignmentsPage() {
     const auditData = {
       id: `audit-${Math.random().toString(36).substring(2, 9)}`,
       actorUid: authUser?.uid || 'system',
-      action: `Zuweisung [${ent?.name}] für [${user?.displayName || user?.name}] aktualisiert (Status: ${status})`,
+      action: `Zuweisung [${ent?.name}] für [${user?.displayName || existing.userId}] aktualisiert`,
       entityType: 'assignment',
       entityId: selectedAssignmentId,
       timestamp,
@@ -190,14 +197,12 @@ export default function AssignmentsPage() {
     };
 
     if (dataSource === 'mysql') {
-      if (existing) {
-        const result = await saveCollectionRecord('assignments', selectedAssignmentId, { ...existing, ...updateData });
-        if (!result.success) {
-          toast({ variant: "destructive", title: "Fehler", description: result.error });
-          return;
-        }
-        await saveCollectionRecord('auditEvents', auditData.id, auditData);
+      const result = await saveCollectionRecord('assignments', selectedAssignmentId, { ...existing, ...updateData });
+      if (!result.success) {
+        toast({ variant: "destructive", title: "Fehler", description: result.error });
+        return;
       }
+      await saveCollectionRecord('auditEvents', auditData.id, auditData);
     } else {
       updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), updateData);
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
@@ -219,7 +224,7 @@ export default function AssignmentsPage() {
       const auditData = {
         id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
-        action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || user?.name}] gelöscht`,
+        action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || existing?.userId}] gelöscht`,
         entityType: 'assignment',
         entityId: selectedAssignmentId,
         timestamp,
@@ -250,6 +255,7 @@ export default function AssignmentsPage() {
     setSelectedUserId(assignment.userId);
     setSelectedEntitlementId(assignment.entitlementId);
     setTicketRef(assignment.ticketRef || '');
+    setValidFrom(assignment.validFrom || '');
     setValidUntil(assignment.validUntil || '');
     setNotes(assignment.notes || '');
     setStatus(assignment.status || 'active');
@@ -266,7 +272,7 @@ export default function AssignmentsPage() {
     const entitlement = entitlements?.find(e => e.id === (assignment.entitlementId));
     const resource = resources?.find(r => r.id === entitlement?.resourceId);
     
-    const userName = user?.displayName || user?.name || '';
+    const userName = user?.displayName || '';
     const resourceName = resource?.name || '';
     const searchLower = search.toLowerCase();
 
@@ -289,6 +295,7 @@ export default function AssignmentsPage() {
     setSelectedUserId('');
     setSelectedEntitlementId('');
     setTicketRef('');
+    setValidFrom(new Date().toISOString().split('T')[0]); // Heute vorausfüllen
     setValidUntil('');
     setNotes('');
     setStatus('active');
@@ -350,7 +357,7 @@ export default function AssignmentsPage() {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Mitarbeiter</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">System / Rolle</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Freigabe bis</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Laufzeit</TableHead>
                 <TableHead className="font-bold uppercase tracking-widest text-[10px]">Status</TableHead>
                 <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktionen</TableHead>
               </TableRow>
@@ -358,7 +365,7 @@ export default function AssignmentsPage() {
             <TableBody>
               {filteredAssignments?.map((assignment) => {
                 const user = users?.find(u => u.id === (assignment.userId));
-                const userName = user?.displayName || user?.name;
+                const userName = user?.displayName || assignment.userId;
                 const ent = entitlements?.find(e => e.id === (assignment.entitlementId));
                 const res = resources?.find(r => r.id === ent?.resourceId);
                 const isExpired = assignment.validUntil && new Date(assignment.validUntil) < new Date();
@@ -373,7 +380,7 @@ export default function AssignmentsPage() {
                         </div>
                         <div>
                           <div className="font-bold text-sm flex items-center gap-2">
-                            {userName || assignment.userId}
+                            {userName}
                             {isFromGroup && (
                               <TooltipProvider>
                                 <Tooltip>
@@ -396,17 +403,23 @@ export default function AssignmentsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {assignment.validUntil ? (
-                        <div className={cn(
-                          "flex items-center gap-1.5 font-bold text-[10px] uppercase",
-                          isExpired ? "text-red-600" : "text-slate-600"
-                        )}>
-                          <Calendar className="w-3 h-3" />
-                          {new Date(assignment.validUntil).toLocaleDateString()}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5 font-bold text-[10px] uppercase text-slate-600">
+                          <Clock className="w-3 h-3" />
+                          Ab: {assignment.validFrom ? new Date(assignment.validFrom).toLocaleDateString() : 'Sofort'}
                         </div>
-                      ) : (
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider italic">Unbefristet</span>
-                      )}
+                        {assignment.validUntil ? (
+                          <div className={cn(
+                            "flex items-center gap-1.5 font-bold text-[10px] uppercase",
+                            isExpired ? "text-red-600" : "text-slate-600"
+                          )}>
+                            <Calendar className="w-3 h-3" />
+                            Bis: {new Date(assignment.validUntil).toLocaleDateString()}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider italic">Unbefristet</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn(
@@ -464,7 +477,7 @@ export default function AssignmentsPage() {
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
                   {users?.map(u => (
-                    <SelectItem key={u.id} value={u.id}>{u.displayName || u.name} ({u.email})</SelectItem>
+                    <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.email})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -487,15 +500,21 @@ export default function AssignmentsPage() {
                 </SelectContent>
               </Select>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
-                <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="z.B. INC-10293" className="rounded-none" />
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig ab</Label>
+                <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Freigabe bis (Optional)</Label>
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Freigabe bis (Vorgesetzter)</Label>
                 <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
+              <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="z.B. INC-10293" className="rounded-none" />
             </div>
           </div>
           <DialogFooter>
@@ -524,15 +543,21 @@ export default function AssignmentsPage() {
                 </SelectContent>
               </Select>
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
-                <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} className="rounded-none" />
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig ab</Label>
+                <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Freigabe bis</Label>
                 <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
+              <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} className="rounded-none" />
             </div>
           </div>
           <DialogFooter>

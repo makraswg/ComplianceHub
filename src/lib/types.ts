@@ -56,8 +56,9 @@ export interface Assignment {
   status: 'active' | 'requested' | 'removed';
   grantedBy: string;
   grantedAt: string;
-  ticketRef: string;
+  validFrom?: string;
   validUntil?: string;
+  ticketRef: string;
   notes: string;
   lastReviewedAt?: string;
   reviewedBy?: string;
@@ -77,7 +78,7 @@ export interface AuditLogEntry {
   tenantId: string;
   actorUid: string;
   action: string;
-  entityType: 'resource' | 'entitlement' | 'assignment' | 'member' | 'group';
+  entityType: 'resource' | 'entitlement' | 'assignment' | 'member' | 'group' | 'user';
   entityId: string;
   before?: any;
   after?: any;
