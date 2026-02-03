@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -26,11 +25,10 @@ import {
   AlertTriangle,
   FileDown,
   FileText,
-  ChevronRight,
-  ChevronDown,
-  CornerDownRight,
   Info,
-  Key
+  Key,
+  Users,
+  Layout
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -77,7 +75,8 @@ import {
   useMemoFirebase, 
   addDocumentNonBlocking, 
   deleteDocumentNonBlocking, 
-  updateDocumentNonBlocking 
+  updateDocumentNonBlocking,
+  setDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -93,9 +92,11 @@ export default function ResourcesPage() {
   const [isEntitlementOpen, setIsEntitlementOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleteEntitlementOpen, setIsDeleteEntitlementOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [selectedEntitlement, setSelectedEntitlement] = useState<any>(null);
+  const [editingResource, setEditingResource] = useState<any>(null);
 
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState('SaaS');
@@ -113,20 +114,25 @@ export default function ResourcesPage() {
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
   const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
+  const assignmentsQuery = useMemoFirebase(() => collection(db, 'assignments'), [db]);
+  const usersQuery = useMemoFirebase(() => collection(db, 'users'), [db]);
 
   const { data: resources, isLoading } = useCollection(resourcesQuery);
   const { data: entitlements } = useCollection(entitlementsQuery);
+  const { data: assignments } = useCollection(assignmentsQuery);
+  const { data: users } = useCollection(usersQuery);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleCreateResource = () => {
+  const handleCreateOrUpdateResource = () => {
     if (!newName || !newOwner) {
       toast({ variant: "destructive", title: "Fehler", description: "Name und Besitzer sind erforderlich." });
       return;
     }
-    addDocumentNonBlocking(collection(db, 'resources'), {
+
+    const resData = {
       name: newName,
       type: newType,
       owner: newOwner,
@@ -134,16 +140,45 @@ export default function ResourcesPage() {
       documentationUrl: newDocumentationUrl,
       passwordManagerUrl: newPasswordManagerUrl,
       criticality: newCriticality,
-      createdAt: new Date().toISOString(),
       tenantId: 't1'
-    });
+    };
+
+    if (editingResource) {
+      updateDocumentNonBlocking(doc(db, 'resources', editingResource.id), resData);
+      toast({ title: "System aktualisiert" });
+    } else {
+      addDocumentNonBlocking(collection(db, 'resources'), {
+        ...resData,
+        createdAt: new Date().toISOString(),
+      });
+      toast({ title: "System registriert" });
+    }
+
     setIsCreateOpen(false);
-    toast({ title: "System registriert" });
+    resetResourceForm();
+  };
+
+  const resetResourceForm = () => {
     setNewName('');
     setNewOwner('');
     setNewUrl('');
+    setNewType('SaaS');
     setNewDocumentationUrl('');
     setNewPasswordManagerUrl('');
+    setNewCriticality('medium');
+    setEditingResource(null);
+  };
+
+  const openEditResource = (resource: any) => {
+    setEditingResource(resource);
+    setNewName(resource.name);
+    setNewType(resource.type);
+    setNewOwner(resource.owner);
+    setNewUrl(resource.url || '');
+    setNewDocumentationUrl(resource.documentationUrl || '');
+    setNewPasswordManagerUrl(resource.passwordManagerUrl || '');
+    setNewCriticality(resource.criticality);
+    setIsCreateOpen(true);
   };
 
   const handleAddOrUpdateEntitlement = () => {
@@ -220,43 +255,9 @@ export default function ResourcesPage() {
     await exportResourcesPdf(filteredResources, entitlements);
   };
 
-  const renderEntitlementTree = (parentId: string | null = null, depth: number = 0) => {
-    const children = entitlements?.filter(e => e.resourceId === selectedResource?.id && (e.parentId === parentId || (!e.parentId && parentId === null)));
-    
-    if (!children || children.length === 0) return null;
-
-    return children.map(e => (
-      <div key={e.id} className="space-y-1">
-        <div className={cn(
-          "flex items-center justify-between p-3 transition-colors hover:bg-muted/5 group",
-          depth > 0 && "ml-6 border-l pl-4"
-        )}>
-          <div className="flex items-center gap-3">
-            {depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground/50" />}
-            <Badge variant="outline" className={cn(
-              "text-[9px] uppercase font-bold rounded-none",
-              e.riskLevel === 'high' ? "text-red-600 border-red-200" : "text-blue-600 border-blue-200"
-            )}>{e.riskLevel}</Badge>
-            <span className="text-sm font-bold">
-              {e.name}
-            </span>
-          </div>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => {
-              setEditingEntitlementId(e.id);
-              setEntName(e.name);
-              setEntRisk(e.riskLevel);
-              setEntParentId(e.parentId || "none");
-            }}><Pencil className="w-3.5 h-3.5" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-red-600" onClick={() => {
-              setSelectedEntitlement(e);
-              setIsDeleteEntitlementOpen(true);
-            }}><Trash2 className="w-3.5 h-3.5" /></Button>
-          </div>
-        </div>
-        {renderEntitlementTree(e.id, depth + 1)}
-      </div>
-    ));
+  const openDetails = (resource: any) => {
+    setSelectedResource(resource);
+    setTimeout(() => setIsDetailsOpen(true), 150);
   };
 
   if (!mounted) return null;
@@ -284,7 +285,7 @@ export default function ResourcesPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
+          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetResourceForm(); setIsCreateOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> System hinzufügen
           </Button>
         </div>
@@ -328,10 +329,10 @@ export default function ResourcesPage() {
                         <div className="w-9 h-9 rounded-none bg-primary/10 flex items-center justify-center text-primary">
                           <Layers className="w-5 h-5" />
                         </div>
-                        <div>
-                          <div className="font-bold text-sm flex items-center gap-2">
+                        <div className="cursor-pointer" onClick={() => openDetails(resource)}>
+                          <div className="font-bold text-sm flex items-center gap-2 hover:text-primary transition-colors">
                             {resource.name}
-                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary"><ExternalLink className="w-3 h-3" /></a>}
+                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary" onClick={(e) => e.stopPropagation()}><ExternalLink className="w-3 h-3" /></a>}
                           </div>
                           <div className="text-[10px] font-bold text-muted-foreground uppercase">{resource.owner}</div>
                         </div>
@@ -393,6 +394,12 @@ export default function ResourcesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 p-1 shadow-xl rounded-none">
+                          <DropdownMenuItem onSelect={() => openDetails(resource)}>
+                            <Layout className="w-4 h-4 mr-2" /> Details & Zugriff
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEditResource(resource)}>
+                            <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={(e) => {
                             e.preventDefault();
                             setSelectedResource(resource);
@@ -419,9 +426,10 @@ export default function ResourcesPage() {
         )}
       </div>
 
+      {/* Create/Edit Resource Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="max-w-md rounded-none border shadow-2xl">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">System registrieren</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{editingResource ? 'System bearbeiten' : 'System registrieren'}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name des IT-Systems</Label>
@@ -486,24 +494,95 @@ export default function ResourcesPage() {
               <Input value={newPasswordManagerUrl} onChange={e => setNewPasswordManagerUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://pass.intern/vault/id" />
             </div>
           </div>
-          <DialogFooter><Button onClick={handleCreateResource} className="w-full h-11 rounded-none font-bold uppercase text-xs">System im Katalog speichern</Button></DialogFooter>
+          <DialogFooter><Button onClick={handleCreateOrUpdateResource} className="w-full h-11 rounded-none font-bold uppercase text-xs">Änderungen speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Details & Access View */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <DialogContent className="max-w-3xl rounded-none border shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <Layers className="w-4 h-4" /> {selectedResource?.name} - Übersicht
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium">Zentrale Ansicht aller Konfigurationen und aktiven Zugriffe für dieses System.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-6 space-y-8 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-3 gap-6">
+              <div className="space-y-1">
+                <Label className="text-[9px] font-bold uppercase text-muted-foreground">Typ</Label>
+                <div className="text-sm font-bold">{selectedResource?.type}</div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] font-bold uppercase text-muted-foreground">Kritikalität</Label>
+                <div>
+                  <Badge className={cn("rounded-none font-bold uppercase text-[9px] border-none", selectedResource?.criticality === 'high' ? 'bg-red-500' : 'bg-blue-600')}>{selectedResource?.criticality}</Badge>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[9px] font-bold uppercase text-muted-foreground">System Owner</Label>
+                <div className="text-sm font-bold">{selectedResource?.owner}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary border-b pb-1 flex items-center gap-2">
+                <Users className="w-3.5 h-3.5" /> Wer hat Zugriff?
+              </h3>
+              <div className="border rounded-none">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="py-2 text-[9px] font-bold uppercase">Benutzer</TableHead>
+                      <TableHead className="py-2 text-[9px] font-bold uppercase">Rolle</TableHead>
+                      <TableHead className="py-2 text-[9px] font-bold uppercase">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {assignments?.filter(a => {
+                      const ent = entitlements?.find(e => e.id === a.entitlementId);
+                      return ent?.resourceId === selectedResource?.id && a.status !== 'removed';
+                    }).map(a => {
+                      const user = users?.find(u => u.id === a.userId);
+                      const ent = entitlements?.find(e => e.id === a.entitlementId);
+                      return (
+                        <TableRow key={a.id} className="text-xs">
+                          <TableCell className="py-2 font-bold">{user?.displayName || a.userId}</TableCell>
+                          <TableCell className="py-2">{ent?.name}</TableCell>
+                          <TableCell className="py-2">
+                            <Badge variant="outline" className="text-[8px] font-bold uppercase px-1 py-0 rounded-none">{a.status}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {assignments?.filter(a => {
+                      const ent = entitlements?.find(e => e.id === a.entitlementId);
+                      return ent?.resourceId === selectedResource?.id && a.status !== 'removed';
+                    }).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center py-8 text-muted-foreground italic text-xs">Keine aktiven Zugriffe für dieses System.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none h-10 w-full font-bold uppercase text-[10px]" onClick={() => setIsDetailsOpen(false)}>Schließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Management Dialog */}
       <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
         <DialogContent className="max-w-2xl rounded-none border shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold uppercase">Rollen-Hierarchie: {selectedResource?.name}</DialogTitle>
-            <DialogDescription className="text-xs">Bauen Sie einen Berechtigungsbaum durch Auswahl von übergeordneten Rollen auf.</DialogDescription>
           </DialogHeader>
           <div className="space-y-6">
             <div className="p-4 border rounded-none bg-muted/20 space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-[10px] font-bold uppercase text-primary">
-                  {editingEntitlementId ? "Rolle bearbeiten" : "Neue Rolle hinzufügen"}
-                </Label>
-                {editingEntitlementId && <Button variant="ghost" size="sm" onClick={resetEntitlementForm} className="h-6 w-6 p-0 rounded-none"><X className="w-3.5 h-3.5" /></Button>}
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase">Rollenname</Label>
@@ -521,32 +600,6 @@ export default function ResourcesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[10px] font-bold uppercase">Sicherheitsrisiko</Label>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="w-3 h-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-[10px]">
-                          <p className="font-bold mb-1">Risikoklassen:</p>
-                          <p>Hoch: Privilegiert (Admin, Root, DB-Write).</p>
-                          <p>Mittel: Standard-Schreibrechte.</p>
-                          <p>Niedrig: Read-Only / View-Only.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <Select value={entRisk} onValueChange={setEntRisk}>
-                    <SelectTrigger className="h-9 rounded-none"><SelectValue /></SelectTrigger>
-                    <SelectContent className="rounded-none">
-                      <SelectItem value="low">Niedrig</SelectItem>
-                      <SelectItem value="medium">Mittel</SelectItem>
-                      <SelectItem value="high">Hoch</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10 font-bold uppercase text-[10px] rounded-none">
                 {editingEntitlementId ? "Rolle aktualisieren" : "Rolle zum Katalog hinzufügen"}
@@ -554,14 +607,25 @@ export default function ResourcesPage() {
             </div>
             
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Aktuelle Baumstruktur</Label>
-              <div className="border rounded-none max-h-64 overflow-auto bg-card">
-                <div className="divide-y">
-                  {renderEntitlementTree()}
-                  {!isLoading && entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
-                    <div className="p-8 text-center text-xs text-muted-foreground italic">Keine Rollen definiert.</div>
-                  )}
-                </div>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Aktuelle Baumstruktur</Label>
+              <div className="border rounded-none max-h-64 overflow-auto bg-card divide-y">
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
+                  <div key={e.id} className="flex items-center justify-between p-3 hover:bg-muted/5 group">
+                    <span className="text-sm font-bold">{e.name}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => {
+                        setEditingEntitlementId(e.id);
+                        setEntName(e.name);
+                        setEntRisk(e.riskLevel);
+                        setEntParentId(e.parentId || "none");
+                      }}><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-red-600" onClick={() => {
+                        setSelectedEntitlement(e);
+                        setIsDeleteEntitlementOpen(true);
+                      }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -572,7 +636,7 @@ export default function ResourcesPage() {
         <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">System löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">Alle Rollen und Zuweisungen werden unwiderruflich entfernt. Dies kann Compliance-Lücken verursachen.</AlertDialogDescription>
+            <AlertDialogDescription className="text-xs">Alle Rollen und Zuweisungen werden unwiderruflich entfernt.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
@@ -585,9 +649,7 @@ export default function ResourcesPage() {
         <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-bold uppercase text-sm">Rolle entfernen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Die Rolle wird aus dem System entfernt. Achtung: Untergeordnete Rollen verlieren ihren Bezug und müssen neu zugewiesen werden.
-            </AlertDialogDescription>
+            <AlertDialogDescription className="text-xs">Die Rolle wird aus dem System entfernt.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>

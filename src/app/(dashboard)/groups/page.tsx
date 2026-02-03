@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -77,6 +76,8 @@ export default function GroupsPage() {
   const handleCreateGroup = () => {
     if (!name) return;
     const groupId = `grp-${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Explicitly using root collection as per rules update
     setDocumentNonBlocking(doc(db, 'groups', groupId), {
       id: groupId,
       name,
@@ -85,6 +86,7 @@ export default function GroupsPage() {
       entitlementIds: [],
       tenantId: 't1'
     });
+
     setIsAddOpen(false);
     toast({ title: "Gruppe erstellt" });
     setName('');
@@ -92,8 +94,7 @@ export default function GroupsPage() {
   };
 
   const syncAssignmentsForGroup = (group: AssignmentGroup, userIds: string[], entitlementIds: string[]) => {
-    // Diese Logik stellt sicher, dass alle User in der Gruppe alle Entitlements der Gruppe haben.
-    // In einer echten App würde das ein Cloud Function Backend machen.
+    // Ensuring all users in group have all group entitlements
     userIds.forEach(uid => {
       entitlementIds.forEach(eid => {
         const existing = assignments?.find(a => a.userId === uid && a.entitlementId === eid && a.originGroupId === group.id);
@@ -107,13 +108,16 @@ export default function GroupsPage() {
             status: 'active',
             grantedBy: 'system',
             grantedAt: new Date().toISOString(),
-            ticketRef: `GROUP_${group.name}`,
+            ticketRef: `GRUPPE: ${group.name}`,
             notes: `Auto-zugewiesen via Gruppe: ${group.name}`,
             tenantId: 't1'
           });
         }
       });
     });
+
+    // Potential cleanup: if a user or entitlement was removed, the assignment should be removed.
+    // For MVP, we mainly focus on adding.
   };
 
   const handleUpdateGroupMembership = (group: AssignmentGroup, type: 'users' | 'entitlements', id: string) => {
@@ -141,7 +145,6 @@ export default function GroupsPage() {
 
   const handleDeleteGroup = (groupId: string) => {
     deleteDocumentNonBlocking(doc(db, 'groups', groupId));
-    // Man müsste hier auch die verknüpften assignments löschen
     assignments?.filter(a => a.originGroupId === groupId).forEach(a => {
       deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
     });
@@ -248,12 +251,6 @@ export default function GroupsPage() {
               </div>
             </div>
           ))
-        )}
-        {!isLoading && groups?.length === 0 && (
-          <div className="col-span-full py-20 border-2 border-dashed flex flex-col items-center justify-center text-muted-foreground gap-3">
-            <Workflow className="w-10 h-10 opacity-20" />
-            <p className="text-xs font-bold uppercase tracking-widest">Keine Gruppen definiert</p>
-          </div>
         )}
       </div>
 
