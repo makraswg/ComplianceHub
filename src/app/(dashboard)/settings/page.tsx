@@ -55,8 +55,8 @@ export default function SettingsPage() {
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraToken, setJiraToken] = useState('');
   const [jiraProject, setJiraProject] = useState('');
-  const [jiraIssueType, setJiraIssueType] = useState('Service Request');
-  const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Genehmigt');
+  const [jiraIssueType, setJiraIssueType] = useState('Zugriffs- und Berechtigungsanfrage');
+  const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Erteilt');
   const [jiraDoneStatus, setJiraDoneStatus] = useState('Erledigt');
   const [jiraEnabled, setJiraEnabled] = useState(false);
   
@@ -88,8 +88,8 @@ export default function SettingsPage() {
         setJiraEmail(c.email || '');
         setJiraToken(c.apiToken || '');
         setJiraProject(c.projectKey || '');
-        setJiraIssueType(c.issueTypeName || 'Service Request');
-        setJiraApprovedStatus(c.approvedStatusName || 'Genehmigt');
+        setJiraIssueType(c.issueTypeName || 'Zugriffs- und Berechtigungsanfrage');
+        setJiraApprovedStatus(c.approvedStatusName || 'Erteilt');
         setJiraDoneStatus(c.doneStatusName || 'Erledigt');
         setJiraEnabled(c.enabled || false);
         setAssetsWorkspaceId(c.assetsWorkspaceId || '');
@@ -175,7 +175,7 @@ export default function SettingsPage() {
         setAssetsSystemAttributeId(res.referenceAttributeId);
         toast({ title: "Referenz-ID erkannt", description: `Die ID für die Systemverknüpfung ist ${res.referenceAttributeId}.` });
       } else {
-        toast({ variant: "destructive", title: "Nicht gefunden", description: "Es wurde kein Attribut gefunden, das auf den Ressourcen-Objekttyp verweist." });
+        toast({ variant: "destructive", title: "Nicht gefunden", description: "Es wurde kein Attribut gefunden, das auf den Ressourcen Objekttyp verweist." });
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
@@ -239,103 +239,80 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Systemeinstellungen</h1>
-        <p className="text-muted-foreground mt-1">Konfiguration der ComplianceHub-Plattform und Integrationen.</p>
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-20">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Systemeinstellungen</h1>
+          <p className="text-muted-foreground mt-1">Konfiguration der ComplianceHub-Plattform und Integrationen.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <div className="bg-primary/10 text-primary px-3 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wider">
+            Acme Corp
+          </div>
+        </div>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none">
+      <Tabs defaultValue="jira" className="space-y-6">
+        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start">
           <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Settings className="w-3.5 h-3.5" /> Allgemein</TabsTrigger>
-          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> Jira Integration</TabsTrigger>
+          <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
           <TabsTrigger value="security" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Lock className="w-3.5 h-3.5" /> Sicherheit</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
-          <Card className="rounded-none shadow-none border">
-            <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-xs font-bold uppercase">Organisation</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold">Stammdaten Ihres Mandanten.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 p-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Name der Organisation</Label>
-                  <Input value={tenantName} onChange={(e) => setTenantName(e.target.value)} className="rounded-none" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Mandanten-Slug (URL)</Label>
-                  <Input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} className="rounded-none" />
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="border-t p-4 flex justify-end">
-              <Button onClick={handleSaveGeneral} className="rounded-none gap-2 font-bold uppercase text-[10px]"><Save className="w-4 h-4" /> Speichern</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="jira" className="space-y-6">
           <Card className="rounded-none shadow-none border overflow-hidden">
             <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-xs font-bold uppercase">Jira Service Management Anbindung</CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold">Automatisieren Sie Workflows zwischen ComplianceHub und Jira.</CardDescription>
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Jira Service Management Anbindung</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Automatisieren Sie Workflows zwischen ComplianceHub und Jira.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 p-6">
-              <div className="flex items-center justify-between p-4 border bg-blue-50/30">
+              <div className="flex items-center justify-between p-4 border bg-blue-50/10 border-blue-100/50">
                 <div className="space-y-0.5">
-                  <p className="text-sm font-bold">Integration Aktivieren</p>
+                  <p className="text-sm font-bold">Integration aktivieren</p>
                   <p className="text-[10px] text-muted-foreground uppercase font-bold">Tickets automatisch erstellen und synchronisieren.</p>
                 </div>
                 <Switch checked={jiraEnabled} onCheckedChange={setJiraEnabled} />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label>
-                    <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Die Haupt-URL Ihrer Instanz, z.B. https://company.atlassian.net.</TooltipContent></Tooltip></TooltipProvider>
-                  </div>
-                  <Input placeholder="https://company.atlassian.net" value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">JIRA CLOUD URL</Label>
+                  <Input placeholder="https://ihre-instanz.atlassian.net" value={jiraUrl} onChange={e => setJiraUrl(e.target.value)} className="rounded-none h-10" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
-                  <Input placeholder="ITSM" value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">PROJEKT KEY</Label>
+                  <Input placeholder="ITSM" value={jiraProject} onChange={e => setJiraProject(e.target.value)} className="rounded-none h-10" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ANFRAGETYP (REQUEST TYPE)</Label>
+                  <Input placeholder="Zugriffs- und Berechtigungsanfrage" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none h-10" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Anfragetyp (Request Type)</Label>
-                  <Input placeholder="Zugriffsanfrage" value={jiraIssueType} onChange={e => setJiraIssueType(e.target.value)} className="rounded-none" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">STATUS FÜR "GENEHMIGT" (APPROVED)</Label>
+                  <Input placeholder="Erteilt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none h-10" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Status für "Genehmigt" (approved)</Label>
-                  <Input placeholder="Genehmigt" value={jiraApprovedStatus} onChange={e => setJiraApprovedStatus(e.target.value)} className="rounded-none" />
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ADMIN E-MAIL</Label>
+                  <Input placeholder="m.mustermann@acme.com" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="rounded-none h-10" />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Status für "Erledigt" (done)</Label>
-                  <Input placeholder="Erledigt" value={jiraDoneStatus} onChange={e => setJiraDoneStatus(e.target.value)} className="rounded-none" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Admin E-Mail</Label>
-                  <Input placeholder="jira-admin@company.com" value={jiraEmail} onChange={e => setJiraEmail(e.target.value)} className="rounded-none" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Atlassian API Token</Label>
-                  <Input type="password" value={jiraToken} onChange={e => setJiraToken(e.target.value)} className="rounded-none" />
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATLASSIAN API TOKEN</Label>
+                  <Input type="password" value={jiraToken} onChange={e => setJiraToken(e.target.value)} className="rounded-none h-10" />
                 </div>
               </div>
 
-              <div className="pt-6 border-t">
-                <div className="flex items-center gap-2 mb-4">
-                  <Box className="w-4 h-4 text-blue-600" />
-                  <h3 className="text-sm font-bold">Jira Assets (Insight) Konfiguration</h3>
+              <div className="pt-8 border-t space-y-6">
+                <div className="flex items-center gap-2">
+                  <Box className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-bold font-headline">Jira Assets (Insight) Konfiguration</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
-                  <div className="space-y-2 md:col-span-2">
+                <div className="space-y-6 bg-slate-50/50 p-6 border">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase">Assets Workspace ID (UUID)</Label>
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ASSETS WORKSPACE ID (UUID)</Label>
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -343,63 +320,58 @@ export default function SettingsPage() {
                         onClick={fetchWorkspaces}
                         disabled={isFetchingWorkspaces}
                       >
-                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
-                        Suchen / Laden
+                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        SUCHEN / LADEN
                       </Button>
                     </div>
-                    <Input placeholder="a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white font-mono text-[11px]" />
+                    <Input placeholder="a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white font-mono text-[11px] h-10" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
-                    <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Objekttyp ID: Ressourcen</Label>
-                    <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Objekttyp ID: Rollen</Label>
-                    <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        Attribut-ID für "Name" (Label)
-                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Das Hauptfeld des Objekts. In Jira Assets meistens die ID 1.</TooltipContent></Tooltip></TooltipProvider>
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 text-[8px] font-bold uppercase gap-1"
-                        onClick={discoverNameAttribute}
-                        disabled={isFetchingAttributes || !assetsResourceObjectTypeId}
-                      >
-                        {isFetchingAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Erkennen
-                      </Button>
-                    </Label>
-                    <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white border-orange-200" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        Attribut-ID für System-Referenz
-                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">
-                          Ein Feld im Objekttyp 'Rollen', das vom Typ 'Referenz' ist und auf 'Ressourcen' zeigt. Name beliebig (z.B. 'System').
-                        </TooltipContent></Tooltip></TooltipProvider>
-                      </span>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 text-[8px] font-bold uppercase gap-1"
-                        onClick={discoverSystemRefAttribute}
-                        disabled={isFetchingRefAttributes || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId}
-                      >
-                        {isFetchingRefAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                        Erkennen
-                      </Button>
-                    </Label>
-                    <Input placeholder="z.B. 10" value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} className="rounded-none bg-white" />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">SCHEMA ID</Label>
+                      <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">OBJEKTTYP ID: RESSOURCEN</Label>
+                      <Input placeholder="z.B. 42" value={assetsResourceObjectTypeId} onChange={e => setAssetsResourceObjectTypeId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">OBJEKTTYP ID: ROLLEN</Label>
+                      <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (LABEL)</Label>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[8px] font-bold uppercase gap-1"
+                          onClick={discoverNameAttribute}
+                          disabled={isFetchingAttributes || !assetsResourceObjectTypeId}
+                        >
+                          {isFetchingAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          ERKENNEN
+                        </Button>
+                      </div>
+                      <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR SYSTEM-REFERENZ</Label>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[8px] font-bold uppercase gap-1"
+                          onClick={discoverSystemRefAttribute}
+                          disabled={isFetchingRefAttributes || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId}
+                        >
+                          {isFetchingRefAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          ERKENNEN
+                        </Button>
+                      </div>
+                      <Input placeholder="z.B. 10" value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -420,14 +392,38 @@ export default function SettingsPage() {
               )}
             </CardContent>
             <CardFooter className="border-t p-4 flex justify-between bg-muted/5">
-              <Button variant="outline" onClick={handleTestJira} disabled={isTestingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] border-primary/20 text-primary hover:bg-primary/5">
+              <Button variant="outline" onClick={handleTestJira} disabled={isTestingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] border-primary/20 text-primary h-11 px-8 hover:bg-primary/5">
                 {isTestingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} 
-                Verbindung testen
+                VERBINDUNG TESTEN
               </Button>
-              <Button onClick={handleSaveJira} disabled={isSavingJira} className="rounded-none gap-2 font-bold uppercase text-[10px]">
+              <Button onClick={handleSaveJira} disabled={isSavingJira} className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8">
                 {isSavingJira ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
-                Integration Speichern
+                INTEGRATION SPEICHERN
               </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="general" className="space-y-6">
+          <Card className="rounded-none shadow-none border">
+            <CardHeader className="bg-muted/10 border-b">
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Organisation</CardTitle>
+              <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">Stammdaten Ihres Mandanten.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">NAME DER ORGANISATION</Label>
+                  <Input value={tenantName} onChange={(e) => setTenantName(e.target.value)} className="rounded-none h-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">MANDANTEN-SLUG (URL)</Label>
+                  <Input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} className="rounded-none h-10" />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="border-t p-4 flex justify-end">
+              <Button onClick={handleSaveGeneral} className="rounded-none gap-2 font-bold uppercase text-[10px] h-11 px-8"><Save className="w-4 h-4" /> SPEICHERN</Button>
             </CardFooter>
           </Card>
         </TabsContent>
@@ -435,11 +431,11 @@ export default function SettingsPage() {
         <TabsContent value="data" className="space-y-6">
           <Card className="rounded-none shadow-none border">
             <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="text-xs font-bold uppercase">Datenquellen-Konfiguration</CardTitle>
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Datenquellen-Konfiguration</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <RadioGroup value={dataSource} onValueChange={(value) => setDataSource(value as any)}>
-                <Label className="flex items-center gap-4 p-4 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer">
+                <Label className="flex items-center gap-4 p-6 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer">
                   <RadioGroupItem value="firestore" id="firestore" />
                   <Database className="w-6 h-6 text-primary"/>
                   <div>
@@ -447,7 +443,7 @@ export default function SettingsPage() {
                     <p className="text-[10px] text-muted-foreground uppercase font-bold">Echtzeit Cloud-Datenbank (NoSQL).</p>
                   </div>
                 </Label>
-                <Label className="flex items-center gap-4 p-4 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer mt-2">
+                <Label className="flex items-center gap-4 p-6 rounded-none border has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-all cursor-pointer mt-4">
                   <RadioGroupItem value="mysql" id="mysql" />
                   <Database className="w-6 h-6 text-orange-600"/>
                   <div>

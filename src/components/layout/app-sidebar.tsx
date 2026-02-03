@@ -1,4 +1,3 @@
-
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -142,8 +141,8 @@ export function AppSidebar() {
             <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px]">AD</AvatarFallback>
           </Avatar>
           <div className="flex-1 overflow-hidden">
-            <p className="text-[11px] font-bold truncate">Admin Konsole</p>
-            <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Super Admin • Acme Corp</p>
+            <p className="text-[11px] font-bold truncate">Acme Corp</p>
+            <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Super Admin</p>
           </div>
         </div>
         <Button 
