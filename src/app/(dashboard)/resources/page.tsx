@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -192,7 +191,10 @@ export default function ResourcesPage() {
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
     resetEntitlementForm();
-    setTimeout(() => refreshEntitlements(), 150);
+    setTimeout(() => {
+      refreshEntitlements();
+      refreshResources();
+    }, 150);
   };
 
   const confirmDeleteResource = async () => {
@@ -219,7 +221,10 @@ export default function ResourcesPage() {
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
       setSelectedEntitlement(null);
-      setTimeout(() => refreshEntitlements(), 150);
+      setTimeout(() => {
+        refreshEntitlements();
+        refreshResources();
+      }, 150);
     }
   };
 
@@ -650,7 +655,21 @@ export default function ResourcesPage() {
                 <Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} placeholder="Beschreibung der Berechtigung..." className="rounded-none resize-none h-20" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risikostufe</Label>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risikostufe</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[200px] text-[10px] font-bold uppercase leading-relaxed">
+                        High: Privilegierter Zugriff, Admin-Rechte.<br/>
+                        Medium: Schreibzugriff, Fachbereichs-Spezialisten.<br/>
+                        Low: Standard-Lesezugriff.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <Select value={entRisk} onValueChange={setEntRisk}>
                   <SelectTrigger className="rounded-none">
                     <SelectValue />
