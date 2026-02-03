@@ -1,16 +1,9 @@
-
 "use client";
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { Search, Bell, HelpCircle, FileText, Key, ExternalLink } from 'lucide-react';
+import { Search, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 export default function DashboardLayout({
   children,
@@ -32,32 +25,6 @@ export default function DashboardLayout({
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <TooltipProvider>
-              <div className="flex items-center gap-1 border-r pr-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground font-bold uppercase text-[10px]" asChild>
-                      <a href="https://docs.accesshub.internal" target="_blank">
-                        <FileText className="w-3.5 h-3.5" /> Dokumentation
-                      </a>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Internes Wissensportal</TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-muted-foreground font-bold uppercase text-[10px]" asChild>
-                      <a href="https://pass.accesshub.internal" target="_blank">
-                        <Key className="w-3.5 h-3.5" /> Passwortmanager
-                      </a>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Für Shared Accounts & Admin-Secrets</TooltipContent>
-                </Tooltip>
-              </div>
-            </TooltipProvider>
-
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" className="text-muted-foreground h-9 w-9">
                 <Bell className="w-4 h-4" />
