@@ -24,18 +24,18 @@ import {
   Terminal,
   XCircle,
   Search,
-  Shield
+  Shield,
+  Box
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { fetchJiraApprovedRequests, resolveJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
+import { fetchJiraApprovedRequests, resolveJiraTicket, getJiraConfigs, syncAssetsToJiraAction } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { User, Entitlement, Resource, Assignment } from '@/lib/types';
 import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -43,6 +43,7 @@ export default function JiraSyncPage() {
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSyncingAssets, setIsSyncingAssets] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jiraTickets, setJiraTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
@@ -74,6 +75,23 @@ export default function JiraSyncPage() {
     }
   };
 
+  const handleSyncAssets = async () => {
+    if (!activeConfig) return;
+    setIsSyncingAssets(true);
+    try {
+      const res = await syncAssetsToJiraAction(activeConfig.id);
+      if (res.success) {
+        toast({ title: "Asset Sync erfolgreich", description: res.message });
+      } else {
+        toast({ variant: "destructive", title: "Sync Fehler", description: res.message });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSyncingAssets(false);
+    }
+  };
+
   const handleAssignFromJira = async (ticket: any) => {
     if (!activeConfig) return;
 
@@ -87,7 +105,6 @@ export default function JiraSyncPage() {
       return;
     }
 
-    // Finde passende Rolle basierend auf Jira Ticket oder nimm die erste als Fallback
     const ent = entitlements?.find(e => e.name.toLowerCase() === ticket.requestedRoleName?.toLowerCase()) || entitlements?.[0]; 
     
     if (!ent) {
@@ -138,7 +155,6 @@ export default function JiraSyncPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    // Ticket in Jira abschließen
     const res = await resolveJiraTicket(
       activeConfig.id, 
       ticket.key, 
@@ -167,6 +183,18 @@ export default function JiraSyncPage() {
           <p className="text-sm text-muted-foreground">Genehmigte Tickets als Berechtigungs-Grundlage.</p>
         </div>
         <div className="flex gap-2">
+          {activeConfig && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-600 hover:bg-blue-50"
+              onClick={handleSyncAssets}
+              disabled={isSyncingAssets}
+            >
+              {isSyncingAssets ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Box className="w-3.5 h-3.5 mr-2" />}
+              Assets exportieren
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
             {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
           </Button>
