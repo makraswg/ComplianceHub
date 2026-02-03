@@ -2,221 +2,87 @@
 {
   "entities": {
     "Tenant": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Tenant",
       "type": "object",
-      "description": "Represents a tenant in the system, isolating data for different organizations or customers.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the tenant."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the tenant."
-        },
-        "slug": {
-          "type": "string",
-          "description": "A URL-friendly slug for the tenant."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the tenant was created.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "slug",
-        "createdAt"
-      ]
+      "required": ["id", "name", "slug", "createdAt"]
     },
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user synchronized from LDAP or a similar directory service.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the user within the tenant."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant."
-        },
-        "externalId": {
-          "type": "string",
-          "description": "External identifier from the LDAP directory."
-        },
-        "displayName": {
-          "type": "string",
-          "description": "The display name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the user.",
-          "format": "email"
-        },
-        "department": {
-          "type": "string",
-          "description": "The department the user belongs to."
-        },
-        "title": {
-          "type": "string",
-          "description": "The job title of the user."
-        },
-        "enabled": {
-          "type": "boolean",
-          "description": "Indicates whether the user is enabled."
-        },
-        "lastSyncedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the user was last synchronized from LDAP.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "externalId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "department": { "type": "string" },
+        "title": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "lastSyncedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "externalId",
-        "displayName",
-        "email",
-        "enabled"
-      ]
+      "required": ["id", "tenantId", "externalId", "displayName", "email", "enabled"]
     },
     "Resource": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Resource",
       "type": "object",
-      "description": "Represents a resource within a tenant, such as a SaaS application or internal tool.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the resource."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the resource."
-        },
-        "type": {
-          "type": "string",
-          "enum": ["SaaS", "OnPrem", "Private Cloud", "Webshop", "IoT", "Andere"],
-          "description": "The type of resource."
-        },
-        "owner": {
-          "type": "string",
-          "description": "The owner of the resource."
-        },
-        "url": {
-          "type": "string",
-          "description": "The URL of the resource.",
-          "format": "uri"
-        },
-        "documentationUrl": {
-          "type": "string",
-          "description": "Link to the internal documentation for this resource."
-        },
-        "criticality": {
-          "type": "string",
-          "enum": ["low", "medium", "high"],
-          "description": "The criticality level of the resource."
-        }
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["SaaS", "OnPrem", "Private Cloud", "Webshop", "IoT", "Andere"] },
+        "owner": { "type": "string" },
+        "url": { "type": "string" },
+        "criticality": { "type": "string", "enum": ["low", "medium", "high"] }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "name",
-        "type",
-        "owner",
-        "criticality"
-      ]
+      "required": ["id", "tenantId", "name", "type", "owner", "criticality"]
     },
     "Entitlement": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Entitlement",
       "type": "object",
-      "description": "Represents an entitlement for a resource.",
       "properties": {
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
         "resourceId": { "type": "string" },
-        "parentId": { "type": "string" },
         "name": { "type": "string" },
-        "description": { "type": "string" },
-        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
-        "isSharedAccount": { 
-          "type": "boolean",
-          "description": "Indicates if this role is for a non-user-related access (Shared Account)."
-        },
-        "passwordManagerUrl": {
-          "type": "string",
-          "description": "Link to the shared password manager vault for this specific entitlement/shared account."
-        }
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] }
       },
       "required": ["id", "tenantId", "resourceId", "name", "riskLevel"]
     },
     "Assignment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Assignment",
       "type": "object",
-      "description": "Represents the assignment of an entitlement to a user.",
       "properties": {
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
         "userId": { "type": "string" },
         "entitlementId": { "type": "string" },
-        "originGroupId": { "type": "string", "description": "Reference to the group if assigned via AssignmentGroup." },
         "status": { "type": "string", "enum": ["active", "requested", "removed"] },
-        "grantedBy": { "type": "string" },
-        "grantedAt": { "type": "string", "format": "date-time" },
-        "validFrom": { "type": "string", "format": "date" },
-        "validUntil": { "type": "string", "format": "date" },
-        "lastReviewedAt": { "type": "string", "format": "date-time" },
-        "ticketRef": { "type": "string" },
-        "notes": { "type": "string" }
+        "originGroupId": { "type": "string" },
+        "validFrom": { "type": "string" },
+        "validUntil": { "type": "string" },
+        "jiraIssueKey": { "type": "string" }
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
     },
-    "AssignmentGroup": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AssignmentGroup",
+    "JiraConfig": {
+      "title": "JiraConfig",
       "type": "object",
-      "description": "Represents a group of assignments.",
       "properties": {
         "id": { "type": "string" },
-        "tenantId": { "type": "string" },
         "name": { "type": "string" },
-        "description": { "type": "string" },
-        "validFrom": { "type": "string", "format": "date" },
-        "validUntil": { "type": "string", "format": "date" },
-        "entitlementIds": { "type": "array", "items": { "type": "string" } },
-        "userIds": { "type": "array", "items": { "type": "string" } }
-      },
-      "required": ["id", "tenantId", "name"]
-    },
-    "AuditEvent": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AuditEvent",
-      "type": "object",
-      "description": "Represents a security audit record.",
-      "properties": {
-        "id": { "type": "string" },
-        "tenantId": { "type": "string" },
-        "actorUid": { "type": "string" },
-        "action": { "type": "string" },
-        "entityType": { "type": "string" },
-        "entityId": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "before": { "type": "object", "description": "JSON snapshot before change" },
-        "after": { "type": "object", "description": "JSON snapshot after change" }
-      },
-      "required": ["id", "tenantId", "actorUid", "action", "entityType", "entityId", "timestamp"]
+        "url": { "type": "string" },
+        "email": { "type": "string" },
+        "apiToken": { "type": "string" },
+        "projectKey": { "type": "string" },
+        "issueTypeName": { "type": "string" },
+        "enabled": { "type": "boolean" }
+      }
     }
   },
   "auth": {
@@ -229,8 +95,7 @@
       { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
       { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
-      { "path": "groups/{groupId}", "definition": { "schema": { "$ref": "#/backend/entities/AssignmentGroup" } } },
-      { "path": "auditEvents/{eventId}", "definition": { "schema": { "$ref": "#/backend/entities/AuditEvent" } } }
+      { "path": "jiraConfigs/{configId}", "definition": { "schema": { "$ref": "#/backend/entities/JiraConfig" } } }
     ]
   }
 }

@@ -1,26 +1,14 @@
 
-// src/lib/schema.ts
-
-/**
- * Definiert die Struktur einer einzelnen Tabelle für die Migrations-Logik.
- */
 export interface TableDefinition {
-  /**
-   * Eine Map von Spaltennamen zu ihren SQL-Typ-Definitionen.
-   */
   columns: {
     [columnName: string]: string;
   };
 }
 
-/**
- * Definiert das gesamte Datenbankschema der Anwendung als eine Sammlung von Tabellen.
- */
 export interface AppSchema {
   [tableName: string]: TableDefinition;
 }
 
-// Die konkrete Implementierung des Schemas basierend auf backend.json
 export const appSchema: AppSchema = {
   tenants: {
     columns: {
@@ -49,8 +37,8 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
-      entitlementIds: 'TEXT', // Gespeichert als JSON-String
-      userIds: 'TEXT',        // Gespeichert als JSON-String
+      entitlementIds: 'TEXT',
+      userIds: 'TEXT',
       validFrom: 'VARCHAR(50)',
       validUntil: 'VARCHAR(50)',
     },
@@ -96,6 +84,7 @@ export const appSchema: AppSchema = {
       validUntil: 'VARCHAR(50)',
       lastReviewedAt: 'VARCHAR(50)',
       ticketRef: 'VARCHAR(255)',
+      jiraIssueKey: 'VARCHAR(50)',
       notes: 'TEXT',
     },
   },
@@ -108,8 +97,21 @@ export const appSchema: AppSchema = {
       entityType: 'VARCHAR(50) NOT NULL',
       entityId: 'VARCHAR(255) NOT NULL',
       timestamp: 'VARCHAR(50) NOT NULL',
-      before: 'TEXT', // JSON Payload vor der Änderung
-      after: 'TEXT',  // JSON Payload nach der Änderung
+      before: 'TEXT',
+      after: 'TEXT',
     },
   },
+  jiraConfigs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      url: 'TEXT NOT NULL',
+      email: 'VARCHAR(255)',
+      apiToken: 'TEXT',
+      projectKey: 'VARCHAR(50)',
+      issueTypeName: 'VARCHAR(100)',
+      enabled: 'BOOLEAN DEFAULT FALSE',
+    }
+  }
 };

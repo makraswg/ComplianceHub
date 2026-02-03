@@ -8,13 +8,6 @@ export interface Tenant {
   createdAt: string;
 }
 
-export interface TenantMember {
-  uid: string;
-  role: Role;
-  status: 'active' | 'invited';
-  email: string;
-}
-
 export interface User {
   id: string;
   externalId: string;
@@ -59,6 +52,7 @@ export interface Assignment {
   validFrom?: string;
   validUntil?: string;
   ticketRef: string;
+  jiraIssueKey?: string;
   notes: string;
   lastReviewedAt?: string;
   reviewedBy?: string;
@@ -75,14 +69,24 @@ export interface AssignmentGroup {
   validUntil?: string;
 }
 
-export interface AuditLogEntry {
+export interface JiraConfig {
   id: string;
   tenantId: string;
-  actorUid: string;
-  action: string;
-  entityType: 'resource' | 'entitlement' | 'assignment' | 'member' | 'group' | 'user';
-  entityId: string;
-  before?: any;
-  after?: any;
-  timestamp: string;
+  name: string;
+  url: string;
+  email: string;
+  apiToken: string;
+  projectKey: string;
+  issueTypeName: string;
+  enabled: boolean;
+}
+
+export interface JiraSyncItem {
+  key: string;
+  summary: string;
+  status: string;
+  reporter: string;
+  created: string;
+  requestedUserEmail?: string;
+  requestedRoleName?: string;
 }
