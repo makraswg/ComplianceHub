@@ -171,13 +171,15 @@
         "tenantId": { "type": "string" },
         "userId": { "type": "string" },
         "entitlementId": { "type": "string" },
-        "originGroupId": { "type": "string" },
+        "originGroupId": { "type": "string", "description": "Reference to the group if assigned via AssignmentGroup." },
         "status": { "type": "string", "enum": ["active", "requested", "removed"] },
         "grantedBy": { "type": "string" },
         "grantedAt": { "type": "string", "format": "date-time" },
         "validFrom": { "type": "string", "format": "date" },
         "validUntil": { "type": "string", "format": "date" },
-        "lastReviewedAt": { "type": "string", "format": "date-time" }
+        "lastReviewedAt": { "type": "string", "format": "date-time" },
+        "ticketRef": { "type": "string" },
+        "notes": { "type": "string" }
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
     },
@@ -191,6 +193,8 @@
         "tenantId": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
+        "validFrom": { "type": "string", "format": "date" },
+        "validUntil": { "type": "string", "format": "date" },
         "entitlementIds": { "type": "array", "items": { "type": "string" } },
         "userIds": { "type": "array", "items": { "type": "string" } }
       },

@@ -114,9 +114,11 @@ export default function GroupsPage() {
     // 1. Create or update assignments for group members
     for (const uid of userIds) {
       for (const eid of entIds) {
+        // Create deterministic ID for the user-entitlement pair within this group
         const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
         const existing = currentAssignments.find(a => a.id === assId);
 
+        // Update if not existing, or if validity has changed
         if (!existing || existing.status === 'removed' || existing.validFrom !== gValidFrom || existing.validUntil !== gValidUntil) {
           const assignmentData = {
             id: assId,
@@ -142,7 +144,7 @@ export default function GroupsPage() {
       }
     }
 
-    // 2. Remove orphaned assignments
+    // 2. Remove orphaned assignments (users or roles no longer in the group)
     const currentGroupAssignments = currentAssignments.filter(a => a.originGroupId === groupId);
     for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
@@ -207,6 +209,7 @@ export default function GroupsPage() {
       addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
+    // Synergize with assignments table
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil);
 
     setIsEditOpen(false);
@@ -214,6 +217,7 @@ export default function GroupsPage() {
     toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
     resetForm();
     
+    // Slight delay to allow backend to finish writes
     setTimeout(() => {
       refreshGroups();
       refreshAssignments();
@@ -237,6 +241,7 @@ export default function GroupsPage() {
 
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('groups', selectedGroup.id);
+        // Soft delete all group assignments
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
           await saveCollectionRecord('assignments', a.id, { ...a, status: 'removed', validUntil: today });
