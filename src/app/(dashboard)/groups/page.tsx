@@ -96,19 +96,22 @@ export default function GroupsPage() {
   }, []);
 
   const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
-    if (!assignments) return;
+    // Wenn keine Zuweisungen geladen sind, können wir nicht zuverlässig vergleichen.
+    // Aber für neue Gruppen/MySQL ist es wichtig, dass wir weitermachen.
+    const currentAssignments = assignments || [];
 
-    // 1. New/Existing assignments: All users in the group should have all group entitlements
+    // 1. Neue/Bestehende Zuweisungen: Alle Benutzer in der Gruppe sollten alle Gruppenberechtigungen haben
     for (const uid of userIds) {
       for (const eid of entIds) {
-        const existing = assignments.find(a => 
+        const existing = currentAssignments.find(a => 
           a.userId === uid && 
           a.entitlementId === eid && 
           a.originGroupId === groupId
         );
 
         if (!existing) {
-          const assId = `ga-${groupId}-${uid}-${eid}`.substring(0, 25);
+          // Generiere eine deterministische ID, die lang genug ist, um Kollisionen zu vermeiden
+          const assId = `ga-${groupId}-${uid}-${eid}`;
           const assignmentData = {
             id: assId,
             userId: uid,
@@ -125,14 +128,14 @@ export default function GroupsPage() {
           if (dataSource === 'mysql') {
             await saveCollectionRecord('assignments', assId, assignmentData);
           } else {
-            setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData);
+            setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData, { merge: true });
           }
         }
       }
     }
 
-    // 2. Cleanup: Remove assignments that are no longer part of this group (user or role removed)
-    const currentGroupAssignments = assignments.filter(a => a.originGroupId === groupId);
+    // 2. Cleanup: Entferne Zuweisungen, die nicht mehr Teil dieser Gruppe sind
+    const currentGroupAssignments = currentAssignments.filter(a => a.originGroupId === groupId);
     for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
       const entStillInGroup = entIds.includes(a.entitlementId);
@@ -172,7 +175,7 @@ export default function GroupsPage() {
         return;
       }
     } else {
-      setDocumentNonBlocking(doc(db, 'groups', groupId), groupData);
+      setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
     }
 
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
@@ -188,7 +191,6 @@ export default function GroupsPage() {
     if (selectedGroup) {
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('groups', selectedGroup.id);
-        // Cleanup all assignments from this group
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
           await deleteCollectionRecord('assignments', a.id);
