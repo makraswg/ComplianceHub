@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,13 +20,19 @@ import {
   Info,
   HelpCircle,
   Search,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { getJiraConfigs, testJiraConnectionAction, getJiraWorkspacesAction } from '@/app/actions/jira-actions';
+import { 
+  getJiraConfigs, 
+  testJiraConnectionAction, 
+  getJiraWorkspacesAction,
+  getJiraAttributesAction
+} from '@/app/actions/jira-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -66,6 +71,7 @@ export default function SettingsPage() {
   // Dropdown / Modal States
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
+  const [isFetchingAttributes, setIsFetchingAttributes] = useState(false);
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
 
   const [isSavingJira, setIsSavingJira] = useState(false);
@@ -115,6 +121,35 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsFetchingWorkspaces(false);
+    }
+  };
+
+  const discoverNameAttribute = async () => {
+    if (!assetsWorkspaceId || !assetsResourceObjectTypeId) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID und Ressourcen-Objekttyp ID werden benötigt." });
+      return;
+    }
+
+    setIsFetchingAttributes(true);
+    try {
+      const res = await getJiraAttributesAction({
+        url: jiraUrl,
+        email: jiraEmail,
+        apiToken: jiraToken,
+        workspaceId: assetsWorkspaceId,
+        objectTypeId: assetsResourceObjectTypeId
+      });
+
+      if (res.success && res.labelAttributeId) {
+        setAssetsNameAttributeId(res.labelAttributeId);
+        toast({ title: "Attribut-ID erkannt", description: `Die ID für das Namensfeld ist ${res.labelAttributeId}.` });
+      } else {
+        toast({ variant: "destructive", title: "Nicht gefunden", description: "Das Label-Attribut konnte nicht automatisch erkannt werden." });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsFetchingAttributes(false);
     }
   };
 
@@ -296,9 +331,21 @@ export default function SettingsPage() {
                     <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
-                      Attribut-ID für "Name" (Label)
-                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Wichtig: Dies behebt den 'Name field required' Fehler. Meistens ist die ID 1.</TooltipContent></Tooltip></TooltipProvider>
+                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        Attribut-ID für "Name" (Label)
+                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Wichtig: Dies behebt den 'Name field required' Fehler. Meistens ist die ID 1.</TooltipContent></Tooltip></TooltipProvider>
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[8px] font-bold uppercase gap-1"
+                        onClick={discoverNameAttribute}
+                        disabled={isFetchingAttributes || !assetsResourceObjectTypeId}
+                      >
+                        {isFetchingAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Erkennen
+                      </Button>
                     </Label>
                     <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white border-orange-200" />
                   </div>

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -78,6 +77,47 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
     return { success: true, workspaces };
   } catch (e: any) {
     return { success: false, error: 'Verbindungsfehler', details: e.message };
+  }
+}
+
+/**
+ * Ruft Attribute eines Objekttyps ab, um die Name-ID (Label) zu finden.
+ */
+export async function getJiraAttributesAction(configData: { 
+  url: string; 
+  email: string; 
+  apiToken: string;
+  workspaceId: string;
+  objectTypeId: string;
+}): Promise<{ success: boolean; attributes?: any[]; labelAttributeId?: string; error?: string }> {
+  if (!configData.workspaceId || !configData.objectTypeId) {
+    return { success: false, error: 'Workspace ID und Objekttyp ID erforderlich.' };
+  }
+
+  const baseUrl = cleanJiraUrl(configData.url);
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+  const apiUrl = `${baseUrl}/gateway/api/jsm/assets/workspace/${configData.workspaceId}/v1/objecttype/${configData.objectTypeId}/attributes`;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) return { success: false, error: `Fehler ${response.status}` };
+
+    const data = await response.json();
+    const attributes = data || [];
+    const labelAttr = attributes.find((a: any) => a.label === true);
+
+    return { 
+      success: true, 
+      attributes, 
+      labelAttributeId: labelAttr?.id?.toString() 
+    };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
 }
 
