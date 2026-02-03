@@ -32,51 +32,6 @@
         "createdAt"
       ]
     },
-    "TenantMember": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TenantMember",
-      "type": "object",
-      "description": "Represents a user's membership within a tenant, including their role and status.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the tenant member."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N TenantMember)"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N TenantMember)"
-        },
-        "role": {
-          "type": "string",
-          "description": "The role of the member within the tenant (e.g., tenantOwner, admin, editor, viewer)."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the member was added to the tenant.",
-          "format": "date-time"
-        },
-        "invitedBy": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N TenantMember) The user who invited this member."
-        },
-        "status": {
-          "type": "string",
-          "description": "The status of the membership (e.g., active, invited)."
-        }
-      },
-      "required": [
-        "id",
-        "tenantId",
-        "userId",
-        "role",
-        "createdAt",
-        "status"
-      ]
-    },
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
@@ -89,7 +44,7 @@
         },
         "tenantId": {
           "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N User)"
+          "description": "Reference to Tenant."
         },
         "externalId": {
           "type": "string",
@@ -143,7 +98,7 @@
         },
         "tenantId": {
           "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N Resource)"
+          "description": "Reference to Tenant."
         },
         "name": {
           "type": "string",
@@ -175,10 +130,6 @@
           "type": "string",
           "enum": ["low", "medium", "high"],
           "description": "The criticality level of the resource."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional notes about the resource."
         }
       },
       "required": [
@@ -194,249 +145,69 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Entitlement",
       "type": "object",
-      "description": "Represents an entitlement for a resource, defining the access level or permissions with support for hierarchical inheritance.",
+      "description": "Represents an entitlement for a resource.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the entitlement."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N Entitlement)"
-        },
-        "resourceId": {
-          "type": "string",
-          "description": "Reference to Resource. (Relationship: Resource 1:N Entitlement)"
-        },
-        "parentId": {
-          "type": "string",
-          "description": "Reference to another Entitlement within the same resource to build a hierarchy."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the entitlement (e.g., Viewer, Editor, Admin)."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the entitlement."
-        },
-        "riskLevel": {
-          "type": "string",
-          "enum": ["low", "medium", "high"],
-          "description": "The risk level associated with the entitlement."
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "parentId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+        "isSharedAccount": { 
+          "type": "boolean",
+          "description": "Indicates if this role is for a non-user-related access (Shared Account)."
         }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "resourceId",
-        "name",
-        "riskLevel"
-      ]
+      "required": ["id", "tenantId", "resourceId", "name", "riskLevel"]
     },
     "Assignment": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Assignment",
       "type": "object",
-      "description": "Represents the assignment of an entitlement to a user for a specific resource.",
+      "description": "Represents the assignment of an entitlement to a user.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the assignment."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N Assignment)"
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Assignment)"
-        },
-        "entitlementId": {
-          "type": "string",
-          "description": "Reference to Entitlement. (Relationship: Entitlement 1:N Assignment)"
-        },
-        "originGroupId": {
-          "type": "string",
-          "description": "If this assignment was granted via a group, the ID of that group."
-        },
-        "status": {
-          "type": "string",
-          "description": "The status of the assignment (e.g., active, requested, removed)."
-        },
-        "grantedBy": {
-          "type": "string",
-          "description": "The user who granted the assignment."
-        },
-        "grantedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the assignment was granted.",
-          "format": "date-time"
-        },
-        "ticketRef": {
-          "type": "string",
-          "description": "Reference to a ticket or request associated with the assignment."
-        },
-        "validUntil": {
-          "type": "string",
-          "description": "Timestamp indicating when the assignment is valid until.",
-          "format": "date-time"
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional notes about the assignment."
-        }
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "userId": { "type": "string" },
+        "entitlementId": { "type": "string" },
+        "originGroupId": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "requested", "removed"] },
+        "grantedBy": { "type": "string" },
+        "grantedAt": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "lastReviewedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "userId",
-        "entitlementId",
-        "status"
-      ]
+      "required": ["id", "tenantId", "userId", "entitlementId", "status"]
     },
     "AssignmentGroup": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AssignmentGroup",
       "type": "object",
-      "description": "Represents a group of assignments that can be applied to users collectively.",
+      "description": "Represents a group of assignments.",
       "properties": {
         "id": { "type": "string" },
         "tenantId": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
-        "entitlementIds": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "List of entitlement IDs that members of this group receive."
-        },
-        "userIds": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "List of user IDs who are members of this group."
-        }
+        "entitlementIds": { "type": "array", "items": { "type": "string" } },
+        "userIds": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "tenantId", "name"]
-    },
-    "AuditEvent": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AuditEvent",
-      "type": "object",
-      "description": "Represents an audit event, logging changes to resources, entitlements, and assignments.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the audit event."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N AuditEvent)"
-        },
-        "actorUid": {
-          "type": "string",
-          "description": "The user who performed the action."
-        },
-        "action": {
-          "type": "string",
-          "description": "The action performed (e.g., create, update, delete)."
-        },
-        "entityType": {
-          "type": "string",
-          "description": "The type of entity that was modified (e.g., resource, entitlement, assignment)."
-        },
-        "entityId": {
-          "type": "string",
-          "description": "The ID of the entity that was modified."
-        },
-        "before": {
-          "type": "string",
-          "description": "The state of the entity before the change (JSON string)."
-        },
-        "after": {
-          "type": "string",
-          "description": "The state of the entity after the change (JSON string)."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp indicating when the event occurred.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "tenantId",
-        "actorUid",
-        "action",
-        "entityType",
-        "entityId",
-        "timestamp"
-      ]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
-      {
-        "path": "tenants/{tenantId}",
-        "definition": {
-          "entityName": "Tenant",
-          "schema": { "$ref": "#/backend/entities/Tenant" },
-          "description": "Stores tenant-specific data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": { "$ref": "#/backend/entities/User" },
-          "description": "Stores user data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/resources/{resourceId}",
-        "definition": {
-          "entityName": "Resource",
-          "schema": { "$ref": "#/backend/entities/Resource" },
-          "description": "Stores resource data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/entitlements/{entitlementId}",
-        "definition": {
-          "entityName": "Entitlement",
-          "schema": { "$ref": "#/backend/entities/Entitlement" },
-          "description": "Stores entitlement data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/assignments/{assignmentId}",
-        "definition": {
-          "entityName": "Assignment",
-          "schema": { "$ref": "#/backend/entities/Assignment" },
-          "description": "Stores individual assignment data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/groups/{groupId}",
-        "definition": {
-          "entityName": "AssignmentGroup",
-          "schema": { "$ref": "#/backend/entities/AssignmentGroup" },
-          "description": "Stores assignment group data."
-        }
-      },
-      {
-        "path": "tenants/{tenantId}/auditEvents/{eventId}",
-        "definition": {
-          "entityName": "AuditEvent",
-          "schema": { "$ref": "#/backend/entities/AuditEvent" },
-          "description": "Stores audit events."
-        }
-      }
+      { "path": "tenants/{tenantId}", "definition": { "schema": { "$ref": "#/backend/entities/Tenant" } } },
+      { "path": "users/{userId}", "definition": { "schema": { "$ref": "#/backend/entities/User" } } },
+      { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
+      { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
+      { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
+      { "path": "groups/{groupId}", "definition": { "schema": { "$ref": "#/backend/entities/AssignmentGroup" } } },
+      { "path": "auditEvents/{eventId}", "definition": { "schema": { "$ref": "#/backend/entities/AuditEvent" } } }
     ]
   }
 }

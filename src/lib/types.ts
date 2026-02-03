@@ -45,13 +45,14 @@ export interface Entitlement {
   name: string;
   description: string;
   riskLevel: 'low' | 'medium' | 'high';
+  isSharedAccount?: boolean; // Neu: Kennzeichnet nicht benutzerbezogene Zugänge
 }
 
 export interface Assignment {
   id: string;
   userId: string;
   entitlementId: string;
-  originGroupId?: string; // Neu: Kennzeichnet Zuweisungen aus Gruppen
+  originGroupId?: string;
   status: 'active' | 'requested' | 'removed';
   grantedBy: string;
   grantedAt: string;

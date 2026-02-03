@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,16 +22,18 @@ import {
   Loader2,
   Trash2,
   Pencil,
-  X,
   AlertTriangle,
   FileDown,
   FileText,
   Info,
   Key,
   Users,
-  Layout
+  Layout,
+  CornerDownRight,
+  UserX
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -75,8 +78,7 @@ import {
   useMemoFirebase, 
   addDocumentNonBlocking, 
   deleteDocumentNonBlocking, 
-  updateDocumentNonBlocking,
-  setDocumentNonBlocking
+  updateDocumentNonBlocking
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
@@ -111,6 +113,7 @@ export default function ResourcesPage() {
   const [entRisk, setEntRisk] = useState('medium');
   const [entDesc, setEntDesc] = useState('');
   const [entParentId, setEntParentId] = useState<string | null>(null);
+  const [isSharedAccount, setIsSharedAccount] = useState(false);
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
   const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
@@ -189,6 +192,7 @@ export default function ResourcesPage() {
       riskLevel: entRisk,
       description: entDesc,
       parentId: entParentId === "none" ? null : entParentId,
+      isSharedAccount,
       tenantId: 't1'
     };
     if (editingEntitlementId) {
@@ -207,6 +211,7 @@ export default function ResourcesPage() {
     setEntRisk('medium');
     setEntParentId(null);
     setEditingEntitlementId(null);
+    setIsSharedAccount(false);
   };
 
   const confirmDeleteResource = () => {
@@ -258,6 +263,49 @@ export default function ResourcesPage() {
   const openDetails = (resource: any) => {
     setSelectedResource(resource);
     setTimeout(() => setIsDetailsOpen(true), 150);
+  };
+
+  const renderEntitlementItem = (ent: any, depth = 0) => {
+    const children = entitlements?.filter(e => e.parentId === ent.id) || [];
+    return (
+      <div key={ent.id}>
+        <div className={cn(
+          "flex items-center justify-between p-3 hover:bg-muted/5 group border-b last:border-0",
+          depth > 0 && "pl-8"
+        )}>
+          <div className="flex items-center gap-2">
+            {depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground" />}
+            <span className="text-sm font-bold flex items-center gap-2">
+              {ent.name}
+              {ent.isSharedAccount && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <UserX className="w-3.5 h-3.5 text-orange-600" />
+                    </TooltipTrigger>
+                    <TooltipContent className="text-[10px] font-bold uppercase">Shared Account / Nicht benutzerbezogen</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
+          </div>
+          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => {
+              setEditingEntitlementId(ent.id);
+              setEntName(ent.name);
+              setEntRisk(ent.riskLevel);
+              setEntParentId(ent.parentId || "none");
+              setIsSharedAccount(!!ent.isSharedAccount);
+            }}><Pencil className="w-3.5 h-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-red-600" onClick={() => {
+              setSelectedEntitlement(ent);
+              setIsDeleteEntitlementOpen(true);
+            }}><Trash2 className="w-3.5 h-3.5" /></Button>
+          </div>
+        </div>
+        {children.map(child => renderEntitlementItem(child, depth + 1))}
+      </div>
+    );
   };
 
   if (!mounted) return null;
@@ -549,7 +597,12 @@ export default function ResourcesPage() {
                       return (
                         <TableRow key={a.id} className="text-xs">
                           <TableCell className="py-2 font-bold">{user?.displayName || a.userId}</TableCell>
-                          <TableCell className="py-2">{ent?.name}</TableCell>
+                          <TableCell className="py-2">
+                            <div className="flex items-center gap-1.5">
+                              {ent?.name}
+                              {ent?.isSharedAccount && <UserX className="w-3 h-3 text-orange-600" />}
+                            </div>
+                          </TableCell>
                           <TableCell className="py-2">
                             <Badge variant="outline" className="text-[8px] font-bold uppercase px-1 py-0 rounded-none">{a.status}</Badge>
                           </TableCell>
@@ -601,6 +654,10 @@ export default function ResourcesPage() {
                   </Select>
                 </div>
               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="shared" checked={isSharedAccount} onCheckedChange={(val) => setIsSharedAccount(!!val)} />
+                <Label htmlFor="shared" className="text-xs font-bold cursor-pointer">Nicht benutzerbezogener Zugang (Shared Account)</Label>
+              </div>
               <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10 font-bold uppercase text-[10px] rounded-none">
                 {editingEntitlementId ? "Rolle aktualisieren" : "Rolle zum Katalog hinzufügen"}
               </Button>
@@ -608,24 +665,11 @@ export default function ResourcesPage() {
             
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Aktuelle Baumstruktur</Label>
-              <div className="border rounded-none max-h-64 overflow-auto bg-card divide-y">
-                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
-                  <div key={e.id} className="flex items-center justify-between p-3 hover:bg-muted/5 group">
-                    <span className="text-sm font-bold">{e.name}</span>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => {
-                        setEditingEntitlementId(e.id);
-                        setEntName(e.name);
-                        setEntRisk(e.riskLevel);
-                        setEntParentId(e.parentId || "none");
-                      }}><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-red-600" onClick={() => {
-                        setSelectedEntitlement(e);
-                        setIsDeleteEntitlementOpen(true);
-                      }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                    </div>
-                  </div>
-                ))}
+              <div className="border rounded-none max-h-64 overflow-auto bg-card divide-y custom-scrollbar">
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id && !e.parentId).map(e => renderEntitlementItem(e))}
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id).length === 0 && (
+                  <div className="p-4 text-center text-xs text-muted-foreground italic">Noch keine Rollen definiert.</div>
+                )}
               </div>
             </div>
           </div>
