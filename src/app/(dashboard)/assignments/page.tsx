@@ -26,7 +26,8 @@ import {
   FileDown,
   Users,
   Check,
-  Clock
+  Clock,
+  XCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -37,22 +38,6 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -66,7 +51,6 @@ import {
   useFirestore, 
   addDocumentNonBlocking, 
   updateDocumentNonBlocking,
-  deleteDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -75,7 +59,7 @@ import { toast } from '@/hooks/use-toast';
 import { exportAssignmentsPdf } from '@/lib/export-utils';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -101,6 +85,7 @@ export default function AssignmentsPage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'active' | 'requested' | 'removed'>('active');
+  const [removalDate, setRemovalDate] = useState(new Date().toISOString().split('T')[0]);
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
   const { data: users } = usePluggableCollection<User>('users');
@@ -221,29 +206,41 @@ export default function AssignmentsPage() {
       const ent = entitlements?.find(e => e.id === existing?.entitlementId);
 
       const timestamp = new Date().toISOString();
+      const updatedAssignment = {
+        ...existing,
+        status: 'removed',
+        validUntil: removalDate,
+        notes: `${existing?.notes || ''} [Entfernt am ${removalDate}]`.trim()
+      };
+
       const auditData = {
         id: `audit-${Math.random().toString(36).substring(2, 9)}`,
         actorUid: authUser?.uid || 'system',
-        action: `Einzelzuweisung [${ent?.name}] für [${user?.displayName || existing?.userId}] gelöscht`,
+        action: `Zuweisung [${ent?.name}] für [${user?.displayName || existing?.userId}] als entfernt markiert (Gültig bis: ${removalDate})`,
         entityType: 'assignment',
         entityId: selectedAssignmentId,
         timestamp,
         tenantId: 't1',
-        before: existing
+        before: existing,
+        after: updatedAssignment
       };
 
       if (dataSource === 'mysql') {
-        const result = await deleteCollectionRecord('assignments', selectedAssignmentId);
+        const result = await saveCollectionRecord('assignments', selectedAssignmentId, updatedAssignment);
         if (!result.success) {
           toast({ variant: "destructive", title: "Fehler", description: result.error });
           return;
         }
         await saveCollectionRecord('auditEvents', auditData.id, auditData);
       } else {
-        deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
+        updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), { 
+          status: 'removed', 
+          validUntil: removalDate 
+        });
         addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
-      toast({ title: "Zuweisung gelöscht" });
+      
+      toast({ title: "Zuweisung archiviert", description: `Der Status wurde auf 'removed' gesetzt.` });
       setIsDeleteDialogOpen(false);
       resetForm();
       setTimeout(() => refreshAssignments(), 200);
@@ -264,6 +261,7 @@ export default function AssignmentsPage() {
 
   const openDelete = (assignment: any) => {
     setSelectedAssignmentId(assignment.id);
+    setRemovalDate(new Date().toISOString().split('T')[0]);
     setTimeout(() => setIsDeleteDialogOpen(true), 150);
   };
 
@@ -295,7 +293,7 @@ export default function AssignmentsPage() {
     setSelectedUserId('');
     setSelectedEntitlementId('');
     setTicketRef('');
-    setValidFrom(new Date().toISOString().split('T')[0]); // Heute vorausfüllen
+    setValidFrom(new Date().toISOString().split('T')[0]);
     setValidUntil('');
     setNotes('');
     setStatus('active');
@@ -307,7 +305,7 @@ export default function AssignmentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
+          <h1 className="text-2xl font-bold tracking-tight font-headline">Einzelzuweisungen</h1>
           <p className="text-sm text-muted-foreground">Direkte Berechtigungen für Mitarbeiter ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
@@ -446,7 +444,7 @@ export default function AssignmentsPage() {
                               <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-700" onSelect={() => openDelete(assignment)}>
-                              <Trash2 className="w-4 h-4 mr-2" /> Zuweisung löschen
+                              <XCircle className="w-4 h-4 mr-2" /> Zuweisung beenden
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -460,6 +458,7 @@ export default function AssignmentsPage() {
         )}
       </div>
 
+      {/* CREATE DIALOG */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="rounded-none border shadow-2xl max-w-lg">
           <DialogHeader>
@@ -524,6 +523,7 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* EDIT DIALOG */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="rounded-none border shadow-2xl max-w-lg">
           <DialogHeader>
@@ -567,22 +567,37 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-none shadow-2xl border-2">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5" /> Zuweisung löschen?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Dies entfernt die Zuweisung unwiderruflich. Der Benutzer verliert sofort den Zugriff auf das System.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAssignment} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs">Löschen</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* REMOVE / ARCHIVE DIALOG */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="rounded-none border shadow-2xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Zuweisung beenden
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Die Zuweisung wird im System als 'entfernt' markiert. Bitte geben Sie das Datum der Deaktivierung an.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Abmelde-Datum (Gültig bis)</Label>
+              <Input 
+                type="date" 
+                value={removalDate} 
+                onChange={e => setRemovalDate(e.target.value)} 
+                className="rounded-none"
+              />
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 text-[10px] text-slate-600 uppercase font-bold leading-relaxed">
+              Hinweis: Da ComplianceHub ein Registry-System ist, erfolgt kein technischer Entzug in der Zielanwendung. Die Änderung wird jedoch revisionssicher im Audit Log protokolliert.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={confirmDeleteAssignment} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-[10px]">Berechtigung entziehen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
