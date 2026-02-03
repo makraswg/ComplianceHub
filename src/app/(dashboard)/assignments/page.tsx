@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   Zap,
   Filter,
-  ShieldCheck
+  ShieldCheck,
+  Ticket,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -45,6 +47,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   setDocumentNonBlocking,
+  updateDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -53,6 +56,7 @@ import { toast } from '@/hooks/use-toast';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -64,6 +68,7 @@ export default function AssignmentsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'requested' | 'removed' | 'pending_removal'>('active');
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [adminOnly, setAdminOnly] = useState(false);
+  const [isJiraActionLoading, setIsJiraActionLoading] = useState(false);
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -113,6 +118,61 @@ export default function AssignmentsPage() {
     setTimeout(() => refreshAssignments(), 200);
   };
 
+  const handleBulkCreateJiraTickets = async () => {
+    const expiredWithoutTicket = assignments?.filter(a => 
+      a.status === 'active' && 
+      a.validUntil && 
+      new Date(a.validUntil) < new Date() && 
+      !a.jiraIssueKey
+    ) || [];
+
+    if (expiredWithoutTicket.length === 0) return;
+
+    setIsJiraActionLoading(true);
+    let successCount = 0;
+    
+    try {
+      const configs = await getJiraConfigs();
+      if (configs.length === 0 || !configs[0].enabled) {
+        toast({ variant: "destructive", title: "Fehler", description: "Jira Integration nicht konfiguriert oder inaktiv." });
+        setIsJiraActionLoading(false);
+        return;
+      }
+
+      for (const a of expiredWithoutTicket) {
+        const user = users?.find(u => u.id === a.userId);
+        const ent = entitlements?.find(e => e.id === a.entitlementId);
+        const res = resources?.find(r => r.id === ent?.resourceId);
+
+        const summary = `VERLÄNGERUNG: ${user?.displayName} - ${res?.name}`;
+        const desc = `Die Berechtigung für [${user?.displayName}] (${user?.email}) im System [${res?.name}] (Rolle: ${ent?.name}) ist am ${a.validUntil} abgelaufen.\n\nBitte prüfen Sie, ob der Zugriff verlängert werden soll.`;
+
+        const result = await createJiraTicket(configs[0].id, summary, desc);
+        if (result.success) {
+          successCount++;
+          const updateData = { jiraIssueKey: result.key, ticketRef: result.key };
+          if (dataSource === 'mysql') {
+            await saveCollectionRecord('assignments', a.id, { ...a, ...updateData });
+          } else {
+            updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
+          }
+        } else {
+          console.error(`Jira Error for ${a.id}:`, result.error, result.details);
+        }
+      }
+
+      toast({ 
+        title: "Bulk-Prozess abgeschlossen", 
+        description: `${successCount} von ${expiredWithoutTicket.length} Tickets wurden in Jira angelegt.` 
+      });
+      setTimeout(() => refreshAssignments(), 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Kritischer Fehler", description: e.message });
+    } finally {
+      setIsJiraActionLoading(false);
+    }
+  };
+
   const filteredAssignments = assignments?.filter(a => {
     const user = users?.find(u => u.id === a.userId);
     const ent = entitlements?.find(e => e.id === a.entitlementId);
@@ -123,11 +183,18 @@ export default function AssignmentsPage() {
     
     const matchTab = activeTab === 'all' || a.status === activeTab;
     
-    const isAdmin = ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1";
+    const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
     const matchAdmin = !adminOnly || isAdmin;
 
     return matchSearch && matchTab && matchAdmin;
   });
+
+  const expiredWithoutTicketCount = assignments?.filter(a => 
+    a.status === 'active' && 
+    a.validUntil && 
+    new Date(a.validUntil) < new Date() && 
+    !a.jiraIssueKey
+  ).length || 0;
 
   if (!mounted) return null;
 
@@ -138,9 +205,23 @@ export default function AssignmentsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
           <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick.</p>
         </div>
-        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
-        </Button>
+        <div className="flex gap-2">
+          {expiredWithoutTicketCount > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-9 font-bold uppercase text-[10px] rounded-none border-orange-200 text-orange-700 bg-orange-50 hover:bg-orange-100"
+              onClick={handleBulkCreateJiraTickets}
+              disabled={isJiraActionLoading}
+            >
+              {isJiraActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-2" />}
+              {expiredWithoutTicketCount} Tickets erstellen
+            </Button>
+          )}
+          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -183,7 +264,7 @@ export default function AssignmentsPage() {
               const user = users?.find(u => u.id === a.userId);
               const ent = entitlements?.find(e => e.id === a.entitlementId);
               const res = resources?.find(r => r.id === ent?.resourceId);
-              const isAdmin = ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1";
+              const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
 
               return (
                 <TableRow key={a.id} className="hover:bg-muted/5 border-b">

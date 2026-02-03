@@ -174,7 +174,17 @@ export default function LifecyclePage() {
         const desc = `Bitte folgende Accounts für den neuen Mitarbeiter ${newUserName} erstellen:\n\nE-Mail: ${newUserEmail}\nStartdatum: ${onboardingDate}\n\nRollen laut Bundle '${bundle.name}':\n- ${roleListText.join('\n- ')}\n\nACHTUNG: Berechtigungen im Hub werden erst aktiv geschaltet, wenn dieses Ticket erledigt ist.`;
         
         const res = await createJiraTicket(configs[0].id, summary, desc);
-        if (res.success) jiraKey = res.key!;
+        if (res.success) {
+          jiraKey = res.key!;
+        } else {
+          toast({ 
+            variant: "destructive", 
+            title: "Jira Ticket konnte nicht erstellt werden", 
+            description: res.error + (res.details ? `: ${res.details}` : "") 
+          });
+        }
+      } else if (configs.length > 0 && !configs[0].enabled) {
+        toast({ variant: "destructive", title: "Integration inaktiv", description: "Jira-Tickets sind in den Einstellungen deaktiviert." });
       }
 
       // 3. Create Assignments with status 'requested'
@@ -226,7 +236,15 @@ export default function LifecyclePage() {
       if (configs.length > 0 && configs[0].enabled) {
         const summary = `OFFBOARDING: ${user.displayName}`;
         const res = await createJiraTicket(configs[0].id, summary, `Bitte Accounts für ${user.displayName} (${user.email}) deaktivieren.`);
-        if (res.success) jiraKey = res.key!;
+        if (res.success) {
+          jiraKey = res.key!;
+        } else {
+          toast({ 
+            variant: "destructive", 
+            title: "Jira Ticket konnte nicht erstellt werden", 
+            description: res.error + (res.details ? `: ${res.details}` : "") 
+          });
+        }
       }
 
       for (const a of userAssignments) {

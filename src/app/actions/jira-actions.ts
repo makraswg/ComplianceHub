@@ -329,10 +329,10 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 /**
  * Erstellt ein Ticket in Jira.
  */
-export async function createJiraTicket(configId: string, summary: string, description: string): Promise<{ success: boolean; key?: string; error?: string }> {
+export async function createJiraTicket(configId: string, summary: string, description: string): Promise<{ success: boolean; key?: string; error?: string; details?: string }> {
   const configs = await getJiraConfigs();
   const config = configs.find(c => c.id === configId);
-  if (!config || !config.enabled) return { success: false, error: 'Jira nicht konfiguriert.' };
+  if (!config || !config.enabled) return { success: false, error: 'Jira nicht konfiguriert oder deaktiviert.' };
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
@@ -361,9 +361,20 @@ export async function createJiraTicket(configId: string, summary: string, descri
     });
 
     const data = await response.json();
-    return response.ok ? { success: true, key: data.key } : { success: false, error: 'Fehler beim Erstellen.' };
+    
+    if (!response.ok) {
+      const errorMsg = data.errorMessages?.join(', ') || 'Unbekannter API Fehler';
+      const fieldsErrors = data.errors ? JSON.stringify(data.errors) : '';
+      return { 
+        success: false, 
+        error: `Jira API Fehler (${response.status})`, 
+        details: `${errorMsg} ${fieldsErrors}`
+      };
+    }
+
+    return { success: true, key: data.key };
   } catch (e: any) {
-    return { success: false, error: e.message };
+    return { success: false, error: 'Netzwerkfehler beim Jira-Aufruf', details: e.message };
   }
 }
 
