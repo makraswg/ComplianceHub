@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -161,11 +162,14 @@ export default function ResourcesPage() {
     toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
     setIsCreateOpen(false);
     resetResourceForm();
-    setTimeout(() => refreshResources(), 100);
+    setTimeout(() => refreshResources(), 150);
   };
 
   const handleAddOrUpdateEntitlement = async () => {
-    if (!entName || !selectedResource) return;
+    if (!entName || !selectedResource) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
+      return;
+    }
     
     const entId = editingEntitlementId || `ent-${Math.random().toString(36).substring(2, 9)}`;
     const entData = {
@@ -188,7 +192,7 @@ export default function ResourcesPage() {
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
     resetEntitlementForm();
-    setTimeout(() => refreshEntitlements(), 100);
+    setTimeout(() => refreshEntitlements(), 150);
   };
 
   const confirmDeleteResource = async () => {
@@ -201,7 +205,7 @@ export default function ResourcesPage() {
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
       setSelectedResource(null);
-      setTimeout(() => refreshResources(), 100);
+      setTimeout(() => refreshResources(), 150);
     }
   };
 
@@ -215,7 +219,7 @@ export default function ResourcesPage() {
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
       setSelectedEntitlement(null);
-      setTimeout(() => refreshEntitlements(), 100);
+      setTimeout(() => refreshEntitlements(), 150);
     }
   };
 
@@ -268,10 +272,10 @@ export default function ResourcesPage() {
             <div className="flex flex-col">
               <span className="text-sm font-bold flex items-center gap-2">
                 {ent.name}
-                {ent.isSharedAccount && (
+                {!!ent.isSharedAccount && (
                   <Badge variant="outline" className="bg-orange-50 text-orange-700 text-[8px] border-orange-200">SHARED</Badge>
                 )}
-                {ent.passwordManagerUrl && (
+                {!!ent.passwordManagerUrl && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -368,7 +372,11 @@ export default function ResourcesPage() {
                         <div className="cursor-pointer" onClick={() => { setSelectedResource(resource); setIsDetailsOpen(true); }}>
                           <div className="font-bold text-sm flex items-center gap-2 hover:text-primary transition-colors">
                             {resource.name}
-                            {resource.url && <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary" onClick={(e) => e.stopPropagation()}><ExternalLink className="w-3 h-3" /></a>}
+                            {!!resource.url && (
+                              <a href={resource.url} target="_blank" className="text-muted-foreground hover:text-primary" onClick={(e) => e.stopPropagation()}>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
                           </div>
                           <div className="text-[10px] font-bold text-muted-foreground uppercase">{resource.owner}</div>
                         </div>
@@ -574,10 +582,10 @@ export default function ResourcesPage() {
                           </TableRow>
                         );
                       })}
-                      {assignments?.filter((a: any) => {
+                      {(assignments?.filter((a: any) => {
                          const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
                          return ent?.resourceId === selectedResource?.id && a.status === 'active';
-                      }).length === 0 && (
+                      }).length || 0) === 0 && (
                         <TableRow>
                           <TableCell colSpan={3} className="h-20 text-center text-muted-foreground italic">Keine aktiven Zugriffe.</TableCell>
                         </TableRow>
@@ -600,12 +608,12 @@ export default function ResourcesPage() {
                   </div>
                   <div className="space-y-2">
                     <p className="font-bold text-[9px] uppercase text-muted-foreground">Links</p>
-                    {selectedResource?.url && (
+                    {!!selectedResource?.url && (
                       <a href={selectedResource.url} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-primary font-bold">
                         <ExternalLink className="w-3.5 h-3.5" /> Anwendung öffnen
                       </a>
                     )}
-                    {selectedResource?.documentationUrl && (
+                    {!!selectedResource?.documentationUrl && (
                       <a href={selectedResource.documentationUrl} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-slate-700 font-bold">
                         <FileText className="w-3.5 h-3.5" /> Dokumentation
                       </a>
@@ -681,7 +689,7 @@ export default function ResourcesPage() {
                 )}
               </div>
               <div className="col-span-2 flex justify-end gap-2 pt-2">
-                {editingEntitlementId && <Button variant="ghost" size="sm" className="rounded-none" onClick={resetEntitlementForm}>Abbrechen</Button>}
+                {!!editingEntitlementId && <Button variant="ghost" size="sm" className="rounded-none" onClick={resetEntitlementForm}>Abbrechen</Button>}
                 <Button size="sm" className="rounded-none font-bold uppercase text-[10px]" onClick={handleAddOrUpdateEntitlement}>
                   {editingEntitlementId ? 'Rolle aktualisieren' : 'Rolle hinzufügen'}
                 </Button>
@@ -692,7 +700,7 @@ export default function ResourcesPage() {
               <div className="bg-muted/30 p-2 border-b text-[10px] font-bold uppercase tracking-widest">Definierte Rollen</div>
               <div className="max-h-[300px] overflow-y-auto">
                 {entitlements?.filter((e: any) => e.resourceId === selectedResource?.id && !e.parentId).map((ent: any) => renderEntitlementItem(ent))}
-                {entitlements?.filter((e: any) => e.resourceId === selectedResource?.id).length === 0 && (
+                {(entitlements?.filter((e: any) => e.resourceId === selectedResource?.id).length || 0) === 0 && (
                   <div className="p-8 text-center text-muted-foreground italic text-xs">Keine Rollen definiert.</div>
                 )}
               </div>
