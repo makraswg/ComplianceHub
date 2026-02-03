@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -126,21 +127,9 @@ export async function getJiraAttributesAction(configData: {
       const targetId = configData.targetObjectTypeId.toString();
       
       const refAttr = attributes.find((a: any) => {
-        // Jira Assets Typ 7 ist 'Referenced Object'. Wir prüfen auch auf String-Konstanten.
-        const isRefType = a.type === 7 || 
-                          a.type === '7' || 
-                          a.type === 'REFERENCED_OBJECT' || 
-                          a.type === 'REFERENCE' ||
-                          a.type === 'OBJECT_REFERENCE';
-        
-        // Wir prüfen verschiedene Felder, in denen Jira die Ziel-ID speichern könnte
-        const matchesTarget = a.typeValue?.toString() === targetId || 
-                              a.additionalValue?.toString() === targetId ||
-                              a.referenceObjectTypeId?.toString() === targetId;
-        
-        // Fallback: Wenn Typ stimmt und Name "System" ist (wie im Screenshot)
+        const isRefType = a.type === 7 || a.type === '7' || a.type === 'REFERENCED_OBJECT' || a.type === 'REFERENCE' || a.type === 'OBJECT_REFERENCE';
+        const matchesTarget = a.typeValue?.toString() === targetId || a.additionalValue?.toString() === targetId || a.referenceObjectTypeId?.toString() === targetId;
         const matchesName = isRefType && (a.name?.toLowerCase() === 'system' || a.name?.toLowerCase() === 'ressourcen');
-
         return matchesTarget || (isRefType && matchesName);
       });
       
@@ -177,7 +166,8 @@ export async function syncAssetsToJiraAction(
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
   const assetsApiBase = `${baseUrl}/gateway/api/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`; 
-  const nameAttrId = config.assetsNameAttributeId || "1";
+  const resNameAttrId = config.assetsResourceNameAttributeId || "1";
+  const roleNameAttrId = config.assetsRoleNameAttributeId || "1";
   const systemRefAttrId = config.assetsSystemAttributeId;
 
   try {
@@ -202,7 +192,7 @@ export async function syncAssetsToJiraAction(
               objectTypeId: config.assetsResourceObjectTypeId,
               attributes: [
                 {
-                  objectTypeAttributeId: nameAttrId,
+                  objectTypeAttributeId: resNameAttrId,
                   objectAttributeValues: [{ value: res.name }]
                 }
               ]
@@ -231,7 +221,7 @@ export async function syncAssetsToJiraAction(
         try {
           const attributes = [
             {
-              objectTypeAttributeId: nameAttrId,
+              objectTypeAttributeId: roleNameAttrId,
               objectAttributeValues: [{ value: ent.name }]
             }
           ];

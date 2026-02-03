@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -65,13 +66,15 @@ export default function SettingsPage() {
   const [assetsSchemaId, setAssetsSchemaId] = useState('');
   const [assetsResourceObjectTypeId, setAssetsResourceObjectTypeId] = useState('');
   const [assetsRoleObjectTypeId, setAssetsRoleObjectTypeId] = useState('');
-  const [assetsNameAttributeId, setAssetsNameAttributeId] = useState('1');
+  const [assetsResourceNameAttributeId, setAssetsResourceNameAttributeId] = useState('1');
+  const [assetsRoleNameAttributeId, setAssetsRoleNameAttributeId] = useState('1');
   const [assetsSystemAttributeId, setAssetsSystemAttributeId] = useState('');
 
   // Dropdown / Modal States
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
-  const [isFetchingAttributes, setIsFetchingAttributes] = useState(false);
+  const [isFetchingResAttributes, setIsFetchingResAttributes] = useState(false);
+  const [isFetchingRoleAttributes, setIsFetchingRoleAttributes] = useState(false);
   const [isFetchingRefAttributes, setIsFetchingRefAttributes] = useState(false);
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
 
@@ -96,7 +99,8 @@ export default function SettingsPage() {
         setAssetsSchemaId(c.assetsSchemaId || '');
         setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
         setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
-        setAssetsNameAttributeId(c.assetsNameAttributeId || '1');
+        setAssetsResourceNameAttributeId(c.assetsResourceNameAttributeId || '1');
+        setAssetsRoleNameAttributeId(c.assetsRoleNameAttributeId || '1');
         setAssetsSystemAttributeId(c.assetsSystemAttributeId || '');
       }
     };
@@ -125,24 +129,28 @@ export default function SettingsPage() {
     }
   };
 
-  const discoverNameAttribute = async () => {
-    if (!assetsWorkspaceId || !assetsResourceObjectTypeId) {
-      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID und Ressourcen-Objekttyp ID werden benötigt." });
+  const discoverNameAttribute = async (type: 'resource' | 'role') => {
+    const objectTypeId = type === 'resource' ? assetsResourceObjectTypeId : assetsRoleObjectTypeId;
+    
+    if (!assetsWorkspaceId || !objectTypeId) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID und Objekttyp ID werden benötigt." });
       return;
     }
 
-    setIsFetchingAttributes(true);
+    if (type === 'resource') setIsFetchingResAttributes(true); else setIsFetchingRoleAttributes(true);
+    
     try {
       const res = await getJiraAttributesAction({
         url: jiraUrl,
         email: jiraEmail,
         apiToken: jiraToken,
         workspaceId: assetsWorkspaceId,
-        objectTypeId: assetsResourceObjectTypeId
+        objectTypeId: objectTypeId
       });
 
       if (res.success && res.labelAttributeId) {
-        setAssetsNameAttributeId(res.labelAttributeId);
+        if (type === 'resource') setAssetsResourceNameAttributeId(res.labelAttributeId);
+        else setAssetsRoleNameAttributeId(res.labelAttributeId);
         toast({ title: "Attribut-ID erkannt", description: `Die ID für das Namensfeld ist ${res.labelAttributeId}.` });
       } else {
         toast({ variant: "destructive", title: "Nicht gefunden", description: "Das Label-Attribut konnte nicht automatisch erkannt werden." });
@@ -150,7 +158,7 @@ export default function SettingsPage() {
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
-      setIsFetchingAttributes(false);
+      if (type === 'resource') setIsFetchingResAttributes(false); else setIsFetchingRoleAttributes(false);
     }
   };
 
@@ -225,7 +233,8 @@ export default function SettingsPage() {
       assetsSchemaId,
       assetsResourceObjectTypeId,
       assetsRoleObjectTypeId,
-      assetsNameAttributeId,
+      assetsResourceNameAttributeId,
+      assetsRoleNameAttributeId,
       assetsSystemAttributeId
     };
 
@@ -338,27 +347,43 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (RESOURCEN)</Label>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-[8px] font-bold uppercase gap-1"
+                          onClick={() => discoverNameAttribute('resource')}
+                          disabled={isFetchingResAttributes || !assetsResourceObjectTypeId}
+                        >
+                          {isFetchingResAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          ERKENNEN
+                        </Button>
+                      </div>
+                      <Input placeholder="z.B. 1" value={assetsResourceNameAttributeId} onChange={e => setAssetsResourceNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">OBJEKTTYP ID: ROLLEN</Label>
                       </div>
                       <Input placeholder="z.B. 43" value={assetsRoleObjectTypeId} onChange={e => setAssetsRoleObjectTypeId(e.target.value)} className="rounded-none bg-white h-10" />
                     </div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (LABEL)</Label>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR 'NAME' (ROLLEN)</Label>
                         <Button 
                           variant="ghost" 
                           size="sm" 
                           className="h-6 text-[8px] font-bold uppercase gap-1"
-                          onClick={discoverNameAttribute}
-                          disabled={isFetchingAttributes || !assetsResourceObjectTypeId}
+                          onClick={() => discoverNameAttribute('role')}
+                          disabled={isFetchingRoleAttributes || !assetsRoleObjectTypeId}
                         >
-                          {isFetchingAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          {isFetchingRoleAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                           ERKENNEN
                         </Button>
                       </div>
-                      <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
+                      <Input placeholder="z.B. 21" value={assetsRoleNameAttributeId} onChange={e => setAssetsRoleNameAttributeId(e.target.value)} className="rounded-none bg-white h-10" />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">ATTRIBUT-ID FÜR SYSTEM-REFERENZ</Label>
                         <Button 

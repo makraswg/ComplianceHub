@@ -86,7 +86,8 @@ export interface JiraConfig {
   assetsSchemaId?: string;
   assetsResourceObjectTypeId?: string;
   assetsRoleObjectTypeId?: string;
-  assetsNameAttributeId?: string;
+  assetsResourceNameAttributeId?: string;
+  assetsRoleNameAttributeId?: string;
   assetsSystemAttributeId?: string;
 }
 
