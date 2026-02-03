@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from 'next/navigation';
@@ -14,7 +15,8 @@ import {
   ShieldCheck,
   Workflow,
   Settings2,
-  RefreshCw
+  RefreshCw,
+  UserPlus
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,7 @@ export function AppSidebar() {
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
+    { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
     { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },

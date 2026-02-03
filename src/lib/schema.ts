@@ -28,6 +28,8 @@ export const appSchema: AppSchema = {
       department: 'VARCHAR(255)',
       title: 'VARCHAR(255)',
       enabled: 'BOOLEAN DEFAULT TRUE',
+      onboardingDate: 'VARCHAR(50)',
+      offboardingDate: 'VARCHAR(50)',
       lastSyncedAt: 'VARCHAR(50)',
     },
   },
@@ -42,6 +44,15 @@ export const appSchema: AppSchema = {
       validFrom: 'VARCHAR(50)',
       validUntil: 'VARCHAR(50)',
     },
+  },
+  bundles: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      entitlementIds: 'TEXT',
+    }
   },
   resources: {
     columns: {

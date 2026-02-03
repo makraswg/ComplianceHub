@@ -24,6 +24,8 @@
         "department": { "type": "string" },
         "title": { "type": "string" },
         "enabled": { "type": "boolean" },
+        "onboardingDate": { "type": "string" },
+        "offboardingDate": { "type": "string" },
         "lastSyncedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "tenantId", "externalId", "displayName", "email", "enabled"]
@@ -70,6 +72,18 @@
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
     },
+    "Bundle": {
+      "title": "Bundle",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "entitlementIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "tenantId", "name", "entitlementIds"]
+    },
     "JiraConfig": {
       "title": "JiraConfig",
       "type": "object",
@@ -95,6 +109,7 @@
       { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
       { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
+      { "path": "bundles/{bundleId}", "definition": { "schema": { "$ref": "#/backend/entities/Bundle" } } },
       { "path": "jiraConfigs/{configId}", "definition": { "schema": { "$ref": "#/backend/entities/JiraConfig" } } }
     ]
   }

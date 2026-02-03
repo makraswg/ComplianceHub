@@ -15,7 +15,9 @@ export interface User {
   email: string;
   department: string;
   title: string;
-  enabled: boolean;
+  enabled: boolean | number;
+  onboardingDate?: string;
+  offboardingDate?: string;
   lastSyncedAt: string;
 }
 
@@ -28,6 +30,7 @@ export interface Resource {
   documentationUrl?: string;
   criticality: 'low' | 'medium' | 'high';
   notes: string;
+  createdAt?: string;
 }
 
 export interface Entitlement {
@@ -37,8 +40,9 @@ export interface Entitlement {
   name: string;
   description: string;
   riskLevel: 'low' | 'medium' | 'high';
-  isSharedAccount?: boolean;
+  isSharedAccount?: boolean | number;
   passwordManagerUrl?: string;
+  tenantId?: string;
 }
 
 export interface Assignment {
@@ -56,6 +60,7 @@ export interface Assignment {
   notes: string;
   lastReviewedAt?: string;
   reviewedBy?: string;
+  tenantId?: string;
 }
 
 export interface AssignmentGroup {
@@ -67,6 +72,14 @@ export interface AssignmentGroup {
   userIds: string[];
   validFrom?: string;
   validUntil?: string;
+}
+
+export interface Bundle {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  entitlementIds: string[];
 }
 
 export interface JiraConfig {
