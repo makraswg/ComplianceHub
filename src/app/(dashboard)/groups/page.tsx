@@ -295,13 +295,16 @@ export default function GroupsPage() {
   const filteredRoles = entitlements?.filter(e => {
     const res = resources?.find(r => r.id === e.resourceId);
     const term = entitlementSearch.toLowerCase();
-    return e.name.toLowerCase().includes(term) || res?.name.toLowerCase().includes(term);
+    const entName = e.name || '';
+    const resName = res?.name || '';
+    return entName.toLowerCase().includes(term) || resName.toLowerCase().includes(term);
   }) || [];
 
   const filteredMembers = users?.filter(u => {
     const term = userSearch.toLowerCase();
     const displayName = u.displayName || u.name || '';
-    return displayName.toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+    const email = u.email || '';
+    return displayName.toLowerCase().includes(term) || email.toLowerCase().includes(term);
   }) || [];
 
   return (
@@ -394,7 +397,7 @@ export default function GroupsPage() {
       </div>
 
       <Dialog open={isEditOpen || isAddOpen} onOpenChange={(val) => { if(!val) { setIsEditOpen(false); setIsAddOpen(false); resetForm(); } }}>
-        <DialogContent className="max-w-4xl rounded-none border shadow-2xl bg-white p-0 overflow-hidden flex flex-col h-[700px]">
+        <DialogContent className="max-w-4xl rounded-none border shadow-2xl bg-white p-0 overflow-hidden flex flex-col min-h-[600px]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Workflow className="w-4 h-4 text-primary" />
@@ -412,8 +415,8 @@ export default function GroupsPage() {
               <TabsTrigger value="members" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">3. Mitglieder ({selectedUserIds.length})</TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-hidden min-h-0 relative">
-              <TabsContent value="general" className="p-6 space-y-4 m-0 h-full overflow-y-auto">
+            <div className="flex-1 min-h-0">
+              <TabsContent value="general" className="p-6 space-y-4 m-0">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gruppenname</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-10 shadow-none" placeholder="z.B. Marketing Team" />
@@ -430,7 +433,7 @@ export default function GroupsPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="roles" className="p-6 space-y-4 m-0 h-full flex flex-col">
+              <TabsContent value="roles" className="p-6 space-y-4 m-0 flex flex-col">
                 <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input 
@@ -440,9 +443,9 @@ export default function GroupsPage() {
                     onChange={e => setEntitlementSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
+                <div className="h-[400px] overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar">
                   {isEntitlementsLoading ? (
-                    <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                    <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
                   ) : filteredRoles.length > 0 ? (
                     <div className="grid grid-cols-1 gap-1">
                       {filteredRoles.map(e => {
@@ -458,7 +461,7 @@ export default function GroupsPage() {
                             onClick={() => toggleEntitlement(e.id)}
                           >
                             <div className="flex flex-col truncate">
-                              <span className="font-bold uppercase tracking-tighter text-slate-800">{res?.name}</span>
+                              <span className="font-bold uppercase tracking-tighter text-slate-800">{res?.name || 'System'}</span>
                               <span className="text-muted-foreground truncate">{e.name}</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -472,7 +475,7 @@ export default function GroupsPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                       <Shield className="w-8 h-8 mb-2 opacity-20" />
                       <p className="text-[10px] font-bold uppercase">Keine Rollen gefunden</p>
                     </div>
@@ -480,7 +483,7 @@ export default function GroupsPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="members" className="p-6 space-y-4 m-0 h-full flex flex-col">
+              <TabsContent value="members" className="p-6 space-y-4 m-0 flex flex-col">
                 <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                   <Input 
@@ -490,14 +493,14 @@ export default function GroupsPage() {
                     onChange={e => setUserSearch(e.target.value)}
                   />
                 </div>
-                <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
+                <div className="h-[400px] overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar">
                   {isUsersLoading ? (
-                    <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                    <div className="flex items-center justify-center h-full"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
                   ) : filteredMembers.length > 0 ? (
                     <div className="grid grid-cols-1 gap-1">
                       {filteredMembers.map(u => {
                         const isSelected = selectedUserIds.includes(u.id);
-                        const displayName = u.displayName || u.name;
+                        const displayName = u.displayName || u.name || 'Unbekannter Benutzer';
                         return (
                           <div 
                             key={u.id} 
@@ -508,7 +511,7 @@ export default function GroupsPage() {
                             onClick={() => toggleUser(u.id)}
                           >
                             <div className="flex items-center gap-3 truncate">
-                              <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName?.charAt(0)}</div>
+                              <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName.charAt(0)}</div>
                               <div className="flex flex-col truncate">
                                 <span className="font-bold text-slate-800">{displayName}</span>
                                 <span className="text-muted-foreground uppercase text-[8px]">{u.department || 'Keine Abteilung'}</span>
@@ -525,7 +528,7 @@ export default function GroupsPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                       <Users className="w-8 h-8 mb-2 opacity-20" />
                       <p className="text-[10px] font-bold uppercase">Keine Mitarbeiter gefunden</p>
                     </div>
