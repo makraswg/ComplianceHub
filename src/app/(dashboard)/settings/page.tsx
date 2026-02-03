@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Zap,
-  Box
+  Box,
+  Info
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
@@ -26,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getJiraConfigs, testJiraConnectionAction } from '@/app/actions/jira-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('Acme Corp');
@@ -213,16 +215,41 @@ export default function SettingsPage() {
               </div>
 
               <div className="pt-6 border-t">
-                <h3 className="text-sm font-bold flex items-center gap-2 mb-4"><Box className="w-4 h-4 text-blue-600" /> Jira Assets (Insight) Konfiguration</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Box className="w-4 h-4 text-blue-600" />
+                  <h3 className="text-sm font-bold">Jira Assets (Insight) Konfiguration</h3>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase leading-relaxed">
+                        Die Assets-Konfiguration ermöglicht es, Rollen und Systeme als Objekte in Jira zu pflegen.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
-                    <Input placeholder="z.B. a1b2c3d4-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none" />
-                    <p className="text-[9px] text-muted-foreground">Finden Sie in der URL Ihrer Assets-Übersicht.</p>
+                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
+                      Workspace ID 
+                      <span className="text-[8px] font-normal text-muted-foreground">(UUID Format)</span>
+                    </Label>
+                    <Input placeholder="z.B. a1b2c3d4-e5f6-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white" />
+                    <p className="text-[9px] text-muted-foreground leading-relaxed">
+                      <strong>Wichtig:</strong> Dies ist NICHT Ihre URL. Öffnen Sie Assets in Jira und kopieren Sie die UUID aus der Adresszeile (hinter <code className="bg-slate-200 px-1">/workspace/</code>).
+                    </p>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
-                    <Input placeholder="z.B. 1" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none" />
+                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
+                      Schema ID
+                      <span className="text-[8px] font-normal text-muted-foreground">(Zahl)</span>
+                    </Label>
+                    <Input placeholder="z.B. 1" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
+                    <p className="text-[9px] text-muted-foreground leading-relaxed">
+                      Klicken Sie in Assets auf Ihr Schema. Die ID steht am Ende der URL (z. B. <code className="bg-slate-200 px-1">/objectschema/1</code>).
+                    </p>
                   </div>
                 </div>
               </div>
