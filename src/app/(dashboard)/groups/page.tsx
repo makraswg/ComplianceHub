@@ -91,9 +91,9 @@ export default function GroupsPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
-  const { data: groups, isLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
-  const { data: users } = usePluggableCollection<User>('users');
-  const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: groups, isLoading: isGroupsLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
+  const { data: users, isLoading: isUsersLoading } = usePluggableCollection<User>('users');
+  const { data: entitlements, isLoading: isEntitlementsLoading } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
 
@@ -292,6 +292,18 @@ export default function GroupsPage() {
 
   if (!mounted) return null;
 
+  const filteredRoles = entitlements?.filter(e => {
+    const res = resources?.find(r => r.id === e.resourceId);
+    const term = entitlementSearch.toLowerCase();
+    return e.name.toLowerCase().includes(term) || res?.name.toLowerCase().includes(term);
+  }) || [];
+
+  const filteredMembers = users?.filter(u => {
+    const term = userSearch.toLowerCase();
+    const displayName = u.displayName || u.name || '';
+    return displayName.toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
+  }) || [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
@@ -315,7 +327,7 @@ export default function GroupsPage() {
       </div>
 
       <div className="admin-card overflow-hidden">
-        {isLoading ? (
+        {isGroupsLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-widest">Lade Gruppen...</p>
@@ -382,8 +394,8 @@ export default function GroupsPage() {
       </div>
 
       <Dialog open={isEditOpen || isAddOpen} onOpenChange={(val) => { if(!val) { setIsEditOpen(false); setIsAddOpen(false); resetForm(); } }}>
-        <DialogContent className="max-w-4xl rounded-none border shadow-2xl bg-white p-0 overflow-hidden">
-          <DialogHeader className="p-6 bg-slate-900 text-white">
+        <DialogContent className="max-w-4xl rounded-none border shadow-2xl bg-white p-0 overflow-hidden flex flex-col h-[700px]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
               <Workflow className="w-4 h-4 text-primary" />
               {isEditOpen ? 'Gruppe bearbeiten' : 'Neue Gruppe erstellen'}
@@ -393,15 +405,15 @@ export default function GroupsPage() {
             </DialogDescription>
           </DialogHeader>
           
-          <Tabs defaultValue="general" className="w-full flex flex-col h-[550px]">
+          <Tabs defaultValue="general" className="w-full flex-1 flex flex-col min-h-0">
             <TabsList className="w-full justify-start rounded-none bg-muted/50 border-b h-12 p-0 px-6 gap-6 shrink-0">
               <TabsTrigger value="general" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">1. Allgemein</TabsTrigger>
               <TabsTrigger value="roles" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">2. Rollen ({selectedEntitlementIds.length})</TabsTrigger>
               <TabsTrigger value="members" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase">3. Mitglieder ({selectedUserIds.length})</TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-hidden">
-              <TabsContent value="general" className="p-6 space-y-4 m-0 h-full">
+            <div className="flex-1 overflow-hidden min-h-0 relative">
+              <TabsContent value="general" className="p-6 space-y-4 m-0 h-full overflow-y-auto">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gruppenname</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-10 shadow-none" placeholder="z.B. Marketing Team" />
@@ -429,37 +441,42 @@ export default function GroupsPage() {
                   />
                 </div>
                 <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
-                  <div className="grid grid-cols-1 gap-1">
-                    {entitlements?.filter(e => {
-                      const res = resources?.find(r => r.id === e.resourceId);
-                      const term = entitlementSearch.toLowerCase();
-                      return e.name.toLowerCase().includes(term) || res?.name.toLowerCase().includes(term);
-                    }).map(e => {
-                      const res = resources?.find(r => r.id === e.resourceId);
-                      const isSelected = selectedEntitlementIds.includes(e.id);
-                      return (
-                        <div 
-                          key={e.id} 
-                          className={cn(
-                            "flex items-center justify-between p-2 text-[10px] border cursor-pointer hover:bg-muted transition-colors",
-                            isSelected ? "border-primary/30 bg-primary/5" : "border-transparent bg-white"
-                          )}
-                          onClick={() => toggleEntitlement(e.id)}
-                        >
-                          <div className="flex flex-col truncate">
-                            <span className="font-bold uppercase tracking-tighter text-slate-800">{res?.name}</span>
-                            <span className="text-muted-foreground truncate">{e.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {isSelected && <Badge className="bg-primary text-white rounded-none text-[8px] h-4">GEWÄHLT</Badge>}
-                            <div className={cn("w-4 h-4 border flex items-center justify-center", isSelected ? "bg-primary border-primary" : "bg-white")}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                  {isEntitlementsLoading ? (
+                    <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                  ) : filteredRoles.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-1">
+                      {filteredRoles.map(e => {
+                        const res = resources?.find(r => r.id === e.resourceId);
+                        const isSelected = selectedEntitlementIds.includes(e.id);
+                        return (
+                          <div 
+                            key={e.id} 
+                            className={cn(
+                              "flex items-center justify-between p-2 text-[10px] border cursor-pointer hover:bg-muted transition-colors",
+                              isSelected ? "border-primary/30 bg-primary/5" : "border-transparent bg-white"
+                            )}
+                            onClick={() => toggleEntitlement(e.id)}
+                          >
+                            <div className="flex flex-col truncate">
+                              <span className="font-bold uppercase tracking-tighter text-slate-800">{res?.name}</span>
+                              <span className="text-muted-foreground truncate">{e.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isSelected && <Badge className="bg-primary text-white rounded-none text-[8px] h-4">GEWÄHLT</Badge>}
+                              <div className={cn("w-4 h-4 border flex items-center justify-center", isSelected ? "bg-primary border-primary" : "bg-white")}>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                      <Shield className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="text-[10px] font-bold uppercase">Keine Rollen gefunden</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -474,39 +491,45 @@ export default function GroupsPage() {
                   />
                 </div>
                 <div className="flex-1 overflow-y-auto border bg-slate-50/50 p-2 custom-scrollbar min-h-0">
-                  <div className="grid grid-cols-1 gap-1">
-                    {users?.filter(u => {
-                      const term = userSearch.toLowerCase();
-                      return (u.displayName || u.name || '').toLowerCase().includes(term) || (u.email || '').toLowerCase().includes(term);
-                    }).map(u => {
-                      const isSelected = selectedUserIds.includes(u.id);
-                      const displayName = u.displayName || u.name;
-                      return (
-                        <div 
-                          key={u.id} 
-                          className={cn(
-                            "flex items-center justify-between p-2 text-[10px] border cursor-pointer hover:bg-muted transition-colors",
-                            isSelected ? "border-primary/30 bg-primary/5" : "border-transparent bg-white"
-                          )}
-                          onClick={() => toggleUser(u.id)}
-                        >
-                          <div className="flex items-center gap-3 truncate">
-                            <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName?.charAt(0)}</div>
-                            <div className="flex flex-col truncate">
-                              <span className="font-bold text-slate-800">{displayName}</span>
-                              <span className="text-muted-foreground uppercase text-[8px]">{u.department || 'Keine Abteilung'}</span>
+                  {isUsersLoading ? (
+                    <div className="flex justify-center p-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                  ) : filteredMembers.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-1">
+                      {filteredMembers.map(u => {
+                        const isSelected = selectedUserIds.includes(u.id);
+                        const displayName = u.displayName || u.name;
+                        return (
+                          <div 
+                            key={u.id} 
+                            className={cn(
+                              "flex items-center justify-between p-2 text-[10px] border cursor-pointer hover:bg-muted transition-colors",
+                              isSelected ? "border-primary/30 bg-primary/5" : "border-transparent bg-white"
+                            )}
+                            onClick={() => toggleUser(u.id)}
+                          >
+                            <div className="flex items-center gap-3 truncate">
+                              <div className="w-6 h-6 bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase shrink-0">{displayName?.charAt(0)}</div>
+                              <div className="flex flex-col truncate">
+                                <span className="font-bold text-slate-800">{displayName}</span>
+                                <span className="text-muted-foreground uppercase text-[8px]">{u.department || 'Keine Abteilung'}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isSelected && <Badge className="bg-primary text-white rounded-none text-[8px] h-4">AKTIV</Badge>}
+                              <div className={cn("w-4 h-4 border flex items-center justify-center", isSelected ? "bg-primary border-primary" : "bg-white")}>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {isSelected && <Badge className="bg-primary text-white rounded-none text-[8px] h-4">AKTIV</Badge>}
-                            <div className={cn("w-4 h-4 border flex items-center justify-center", isSelected ? "bg-primary border-primary" : "bg-white")}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                      <Users className="w-8 h-8 mb-2 opacity-20" />
+                      <p className="text-[10px] font-bold uppercase">Keine Mitarbeiter gefunden</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </div>
