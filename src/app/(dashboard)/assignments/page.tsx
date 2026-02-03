@@ -29,7 +29,8 @@ import {
   Clock,
   XCircle,
   ExternalLink,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -59,6 +60,7 @@ import {
   useFirestore, 
   addDocumentNonBlocking, 
   updateDocumentNonBlocking,
+  setDocumentNonBlocking,
   useUser as useAuthUser 
 } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
@@ -85,6 +87,7 @@ export default function AssignmentsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isJiraLoading, setIsJiraLoading] = useState<string | null>(null);
+  const [isBulkJiraLoading, setIsBulkJiraLoading] = useState(false);
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   
   // Form State
@@ -135,16 +138,62 @@ export default function AssignmentsPage() {
 
     if (res.success) {
       toast({ title: "Jira Ticket erstellt", description: `Key: ${res.key}` });
+      const updatedAssignment = { ...assignment, jiraIssueKey: res.key, ticketRef: res.key };
       if (dataSource === 'mysql') {
-        await saveCollectionRecord('assignments', assignment.id, { ...assignment, jiraIssueKey: res.key });
+        await saveCollectionRecord('assignments', assignment.id, updatedAssignment);
       } else {
-        updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), { jiraIssueKey: res.key });
+        updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), { jiraIssueKey: res.key, ticketRef: res.key });
       }
       refreshAssignments();
     } else {
       toast({ variant: "destructive", title: "Jira Fehler", description: res.error });
     }
     setIsJiraLoading(null);
+  };
+
+  const handleBulkCreateTickets = async () => {
+    const expiredWithoutTicket = assignments?.filter(a => 
+      a.status === 'active' && 
+      a.validUntil && 
+      new Date(a.validUntil) < new Date() && 
+      !a.jiraIssueKey
+    ) || [];
+
+    if (expiredWithoutTicket.length === 0) {
+      toast({ title: "Keine Tickets nötig", description: "Alle abgelaufenen Zuweisungen haben bereits einen Jira-Key." });
+      return;
+    }
+
+    setIsBulkJiraLoading(true);
+    let successCount = 0;
+
+    for (const assignment of expiredWithoutTicket) {
+      const user = users?.find(u => u.id === assignment.userId);
+      const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+      const configs = await getJiraConfigs();
+      
+      if (configs.length > 0 && configs[0].enabled) {
+        const res = await createJiraTicket(
+          configs[0].id,
+          `AUTO-REVIEW: ${ent?.name} für ${user?.displayName}`,
+          `Automatisch generiertes Ticket für abgelaufene Berechtigung.\nSystem: ${ent?.name}\nBenutzer: ${user?.displayName}\nAbgelaufen am: ${assignment.validUntil}`
+        );
+
+        if (res.success) {
+          const updatedAssignment = { ...assignment, jiraIssueKey: res.key, ticketRef: res.key };
+          if (dataSource === 'mysql') {
+            await saveCollectionRecord('assignments', assignment.id, updatedAssignment);
+          } else {
+            updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), { jiraIssueKey: res.key, ticketRef: res.key });
+          }
+          successCount++;
+        }
+      }
+    }
+
+    setIsBulkJiraLoading(false);
+    toast({ title: "Sammel-Erstellung beendet", description: `${successCount} Jira Tickets wurden erfolgreich angelegt.` });
+    refreshAssignments();
   };
 
   const handleCreateAssignment = async () => {
@@ -157,7 +206,6 @@ export default function AssignmentsPage() {
     const ent = entitlements?.find(e => e.id === selectedEntitlementId);
     const res = resources?.find(r => r.id === ent?.resourceId);
 
-    // IMMER eine neue ID generieren, um die Historie pro Jira-Ticket zu wahren
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
     const timestamp = new Date().toISOString();
     const assignmentData = {
@@ -276,6 +324,13 @@ export default function AssignmentsPage() {
 
   if (!mounted) return null;
 
+  const expiredWithoutTicketCount = assignments?.filter(a => 
+    a.status === 'active' && 
+    a.validUntil && 
+    new Date(a.validUntil) < new Date() && 
+    !a.jiraIssueKey
+  ).length || 0;
+
   const filteredAssignments = assignments?.filter(a => {
     const user = users?.find(u => u.id === a.userId);
     const ent = entitlements?.find(e => e.id === a.entitlementId);
@@ -287,7 +342,6 @@ export default function AssignmentsPage() {
     return match && matchTab;
   });
 
-  // Filter für Rollen, die der gewählte User noch nicht aktiv hat
   const availableEntitlements = entitlements?.filter(e => {
     if (!selectedUserId) return true;
     const userHasIt = assignments?.some(a => a.userId === selectedUserId && a.entitlementId === e.id && a.status === 'active');
@@ -302,6 +356,18 @@ export default function AssignmentsPage() {
           <p className="text-sm text-muted-foreground">Arbeits- und Dokumentationsübersicht (Jira-integriert).</p>
         </div>
         <div className="flex gap-2">
+          {expiredWithoutTicketCount > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="h-9 font-bold uppercase text-[10px] rounded-none animate-pulse"
+              onClick={handleBulkCreateTickets}
+              disabled={isBulkJiraLoading}
+            >
+              {isBulkJiraLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-2" />}
+              {expiredWithoutTicketCount} Tickets erstellen
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => exportAssignmentsPdf(filteredAssignments || [], users || [], entitlements || [], resources || [])}>
             <FileDown className="w-3.5 h-3.5 mr-2" /> Export
           </Button>

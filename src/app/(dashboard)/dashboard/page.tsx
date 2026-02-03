@@ -14,7 +14,9 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle2,
-  FileDown
+  FileDown,
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -34,6 +36,8 @@ import { Progress } from '@/components/ui/progress';
 import { exportComplianceReportPdf } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#3b82f6' },
@@ -88,6 +92,13 @@ export default function DashboardPage() {
   const reviewedAssignments = assignments?.filter(a => !!a.lastReviewedAt).length || 0;
   const reviewProgress = totalAssignments > 0 ? Math.round((reviewedAssignments / totalAssignments) * 100) : 0;
 
+  const expiredWithoutTicketCount = assignments?.filter(a => 
+    a.status === 'active' && 
+    a.validUntil && 
+    new Date(a.validUntil) < new Date() && 
+    !a.jiraIssueKey
+  ).length || 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
@@ -115,6 +126,19 @@ export default function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {expiredWithoutTicketCount > 0 && (
+        <Alert variant="destructive" className="rounded-none border-red-200 bg-red-50/50">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle className="text-xs font-bold uppercase">Compliance Risiko erkannt</AlertTitle>
+          <AlertDescription className="text-[11px] flex items-center justify-between mt-1">
+            <span>Es gibt {expiredWithoutTicketCount} abgelaufene Zuweisungen ohne Dokumentation (Jira Ticket). Bitte prüfen Sie diese umgehend.</span>
+            <Button variant="link" className="h-auto p-0 text-[10px] font-bold uppercase" asChild>
+              <Link href="/assignments">Zu den Zuweisungen <ChevronRight className="w-3 h-3 ml-1" /></Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
