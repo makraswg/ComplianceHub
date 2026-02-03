@@ -81,7 +81,7 @@ export async function getJiraWorkspacesAction(configData: { url: string; email: 
 }
 
 /**
- * Ruft Attribute eines Objekttyps ab, um die Name-ID (Label) zu finden.
+ * Ruft Attribute eines Objekttyps ab, um IDs automatisch zu finden.
  */
 export async function getJiraAttributesAction(configData: { 
   url: string; 
@@ -89,7 +89,14 @@ export async function getJiraAttributesAction(configData: {
   apiToken: string;
   workspaceId: string;
   objectTypeId: string;
-}): Promise<{ success: boolean; attributes?: any[]; labelAttributeId?: string; error?: string }> {
+  targetObjectTypeId?: string; // Optional: Findet Referenzen auf diesen Typ
+}): Promise<{ 
+  success: boolean; 
+  attributes?: any[]; 
+  labelAttributeId?: string; 
+  referenceAttributeId?: string;
+  error?: string 
+}> {
   if (!configData.workspaceId || !configData.objectTypeId) {
     return { success: false, error: 'Workspace ID und Objekttyp ID erforderlich.' };
   }
@@ -109,12 +116,26 @@ export async function getJiraAttributesAction(configData: {
 
     const data = await response.json();
     const attributes = data || [];
+    
+    // 1. Suche nach dem Label (Name)
     const labelAttr = attributes.find((a: any) => a.label === true);
+    
+    // 2. Suche nach einer Referenz auf den Ziel-Objekttyp (z.B. System-Referenz)
+    // Jira Assets Typ 7 ist meistens 'Referenced Object'
+    let referenceAttributeId = undefined;
+    if (configData.targetObjectTypeId) {
+      const refAttr = attributes.find((a: any) => 
+        (a.type === 7 || a.type === 'REFERENCED_OBJECT') && 
+        a.typeValue?.toString() === configData.targetObjectTypeId.toString()
+      );
+      referenceAttributeId = refAttr?.id?.toString();
+    }
 
     return { 
       success: true, 
       attributes, 
-      labelAttributeId: labelAttr?.id?.toString() 
+      labelAttributeId: labelAttr?.id?.toString(),
+      referenceAttributeId
     };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -141,11 +162,15 @@ export async function syncAssetsToJiraAction(
   
   const assetsApiBase = `${baseUrl}/gateway/api/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`; 
   const nameAttrId = config.assetsNameAttributeId || "1";
+  const systemRefAttrId = config.assetsSystemAttributeId;
 
   try {
     let createdCount = 0;
     let errorCount = 0;
     let lastError = '';
+    
+    // Map zum Speichern der Jira-IDs der erstellten Ressourcen (für Verknüpfungen)
+    const resourceMap = new Map<string, string>();
 
     // 1. Ressourcen (Systeme)
     if (config.assetsResourceObjectTypeId) {
@@ -170,6 +195,8 @@ export async function syncAssetsToJiraAction(
           });
           
           if (createRes.ok) {
+            const data = await createRes.json();
+            resourceMap.set(res.id, data.id);
             createdCount++;
           } else {
             errorCount++;
@@ -187,6 +214,22 @@ export async function syncAssetsToJiraAction(
     if (config.assetsRoleObjectTypeId) {
       for (const ent of entitlements) {
         try {
+          const attributes = [
+            {
+              objectTypeAttributeId: nameAttrId,
+              objectAttributeValues: [{ value: ent.name }]
+            }
+          ];
+
+          // Falls eine System-Referenz-ID konfiguriert ist und wir die Jira-ID der Ressource haben
+          const jiraResourceId = resourceMap.get(ent.resourceId);
+          if (systemRefAttrId && jiraResourceId) {
+            attributes.push({
+              objectTypeAttributeId: systemRefAttrId,
+              objectAttributeValues: [{ value: jiraResourceId }]
+            });
+          }
+
           const createEnt = await fetch(`${assetsApiBase}/object/create`, {
             method: 'POST',
             headers: {
@@ -196,12 +239,7 @@ export async function syncAssetsToJiraAction(
             },
             body: JSON.stringify({
               objectTypeId: config.assetsRoleObjectTypeId,
-              attributes: [
-                {
-                  objectTypeAttributeId: nameAttrId,
-                  objectAttributeValues: [{ value: ent.name }]
-                }
-              ]
+              attributes
             })
           });
           

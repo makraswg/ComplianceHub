@@ -72,6 +72,7 @@ export default function SettingsPage() {
   const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
   const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
   const [isFetchingAttributes, setIsFetchingAttributes] = useState(false);
+  const [isFetchingRefAttributes, setIsFetchingRefAttributes] = useState(false);
   const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
 
   const [isSavingJira, setIsSavingJira] = useState(false);
@@ -150,6 +151,36 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsFetchingAttributes(false);
+    }
+  };
+
+  const discoverSystemRefAttribute = async () => {
+    if (!assetsWorkspaceId || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId) {
+      toast({ variant: "destructive", title: "Fehlende Daten", description: "Workspace ID, Rollen-Typ ID und Ressourcen-Typ ID werden benötigt." });
+      return;
+    }
+
+    setIsFetchingRefAttributes(true);
+    try {
+      const res = await getJiraAttributesAction({
+        url: jiraUrl,
+        email: jiraEmail,
+        apiToken: jiraToken,
+        workspaceId: assetsWorkspaceId,
+        objectTypeId: assetsRoleObjectTypeId,
+        targetObjectTypeId: assetsResourceObjectTypeId
+      });
+
+      if (res.success && res.referenceAttributeId) {
+        setAssetsSystemAttributeId(res.referenceAttributeId);
+        toast({ title: "Referenz-ID erkannt", description: `Die ID für die Systemverknüpfung ist ${res.referenceAttributeId}.` });
+      } else {
+        toast({ variant: "destructive", title: "Nicht gefunden", description: "Es wurde kein Attribut gefunden, das auf den Ressourcen-Objekttyp verweist." });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsFetchingRefAttributes(false);
     }
   };
 
@@ -350,9 +381,21 @@ export default function SettingsPage() {
                     <Input placeholder="Standard: 1" value={assetsNameAttributeId} onChange={e => setAssetsNameAttributeId(e.target.value)} className="rounded-none bg-white border-orange-200" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
-                      Attribut-ID für System-Referenz
-                      <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">ID des Attributs im Rollen-Objekttyp, das auf die Ressource verweist.</TooltipContent></Tooltip></TooltipProvider>
+                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        Attribut-ID für System-Referenz
+                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">ID des Attributs im Rollen-Objekttyp, das auf die Ressource verweist.</TooltipContent></Tooltip></TooltipProvider>
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[8px] font-bold uppercase gap-1"
+                        onClick={discoverSystemRefAttribute}
+                        disabled={isFetchingRefAttributes || !assetsRoleObjectTypeId || !assetsResourceObjectTypeId}
+                      >
+                        {isFetchingRefAttributes ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Erkennen
+                      </Button>
                     </Label>
                     <Input placeholder="z.B. 10" value={assetsSystemAttributeId} onChange={e => setAssetsSystemAttributeId(e.target.value)} className="rounded-none bg-white" />
                   </div>
