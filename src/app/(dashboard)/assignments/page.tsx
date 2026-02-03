@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Table, 
@@ -87,7 +87,7 @@ export default function AssignmentsPage() {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
   const [ticketRef, setTicketRef] = useState('');
-  const [validFrom, setValidFrom] = useState('');
+  const [validFrom, setValidFrom] = useState(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'active' | 'requested' | 'removed'>('active');
@@ -101,6 +101,31 @@ export default function AssignmentsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Filter available entitlements based on selected user to prevent duplicates
+  const availableEntitlements = useMemo(() => {
+    if (!entitlements) return [];
+    if (!selectedUserId) return entitlements;
+
+    return entitlements.filter(e => {
+      const alreadyHas = assignments?.some(a => 
+        a.userId === selectedUserId && 
+        a.entitlementId === e.id && 
+        a.status === 'active'
+      );
+      return !alreadyHas;
+    });
+  }, [entitlements, selectedUserId, assignments]);
+
+  // Reset selected entitlement if it's no longer available for the chosen user
+  useEffect(() => {
+    if (selectedUserId && selectedEntitlementId && isCreateOpen) {
+      const stillAvailable = availableEntitlements.some(e => e.id === selectedEntitlementId);
+      if (!stillAvailable) {
+        setSelectedEntitlementId('');
+      }
+    }
+  }, [selectedUserId, availableEntitlements, isCreateOpen]);
 
   const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) {
@@ -470,7 +495,7 @@ export default function AssignmentsPage() {
           <DialogHeader>
             <DialogTitle className="text-sm font-bold uppercase">Neue Zuweisung erstellen</DialogTitle>
             <DialogDescription className="text-xs">
-              Direkte Zuweisung einer Rolle an einen Mitarbeiter.
+              Direkte Zuweisung einer Rolle an einen Mitarbeiter. Bereits zugewiesene Rollen sind ausgeblendet.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -491,17 +516,27 @@ export default function AssignmentsPage() {
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Berechtigung / Rolle wählen</Label>
               <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
                 <SelectTrigger className="rounded-none">
-                  <SelectValue placeholder="Ressource und Rolle wählen..." />
+                  <SelectValue placeholder={selectedUserId ? "Rolle wählen..." : "Bitte erst Benutzer wählen"} />
                 </SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {entitlements?.map(e => {
-                    const res = resources?.find(r => r.id === e.resourceId);
-                    return (
-                      <SelectItem key={e.id} value={e.id}>
-                        {res?.name} - {e.name} ({e.riskLevel})
-                      </SelectItem>
-                    );
-                  })}
+                  {availableEntitlements.length > 0 ? (
+                    availableEntitlements.map(e => {
+                      const res = resources?.find(r => r.id === e.resourceId);
+                      return (
+                        <SelectItem key={e.id} value={e.id}>
+                          {res?.name} - {e.name} ({e.riskLevel})
+                        </SelectItem>
+                      );
+                    })
+                  ) : selectedUserId ? (
+                    <div className="p-2 text-[10px] text-muted-foreground italic text-center">
+                      Alle verfügbaren Rollen sind diesem Benutzer bereits zugewiesen.
+                    </div>
+                  ) : (
+                    <div className="p-2 text-[10px] text-muted-foreground italic text-center">
+                      Bitte wählen Sie zuerst einen Benutzer aus.
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -524,7 +559,7 @@ export default function AssignmentsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]">Erstellen</Button>
+            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]" disabled={!selectedEntitlementId}>Erstellen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
