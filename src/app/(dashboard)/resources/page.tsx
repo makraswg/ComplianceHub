@@ -29,7 +29,8 @@ import {
   Users,
   Layout,
   CornerDownRight,
-  HelpCircle
+  HelpCircle,
+  History
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -71,6 +72,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
@@ -127,6 +129,7 @@ export default function ResourcesPage() {
   const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments } = usePluggableCollection<any>('assignments');
   const { data: users } = usePluggableCollection<any>('users');
+  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => {
     setMounted(true);
@@ -592,8 +595,8 @@ export default function ResourcesPage() {
       </Dialog>
 
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-4xl rounded-none border shadow-2xl">
-          <DialogHeader className="border-b pb-4">
+        <DialogContent className="max-w-4xl rounded-none border shadow-2xl p-0 overflow-hidden">
+          <div className="bg-slate-900 text-white p-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary/10 text-primary flex items-center justify-center font-bold text-xl">
                 <Layers className="w-7 h-7" />
@@ -605,75 +608,131 @@ export default function ResourcesPage() {
                 </DialogDescription>
               </div>
             </div>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 py-6">
-            <div className="md:col-span-2 space-y-6">
-              <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Wer hat Zugriff?
-                </h3>
-                <div className="border rounded-none overflow-hidden max-h-[400px] overflow-y-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/30 sticky top-0">
-                      <TableRow>
-                        <TableHead className="h-10 text-[9px] font-bold uppercase">Mitarbeiter</TableHead>
-                        <TableHead className="h-10 text-[9px] font-bold uppercase">Rolle</TableHead>
-                        <TableHead className="h-10 text-[9px] font-bold uppercase text-right">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignments?.filter((a: any) => {
-                        const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
-                        return ent?.resourceId === selectedResource?.id && a.status === 'active';
-                      }).map((a: any) => {
-                        const user = users?.find((u: any) => u.id === a.userId);
-                        const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
-                        return (
-                          <TableRow key={a.id} className="text-xs">
-                            <TableCell className="py-3 font-bold">{user?.displayName || user?.name || a.userId}</TableCell>
-                            <TableCell>{ent?.name}</TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[8px] uppercase border-none">AKTIV</Badge>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
-                  <Info className="w-4 h-4" /> System-Info
-                </h3>
-                <div className="space-y-4 text-xs">
-                  <div className="p-3 bg-muted/20 border-l-4 border-primary">
-                    <p className="font-bold text-[9px] uppercase text-muted-foreground mb-1">Kritikalität</p>
-                    <p className="font-bold uppercase">{selectedResource?.criticality || 'MEDIUM'}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="font-bold text-[9px] uppercase text-muted-foreground">Links</p>
-                    {!!selectedResource?.url && (
-                      <a href={selectedResource.url} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-primary font-bold">
-                        <ExternalLink className="w-3.5 h-3.5" /> Anwendung öffnen
-                      </a>
-                    )}
-                    {!!selectedResource?.documentationUrl && (
-                      <a href={selectedResource.documentationUrl} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-slate-700 font-bold">
-                        <FileText className="w-3.5 h-3.5" /> Dokumentation
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
-          <DialogFooter className="border-t pt-4">
+          <Tabs defaultValue="access" className="w-full">
+            <TabsList className="w-full flex justify-start rounded-none bg-muted/50 border-b h-12 p-0 px-6 gap-6">
+              <TabsTrigger value="access" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase tracking-widest">Übersicht & Zugriff</TabsTrigger>
+              <TabsTrigger value="history" className="h-full rounded-none data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:shadow-none text-[10px] font-bold uppercase tracking-widest">Historie (Log)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="access" className="p-6 focus-visible:ring-0">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="md:col-span-2 space-y-6">
+                  <div>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                      <Users className="w-4 h-4" /> Wer hat Zugriff?
+                    </h3>
+                    <div className="border rounded-none overflow-hidden max-h-[400px] overflow-y-auto">
+                      <Table>
+                        <TableHeader className="bg-muted/30 sticky top-0">
+                          <TableRow>
+                            <TableHead className="h-10 text-[9px] font-bold uppercase">Mitarbeiter</TableHead>
+                            <TableHead className="h-10 text-[9px] font-bold uppercase">Rolle</TableHead>
+                            <TableHead className="h-10 text-[9px] font-bold uppercase text-right">Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {assignments?.filter((a: any) => {
+                            const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+                            return ent?.resourceId === selectedResource?.id && a.status === 'active';
+                          }).map((a: any) => {
+                            const user = users?.find((u: any) => u.id === a.userId);
+                            const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+                            return (
+                              <TableRow key={a.id} className="text-xs">
+                                <TableCell className="py-3 font-bold">{user?.displayName || user?.name || a.userId}</TableCell>
+                                <TableCell>{ent?.name}</TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[8px] uppercase border-none">AKTIV</Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-primary mb-3 flex items-center gap-2">
+                      <Info className="w-4 h-4" /> System-Info
+                    </h3>
+                    <div className="space-y-4 text-xs">
+                      <div className="p-3 bg-muted/20 border-l-4 border-primary">
+                        <p className="font-bold text-[9px] uppercase text-muted-foreground mb-1">Kritikalität</p>
+                        <p className="font-bold uppercase">{selectedResource?.criticality || 'MEDIUM'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="font-bold text-[9px] uppercase text-muted-foreground">Links</p>
+                        {!!selectedResource?.url && (
+                          <a href={selectedResource.url} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-primary font-bold">
+                            <ExternalLink className="w-3.5 h-3.5" /> Anwendung öffnen
+                          </a>
+                        )}
+                        {!!selectedResource?.documentationUrl && (
+                          <a href={selectedResource.documentationUrl} target="_blank" className="flex items-center gap-2 p-2 border hover:bg-muted text-slate-700 font-bold">
+                            <FileText className="w-3.5 h-3.5" /> Dokumentation
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="p-6 focus-visible:ring-0">
+              <div className="border rounded-none overflow-hidden max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30 sticky top-0">
+                    <TableRow>
+                      <TableHead className="h-10 text-[9px] font-bold uppercase">Zeitpunkt</TableHead>
+                      <TableHead className="h-10 text-[9px] font-bold uppercase">Aktion</TableHead>
+                      <TableHead className="h-10 text-[9px] font-bold uppercase">Akteur</TableHead>
+                      <TableHead className="h-10 text-[9px] font-bold uppercase text-right">Typ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditLogs?.filter((log: any) => {
+                      // Resource events
+                      const isDirectResource = log.entityType === 'resource' && log.entityId === selectedResource?.id;
+                      // Entitlement events for this resource
+                      const isEntitlementForResource = log.entityType === 'entitlement' && entitlements?.some((e: any) => e.id === log.entityId && e.resourceId === selectedResource?.id);
+                      // Assignment events for this resource's entitlements
+                      const isAssignmentForResource = log.entityType === 'assignment' && assignments?.some((a: any) => {
+                        if (a.id !== log.entityId) return false;
+                        const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+                        return ent?.resourceId === selectedResource?.id;
+                      });
+
+                      return isDirectResource || isEntitlementForResource || isAssignmentForResource;
+                    }).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((log: any) => (
+                      <TableRow key={log.id} className="text-[11px] group">
+                        <TableCell className="py-3 text-muted-foreground">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="font-bold">{log.action}</TableCell>
+                        <TableCell className="text-muted-foreground uppercase text-[9px]">{log.actorUid}</TableCell>
+                        <TableCell className="text-right">
+                           <Badge variant="outline" className="rounded-none text-[8px] uppercase border-slate-200">{log.entityType}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {!auditLogs?.length && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-20 text-center text-muted-foreground italic">Keine Einträge gefunden.</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter className="border-t p-6 bg-slate-50">
             <Button variant="outline" onClick={() => setIsDetailsOpen(false)} className="rounded-none">Schließen</Button>
             <Button onClick={() => openEditResource(selectedResource)} className="rounded-none font-bold uppercase text-[10px]">Bearbeiten</Button>
           </DialogFooter>
