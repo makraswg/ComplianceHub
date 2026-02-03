@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -46,8 +45,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { useFirestore, setDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirestore, setDocumentNonBlocking, addDocumentNonBlocking, useUser as useAuthUser } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -59,6 +58,7 @@ export default function UsersPage() {
   const db = useFirestore();
   const router = useRouter();
   const { dataSource } = useSettings();
+  const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -77,9 +77,9 @@ export default function UsersPage() {
   const [newTitle, setNewTitle] = useState('');
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
-  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
-  const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
-  const { data: resources, refresh: refreshResources } = usePluggableCollection<any>('resources');
+  const { data: assignments } = usePluggableCollection<any>('assignments');
+  const { data: entitlements } = usePluggableCollection<any>('entitlements');
+  const { data: resources } = usePluggableCollection<any>('resources');
 
   useEffect(() => {
     setMounted(true);
@@ -92,6 +92,7 @@ export default function UsersPage() {
     }
     
     const userId = `u-${Math.random().toString(36).substring(2, 9)}`;
+    const timestamp = new Date().toISOString();
     const userData = {
       id: userId,
       externalId: `MANUAL_${userId}`,
@@ -100,7 +101,16 @@ export default function UsersPage() {
       department: newDepartment,
       title: newTitle,
       enabled: true,
-      lastSyncedAt: new Date().toISOString(),
+      lastSyncedAt: timestamp,
+      tenantId: 't1'
+    };
+
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: 'Benutzer angelegt',
+      entityType: 'user',
+      entityId: userId,
+      timestamp,
       tenantId: 't1'
     };
 
@@ -110,14 +120,16 @@ export default function UsersPage() {
         toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
         return;
       }
+      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'users', userId), userData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
     
     setIsAddOpen(false);
     toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde im Verzeichnis angelegt.` });
     resetForm();
-    refreshUsers();
+    setTimeout(() => refreshUsers(), 200);
   };
 
   const resetForm = () => {
@@ -216,6 +228,8 @@ export default function UsersPage() {
               {filteredUsers?.map((user: any) => {
                 const userEntsCount = assignments?.filter((a: any) => a.userId === user.id && a.status === 'active').length || 0;
                 const displayName = user.name || user.displayName;
+                const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
+                
                 return (
                   <TableRow key={user.id} className="group transition-colors hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
@@ -238,9 +252,9 @@ export default function UsersPage() {
                     <TableCell>
                       <Badge variant="outline" className={cn(
                         "text-[9px] font-bold uppercase rounded-none border-none px-2", 
-                        user.enabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+                        isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
                       )}>
-                        {user.enabled ? "AKTIV" : "DEAKTIVIERT"}
+                        {isEnabled ? "AKTIV" : "DEAKTIVIERT"}
                       </Badge>
                     </TableCell>
                     <TableCell>

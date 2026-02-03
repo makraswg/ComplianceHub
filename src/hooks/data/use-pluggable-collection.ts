@@ -7,6 +7,7 @@ import { useMysqlCollection } from "./use-mysql-collection";
 
 /**
  * Universeller Hook, der die passende Datenquelle wählt und ein reaktives Interface bietet.
+ * Stellt sicher, dass die refresh-Funktion in allen Modi verfügbar ist.
  */
 export function usePluggableCollection<T>(collectionName: string) {
   const { dataSource } = useSettings();
@@ -17,11 +18,20 @@ export function usePluggableCollection<T>(collectionName: string) {
 
   switch (dataSource) {
     case 'mysql':
-      return mysqlState;
+      return {
+        ...mysqlState,
+        refresh: mysqlState.refresh || (() => {})
+      };
     case 'mock':
-      return mockState;
+      return {
+        ...mockState,
+        refresh: mockState.refresh || (() => {})
+      };
     case 'firestore':
     default:
-      return firestoreState;
+      return {
+        ...firestoreState,
+        refresh: firestoreState.refresh || (() => {})
+      };
   }
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -47,20 +46,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   deleteDocumentNonBlocking, 
-  setDocumentNonBlocking
+  setDocumentNonBlocking,
+  addDocumentNonBlocking,
+  useUser as useAuthUser
 } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AssignmentGroup, User, Entitlement, Resource } from '@/lib/types';
@@ -70,6 +65,7 @@ import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysq
 export default function GroupsPage() {
   const db = useFirestore();
   const { dataSource } = useSettings();
+  const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -96,22 +92,15 @@ export default function GroupsPage() {
   }, []);
 
   const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
-    // Wenn keine Zuweisungen geladen sind, können wir nicht zuverlässig vergleichen.
-    // Aber für neue Gruppen/MySQL ist es wichtig, dass wir weitermachen.
     const currentAssignments = assignments || [];
 
-    // 1. Neue/Bestehende Zuweisungen: Alle Benutzer in der Gruppe sollten alle Gruppenberechtigungen haben
+    // 1. Neue/Bestehende Zuweisungen
     for (const uid of userIds) {
       for (const eid of entIds) {
-        const existing = currentAssignments.find(a => 
-          a.userId === uid && 
-          a.entitlementId === eid && 
-          a.originGroupId === groupId
-        );
+        const assId = `ga-${groupId}-${uid}-${eid}`;
+        const existing = currentAssignments.find(a => a.id === assId);
 
         if (!existing) {
-          // Generiere eine deterministische ID, die lang genug ist, um Kollisionen zu vermeiden
-          const assId = `ga-${groupId}-${uid}-${eid}`;
           const assignmentData = {
             id: assId,
             userId: uid,
@@ -149,7 +138,7 @@ export default function GroupsPage() {
       }
     }
     
-    setTimeout(() => refreshAssignments(), 500);
+    setTimeout(() => refreshAssignments(), 300);
   };
 
   const handleSaveGroup = async () => {
@@ -159,6 +148,7 @@ export default function GroupsPage() {
     }
 
     const groupId = selectedGroup?.id || `grp-${Math.random().toString(36).substring(2, 9)}`;
+    const timestamp = new Date().toISOString();
     const groupData = {
       id: groupId,
       name,
@@ -168,14 +158,25 @@ export default function GroupsPage() {
       tenantId: 't1'
     };
 
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: selectedGroup ? 'Zuweisungsgruppe aktualisiert' : 'Zuweisungsgruppe erstellt',
+      entityType: 'group',
+      entityId: groupId,
+      timestamp,
+      tenantId: 't1'
+    };
+
     if (dataSource === 'mysql') {
       const result = await saveCollectionRecord('groups', groupId, groupData);
       if (!result.success) {
         toast({ variant: "destructive", title: "Fehler", description: result.error || "Speichern in MySQL fehlgeschlagen." });
         return;
       }
+      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
@@ -184,22 +185,34 @@ export default function GroupsPage() {
     setIsAddOpen(false);
     toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
     resetForm();
-    setTimeout(() => refreshGroups(), 150);
+    setTimeout(() => refreshGroups(), 200);
   };
 
   const handleDeleteGroup = async () => {
     if (selectedGroup) {
+      const timestamp = new Date().toISOString();
+      const auditData = {
+        actorUid: authUser?.uid || 'system',
+        action: 'Zuweisungsgruppe gelöscht',
+        entityType: 'group',
+        entityId: selectedGroup.id,
+        timestamp,
+        tenantId: 't1'
+      };
+
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('groups', selectedGroup.id);
         const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
         for (const a of groupAssignments) {
           await deleteCollectionRecord('assignments', a.id);
         }
+        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
         assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
           deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
         });
+        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       
       setIsDeleteOpen(false);
@@ -208,7 +221,7 @@ export default function GroupsPage() {
       setTimeout(() => {
         refreshGroups();
         refreshAssignments();
-      }, 150);
+      }, 200);
     }
   };
 

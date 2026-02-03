@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -121,16 +120,26 @@ export default function AssignmentsPage() {
     }
 
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
+    const timestamp = new Date().toISOString();
     const assignmentData = {
       id: assignmentId,
       userId: selectedUserId,
       entitlementId: selectedEntitlementId,
       status: 'active',
       grantedBy: authUser?.uid || 'system',
-      grantedAt: new Date().toISOString(),
+      grantedAt: timestamp,
       ticketRef,
       validUntil,
       notes,
+      tenantId: 't1'
+    };
+
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: 'Einzelzuweisung erstellt',
+      entityType: 'assignment',
+      entityId: assignmentId,
+      timestamp,
       tenantId: 't1'
     };
 
@@ -140,24 +149,36 @@ export default function AssignmentsPage() {
         toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
         return;
       }
+      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
     } else {
       addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
     
     setIsCreateOpen(false);
     toast({ title: "Zuweisung erstellt" });
     resetForm();
-    setTimeout(() => refreshAssignments(), 150);
+    setTimeout(() => refreshAssignments(), 200);
   };
 
   const handleUpdateAssignment = async () => {
     if (!selectedAssignmentId) return;
 
+    const timestamp = new Date().toISOString();
     const assignmentData = {
       status,
       ticketRef,
       validUntil,
       notes,
+    };
+
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: 'Zuweisung aktualisiert',
+      entityType: 'assignment',
+      entityId: selectedAssignmentId,
+      timestamp,
+      tenantId: 't1'
     };
 
     if (dataSource === 'mysql') {
@@ -168,32 +189,46 @@ export default function AssignmentsPage() {
           toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
           return;
         }
+        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
       }
     } else {
       updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), assignmentData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     setIsEditDialogOpen(false);
     toast({ title: "Zuweisung aktualisiert" });
     resetForm();
-    setTimeout(() => refreshAssignments(), 150);
+    setTimeout(() => refreshAssignments(), 200);
   };
 
   const confirmDeleteAssignment = async () => {
     if (selectedAssignmentId) {
+      const timestamp = new Date().toISOString();
+      const auditData = {
+        actorUid: authUser?.uid || 'system',
+        action: 'Zuweisung gelöscht',
+        entityType: 'assignment',
+        entityId: selectedAssignmentId,
+        timestamp,
+        tenantId: 't1'
+      };
+
       if (dataSource === 'mysql') {
         const result = await deleteCollectionRecord('assignments', selectedAssignmentId);
         if (!result.success) {
           toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
           return;
         }
+        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
+        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       toast({ title: "Zuweisung gelöscht" });
       setIsDeleteDialogOpen(false);
       resetForm();
-      setTimeout(() => refreshAssignments(), 150);
+      setTimeout(() => refreshAssignments(), 200);
     }
   };
 

@@ -75,9 +75,11 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   deleteDocumentNonBlocking, 
-  setDocumentNonBlocking
+  setDocumentNonBlocking,
+  addDocumentNonBlocking,
+  useUser as useAuthUser
 } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, collection } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { exportResourcesPdf } from '@/lib/export-utils';
@@ -87,6 +89,7 @@ import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysq
 export default function ResourcesPage() {
   const db = useFirestore();
   const { dataSource } = useSettings();
+  const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -136,6 +139,7 @@ export default function ResourcesPage() {
     }
 
     const resourceId = editingResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
+    const timestamp = new Date().toISOString();
     const resData = {
       id: resourceId,
       name: newName,
@@ -145,7 +149,16 @@ export default function ResourcesPage() {
       documentationUrl: newDocumentationUrl,
       criticality: newCriticality,
       tenantId: 't1',
-      createdAt: editingResource?.createdAt || new Date().toISOString()
+      createdAt: editingResource?.createdAt || timestamp
+    };
+
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: editingResource ? 'System aktualisiert' : 'System registriert',
+      entityType: 'resource',
+      entityId: resourceId,
+      timestamp,
+      tenantId: 't1'
     };
 
     if (dataSource === 'mysql') {
@@ -154,14 +167,16 @@ export default function ResourcesPage() {
         toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
         return;
       }
+      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
     } else {
       setDocumentNonBlocking(doc(db, 'resources', resourceId), resData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
     setIsCreateOpen(false);
     resetResourceForm();
-    setTimeout(() => refreshResources(), 150);
+    setTimeout(() => refreshResources(), 200);
   };
 
   const handleAddOrUpdateEntitlement = async () => {
@@ -171,6 +186,7 @@ export default function ResourcesPage() {
     }
     
     const entId = editingEntitlementId || `ent-${Math.random().toString(36).substring(2, 9)}`;
+    const timestamp = new Date().toISOString();
     const entData = {
       id: entId,
       resourceId: selectedResource.id,
@@ -178,15 +194,27 @@ export default function ResourcesPage() {
       riskLevel: entRisk,
       description: entDesc,
       parentId: entParentId === "none" ? null : entParentId,
-      isSharedAccount,
+      isSharedAccount: isSharedAccount ? 1 : 0,
       passwordManagerUrl: isSharedAccount ? entPasswordManagerUrl : '',
+      tenantId: 't1'
+    };
+
+    const auditData = {
+      actorUid: authUser?.uid || 'system',
+      action: editingEntitlementId ? 'Rolle aktualisiert' : 'Rolle hinzugefügt',
+      entityType: 'entitlement',
+      entityId: entId,
+      timestamp,
       tenantId: 't1'
     };
 
     if (dataSource === 'mysql') {
       await saveCollectionRecord('entitlements', entId, entData);
+      await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
     } else {
-      setDocumentNonBlocking(doc(db, 'entitlements', entId), entData);
+      const fbData = { ...entData, isSharedAccount };
+      setDocumentNonBlocking(doc(db, 'entitlements', entId), fbData);
+      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
     toast({ title: editingEntitlementId ? "Berechtigung aktualisiert" : "Berechtigung hinzugefügt" });
@@ -194,29 +222,53 @@ export default function ResourcesPage() {
     setTimeout(() => {
       refreshEntitlements();
       refreshResources();
-    }, 150);
+    }, 200);
   };
 
   const confirmDeleteResource = async () => {
     if (selectedResource) {
+      const timestamp = new Date().toISOString();
+      const auditData = {
+        actorUid: authUser?.uid || 'system',
+        action: 'System gelöscht',
+        entityType: 'resource',
+        entityId: selectedResource.id,
+        timestamp,
+        tenantId: 't1'
+      };
+
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('resources', selectedResource.id);
+        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'resources', selectedResource.id));
+        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       toast({ title: "Ressource gelöscht" });
       setIsDeleteDialogOpen(false);
       setSelectedResource(null);
-      setTimeout(() => refreshResources(), 150);
+      setTimeout(() => refreshResources(), 200);
     }
   };
 
   const confirmDeleteEntitlement = async () => {
     if (selectedEntitlement) {
+      const timestamp = new Date().toISOString();
+      const auditData = {
+        actorUid: authUser?.uid || 'system',
+        action: 'Rolle gelöscht',
+        entityType: 'entitlement',
+        entityId: selectedEntitlement.id,
+        timestamp,
+        tenantId: 't1'
+      };
+
       if (dataSource === 'mysql') {
         await deleteCollectionRecord('entitlements', selectedEntitlement.id);
+        await saveCollectionRecord('auditEvents', `audit-${Math.random().toString(36).substring(2, 9)}`, auditData);
       } else {
         deleteDocumentNonBlocking(doc(db, 'entitlements', selectedEntitlement.id));
+        addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
       }
       toast({ title: "Rolle gelöscht" });
       setIsDeleteEntitlementOpen(false);
@@ -224,7 +276,7 @@ export default function ResourcesPage() {
       setTimeout(() => {
         refreshEntitlements();
         refreshResources();
-      }, 150);
+      }, 200);
     }
   };
 
@@ -266,6 +318,8 @@ export default function ResourcesPage() {
 
   const renderEntitlementItem = (ent: any, depth = 0) => {
     const children = entitlements?.filter((e: any) => e.parentId === ent.id) || [];
+    const isShared = ent.isSharedAccount === true || ent.isSharedAccount === 1 || ent.isSharedAccount === "1";
+
     return (
       <div key={ent.id}>
         <div className={cn(
@@ -277,7 +331,7 @@ export default function ResourcesPage() {
             <div className="flex flex-col">
               <span className="text-sm font-bold flex items-center gap-2">
                 {ent.name}
-                {!!ent.isSharedAccount && (
+                {isShared && (
                   <Badge variant="outline" className="bg-orange-50 text-orange-700 text-[8px] border-orange-200">SHARED</Badge>
                 )}
                 {!!ent.passwordManagerUrl && (
@@ -302,7 +356,7 @@ export default function ResourcesPage() {
               setEntName(ent.name);
               setEntRisk(ent.riskLevel);
               setEntParentId(ent.parentId || "none");
-              setIsSharedAccount(!!ent.isSharedAccount);
+              setIsSharedAccount(isShared);
               setEntPasswordManagerUrl(ent.passwordManagerUrl || '');
               setEntDesc(ent.description || '');
             }}><Pencil className="w-3.5 h-3.5" /></Button>
@@ -324,7 +378,7 @@ export default function ResourcesPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
-          <p className="text-sm text-muted-foreground">Zentrale Übersicht aller Anwendungen und Systeme.</p>
+          <p className="text-sm text-muted-foreground">Zentrale Übersicht aller Anwendungen und Systeme ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
            <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => exportResourcesPdf(resources || [], entitlements || [])}>
