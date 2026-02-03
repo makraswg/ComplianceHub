@@ -20,7 +20,8 @@ import {
   UserPlus, 
   AlertTriangle,
   History,
-  Info
+  Info,
+  Terminal
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -138,6 +139,9 @@ export default function JiraSyncPage() {
 
   if (!mounted) return null;
 
+  // Erstelle die JQL zur Anzeige für den User zur Fehlersuche
+  const debugJql = activeConfig ? `project = "${activeConfig.projectKey}" AND status = "${activeConfig.approvedStatusName}"${activeConfig.issueTypeName ? ` AND "Request Type" = "${activeConfig.issueTypeName}"` : ''}` : '';
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
@@ -215,13 +219,23 @@ export default function JiraSyncPage() {
                 ))}
                 {jiraTickets.length === 0 && !isLoading && (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Info className="w-6 h-6 text-slate-300" />
-                        <p className="text-muted-foreground italic text-xs">
-                          Aktuell keine neuen genehmigten Anfragen in Jira gefunden.<br/>
-                          (Prüfen Sie: Projekt "{activeConfig.projectKey}", Status "{activeConfig.approvedStatusName}" und Anfragetyp "{activeConfig.issueTypeName}")
-                        </p>
+                    <TableCell colSpan={5} className="h-48 text-center p-8">
+                      <div className="flex flex-col items-center gap-4">
+                        <Info className="w-8 h-8 text-slate-300" />
+                        <div className="space-y-1">
+                          <p className="text-muted-foreground font-bold text-xs uppercase">Keine passenden Tickets gefunden</p>
+                          <p className="text-[10px] text-muted-foreground max-w-md mx-auto">
+                            Stellen Sie sicher, dass Tickets in Jira den Status "{activeConfig.approvedStatusName}" und den Anfragetyp "{activeConfig.issueTypeName}" besitzen.
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 border p-3 rounded-none w-full max-w-lg text-left">
+                          <p className="text-[9px] font-bold uppercase text-slate-400 mb-2 flex items-center gap-1.5">
+                            <Terminal className="w-3 h-3" /> Verwendete JQL-Abfrage:
+                          </p>
+                          <code className="text-[10px] font-mono text-blue-600 break-all select-all">
+                            {debugJql}
+                          </code>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -233,7 +247,7 @@ export default function JiraSyncPage() {
       )}
 
       <div className="p-4 bg-blue-50 border text-[10px] font-bold uppercase text-blue-700 leading-relaxed">
-        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Der Status und Anfragetyp muss exakt mit den Einstellungen übereinstimmen.
+        Hinweis: Das System sucht in Jira nach Tickets, bei denen eine gültige E-Mail-Adresse in der Beschreibung hinterlegt ist. Die JQL-Abfrage filtert nach Projekt, Status und Anfragetyp.
       </div>
     </div>
   );

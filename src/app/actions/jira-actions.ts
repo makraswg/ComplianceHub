@@ -27,7 +27,8 @@ export async function createJiraTicket(configId: string, summary: string, descri
       method: 'POST',
       headers: {
         'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
         fields: {
@@ -38,9 +39,11 @@ export async function createJiraTicket(configId: string, summary: string, descri
             version: 1,
             content: [{ type: 'paragraph', content: [{ type: 'text', text: description }] }]
           },
-          issuetype: { name: 'Service Request' }
+          // Nutze den konfigurierten Anfragetyp als IssueType Name (meistens 'Service Request')
+          issuetype: { name: config.issueTypeName || 'Service Request' }
         }
-      })
+      }),
+      cache: 'no-store'
     });
 
     const data = await response.json();
@@ -67,22 +70,24 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
     const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
     const statusFilter = config.approvedStatusName || "Genehmigt";
     
-    // JQL basierend auf User-Input: project = ITSM AND "Request Type" = "Anfragetyp" AND status = "Status"
+    // JQL basierend auf User-Input: project = ITSM AND "Request Type" = "..." AND status = "..."
     let jql = `project = "${config.projectKey}" AND status = "${statusFilter}"`;
     
     if (config.issueTypeName) {
+      // In JSM JQL ist "Request Type" oft der Anzeigename des Anfragetyps
       jql += ` AND "Request Type" = "${config.issueTypeName}"`;
     }
     
     jql += ` ORDER BY created DESC`;
     
-    console.log(`[Jira Sync] Ausgeführte JQL: ${jql}`);
+    console.log(`[Jira Sync] Requesting JQL: ${jql}`);
 
     const response = await fetch(`${config.url}/rest/api/3/search?jql=${encodeURIComponent(jql)}`, {
       headers: { 
         'Authorization': `Basic ${auth}`,
         'Accept': 'application/json'
-      }
+      },
+      cache: 'no-store'
     });
 
     if (!response.ok) {
@@ -93,7 +98,6 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
 
     const data = await response.json();
     if (!data.issues) {
-      console.log("[Jira Sync] Keine Issues im Search-Result gefunden.");
       return [];
     }
 
@@ -101,8 +105,9 @@ export async function fetchJiraApprovedRequests(configId: string): Promise<JiraS
       let extractedEmail = '';
       const description = issue.fields.description;
 
+      // Rekursive Suche nach E-Mail in ADF (Atlassian Document Format)
       const findEmailInNodes = (nodes: any[]): string | null => {
-        if (!nodes) return null;
+        if (!nodes || !Array.isArray(nodes)) return null;
         for (const node of nodes) {
           if (node.text) {
             const match = node.text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -161,7 +166,8 @@ export async function resolveJiraTicket(configId: string, issueKey: string, comm
             content: [{ type: 'text', text: comment }] 
           }] 
         } 
-      })
+      }),
+      cache: 'no-store'
     });
 
     return true;
