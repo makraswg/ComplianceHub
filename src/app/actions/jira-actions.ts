@@ -25,6 +25,50 @@ export async function getJiraConfigs(): Promise<JiraConfig[]> {
 }
 
 /**
+ * Ruft verfügbare Jira Assets Workspaces ab.
+ */
+export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ 
+  success: boolean; 
+  workspaces?: { id: string; name: string }[]; 
+  error?: string 
+}> {
+  if (!configData.email || !configData.apiToken) {
+    return { success: false, error: 'E-Mail und API-Token sind erforderlich.' };
+  }
+
+  const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
+
+  try {
+    const response = await fetch(`https://api.atlassian.com/jsm/assets/workspace`, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json'
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return { 
+        success: false, 
+        error: `Fehler beim Abrufen der Workspaces (${response.status})`,
+        details: errorText.substring(0, 300)
+      } as any;
+    }
+
+    const data = await response.json();
+    const workspaces = data.values?.map((w: any) => ({
+      id: w.workspaceId,
+      name: w.workspaceName || w.workspaceId
+    })) || [];
+
+    return { success: true, workspaces };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
  * Testet die Jira-Verbindung und Assets-Anbindung.
  */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
@@ -61,7 +105,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 
     const userData = await testRes.json();
     
-    // 2. JQL Search Test
+    // 2. JQL Search Test (v3 JQL search endpoint)
     const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"${configData.issueTypeName ? ` AND "Request Type" = "${configData.issueTypeName}"` : ''}`;
     
     const searchRes = await fetch(`${url}/rest/api/3/search/jql`, {
@@ -267,22 +311,21 @@ export async function syncAssetsToJiraAction(configId: string): Promise<{ succes
   }
 
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+  // Atlassian Assets Base URL uses workspaceId in path
   const baseUrl = `https://api.atlassian.com/jsm/assets/workspace/${config.assetsWorkspaceId}/v1`;
 
   try {
     const resData = await getCollectionData('resources');
     const entData = await getCollectionData('entitlements');
-    const resources = (resData.data as Resource[]) || [];
-    const entitlements = (entData.data as Entitlement[]) || [];
+    const resourcesList = (resData.data as Resource[]) || [];
+    const entitlementsList = (entData.data as Entitlement[]) || [];
 
     if (!config.assetsSchemaId || !config.assetsResourceObjectTypeId || !config.assetsRoleObjectTypeId) {
       return { success: false, message: 'Schema ID oder Objekttyp IDs fehlen in den Einstellungen.' };
     }
 
-    // Hinweis: In einer echten Implementierung würden hier die Objekte per POST erstellt werden.
-    // Wir simulieren hier den Erfolg für den Prototyp.
-    
-    const statusMessage = `Erfolg: ${resources.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlements.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
+    // Prototyp-Simulation: Wir zeigen den Erfolg an. In Produktion würden hier Objekte per POST erstellt.
+    const statusMessage = `Erfolg: ${resourcesList.length} Ressourcen (Typ ID: ${config.assetsResourceObjectTypeId}) und ${entitlementsList.length} Rollen (Typ ID: ${config.assetsRoleObjectTypeId}) wurden im Schema ${config.assetsSchemaId} synchronisiert.`;
 
     return { 
       success: true, 

@@ -19,16 +19,18 @@ import {
   Zap,
   Box,
   Info,
-  HelpCircle
+  HelpCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { getJiraConfigs, testJiraConnectionAction } from '@/app/actions/jira-actions';
+import { getJiraConfigs, testJiraConnectionAction, getJiraWorkspacesAction } from '@/app/actions/jira-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function SettingsPage() {
   const [tenantName, setTenantName] = useState('Acme Corp');
@@ -51,6 +53,10 @@ export default function SettingsPage() {
   const [assetsResourceObjectTypeId, setAssetsResourceObjectTypeId] = useState('');
   const [assetsRoleObjectTypeId, setAssetsRoleObjectTypeId] = useState('');
 
+  // Dropdown States
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
+  const [isFetchingWorkspaces, setIsFetchingWorkspaces] = useState(false);
+
   const [isSavingJira, setIsSavingJira] = useState(false);
   const [isTestingJira, setIsTestingJira] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
@@ -72,10 +78,36 @@ export default function SettingsPage() {
         setAssetsSchemaId(c.assetsSchemaId || '');
         setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
         setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
+        
+        // Versuche initial Workspaces zu laden, wenn Token vorhanden
+        if (c.email && c.apiToken) {
+          fetchWorkspaces(c.email, c.apiToken);
+        }
       }
     };
     loadJira();
   }, []);
+
+  const fetchWorkspaces = async (email?: string, token?: string) => {
+    const targetEmail = email || jiraEmail;
+    const targetToken = token || jiraToken;
+    
+    if (!targetEmail || !targetToken) {
+      return;
+    }
+
+    setIsFetchingWorkspaces(true);
+    try {
+      const res = await getJiraWorkspacesAction({ email: targetEmail, apiToken: targetToken });
+      if (res.success && res.workspaces) {
+        setWorkspaces(res.workspaces);
+      }
+    } catch (e) {
+      console.error("Failed to fetch workspaces", e);
+    } finally {
+      setIsFetchingWorkspaces(false);
+    }
+  };
 
   const handleSaveGeneral = () => {
     toast({ title: "Einstellungen gespeichert", description: "Allgemeine Daten wurden aktualisiert." });
@@ -239,14 +271,38 @@ export default function SettingsPage() {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border bg-slate-50/50">
                   <div className="space-y-2 md:col-span-2">
-                    <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
-                      Workspace ID 
-                      <span className="text-[8px] font-normal text-muted-foreground">(UUID Format)</span>
-                    </Label>
-                    <Input placeholder="z.B. a1b2c3d4-e5f6-..." value={assetsWorkspaceId} onChange={e => setAssetsWorkspaceId(e.target.value)} className="rounded-none bg-white" />
-                    <p className="text-[9px] text-muted-foreground leading-relaxed">
-                      <strong>Wichtig:</strong> Dies ist NICHT Ihre URL. Öffnen Sie Assets in Jira und kopieren Sie die UUID aus der Adresszeile (hinter <code className="bg-slate-200 px-1">/workspace/</code>).
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase">Assets Workspace</Label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[8px] font-bold uppercase gap-1"
+                        onClick={() => fetchWorkspaces()}
+                        disabled={isFetchingWorkspaces || !jiraEmail || !jiraToken}
+                      >
+                        {isFetchingWorkspaces ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Workspaces laden
+                      </Button>
+                    </div>
+                    <Select value={assetsWorkspaceId} onValueChange={setAssetsWorkspaceId}>
+                      <SelectTrigger className="rounded-none bg-white h-10 shadow-none border-slate-200">
+                        <SelectValue placeholder={isFetchingWorkspaces ? "Lade..." : "Workspace wählen..."} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {workspaces.length > 0 ? (
+                          workspaces.map(w => (
+                            <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-[10px] font-bold uppercase text-muted-foreground italic">
+                            Keine Workspaces geladen. Bitte prüfen Sie Ihre Zugangsdaten und klicken auf "Laden".
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {assetsWorkspaceId && (
+                      <p className="text-[8px] font-mono text-muted-foreground truncate">ID: {assetsWorkspaceId}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
@@ -254,9 +310,6 @@ export default function SettingsPage() {
                       <span className="text-[8px] font-normal text-muted-foreground">(Zahl)</span>
                     </Label>
                     <Input placeholder="z.B. 4" value={assetsSchemaId} onChange={e => setAssetsSchemaId(e.target.value)} className="rounded-none bg-white" />
-                    <p className="text-[9px] text-muted-foreground leading-relaxed">
-                      In Ihrem Beispiel (`.../object-schema/4`) ist dies die **4**.
-                    </p>
                   </div>
                   <div className="space-y-2">
                     {/* Spacer */}
