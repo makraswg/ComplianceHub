@@ -89,7 +89,7 @@ export async function getJiraAttributesAction(configData: {
   apiToken: string;
   workspaceId: string;
   objectTypeId: string;
-  targetObjectTypeId?: string; // Optional: Findet Referenzen auf diesen Typ
+  targetObjectTypeId?: string; 
 }): Promise<{ 
   success: boolean; 
   attributes?: any[]; 
@@ -120,16 +120,28 @@ export async function getJiraAttributesAction(configData: {
     // 1. Suche nach dem Label (Name)
     const labelAttr = attributes.find((a: any) => a.label === true || a.name?.toLowerCase() === 'name');
     
-    // 2. Suche nach einer Referenz auf den Ziel-Objekttyp (z.B. System-Referenz)
+    // 2. Suche nach einer Referenz auf den Ziel-Objekttyp
     let referenceAttributeId = undefined;
     if (configData.targetObjectTypeId) {
       const targetId = configData.targetObjectTypeId.toString();
       
       const refAttr = attributes.find((a: any) => {
-        // Jira Assets Typ 7 ist 'Referenced Object'
-        const isRefType = a.type === 7 || a.type === 'REFERENCED_OBJECT' || a.type === 'REFERENCE';
-        const matchesTarget = a.typeValue?.toString() === targetId || a.additionalValue?.toString() === targetId;
-        return isRefType && matchesTarget;
+        // Jira Assets Typ 7 ist 'Referenced Object'. Wir prüfen auch auf String-Konstanten.
+        const isRefType = a.type === 7 || 
+                          a.type === '7' || 
+                          a.type === 'REFERENCED_OBJECT' || 
+                          a.type === 'REFERENCE' ||
+                          a.type === 'OBJECT_REFERENCE';
+        
+        // Wir prüfen verschiedene Felder, in denen Jira die Ziel-ID speichern könnte
+        const matchesTarget = a.typeValue?.toString() === targetId || 
+                              a.additionalValue?.toString() === targetId ||
+                              a.referenceObjectTypeId?.toString() === targetId;
+        
+        // Fallback: Wenn Typ stimmt und Name "System" ist (wie im Screenshot)
+        const matchesName = isRefType && (a.name?.toLowerCase() === 'system' || a.name?.toLowerCase() === 'ressourcen');
+
+        return matchesTarget || (isRefType && matchesName);
       });
       
       referenceAttributeId = refAttr?.id?.toString();
@@ -173,7 +185,6 @@ export async function syncAssetsToJiraAction(
     let errorCount = 0;
     let lastError = '';
     
-    // Map zum Speichern der Jira-IDs der erstellten Ressourcen (für Verknüpfungen)
     const resourceMap = new Map<string, string>();
 
     // 1. Ressourcen (Systeme)
@@ -225,7 +236,6 @@ export async function syncAssetsToJiraAction(
             }
           ];
 
-          // Falls eine System-Referenz-ID konfiguriert ist und wir die Jira-ID der Ressource haben
           const jiraResourceId = resourceMap.get(ent.resourceId);
           if (systemRefAttrId && jiraResourceId) {
             attributes.push({
