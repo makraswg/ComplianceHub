@@ -62,6 +62,8 @@ export const appSchema: AppSchema = {
       url: 'TEXT',
       documentationUrl: 'TEXT',
       criticality: 'VARCHAR(20) DEFAULT "medium"',
+      notes: 'TEXT',
+      createdAt: 'VARCHAR(50)',
     },
   },
   entitlements: {
@@ -89,6 +91,8 @@ export const appSchema: AppSchema = {
       grantedAt: 'VARCHAR(50)',
       validUntil: 'VARCHAR(50)',
       lastReviewedAt: 'VARCHAR(50)',
+      ticketRef: 'VARCHAR(255)',
+      notes: 'TEXT',
     },
   },
   auditEvents: {
