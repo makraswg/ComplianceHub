@@ -25,7 +25,8 @@ import {
   Check,
   AlertTriangle,
   History,
-  X
+  X,
+  HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -63,9 +64,12 @@ import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AssignmentGroup, User, Entitlement, Resource } from '@/lib/types';
+import { useSettings } from '@/context/settings-context';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 
 export default function GroupsPage() {
   const db = useFirestore();
+  const { dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -81,22 +85,22 @@ export default function GroupsPage() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
-  const { data: groups, isLoading } = usePluggableCollection<AssignmentGroup>('groups');
+  const { data: groups, isLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
-  const { data: assignments } = usePluggableCollection('assignments');
+  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const syncGroupAssignments = (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
+  const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[]) => {
     if (!assignments) return;
 
     // 1. New/Existing assignments: All users in the group should have all group entitlements
-    userIds.forEach(uid => {
-      entIds.forEach(eid => {
+    for (const uid of userIds) {
+      for (const eid of entIds) {
         const existing = assignments.find(a => 
           a.userId === uid && 
           a.entitlementId === eid && 
@@ -104,8 +108,8 @@ export default function GroupsPage() {
         );
 
         if (!existing) {
-          const assId = `ga-${groupId}-${uid}-${eid}`.substring(0, 20);
-          setDocumentNonBlocking(doc(db, 'assignments', assId), {
+          const assId = `ga-${groupId}-${uid}-${eid}`.substring(0, 25);
+          const assignmentData = {
             id: assId,
             userId: uid,
             entitlementId: eid,
@@ -116,24 +120,36 @@ export default function GroupsPage() {
             ticketRef: `GRUPPE: ${groupName}`,
             notes: `Auto-zugewiesen via Gruppe: ${groupName}`,
             tenantId: 't1'
-          });
+          };
+
+          if (dataSource === 'mysql') {
+            await saveCollectionRecord('assignments', assId, assignmentData);
+          } else {
+            setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData);
+          }
         }
-      });
-    });
+      }
+    }
 
     // 2. Cleanup: Remove assignments that are no longer part of this group (user or role removed)
     const currentGroupAssignments = assignments.filter(a => a.originGroupId === groupId);
-    currentGroupAssignments.forEach(a => {
+    for (const a of currentGroupAssignments) {
       const userStillInGroup = userIds.includes(a.userId);
       const entStillInGroup = entIds.includes(a.entitlementId);
 
       if (!userStillInGroup || !entStillInGroup) {
-        deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
+        if (dataSource === 'mysql') {
+          await deleteCollectionRecord('assignments', a.id);
+        } else {
+          deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
+        }
       }
-    });
+    }
+    
+    setTimeout(() => refreshAssignments(), 500);
   };
 
-  const handleSaveGroup = () => {
+  const handleSaveGroup = async () => {
     if (!name) {
       toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
       return;
@@ -149,25 +165,48 @@ export default function GroupsPage() {
       tenantId: 't1'
     };
 
-    setDocumentNonBlocking(doc(db, 'groups', groupId), groupData);
-    syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
+    if (dataSource === 'mysql') {
+      const result = await saveCollectionRecord('groups', groupId, groupData);
+      if (!result.success) {
+        toast({ variant: "destructive", title: "Fehler", description: result.error || "Speichern in MySQL fehlgeschlagen." });
+        return;
+      }
+    } else {
+      setDocumentNonBlocking(doc(db, 'groups', groupId), groupData);
+    }
+
+    await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds);
 
     setIsEditOpen(false);
     setIsAddOpen(false);
     toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
     resetForm();
+    setTimeout(() => refreshGroups(), 150);
   };
 
-  const handleDeleteGroup = () => {
+  const handleDeleteGroup = async () => {
     if (selectedGroup) {
-      deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
-      // Cleanup all assignments from this group
-      assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
-        deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
-      });
+      if (dataSource === 'mysql') {
+        await deleteCollectionRecord('groups', selectedGroup.id);
+        // Cleanup all assignments from this group
+        const groupAssignments = assignments?.filter(a => a.originGroupId === selectedGroup.id) || [];
+        for (const a of groupAssignments) {
+          await deleteCollectionRecord('assignments', a.id);
+        }
+      } else {
+        deleteDocumentNonBlocking(doc(db, 'groups', selectedGroup.id));
+        assignments?.filter(a => a.originGroupId === selectedGroup.id).forEach(a => {
+          deleteDocumentNonBlocking(doc(db, 'assignments', a.id));
+        });
+      }
+      
       setIsDeleteOpen(false);
       toast({ title: "Gruppe gelöscht" });
       resetForm();
+      setTimeout(() => {
+        refreshGroups();
+        refreshAssignments();
+      }, 150);
     }
   };
 
@@ -212,7 +251,7 @@ export default function GroupsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Zuweisungsgruppen</h1>
-          <p className="text-sm text-muted-foreground">Strukturieren und automatisieren Sie den Zugriff für Teams.</p>
+          <p className="text-sm text-muted-foreground">Strukturieren und automatisieren Sie den Zugriff für Teams ({dataSource.toUpperCase()}).</p>
         </div>
         <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> Neue Gruppe
@@ -263,13 +302,13 @@ export default function GroupsPage() {
                   <TableCell>
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
                       <Users className="w-3.5 h-3.5 text-slate-400" />
-                      {(group.members != undefined) ? group.members : (group.userIds?.length || 0)} Personen
+                      {Array.isArray(group.userIds) ? group.userIds.length : 0} Personen
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2 text-[10px] font-bold uppercase">
                       <Shield className="w-3.5 h-3.5 text-slate-400" />
-                      {group.entitlementIds?.length || 0} Rollen
+                      {Array.isArray(group.entitlementIds) ? group.entitlementIds.length : 0} Rollen
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -291,7 +330,7 @@ export default function GroupsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {groups?.length === 0 && (
+              {!isLoading && groups?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
                     <History className="w-8 h-8 mx-auto opacity-20 mb-2" />
@@ -305,7 +344,7 @@ export default function GroupsPage() {
       </div>
 
       {/* Edit/Add Group Dialog */}
-      <Dialog open={isEditOpen || isAddOpen} onOpenChange={(val) => { if(!val) { setIsEditOpen(false); setIsAddOpen(false); } }}>
+      <Dialog open={isEditOpen || isAddOpen} onOpenChange={(val) => { if(!val) { setIsEditOpen(false); setIsAddOpen(false); resetForm(); } }}>
         <DialogContent className="max-w-4xl rounded-none border shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold uppercase">
@@ -397,7 +436,7 @@ export default function GroupsPage() {
           </div>
 
           <DialogFooter className="border-t pt-4">
-            <Button variant="outline" className="rounded-none h-11" onClick={() => { setIsEditOpen(false); setIsAddOpen(false); }}>Abbrechen</Button>
+            <Button variant="outline" className="rounded-none h-11" onClick={() => { setIsEditOpen(false); setIsAddOpen(false); resetForm(); }}>Abbrechen</Button>
             <Button onClick={handleSaveGroup} className="h-11 rounded-none font-bold uppercase text-xs px-8">
               {isEditOpen ? 'Änderungen speichern' : 'Gruppe anlegen'}
             </Button>
