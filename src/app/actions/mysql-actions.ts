@@ -11,6 +11,7 @@ const collectionToTableMap: { [key: string]: string } = {
   assignments: 'assignments',
   tenants: 'tenants',
   auditEvents: 'auditEvents',
+  jiraConfigs: 'jiraConfigs',
 };
 
 /**
