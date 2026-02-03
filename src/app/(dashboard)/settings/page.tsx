@@ -365,7 +365,7 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         Attribut-ID für "Name" (Label)
-                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Wichtig: Dies behebt den 'Name field required' Fehler. Meistens ist die ID 1.</TooltipContent></Tooltip></TooltipProvider>
+                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Das Hauptfeld des Objekts. In Jira Assets meistens die ID 1.</TooltipContent></Tooltip></TooltipProvider>
                       </span>
                       <Button 
                         variant="ghost" 
@@ -384,7 +384,9 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase flex items-center justify-between">
                       <span className="flex items-center gap-2">
                         Attribut-ID für System-Referenz
-                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">ID des Attributs im Rollen-Objekttyp, das auf die Ressource verweist.</TooltipContent></Tooltip></TooltipProvider>
+                        <TooltipProvider><Tooltip><TooltipTrigger><HelpCircle className="w-3 h-3 text-slate-400"/></TooltipTrigger><TooltipContent className="max-w-xs text-[10px] font-bold uppercase">
+                          Ein Feld im Objekttyp 'Rollen', das vom Typ 'Referenz' ist und auf 'Ressourcen' zeigt. Name beliebig (z.B. 'System').
+                        </TooltipContent></Tooltip></TooltipProvider>
                       </span>
                       <Button 
                         variant="ghost" 
