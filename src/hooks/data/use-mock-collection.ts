@@ -1,18 +1,20 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMockCollection } from '@/lib/mock-db';
 
 /**
- * Ein Hook, um statische Mock-Daten zu laden.
- * @param collectionName Der Name der zu ladenden Sammlung.
- * @param enabled Gibt an, ob der Hook aktiv sein und Daten laden soll.
+ * Ein Hook für statische Mock-Daten mit Refresh-API.
  */
 export function useMockCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(null);
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+
+  const refresh = useCallback(() => {
+    setVersion(v => v + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled) {
@@ -25,20 +27,17 @@ export function useMockCollection<T>(collectionName: string, enabled: boolean) {
     setIsLoading(true);
     setError(null);
 
-    try {
-      // Simuliert eine asynchrone Verzögerung, wie bei einem echten Netzwerk-Request
-      setTimeout(() => {
+    setTimeout(() => {
+      try {
         const collectionData = getMockCollection(collectionName) as T[];
         setData(collectionData);
         setIsLoading(false);
-      }, 500); // 500ms Verzögerung
+      } catch (err: any) {
+        setError(err.message);
+        setIsLoading(false);
+      }
+    }, 300);
+  }, [collectionName, enabled, version]);
 
-    } catch (err: any) {
-      console.error("Mock data fetching error:", err);
-      setError("Fehler beim Laden der Mock-Daten: " + err.message);
-      setIsLoading(false);
-    }
-  }, [collectionName, enabled]);
-
-  return { data, isLoading, error };
+  return { data, isLoading, error, refresh };
 }

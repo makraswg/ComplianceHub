@@ -1,35 +1,27 @@
-
 "use client";
 
 import { useSettings } from "@/context/settings-context";
 import { useFirestoreCollection } from "./use-firestore-collection";
 import { useMockCollection } from "./use-mock-collection";
-import { useMysqlCollection } from "./use-mysql-collection"; // Import des neuen MySQL-Hooks
+import { useMysqlCollection } from "./use-mysql-collection";
 
 /**
- * Ein universeller Hook, der basierend auf der globalen Einstellung (dataSource)
- * die Daten aus der entsprechenden Quelle (Firestore, Mock oder MySQL) lädt.
- * @param collectionName Der Name der zu ladenden Sammlung.
- * @returns Ein Objekt mit `data`, `isLoading` und `error` von der ausgewählten Datenquelle.
+ * Universeller Hook, der die passende Datenquelle wählt und ein reaktives Interface bietet.
  */
 export function usePluggableCollection<T>(collectionName: string) {
   const { dataSource } = useSettings();
 
-  // Die Hooks werden bedingt aufgerufen, was normalerweise nicht empfohlen ist.
-  // In diesem spezifischen Fall ist es jedoch kontrolliert und akzeptabel, da sich
-  // der `dataSource` während des Lebenszyklus einer Komponente nicht ändert.
-  const firestoreData = useFirestoreCollection<T>(collectionName, dataSource === 'firestore');
-  const mockData = useMockCollection<T>(collectionName, dataSource === 'mock');
-  const mysqlData = useMysqlCollection<T>(collectionName, dataSource === 'mysql'); // Verwendung des neuen MySQL-Hooks
+  const firestoreState = useFirestoreCollection<T>(collectionName, dataSource === 'firestore');
+  const mockState = useMockCollection<T>(collectionName, dataSource === 'mock');
+  const mysqlState = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
 
-  // Basierend auf der dataSource-Einstellung werden die korrekten Daten zurückgegeben.
   switch (dataSource) {
     case 'mysql':
-      return mysqlData;
+      return mysqlState;
     case 'mock':
-      return mockData;
+      return mockState;
     case 'firestore':
     default:
-      return firestoreData;
+      return firestoreState;
   }
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -76,10 +75,10 @@ export default function UsersPage() {
   const [newDepartment, setNewDepartment] = useState('');
   const [newTitle, setNewTitle] = useState('');
 
-  const { data: users, isLoading } = usePluggableCollection('users');
-  const { data: assignments } = usePluggableCollection('assignments');
-  const { data: entitlements } = usePluggableCollection('entitlements');
-  const { data: resources } = usePluggableCollection('resources');
+  const { data: users, isLoading, refresh } = usePluggableCollection<any>('users');
+  const { data: assignments } = usePluggableCollection<any>('assignments');
+  const { data: entitlements } = usePluggableCollection<any>('entitlements');
+  const { data: resources } = usePluggableCollection<any>('resources');
 
   useEffect(() => {
     setMounted(true);
@@ -110,20 +109,15 @@ export default function UsersPage() {
         toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
         return;
       }
+      refresh(); // Liste neu laden
     } else {
       setDocumentNonBlocking(doc(db, 'users', userId), userData);
+      // Firestore onSnapshot aktualisiert automatisch
     }
     
     setIsAddOpen(false);
     toast({ title: "Benutzer hinzugefügt", description: `${newDisplayName} wurde im Verzeichnis angelegt.` });
     resetForm();
-    
-    // Im MySQL Modus müssen wir ggf. die Liste manuell refreshen, 
-    // falls wir keinen Echtzeit-Listener haben. 
-    // usePluggableCollection regelt das über den State der Seite.
-    if (dataSource === 'mysql') {
-        router.refresh();
-    }
   };
 
   const resetForm = () => {
@@ -140,10 +134,10 @@ export default function UsersPage() {
     setAiAdvice(null);
     
     try {
-      const userAssignments = assignments?.filter(a => a.userId === userDoc.id && a.status === 'active') || [];
-      const detailedAssignments = userAssignments.map(a => {
-        const ent = entitlements?.find(e => e.id === a.entitlementId);
-        const res = resources?.find(r => r.id === ent?.resourceId);
+      const userAssignments = assignments?.filter((a: any) => a.userId === userDoc.id && a.status === 'active') || [];
+      const detailedAssignments = userAssignments.map((a: any) => {
+        const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+        const res = resources?.find((r: any) => r.id === ent?.resourceId);
         return {
           resourceName: res?.name || 'Unbekannt',
           entitlementName: ent?.name || 'Unbekannt',
@@ -166,7 +160,7 @@ export default function UsersPage() {
     }
   };
 
-  const filteredUsers = users?.filter(user => 
+  const filteredUsers = users?.filter((user: any) => 
     (user.name || user.displayName || '').toLowerCase().includes(search.toLowerCase()) ||
     (user.email || '').toLowerCase().includes(search.toLowerCase()) ||
     (user.department || '').toLowerCase().includes(search.toLowerCase())
@@ -182,7 +176,7 @@ export default function UsersPage() {
           <p className="text-sm text-muted-foreground">Zentrale Verwaltung aller Identitäten ({dataSource.toUpperCase()}).</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => setIsSyncing(true)} disabled={isSyncing}>
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { setIsSyncing(true); setTimeout(() => { setIsSyncing(false); refresh(); }, 1500); }} disabled={isSyncing}>
             <RefreshCw className={cn("w-3 h-3 mr-2", isSyncing && "animate-spin")} /> LDAP Sync
           </Button>
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => setIsAddOpen(true)}>
@@ -219,8 +213,8 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers?.map((user) => {
-                const userEntsCount = assignments?.filter(a => a.userId === user.id && a.status === 'active').length || 0;
+              {filteredUsers?.map((user: any) => {
+                const userEntsCount = assignments?.filter((a: any) => a.userId === user.id && a.status === 'active').length || 0;
                 const displayName = user.name || user.displayName;
                 return (
                   <TableRow key={user.id} className="group transition-colors hover:bg-muted/5 border-b">
@@ -359,9 +353,9 @@ export default function UsersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').map(a => {
-                      const ent = entitlements?.find(e => e.id === a.entitlementId);
-                      const res = resources?.find(r => r.id === ent?.resourceId);
+                    {assignments?.filter((a: any) => a.userId === selectedUser?.id && a.status === 'active').map((a: any) => {
+                      const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+                      const res = resources?.find((r: any) => r.id === ent?.resourceId);
                       return (
                         <TableRow key={a.id} className="text-xs">
                           <TableCell className="py-3">
@@ -385,7 +379,7 @@ export default function UsersPage() {
                         </TableRow>
                       );
                     })}
-                    {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
+                    {assignments?.filter((a: any) => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
                       <TableRow>
                         <TableCell colSpan={4} className="h-20 text-center text-muted-foreground italic text-xs">
                           Keine aktiven Zugriffe gefunden.
