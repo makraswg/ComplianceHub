@@ -33,7 +33,6 @@ export interface Resource {
   owner: string;
   url: string;
   documentationUrl?: string;
-  passwordManagerUrl?: string;
   criticality: 'low' | 'medium' | 'high';
   notes: string;
 }
@@ -45,7 +44,8 @@ export interface Entitlement {
   name: string;
   description: string;
   riskLevel: 'low' | 'medium' | 'high';
-  isSharedAccount?: boolean; // Neu: Kennzeichnet nicht benutzerbezogene Zugänge
+  isSharedAccount?: boolean;
+  passwordManagerUrl?: string;
 }
 
 export interface Assignment {

@@ -105,7 +105,6 @@ export default function ResourcesPage() {
   const [newOwner, setNewOwner] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newDocumentationUrl, setNewDocumentationUrl] = useState('');
-  const [newPasswordManagerUrl, setNewPasswordManagerUrl] = useState('');
   const [newCriticality, setNewCriticality] = useState('medium');
 
   const [editingEntitlementId, setEditingEntitlementId] = useState<string | null>(null);
@@ -114,6 +113,7 @@ export default function ResourcesPage() {
   const [entDesc, setEntDesc] = useState('');
   const [entParentId, setEntParentId] = useState<string | null>(null);
   const [isSharedAccount, setIsSharedAccount] = useState(false);
+  const [entPasswordManagerUrl, setEntPasswordManagerUrl] = useState('');
 
   const resourcesQuery = useMemoFirebase(() => collection(db, 'resources'), [db]);
   const entitlementsQuery = useMemoFirebase(() => collection(db, 'entitlements'), [db]);
@@ -141,7 +141,6 @@ export default function ResourcesPage() {
       owner: newOwner,
       url: newUrl,
       documentationUrl: newDocumentationUrl,
-      passwordManagerUrl: newPasswordManagerUrl,
       criticality: newCriticality,
       tenantId: 't1'
     };
@@ -167,7 +166,6 @@ export default function ResourcesPage() {
     setNewUrl('');
     setNewType('SaaS');
     setNewDocumentationUrl('');
-    setNewPasswordManagerUrl('');
     setNewCriticality('medium');
     setEditingResource(null);
   };
@@ -179,7 +177,6 @@ export default function ResourcesPage() {
     setNewOwner(resource.owner);
     setNewUrl(resource.url || '');
     setNewDocumentationUrl(resource.documentationUrl || '');
-    setNewPasswordManagerUrl(resource.passwordManagerUrl || '');
     setNewCriticality(resource.criticality);
     setIsCreateOpen(true);
   };
@@ -193,6 +190,7 @@ export default function ResourcesPage() {
       description: entDesc,
       parentId: entParentId === "none" ? null : entParentId,
       isSharedAccount,
+      passwordManagerUrl: isSharedAccount ? entPasswordManagerUrl : '',
       tenantId: 't1'
     };
     if (editingEntitlementId) {
@@ -212,6 +210,7 @@ export default function ResourcesPage() {
     setEntParentId(null);
     setEditingEntitlementId(null);
     setIsSharedAccount(false);
+    setEntPasswordManagerUrl('');
   };
 
   const confirmDeleteResource = () => {
@@ -248,7 +247,6 @@ export default function ResourcesPage() {
         Besitzer: r.owner,
         URL: r.url || '',
         Dokumentation: r.documentationUrl || '',
-        Passwortmanager: r.passwordManagerUrl || '',
         Rollen: resourceEnts.map(e => e.name).join(', ')
       };
     });
@@ -275,19 +273,34 @@ export default function ResourcesPage() {
         )}>
           <div className="flex items-center gap-2">
             {depth > 0 && <CornerDownRight className="w-3.5 h-3.5 text-muted-foreground" />}
-            <span className="text-sm font-bold flex items-center gap-2">
-              {ent.name}
-              {ent.isSharedAccount && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <UserX className="w-3.5 h-3.5 text-orange-600" />
-                    </TooltipTrigger>
-                    <TooltipContent className="text-[10px] font-bold uppercase">Shared Account / Nicht benutzerbezogen</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold flex items-center gap-2">
+                {ent.name}
+                {ent.isSharedAccount && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <UserX className="w-3.5 h-3.5 text-orange-600" />
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px] font-bold uppercase">Shared Account / Nicht benutzerbezogen</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+                {ent.passwordManagerUrl && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <a href={ent.passwordManagerUrl} target="_blank" onClick={(e) => e.stopPropagation()}>
+                          <Key className="w-3.5 h-3.5 text-orange-600" />
+                        </a>
+                      </TooltipTrigger>
+                      <TooltipContent className="text-[10px] font-bold uppercase">Passwortmanager öffnen</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </span>
+              {ent.description && <span className="text-[10px] text-muted-foreground">{ent.description}</span>}
+            </div>
           </div>
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => {
@@ -296,6 +309,8 @@ export default function ResourcesPage() {
               setEntRisk(ent.riskLevel);
               setEntParentId(ent.parentId || "none");
               setIsSharedAccount(!!ent.isSharedAccount);
+              setEntPasswordManagerUrl(ent.passwordManagerUrl || '');
+              setEntDesc(ent.description || '');
             }}><Pencil className="w-3.5 h-3.5" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-red-600" onClick={() => {
               setSelectedEntitlement(ent);
@@ -400,19 +415,7 @@ export default function ResourcesPage() {
                             </Tooltip>
                           </TooltipProvider>
                         )}
-                        {resource.passwordManagerUrl && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <a href={resource.passwordManagerUrl} target="_blank" className="p-1.5 border hover:bg-muted transition-colors">
-                                  <Key className="w-3.5 h-3.5 text-orange-600" />
-                                </a>
-                              </TooltipTrigger>
-                              <TooltipContent className="text-[10px] font-bold uppercase">Passwortmanager</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {!resource.documentationUrl && !resource.passwordManagerUrl && (
+                        {!resource.documentationUrl && (
                           <span className="text-[10px] text-muted-foreground italic uppercase">Keine Links</span>
                         )}
                       </div>
@@ -537,10 +540,6 @@ export default function ResourcesPage() {
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Dokumentations-Link (Optional)</Label>
               <Input value={newDocumentationUrl} onChange={e => setNewDocumentationUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://wiki.intern/system-x" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Passwortmanager-Link (Optional)</Label>
-              <Input value={newPasswordManagerUrl} onChange={e => setNewPasswordManagerUrl(e.target.value)} className="h-10 rounded-none" placeholder="https://pass.intern/vault/id" />
-            </div>
           </div>
           <DialogFooter><Button onClick={handleCreateOrUpdateResource} className="w-full h-11 rounded-none font-bold uppercase text-xs">Änderungen speichern</Button></DialogFooter>
         </DialogContent>
@@ -601,6 +600,7 @@ export default function ResourcesPage() {
                             <div className="flex items-center gap-1.5">
                               {ent?.name}
                               {ent?.isSharedAccount && <UserX className="w-3 h-3 text-orange-600" />}
+                              {ent?.passwordManagerUrl && <Key className="w-3 h-3 text-orange-600" />}
                             </div>
                           </TableCell>
                           <TableCell className="py-2">
@@ -654,9 +654,23 @@ export default function ResourcesPage() {
                   </Select>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox id="shared" checked={isSharedAccount} onCheckedChange={(val) => setIsSharedAccount(!!val)} />
-                <Label htmlFor="shared" className="text-xs font-bold cursor-pointer">Nicht benutzerbezogener Zugang (Shared Account)</Label>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="shared" checked={isSharedAccount} onCheckedChange={(val) => setIsSharedAccount(!!val)} />
+                  <Label htmlFor="shared" className="text-xs font-bold cursor-pointer">Nicht benutzerbezogener Zugang (Shared Account)</Label>
+                </div>
+                
+                {isSharedAccount && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <Label className="text-[10px] font-bold uppercase text-orange-600">Passwortmanager Link (für Shared Account)</Label>
+                    <Input 
+                      value={entPasswordManagerUrl} 
+                      onChange={e => setEntPasswordManagerUrl(e.target.value)} 
+                      className="h-9 rounded-none border-orange-200 focus-visible:ring-orange-500" 
+                      placeholder="https://pass.intern/vault/id" 
+                    />
+                  </div>
+                )}
               </div>
               <Button onClick={handleAddOrUpdateEntitlement} size="sm" className="w-full h-10 font-bold uppercase text-[10px] rounded-none">
                 {editingEntitlementId ? "Rolle aktualisieren" : "Rolle zum Katalog hinzufügen"}

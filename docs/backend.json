@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Tenant": {
@@ -122,10 +121,6 @@
           "type": "string",
           "description": "Link to the internal documentation for this resource."
         },
-        "passwordManagerUrl": {
-          "type": "string",
-          "description": "Link to the shared password manager vault for this resource."
-        },
         "criticality": {
           "type": "string",
           "enum": ["low", "medium", "high"],
@@ -157,6 +152,10 @@
         "isSharedAccount": { 
           "type": "boolean",
           "description": "Indicates if this role is for a non-user-related access (Shared Account)."
+        },
+        "passwordManagerUrl": {
+          "type": "string",
+          "description": "Link to the shared password manager vault for this specific entitlement/shared account."
         }
       },
       "required": ["id", "tenantId", "resourceId", "name", "riskLevel"]
