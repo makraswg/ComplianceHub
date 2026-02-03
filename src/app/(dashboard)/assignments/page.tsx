@@ -28,7 +28,8 @@ import {
   FileDown,
   FileText,
   Network,
-  Users
+  Users,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -77,9 +78,12 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { exportToExcel, exportAssignmentsPdf } from '@/lib/export-utils';
 import { Assignment, User, Entitlement, Resource } from '@/lib/types';
+import { useSettings } from '@/context/settings-context';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
+  const { dataSource } = useSettings();
   const searchParams = useSearchParams();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
@@ -101,7 +105,7 @@ export default function AssignmentsPage() {
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState<'active' | 'requested' | 'removed'>('active');
 
-  const { data: assignments, isLoading } = usePluggableCollection<Assignment>('assignments');
+  const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
@@ -110,13 +114,15 @@ export default function AssignmentsPage() {
     setMounted(true);
   }, []);
 
-  const handleCreateAssignment = () => {
+  const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte Benutzer und Berechtigung wählen." });
       return;
     }
 
-    addDocumentNonBlocking(collection(db, 'assignments'), {
+    const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
+    const assignmentData = {
+      id: assignmentId,
       userId: selectedUserId,
       entitlementId: selectedEntitlementId,
       status: 'active',
@@ -126,34 +132,68 @@ export default function AssignmentsPage() {
       validUntil,
       notes,
       tenantId: 't1'
-    });
+    };
+
+    if (dataSource === 'mysql') {
+      const result = await saveCollectionRecord('assignments', assignmentId, assignmentData);
+      if (!result.success) {
+        toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+        return;
+      }
+    } else {
+      addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
+    }
     
     setIsCreateOpen(false);
     toast({ title: "Zuweisung erstellt" });
     resetForm();
+    setTimeout(() => refreshAssignments(), 150);
   };
 
-  const handleUpdateAssignment = () => {
+  const handleUpdateAssignment = async () => {
     if (!selectedAssignmentId) return;
 
-    updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), {
+    const assignmentData = {
       status,
       ticketRef,
       validUntil,
       notes,
-    });
+    };
+
+    if (dataSource === 'mysql') {
+      const existing = assignments?.find(a => a.id === selectedAssignmentId);
+      if (existing) {
+        const result = await saveCollectionRecord('assignments', selectedAssignmentId, { ...existing, ...assignmentData });
+        if (!result.success) {
+          toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+          return;
+        }
+      }
+    } else {
+      updateDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId), assignmentData);
+    }
 
     setIsEditDialogOpen(false);
     toast({ title: "Zuweisung aktualisiert" });
     resetForm();
+    setTimeout(() => refreshAssignments(), 150);
   };
 
-  const confirmDeleteAssignment = () => {
+  const confirmDeleteAssignment = async () => {
     if (selectedAssignmentId) {
-      deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
+      if (dataSource === 'mysql') {
+        const result = await deleteCollectionRecord('assignments', selectedAssignmentId);
+        if (!result.success) {
+          toast({ variant: "destructive", title: "MySQL Fehler", description: result.error });
+          return;
+        }
+      } else {
+        deleteDocumentNonBlocking(doc(db, 'assignments', selectedAssignmentId));
+      }
       toast({ title: "Zuweisung gelöscht" });
       setIsDeleteDialogOpen(false);
       resetForm();
+      setTimeout(() => refreshAssignments(), 150);
     }
   };
 
@@ -174,13 +214,13 @@ export default function AssignmentsPage() {
   };
 
   const filteredAssignments = assignments?.filter(assignment => {
-    const user = users?.find(u => u.id === (assignment.user_id || assignment.userId));
-    const entitlement = entitlements?.find(e => e.id === (assignment.entitlement_id || assignment.entitlementId));
+    const user = users?.find(u => u.id === (assignment.userId));
+    const entitlement = entitlements?.find(e => e.id === (assignment.entitlementId));
     const resource = resources?.find(r => r.id === entitlement?.resourceId);
     
     const userName = user?.name || user?.displayName || '';
     const resourceName = resource?.name || '';
-    const assignmentUserId = assignment.user_id || assignment.userId || '';
+    const assignmentUserId = assignment.userId || '';
 
     const searchLower = search.toLowerCase();
 
@@ -196,13 +236,13 @@ export default function AssignmentsPage() {
   const handleExportExcel = () => {
     if (!filteredAssignments) return;
     const exportData = filteredAssignments.map(a => {
-        const user = users?.find(u => u.id === (a.user_id || a.userId));
+        const user = users?.find(u => u.id === (a.userId));
         const userName = user?.name || user?.displayName;
         const userEmail = user?.email;
-        const ent = entitlements?.find(e => e.id === (a.entitlement_id || a.entitlementId));
+        const ent = entitlements?.find(e => e.id === (a.entitlementId));
         const res = resources?.find(r => r.id === ent?.resourceId);
         return {
-            Benutzer: userName || a.user_id || a.userId,
+            Benutzer: userName || a.userId,
             Email: userEmail || '',
             System: res?.name || '---',
             Rolle: ent?.name || '---',
@@ -234,13 +274,27 @@ export default function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-        {/* ... Header and Dialogs ... */}
-         <div className="flex flex-col md:flex-row gap-3">
+      <div className="flex items-center justify-between border-b pb-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Einzelzuweisungen</h1>
+          <p className="text-sm text-muted-foreground">Verwalten Sie direkte Berechtigungen für einzelne Benutzer ({dataSource.toUpperCase()}).</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={handleExportPdf}>
+            <FileDown className="w-3.5 h-3.5 mr-2" /> Export
+          </Button>
+          <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetForm(); setIsCreateOpen(true); }}>
+            <Plus className="w-3.5 h-3.5 mr-2" /> Zuweisung erstellen
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Suche nach Benutzer, System oder Referenz..." 
-            className="pl-10 h-10 shadow-none border-border rounded-none"
+            className="pl-10 h-10 shadow-none border-border rounded-none bg-white"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -279,9 +333,9 @@ export default function AssignmentsPage() {
             </TableHeader>
             <TableBody>
               {filteredAssignments?.map((assignment) => {
-                const user = users?.find(u => u.id === (assignment.user_id || assignment.userId));
+                const user = users?.find(u => u.id === (assignment.userId));
                 const userName = user?.name || user?.displayName;
-                const ent = entitlements?.find(e => e.id === (assignment.entitlement_id || assignment.entitlementId));
+                const ent = entitlements?.find(e => e.id === (assignment.entitlementId));
                 const res = resources?.find(r => r.id === ent?.resourceId);
                 const isExpired = assignment.validUntil && new Date(assignment.validUntil) < new Date();
                 const isFromGroup = !!assignment.originGroupId;
@@ -295,7 +349,7 @@ export default function AssignmentsPage() {
                         </div>
                         <div>
                           <div className="font-bold text-sm flex items-center gap-2">
-                            {userName || assignment.user_id || assignment.userId}
+                            {userName || assignment.userId}
                             {isFromGroup && (
                               <TooltipProvider>
                                 <Tooltip>
@@ -315,7 +369,6 @@ export default function AssignmentsPage() {
                       <div className="flex flex-col">
                         <span className="font-bold text-sm flex items-center gap-1.5">
                           {res?.name}
-                          {ent?.isInheritable && <Network className="w-3 h-3 text-muted-foreground" />}
                         </span>
                         <span className="text-xs text-muted-foreground">{ent?.name}</span>
                       </div>
@@ -379,7 +432,121 @@ export default function AssignmentsPage() {
           </Table>
         )}
       </div>
-       {/* ... Dialogs ... */}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="rounded-none border shadow-2xl max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Neue Zuweisung erstellen</DialogTitle>
+            <DialogDescription className="text-xs">
+              Direkte Zuweisung einer Rolle an einen Mitarbeiter.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Benutzer wählen</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger className="rounded-none">
+                  <SelectValue placeholder="Mitarbeiter auswählen..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  {users?.map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.name || u.displayName} ({u.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Berechtigung / Rolle wählen</Label>
+              <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
+                <SelectTrigger className="rounded-none">
+                  <SelectValue placeholder="Ressource und Rolle wählen..." />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  {entitlements?.map(e => {
+                    const res = resources?.find(r => r.id === e.resourceId);
+                    return (
+                      <SelectItem key={e.id} value={e.id}>
+                        {res?.name} - {e.name} ({e.riskLevel})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
+                <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} placeholder="z.B. INC-10293" className="rounded-none" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis (Optional)</Label>
+                <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleCreateAssignment} className="rounded-none font-bold uppercase text-[10px]">Erstellen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="rounded-none border shadow-2xl max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Zuweisung bearbeiten</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
+              <Select value={status} onValueChange={(val: any) => setStatus(val)}>
+                <SelectTrigger className="rounded-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <SelectItem value="active">Aktiv</SelectItem>
+                  <SelectItem value="requested">Pending / Angefragt</SelectItem>
+                  <SelectItem value="removed">Inaktiv / Entzogen</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Ticket-Referenz</Label>
+                <Input value={ticketRef} onChange={e => setTicketRef(e.target.value)} className="rounded-none" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis</Label>
+                <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none" />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleUpdateAssignment} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Alert */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-none shadow-2xl border-2">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" /> Zuweisung löschen?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Dies entfernt die Zuweisung unwiderruflich. Der Benutzer verliert sofort den Zugriff auf das System.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAssignment} className="bg-red-600 hover:bg-red-700 rounded-none font-bold uppercase text-xs">Löschen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
