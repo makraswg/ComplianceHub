@@ -26,7 +26,10 @@ import {
   Clock,
   AlertTriangle,
   BrainCircuit,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  Zap,
+  ChevronRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -62,11 +65,17 @@ export default function AccessReviewsPage() {
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
 
-  // AI Advisor State
+  // AI Advisor State (Single)
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
+
+  // Bulk AI State
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [bulkProgress, setBulkBulkProgress] = useState(0);
+  const [bulkResults, setBulkResults] = useState<any[]>([]);
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: users } = usePluggableCollection<any>('users');
@@ -95,7 +104,9 @@ export default function AccessReviewsPage() {
       entityType: 'assignment',
       entityId: assignmentId,
       timestamp: new Date().toISOString(),
-      tenantId: 't1'
+      tenantId: 't1',
+      before: existing,
+      after: { ...existing, ...reviewData }
     };
 
     if (dataSource === 'mysql') {
@@ -150,6 +161,49 @@ export default function AccessReviewsPage() {
     }
   };
 
+  const startBulkCheck = async () => {
+    const pendingItems = filteredAssignments?.filter(a => !a.lastReviewedAt && a.status !== 'removed') || [];
+    if (pendingItems.length === 0) {
+      toast({ title: "Keine ausstehenden Reviews", description: "Alle angezeigten Elemente wurden bereits geprüft." });
+      return;
+    }
+
+    setIsBulkOpen(true);
+    setIsBulkLoading(true);
+    setBulkBulkProgress(0);
+    setBulkResults([]);
+
+    const results = [];
+    for (let i = 0; i < pendingItems.length; i++) {
+      const assignment = pendingItems[i];
+      const userDoc = users?.find(u => u.id === assignment.userId);
+      const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+      const res = resources?.find(r => r.id === ent?.resourceId);
+
+      if (userDoc) {
+        try {
+          const advice = await getAccessAdvice({
+            userDisplayName: userDoc.name || userDoc.displayName,
+            userEmail: userDoc.email,
+            department: userDoc.department || 'Allgemein',
+            assignments: [{
+              resourceName: res?.name || 'Unbekannt',
+              entitlementName: ent?.name || 'Unbekannt',
+              riskLevel: ent?.riskLevel || 'medium'
+            }]
+          });
+          results.push({ assignment, user: userDoc, advice });
+        } catch (e) {
+          console.error("Bulk AI error for item", assignment.id, e);
+        }
+      }
+      setBulkBulkProgress(Math.round(((i + 1) / pendingItems.length) * 100));
+    }
+
+    setBulkResults(results);
+    setIsBulkLoading(false);
+  };
+
   const filteredAssignments = assignments?.filter(assignment => {
     const userDoc = users?.find(u => u.id === assignment.userId);
     const ent = entitlements?.find(e => e.id === assignment.entitlementId);
@@ -192,6 +246,9 @@ export default function AccessReviewsPage() {
           <p className="text-sm text-muted-foreground">Vierteljährliche Überprüfung kritischer Berechtigungen.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-600 hover:bg-blue-50" onClick={startBulkCheck}>
+            <Sparkles className="w-3.5 h-3.5 mr-2" /> KI-Bulk-Check
+          </Button>
           <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => refreshAssignments()}>
             <RefreshCw className="w-3.5 h-3.5 mr-2" /> Aktualisieren
           </Button>
@@ -376,7 +433,7 @@ export default function AccessReviewsPage() {
         )}
       </div>
 
-      {/* AI Advisor Dialog */}
+      {/* Single AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
         <DialogContent className="max-w-2xl rounded-none border shadow-2xl overflow-hidden p-0">
           <div className="bg-slate-900 text-white p-6">
@@ -461,6 +518,92 @@ export default function AccessReviewsPage() {
                 Bestätigen
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk AI Advisor Dialog */}
+      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
+        <DialogContent className="max-w-3xl rounded-none border shadow-2xl p-0 overflow-hidden">
+          <div className="bg-slate-900 text-white p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-600 rounded-none"><Sparkles className="w-5 h-5" /></div>
+              <div>
+                <DialogTitle className="text-xl font-bold uppercase tracking-tight">KI-Bulk Analyse</DialogTitle>
+                <DialogDescription className="text-slate-400 text-xs uppercase font-bold tracking-widest">
+                  Analysiere {filteredAssignments?.filter(a => !a.lastReviewedAt).length} ausstehende Elemente
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {isBulkLoading ? (
+              <div className="space-y-6 py-10">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold uppercase">
+                    <span>Prüfe Risikoprofile...</span>
+                    <span>{bulkProgress}%</span>
+                  </div>
+                  <Progress value={bulkProgress} className="h-2 rounded-none bg-slate-100" />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[1,2,3].map(i => <div key={i} className="h-1 bg-slate-100 animate-pulse" />)}
+                </div>
+                <p className="text-center text-xs text-muted-foreground italic">Der Access Advisor prüft Berechtigungen gegen Job-Profile...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="admin-card p-4 border-l-4 border-l-red-500">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Kritische Risiken</p>
+                    <p className="text-2xl font-bold text-red-600">{bulkResults.filter(r => r.advice.riskScore > 70).length}</p>
+                  </div>
+                  <div className="admin-card p-4 border-l-4 border-l-orange-500">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Erhöhtes Risiko</p>
+                    <p className="text-2xl font-bold text-orange-600">{bulkResults.filter(r => r.advice.riskScore > 40 && r.advice.riskScore <= 70).length}</p>
+                  </div>
+                  <div className="admin-card p-4 border-l-4 border-l-emerald-500">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Unbedenklich</p>
+                    <p className="text-2xl font-bold text-emerald-600">{bulkResults.filter(r => r.advice.riskScore <= 40).length}</p>
+                  </div>
+                </div>
+
+                <div className="border rounded-none">
+                  <div className="bg-muted/30 p-2 border-b text-[10px] font-bold uppercase">KI-Einstufung (Top-Prioritäten)</div>
+                  <div className="max-h-64 overflow-y-auto divide-y">
+                    {bulkResults.sort((a, b) => b.advice.riskScore - a.advice.riskScore).map((res, idx) => (
+                      <div key={idx} className="p-3 flex items-center justify-between hover:bg-muted/5 group">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-8 h-8 rounded-none flex items-center justify-center font-bold text-xs text-white",
+                            res.advice.riskScore > 70 ? "bg-red-600" : res.advice.riskScore > 40 ? "bg-orange-500" : "bg-emerald-500"
+                          )}>
+                            {res.advice.riskScore}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">{res.user.displayName}</p>
+                            <p className="text-[9px] text-muted-foreground uppercase">{res.advice.summary.substring(0, 60)}...</p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold uppercase rounded-none opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setIsBulkOpen(false); setSelectedReviewItem({ assignment: res.assignment, user: res.user }); setIsAdvisorOpen(true); setAiAdvice(res.advice); }}>
+                          Details <ChevronRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t">
+            <Button variant="outline" className="rounded-none h-10" onClick={() => setIsBulkOpen(false)}>Schließen</Button>
+            {!isBulkLoading && (
+              <Button className="rounded-none bg-blue-600 hover:bg-blue-700 h-10 font-bold uppercase text-xs" onClick={() => setIsBulkOpen(false)}>
+                Review fortsetzen
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

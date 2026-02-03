@@ -207,7 +207,9 @@
         "action": { "type": "string" },
         "entityType": { "type": "string" },
         "entityId": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "timestamp": { "type": "string", "format": "date-time" },
+        "before": { "type": "object", "description": "JSON snapshot before change" },
+        "after": { "type": "object", "description": "JSON snapshot after change" }
       },
       "required": ["id", "tenantId", "actorUid", "action", "entityType", "entityId", "timestamp"]
     }
