@@ -55,7 +55,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // 1. Verbindung prüfen
     const testRes = await fetch(`${url}/rest/api/3/myself`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
@@ -69,7 +68,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     let availableTypes: string[] = [];
 
-    // 2. Verfügbare Vorgangstypen für das Projekt abrufen
     if (configData.projectKey) {
       const projectRes = await fetch(`${url}/rest/api/3/project/${configData.projectKey}`, {
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
@@ -78,7 +76,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       if (projectRes.ok) {
         const projectData = await projectRes.json();
         if (projectData.issueTypes) {
-          // Nur Typen anzeigen, die KEINE Sub-Tasks sind
           availableTypes = projectData.issueTypes
             .filter((t: any) => !t.subtask)
             .map((t: any) => t.name);
@@ -86,24 +83,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       }
     }
 
-    const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName || 'Approved'}"`;
-    const searchRes = await fetch(`${url}/rest/api/3/search`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ jql, maxResults: 1 }),
-      cache: 'no-store'
-    });
-
-    const searchData = searchRes.ok ? await searchRes.json() : { total: 0 };
-
     return { 
       success: true, 
       message: `Verbunden als ${userData.displayName}.`,
-      count: searchData.total,
       availableTypes: availableTypes.length > 0 ? availableTypes : undefined
     };
   } catch (e: any) {
@@ -112,7 +94,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 }
 
 /**
- * Erstellt ein Ticket in Jira Cloud.
+ * Erstellt ein Ticket in Jira Cloud mit Unterstützung für strukturierte ADF-Beschreibungen.
  */
 export async function createJiraTicket(
   configId: string, 
@@ -131,8 +113,19 @@ export async function createJiraTicket(
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
   const safeSummary = summary.substring(0, 250);
-  const safeDescription = description || 'Automatischer Lifecycle Prozess.';
   const issueTypeName = (config.issueTypeName || 'Task').trim();
+
+  // Konvertiert die Beschreibung in das Atlassian Document Format (ADF)
+  // Wir unterstützen einfache Zeilenumbrüche (\n)
+  const descriptionContent = description.split('\n').map(line => ({
+    type: 'paragraph',
+    content: [
+      {
+        type: 'text',
+        text: line || ' '
+      }
+    ]
+  }));
 
   try {
     const payload = {
@@ -142,12 +135,7 @@ export async function createJiraTicket(
         description: {
           type: 'doc',
           version: 1,
-          content: [
-            {
-              type: 'paragraph',
-              content: [{ type: 'text', text: safeDescription }]
-            }
-          ]
+          content: descriptionContent
         },
         issuetype: { name: issueTypeName }
       }
@@ -168,21 +156,15 @@ export async function createJiraTicket(
     
     if (!response.ok) {
       let detailedErrors = '';
-
       if (data.errorMessages && data.errorMessages.length > 0) {
         detailedErrors = data.errorMessages.join('. ');
       }
-
       if (data.errors) {
         const fieldErrors = Object.entries(data.errors)
-          .map(([field, msg]) => {
-            if (field === 'issuetype') return `Vorgangstyp '${issueTypeName}' ist ungültig oder in diesem Projekt nicht verfügbar.`;
-            return `${field}: ${msg}`;
-          })
+          .map(([field, msg]) => `${field}: ${msg}`)
           .join('; ');
         detailedErrors = detailedErrors ? `${detailedErrors}. ${fieldErrors}` : fieldErrors;
       }
-
       return { 
         success: false, 
         error: detailedErrors || `Jira API Fehler (${response.status})`,
@@ -213,14 +195,16 @@ export async function fetchJiraSyncItems(
 
   try {
     let jql = '';
+    const approvedStatus = config.approvedStatusName || 'Approved';
+    const doneStatus = config.doneStatusName || 'Done';
+
     if (type === 'approved') {
-      jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName || 'Approved'}"`;
+      jql = `project = "${config.projectKey}" AND status = "${approvedStatus}"`;
     } else if (type === 'done') {
-      jql = `project = "${config.projectKey}" AND status = "${config.doneStatusName || 'Done'}"`;
+      jql = `project = "${config.projectKey}" AND status = "${doneStatus}"`;
     } else {
-      const approved = config.approvedStatusName || 'Approved';
-      const done = config.doneStatusName || 'Done';
-      jql = `project = "${config.projectKey}" AND status NOT IN ("${approved}", "${done}", "Canceled", "Rejected", "Abgelehnt")`;
+      // Pending: Alles was nicht Approved oder Done (oder abgebrochen) ist
+      jql = `project = "${config.projectKey}" AND status NOT IN ("${approvedStatus}", "${doneStatus}", "Canceled", "Rejected", "Abgelehnt")`;
     }
 
     const response = await fetch(`${url}/rest/api/3/search`, {

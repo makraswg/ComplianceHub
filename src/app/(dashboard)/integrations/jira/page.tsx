@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -82,7 +81,6 @@ export default function JiraSyncPage() {
         setPendingTickets(pending);
         
         setApprovedTickets(approved.map(t => {
-          // Check for existing requested assignments first
           const existingAssignment = assignments?.find(a => a.jiraIssueKey === t.key);
           const matchedRole = entitlements?.find(e => t.summary.toLowerCase().includes(e.name.toLowerCase()));
           
@@ -102,6 +100,9 @@ export default function JiraSyncPage() {
     }
   };
 
+  /**
+   * Finalisiert einen Onboarding- oder Offboarding-Vorgang, wenn das Jira Ticket erledigt ist.
+   */
   const handleApplyCompletedTicket = async (ticket: any) => {
     const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
     if (linkedAssignments.length === 0) {
@@ -113,9 +114,20 @@ export default function JiraSyncPage() {
     const timestamp = new Date().toISOString();
     let affectedUserId = linkedAssignments[0].userId;
 
+    // Verarbeite alle verknüpften Zuweisungen
     for (const a of linkedAssignments) {
-      const newStatus = isLeaver ? 'removed' : 'active';
-      const updateData = { status: newStatus, lastReviewedAt: timestamp };
+      // Wenn Onboarding: requested -> active
+      // Wenn Offboarding: pending_removal -> removed
+      let newStatus: 'active' | 'removed' = 'active';
+      if (isLeaver || a.status === 'pending_removal') {
+        newStatus = 'removed';
+      }
+
+      const updateData = { 
+        status: newStatus, 
+        lastReviewedAt: timestamp,
+        validUntil: newStatus === 'removed' ? timestamp.split('T')[0] : a.validUntil 
+      };
       
       if (dataSource === 'mysql') {
         await saveCollectionRecord('assignments', a.id, { ...a, ...updateData }, dataSource);
@@ -124,6 +136,7 @@ export default function JiraSyncPage() {
       }
     }
 
+    // Bei Offboarding auch den Benutzer deaktivieren
     if (isLeaver) {
       const user = users?.find(u => u.id === affectedUserId);
       if (user) {
@@ -136,9 +149,9 @@ export default function JiraSyncPage() {
       }
     }
 
-    toast({ title: "Finalisierung erfolgreich", description: `Änderungen für Ticket ${ticket.key} wurden im Hub übernommen.` });
+    toast({ title: "Hub-Finalisierung erfolgreich", description: `Berechtigungen für Ticket ${ticket.key} wurden aktualisiert.` });
     setDoneTickets(prev => prev.filter(t => t.key !== ticket.key));
-    setTimeout(() => refreshAssignments(), 200);
+    setTimeout(() => refreshAssignments(), 300);
   };
 
   const handleAssignFromApproved = async (ticket: any) => {
@@ -152,7 +165,6 @@ export default function JiraSyncPage() {
 
     const timestamp = new Date().toISOString();
 
-    // Check if it's an existing requested assignment
     if (ticket.existingAssignment) {
       const updateData = { status: 'active', lastReviewedAt: timestamp };
       if (dataSource === 'mysql') {
@@ -161,7 +173,6 @@ export default function JiraSyncPage() {
         updateDocumentNonBlocking(doc(db, 'assignments', ticket.existingAssignment.id), updateData);
       }
     } else {
-      // New external assignment
       const assignmentId = `ass-jira-${ticket.key}-${Math.random().toString(36).substring(2, 5)}`;
       const assignmentData = {
         id: assignmentId,
@@ -174,7 +185,7 @@ export default function JiraSyncPage() {
         jiraIssueKey: ticket.key,
         ticketRef: ticket.key,
         notes: `Einzelzuweisung via Jira Ticket ${ticket.key}.`,
-        tenantId: 't1'
+        tenantId: user.tenantId || 'global'
       };
 
       if (dataSource === 'mysql') {
@@ -187,7 +198,7 @@ export default function JiraSyncPage() {
     await resolveJiraTicket(activeConfig.id, ticket.key, "Berechtigung im ComplianceHub aktiviert.", dataSource);
     setApprovedTickets(prev => prev.filter(t => t.key !== ticket.key));
     toast({ title: "Ticket verarbeitet" });
-    setTimeout(() => refreshAssignments(), 200);
+    setTimeout(() => refreshAssignments(), 300);
   };
 
   const handleUpdateMatchedRole = (ticketKey: string, roleId: string) => {
@@ -229,7 +240,7 @@ export default function JiraSyncPage() {
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Erstellt</TableHead>
-                <TableHead className="text-right font-bold uppercase text-[10px]">Status</TableHead>
+                <TableHead className="text-right font-bold uppercase text-[10px]">Jira Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -238,13 +249,13 @@ export default function JiraSyncPage() {
                   <TableCell className="py-4 font-bold text-primary text-xs">{ticket.key}</TableCell>
                   <TableCell>
                     <div className="font-bold text-sm">{ticket.summary}</div>
-                    <div className="text-[9px] text-muted-foreground uppercase">{ticket.reporter}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase">Reporter: {ticket.reporter}</div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(ticket.created).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200">
+                    <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-blue-200 bg-blue-50/30 text-blue-700">
                       {ticket.status}
                     </Badge>
                   </TableCell>
@@ -322,13 +333,16 @@ export default function JiraSyncPage() {
                 <TableRow>
                   <TableHead className="py-4 font-bold uppercase text-[10px]">Key</TableHead>
                   <TableHead className="font-bold uppercase text-[10px]">Prozess / Betreff</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px]">Zugehörige Items</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Hub-Status</TableHead>
                   <TableHead className="text-right font-bold uppercase text-[10px]">Finalisierung</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {doneTickets.map((ticket) => {
-                  const linkedCount = assignments?.filter(a => a.jiraIssueKey === ticket.key).length || 0;
+                  const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
+                  const linkedCount = linkedAssignments.length;
+                  const isAlreadyProcessed = linkedAssignments.every(a => a.status === 'active' || a.status === 'removed');
+
                   return (
                     <TableRow key={ticket.key} className="hover:bg-muted/5 border-b">
                       <TableCell className="py-4 font-bold text-xs">{ticket.key}</TableCell>
@@ -337,16 +351,19 @@ export default function JiraSyncPage() {
                         <div className="text-[9px] text-muted-foreground uppercase">Status: {ticket.status}</div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200">
-                          {linkedCount} Zuweisungen
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className="rounded-none text-[9px] font-bold uppercase border-slate-200 w-fit">
+                            {linkedCount} Zuweisungen
+                          </Badge>
+                          {isAlreadyProcessed && <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[8px] w-fit">VERARBEITET</Badge>}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button 
                           size="sm" 
                           className="h-8 text-[9px] font-bold uppercase rounded-none bg-blue-600 hover:bg-blue-700" 
                           onClick={() => handleApplyCompletedTicket(ticket)}
-                          disabled={linkedCount === 0}
+                          disabled={linkedCount === 0 || isAlreadyProcessed}
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Änderungen übernehmen
                         </Button>

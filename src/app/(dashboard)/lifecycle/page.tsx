@@ -215,17 +215,30 @@ export default function LifecyclePage() {
       if (dataSource === 'mysql') await saveCollectionRecord('users', userId, userData);
       else setDocumentNonBlocking(doc(db, 'users', userId), userData);
 
+      // Bereite detaillierte Liste für Jira vor
+      const roleList = bundle.entitlementIds.map((eid: string) => {
+        const ent = entitlements?.find((e: any) => e.id === eid);
+        const res = resources?.find((r: any) => r.id === ent?.resourceId);
+        return `- ${res?.name || 'System'}: ${ent?.name || 'Rolle'}${ent?.isAdmin ? ' (ADMIN)' : ''}`;
+      }).join('\n');
+
+      const jiraDescription = `Onboarding Prozess für neuen Mitarbeiter.\n\n` +
+        `Mitarbeiter: ${newUserName}\n` +
+        `E-Mail: ${newUserEmail}\n` +
+        `Geplanter Eintritt: ${onboardingDate}\n\n` +
+        `Anzufordernde Berechtigungen (Bundle: ${bundle.name}):\n` +
+        roleList;
+
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'MANUELL';
       let jiraSucceeded = false;
       
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Account für ${newUserName} (Mandant: ${targetTenantId})`, dataSource);
+        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, jiraDescription, dataSource);
         if (res.success) {
           jiraKey = res.key!;
           jiraSucceeded = true;
         } else {
-          // Zeige den Jira-Fehler deutlich an, bevor die Erfolgsmeldung kommt
           toast({ 
             variant: "destructive", 
             title: "Jira API Fehler", 
@@ -261,7 +274,6 @@ export default function LifecyclePage() {
         after: userData
       });
 
-      // Zeige die finale Erfolgsmeldung verzögert an, falls ein Jira-Fehler vorliegt
       setTimeout(() => {
         toast({ 
           title: "Onboarding Prozess aktiv", 
@@ -285,12 +297,25 @@ export default function LifecyclePage() {
     setIsActionLoading(true);
     try {
       const userAssignments = assignments?.filter((a: any) => a.userId === userToOffboard.id && a.status === 'active') || [];
+      
+      const roleList = userAssignments.map((a: any) => {
+        const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+        const res = resources?.find((r: any) => r.id === ent?.resourceId);
+        return `- ${res?.name || 'System'}: ${ent?.name || 'Rolle'}`;
+      }).join('\n');
+
+      const jiraDescription = `Offboarding Prozess für Mitarbeiter.\n\n` +
+        `Mitarbeiter: ${userToOffboard.displayName}\n` +
+        `E-Mail: ${userToOffboard.email}\n\n` +
+        `Zu entziehende Berechtigungen:\n` +
+        (roleList || '- Keine aktiven Berechtigungen gefunden -');
+
       const configs = await getJiraConfigs(dataSource);
       let jiraKey = 'OFFB-PENDING';
       let jiraSucceeded = false;
       
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Deaktivierung für ${userToOffboard.email}`, dataSource);
+        const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, jiraDescription, dataSource);
         if (res.success) {
           jiraKey = res.key!;
           jiraSucceeded = true;
@@ -393,7 +418,7 @@ export default function LifecyclePage() {
                         <div 
                           key={bundle.id} 
                           className={cn(
-                            "p-2.5 border cursor-pointer transition-all flex items-center justify-between group rounded-none",
+                            "p-2 border cursor-pointer transition-all flex items-center justify-between group rounded-none",
                             selectedBundleId === bundle.id 
                               ? "border-primary bg-primary/5 ring-1 ring-inset ring-primary" 
                               : "bg-white border-slate-200 hover:border-slate-300"
