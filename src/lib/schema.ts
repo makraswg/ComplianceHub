@@ -253,7 +253,7 @@ export const appSchema: AppSchema = {
       section: 'VARCHAR(100) NOT NULL',
       title: 'VARCHAR(255) NOT NULL',
       content: 'TEXT NOT NULL',
-      `order`: 'INT DEFAULT 0'
+      'order': 'INT DEFAULT 0'
     }
   }
 };
