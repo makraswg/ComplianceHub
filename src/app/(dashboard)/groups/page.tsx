@@ -25,7 +25,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Calendar,
-  Clock
+  Clock,
+  Layers,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -53,16 +55,16 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   deleteDocumentNonBlocking, 
   setDocumentNonBlocking,
-  addDocumentNonBlocking,
   useUser as useAuthUser
 } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AssignmentGroup, User, Entitlement, Resource, Tenant } from '@/lib/types';
@@ -76,9 +78,9 @@ export default function GroupsPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [userSearch, setUserSearch] = useState('');
   const [entitlementSearch, setEntitlementSearch] = useState('');
@@ -103,7 +105,7 @@ export default function GroupsPage() {
   }, []);
 
   const getTenantSlug = (id?: string | null) => {
-    if (!id || id === 'null' || id === 'undefined') return '—';
+    if (!id || id === 'null' || id === 'undefined' || id === 'all') return 'Global';
     const tenant = tenants?.find(t => t.id === id);
     return tenant ? tenant.slug : id;
   };
@@ -117,39 +119,54 @@ export default function GroupsPage() {
     });
   }, [groups, search, activeTenantId]);
 
+  const filteredUsersSelection = useMemo(() => {
+    if (!users) return [];
+    return users.filter(u => {
+      const matchesTenant = activeTenantId === 'all' || u.tenantId === activeTenantId;
+      const matchesSearch = u.displayName.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase());
+      return matchesTenant && matchesSearch;
+    });
+  }, [users, userSearch, activeTenantId]);
+
+  const filteredEntitlementsSelection = useMemo(() => {
+    if (!entitlements || !resources) return [];
+    return entitlements.filter(e => {
+      const resource = resources.find(r => r.id === e.resourceId);
+      const matchesTenant = activeTenantId === 'all' || resource?.tenantId === activeTenantId || resource?.tenantId === 'global';
+      const matchesSearch = e.name.toLowerCase().includes(entitlementSearch.toLowerCase()) || resource?.name.toLowerCase().includes(entitlementSearch.toLowerCase());
+      return matchesTenant && matchesSearch;
+    });
+  }, [entitlements, resources, entitlementSearch, activeTenantId]);
+
   const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[], gValidFrom: string, gValidUntil: string, tenantId: string) => {
-    const currentAssignments = assignments || [];
     const timestamp = new Date().toISOString();
     const today = timestamp.split('T')[0];
 
+    // Erstelle Zuweisungen für alle Kombinationen
     for (const uid of userIds) {
-      const user = users?.find(u => u.id === uid);
       for (const eid of entIds) {
-        const ent = entitlements?.find(e => e.id === eid);
-        const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_');
-        const existing = currentAssignments.find(a => a.id === assId);
+        const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 50);
+        
+        const assignmentData = {
+          id: assId,
+          userId: uid,
+          entitlementId: eid,
+          originGroupId: groupId,
+          status: 'active',
+          grantedBy: authUser?.displayName || 'System',
+          grantedAt: timestamp,
+          validFrom: gValidFrom || today,
+          validUntil: gValidUntil || null,
+          ticketRef: `GRUPPE: ${groupName}`,
+          notes: `Automatisierte Zuweisung via Gruppe: ${groupName}`,
+          tenantId: tenantId,
+          syncSource: 'group'
+        };
 
-        if (!existing || existing.status === 'removed' || existing.validFrom !== gValidFrom || existing.validUntil !== gValidUntil) {
-          const assignmentData = {
-            id: assId,
-            userId: uid,
-            entitlementId: eid,
-            originGroupId: groupId,
-            status: 'active',
-            grantedBy: authUser?.uid || 'system',
-            grantedAt: existing?.grantedAt || timestamp,
-            validFrom: gValidFrom || today,
-            validUntil: gValidUntil,
-            ticketRef: `GRUPPE: ${groupName}`,
-            notes: `Auto-zugewiesen via Gruppe: ${groupName}`,
-            tenantId: tenantId
-          };
-
-          if (dataSource === 'mysql') {
-            await saveCollectionRecord('assignments', assId, assignmentData);
-          } else {
-            setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData, { merge: true });
-          }
+        if (dataSource === 'mysql') {
+          await saveCollectionRecord('assignments', assId, assignmentData);
+        } else {
+          setDocumentNonBlocking(doc(db, 'assignments', assId), assignmentData, { merge: true });
         }
       }
     }
@@ -157,10 +174,11 @@ export default function GroupsPage() {
 
   const handleSaveGroup = async () => {
     if (!name) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
+      toast({ variant: "destructive", title: "Fehler", description: "Gruppenname ist erforderlich." });
       return;
     }
 
+    setIsSaving(true);
     const groupId = selectedGroup?.id || `grp_${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
@@ -169,25 +187,30 @@ export default function GroupsPage() {
       name,
       description,
       validFrom,
-      validUntil,
+      validUntil: validUntil || null,
       userIds: selectedUserIds,
       entitlementIds: selectedEntitlementIds,
       tenantId: targetTenantId
     };
 
-    if (dataSource === 'mysql') {
-      await saveCollectionRecord('groups', groupId, groupData);
-    } else {
-      setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
+    try {
+      if (dataSource === 'mysql') {
+        await saveCollectionRecord('groups', groupId, groupData);
+      } else {
+        setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
+      }
+
+      await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil, targetTenantId);
+
+      setIsDialogOpen(false);
+      toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
+      resetForm();
+      setTimeout(() => { refreshGroups(); refreshAssignments(); }, 300);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
+    } finally {
+      setIsSaving(false);
     }
-
-    await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil, targetTenantId);
-
-    setIsEditOpen(false);
-    setIsAddOpen(false);
-    toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
-    resetForm();
-    setTimeout(() => { refreshGroups(); refreshAssignments(); }, 200);
   };
 
   const handleDeleteGroup = async () => {
@@ -211,6 +234,27 @@ export default function GroupsPage() {
     setValidUntil('');
     setSelectedUserIds([]);
     setSelectedEntitlementIds([]);
+    setUserSearch('');
+    setEntitlementSearch('');
+  };
+
+  const openEdit = (group: AssignmentGroup) => {
+    setSelectedGroup(group);
+    setName(group.name);
+    setDescription(group.description || '');
+    setValidFrom(group.validFrom || new Date().toISOString().split('T')[0]);
+    setValidUntil(group.validUntil || '');
+    setSelectedUserIds(group.userIds || []);
+    setSelectedEntitlementIds(group.entitlementIds || []);
+    setIsDialogOpen(true);
+  };
+
+  const toggleUserId = (id: string) => {
+    setSelectedUserIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const toggleEntitlementId = (id: string) => {
+    setSelectedEntitlementIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   if (!mounted) return null;
@@ -220,10 +264,10 @@ export default function GroupsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Zuweisungsgruppen</h1>
-          <p className="text-sm text-muted-foreground">Automatisierter Zugriff für Abteilungen und Teams von {activeTenantId === 'all' ? 'allen Standorten' : getTenantSlug(activeTenantId)}.</p>
+          <p className="text-sm text-muted-foreground">Regelbasierte Berechtigungen für Abteilungen oder Teams.</p>
         </div>
-        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { resetForm(); setIsAddOpen(true); }}>
-          <Plus className="w-3.5 h-3.5 mr-2" /> Neue Gruppe
+        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none shadow-none" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+          <Plus className="w-3.5 h-3.5 mr-2" /> Gruppe erstellen
         </Button>
       </div>
 
@@ -249,9 +293,9 @@ export default function GroupsPage() {
               <TableRow>
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Gruppe</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Zeitraum</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Mitglieder</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Rollen</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Besetzung</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Berechtigungen</TableHead>
                 <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -263,77 +307,239 @@ export default function GroupsPage() {
                       <div className="w-9 h-9 bg-primary/10 text-primary flex items-center justify-center"><Workflow className="w-5 h-5" /></div>
                       <div>
                         <div className="font-bold text-sm">{group.name}</div>
-                        <div className="text-[10px] text-muted-foreground uppercase">{group.description}</div>
+                        <div className="text-[10px] text-muted-foreground uppercase truncate max-w-[200px]">{group.description || 'Keine Beschreibung'}</div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-[10px] font-bold uppercase text-muted-foreground">{getTenantSlug(group.tenantId)}</TableCell>
-                  <TableCell className="text-[10px] font-bold">
-                    Ab: {group.validFrom || 'Sofort'}<br/>
-                    {group.validUntil && `Bis: ${group.validUntil}`}
-                  </TableCell>
+                  <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{getTenantSlug(group.tenantId)}</Badge></TableCell>
                   <TableCell className="text-[10px] font-bold uppercase">
-                    <Users className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
-                    {group.userIds?.length || 0}
+                    <div className="flex flex-col">
+                      <span className="text-muted-foreground">Ab: {group.validFrom || 'Sofort'}</span>
+                      {group.validUntil && <span className="text-amber-600">Bis: {group.validUntil}</span>}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-[10px] font-bold uppercase">
-                    <Shield className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
-                    {group.entitlementIds?.length || 0}
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Users className="w-3 h-3 text-muted-foreground" />
+                      {group.userIds?.length || 0}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 font-bold text-xs">
+                      <Shield className="w-3 h-3 text-muted-foreground" />
+                      {group.entitlementIds?.length || 0}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 rounded-none">
-                        <DropdownMenuItem onSelect={() => { setSelectedGroup(group); setName(group.name); setDescription(group.description); setValidFrom(group.validFrom); setValidUntil(group.validUntil); setSelectedUserIds(group.userIds); setSelectedEntitlementIds(group.entitlementIds); setIsEditOpen(true); }}>Bearbeiten</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedGroup(group); setIsDeleteOpen(true); }}>Löschen</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openEdit(group)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedGroup(group); setIsDeleteOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
               {filteredGroups.length === 0 && !isGroupsLoading && (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground italic">Keine Gruppen gefunden.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground italic">Keine Zuweisungsgruppen gefunden.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         )}
       </div>
 
-      <Dialog open={isAddOpen || isEditOpen} onOpenChange={(val) => { if(!val) { setIsAddOpen(false); setIsEditOpen(false); resetForm(); } }}>
-        <DialogContent className="max-w-4xl rounded-none">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{isEditOpen ? 'Gruppe bearbeiten' : 'Neue Gruppe'}</DialogTitle></DialogHeader>
-          <div className="py-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Name</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none" />
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-5xl rounded-none h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <DialogTitle className="text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <Workflow className="w-4 h-4 text-primary" />
+              {selectedGroup ? 'Gruppe bearbeiten' : 'Neue Zuweisungsgruppe'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-8">
+              {/* Basisdaten */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Gruppe</Label>
+                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. IT-Abteilung Kernteam" className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
+                    <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Zweck der Gruppe..." className="rounded-none h-10" />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig ab</Label>
+                      <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis (Optional)</Label>
+                      <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none h-10" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Geltungsbereich (Mandant)</Label>
+                    <div className="h-10 px-3 flex items-center border bg-muted/20 text-xs font-bold uppercase">
+                      {activeTenantId === 'all' ? 'System Global' : getTenantSlug(activeTenantId)}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Mandant (Scope)</Label>
-                <Input value={activeTenantId === 'all' ? 'System Standard (t1)' : getTenantSlug(activeTenantId)} disabled className="rounded-none bg-muted/20" />
+
+              <div className="grid grid-cols-2 gap-8 pt-6 border-t">
+                {/* Benutzer-Auswahl */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5" /> 1. Mitglieder wählen ({selectedUserIds.length})
+                    </Label>
+                    <div className="relative w-48">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <Input 
+                        placeholder="Nutzer suchen..." 
+                        value={userSearch} 
+                        onChange={e => setUserSearch(e.target.value)} 
+                        className="h-7 pl-7 text-[10px] rounded-none" 
+                      />
+                    </div>
+                  </div>
+                  <div className="border rounded-none h-64 overflow-hidden flex flex-col">
+                    <ScrollArea className="flex-1 bg-muted/5">
+                      <div className="p-2 space-y-1">
+                        {filteredUsersSelection.map(u => (
+                          <div 
+                            key={u.id} 
+                            className={cn(
+                              "flex items-center gap-3 p-2 cursor-pointer transition-colors text-xs border border-transparent",
+                              selectedUserIds.includes(u.id) ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
+                            )}
+                            onClick={() => toggleUserId(u.id)}
+                          >
+                            <Checkbox checked={selectedUserIds.includes(u.id)} className="rounded-none pointer-events-none" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold truncate">{u.displayName}</p>
+                              <p className="text-[9px] text-muted-foreground truncate">{u.email}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {filteredUsersSelection.length === 0 && <p className="text-[10px] text-center py-10 text-muted-foreground italic">Keine Benutzer gefunden.</p>}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </div>
+
+                {/* Rollen-Auswahl */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5" /> 2. Rollen zuweisen ({selectedEntitlementIds.length})
+                    </Label>
+                    <div className="relative w-48">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      <Input 
+                        placeholder="Rolle suchen..." 
+                        value={entitlementSearch} 
+                        onChange={e => setEntitlementSearch(e.target.value)} 
+                        className="h-7 pl-7 text-[10px] rounded-none" 
+                      />
+                    </div>
+                  </div>
+                  <div className="border rounded-none h-64 overflow-hidden flex flex-col">
+                    <ScrollArea className="flex-1 bg-muted/5">
+                      <div className="p-2 space-y-1">
+                        {filteredEntitlementsSelection.map(e => {
+                          const res = resources?.find(r => r.id === e.resourceId);
+                          return (
+                            <div 
+                              key={e.id} 
+                              className={cn(
+                                "flex items-center gap-3 p-2 cursor-pointer transition-colors text-xs border border-transparent",
+                                selectedEntitlementIds.includes(e.id) ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted"
+                              )}
+                              onClick={() => toggleEntitlementId(e.id)}
+                            >
+                              <Checkbox 
+                                checked={selectedEntitlementIds.includes(e.id)} 
+                                className="rounded-none pointer-events-none data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" 
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate">{e.name}</p>
+                                <p className="text-[9px] text-muted-foreground uppercase flex items-center gap-1">
+                                  <Layers className="w-2 h-2" /> {res?.name || 'System'}
+                                </p>
+                              </div>
+                              {e.isAdmin && <Shield className="w-3 h-3 text-red-600" />}
+                            </div>
+                          );
+                        })}
+                        {filteredEntitlementsSelection.length === 0 && <p className="text-[10px] text-center py-10 text-muted-foreground italic">Keine Rollen gefunden.</p>}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </div>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground italic">Hinweis: Mitglieder und Rollen werden im nächsten Schritt basierend auf dem Mandanten {getTenantSlug(activeTenantId)} gefiltert.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleSaveGroup} className="rounded-none font-bold uppercase text-[10px]">Gruppe speichern</Button>
+          </ScrollArea>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
+            <Button 
+              onClick={handleSaveGroup} 
+              disabled={isSaving || !name || selectedUserIds.length === 0 || selectedEntitlementIds.length === 0} 
+              className="rounded-none h-10 px-10 font-bold uppercase text-[10px] gap-2"
+            >
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Gruppe & Zuweisungen speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent className="rounded-none">
+        <AlertDialogContent className="rounded-none border-2">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Gruppe löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">Dies entfernt die Gruppe und deaktiviert die automatische Zuweisung für alle Mitglieder.</AlertDialogDescription>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm flex items-center gap-2">
+              <Trash2 className="w-4 h-4" /> Gruppe permanent löschen?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed">
+              Dies entfernt die Zuweisungsgruppe **{selectedGroup?.name}**. 
+              <br/><br/>
+              **Achtung:** Existierende Einzelzuweisungen, die durch diese Gruppe erstellt wurden, bleiben im System erhalten, verlieren aber ihre Verknüpfung zur Gruppe.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteGroup} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction>
+            <AlertDialogCancel className="rounded-none uppercase text-[10px] font-bold">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteGroup} className="bg-red-600 hover:bg-red-700 rounded-none text-[10px] font-bold uppercase">Gruppe löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
+}
+
+function Save(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  )
 }
