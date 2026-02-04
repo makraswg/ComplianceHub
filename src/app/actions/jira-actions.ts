@@ -69,7 +69,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     const userData = await testRes.json();
     let availableTypes: string[] = [];
 
-    // 2. Verfügbare Vorgangstypen für das Projekt abrufen (um dem User bei der Konfiguration zu helfen)
+    // 2. Verfügbare Vorgangstypen für das Projekt abrufen
     if (configData.projectKey) {
       const projectRes = await fetch(`${url}/rest/api/3/project/${configData.projectKey}`, {
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
@@ -78,12 +78,15 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       if (projectRes.ok) {
         const projectData = await projectRes.json();
         if (projectData.issueTypes) {
-          availableTypes = projectData.issueTypes.map((t: any) => t.name);
+          // Nur Typen anzeigen, die KEINE Sub-Tasks sind
+          availableTypes = projectData.issueTypes
+            .filter((t: any) => !t.subtask)
+            .map((t: any) => t.name);
         }
       }
     }
 
-    const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName}"`;
+    const jql = `project = "${configData.projectKey}" AND status = "${configData.approvedStatusName || 'Approved'}"`;
     const searchRes = await fetch(`${url}/rest/api/3/search`, {
       method: 'POST',
       headers: {
@@ -101,7 +104,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       success: true, 
       message: `Verbunden als ${userData.displayName}.`,
       count: searchData.total,
-      availableTypes
+      availableTypes: availableTypes.length > 0 ? availableTypes : undefined
     };
   } catch (e: any) {
     return { success: false, message: `Verbindungsfehler: ${e.message}` };
@@ -129,6 +132,7 @@ export async function createJiraTicket(
 
   const safeSummary = summary.substring(0, 250);
   const safeDescription = description || 'Automatischer Lifecycle Prozess.';
+  const issueTypeName = (config.issueTypeName || 'Task').trim();
 
   try {
     const payload = {
@@ -145,7 +149,7 @@ export async function createJiraTicket(
             }
           ]
         },
-        issuetype: { name: config.issueTypeName || 'Task' }
+        issuetype: { name: issueTypeName }
       }
     };
 
@@ -163,7 +167,6 @@ export async function createJiraTicket(
     const data = await response.json();
     
     if (!response.ok) {
-      let errorMessage = `Jira API Fehler (${response.status})`;
       let detailedErrors = '';
 
       if (data.errorMessages && data.errorMessages.length > 0) {
@@ -172,14 +175,17 @@ export async function createJiraTicket(
 
       if (data.errors) {
         const fieldErrors = Object.entries(data.errors)
-          .map(([field, msg]) => `${field}: ${msg}`)
+          .map(([field, msg]) => {
+            if (field === 'issuetype') return `Vorgangstyp '${issueTypeName}' ist ungültig oder in diesem Projekt nicht verfügbar.`;
+            return `${field}: ${msg}`;
+          })
           .join('; ');
         detailedErrors = detailedErrors ? `${detailedErrors}. ${fieldErrors}` : fieldErrors;
       }
 
       return { 
         success: false, 
-        error: detailedErrors || errorMessage,
+        error: detailedErrors || `Jira API Fehler (${response.status})`,
         details: JSON.stringify(data)
       };
     }
@@ -208,11 +214,13 @@ export async function fetchJiraSyncItems(
   try {
     let jql = '';
     if (type === 'approved') {
-      jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`;
+      jql = `project = "${config.projectKey}" AND status = "${config.approvedStatusName || 'Approved'}"`;
     } else if (type === 'done') {
-      jql = `project = "${config.projectKey}" AND status = "${config.doneStatusName}"`;
+      jql = `project = "${config.projectKey}" AND status = "${config.doneStatusName || 'Done'}"`;
     } else {
-      jql = `project = "${config.projectKey}" AND status NOT IN ("${config.approvedStatusName}", "${config.doneStatusName}", "Canceled", "Rejected", "Abgelehnt")`;
+      const approved = config.approvedStatusName || 'Approved';
+      const done = config.doneStatusName || 'Done';
+      jql = `project = "${config.projectKey}" AND status NOT IN ("${approved}", "${done}", "Canceled", "Rejected", "Abgelehnt")`;
     }
 
     const response = await fetch(`${url}/rest/api/3/search`, {

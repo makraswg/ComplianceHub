@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -644,15 +643,18 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Standard Vorgangstyp (Issue Type)</Label>
-                      <div className="flex gap-2">
-                        <Input 
-                          value={jiraIssueType} 
-                          onChange={e => setJiraIssueType(e.target.value)} 
-                          placeholder="z.B. Service Request" 
-                          className={cn("rounded-none h-10 transition-colors", testResult?.availableTypes?.includes(jiraIssueType) && "border-emerald-500 bg-emerald-50/30 text-emerald-900")} 
-                        />
-                      </div>
-                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Wichtig: Muss exakt mit Jira übereinstimmen. Nutzen Sie „Verbindung testen“ unten zur Auswahl.</p>
+                      <Input 
+                        value={jiraIssueType} 
+                        onChange={e => setJiraIssueType(e.target.value)} 
+                        placeholder="z.B. Service Request" 
+                        className={cn(
+                          "rounded-none h-10 transition-colors", 
+                          testResult?.availableTypes?.includes(jiraIssueType) 
+                            ? "border-emerald-500 bg-emerald-50/10 text-emerald-900" 
+                            : "border-input"
+                        )} 
+                      />
+                      <p className="text-[8px] text-muted-foreground uppercase font-bold italic">Muss exakt mit Jira übereinstimmen. Nutzen Sie das Diagnose-Tool unten zum automatischen Setzen.</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Status: Genehmigt (Trigger Sync)</Label>
@@ -746,14 +748,14 @@ export default function SettingsPage() {
                       
                       {testResult.availableTypes && testResult.availableTypes.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-emerald-500/20">
-                          <p className="flex items-center gap-1.5 mb-2 text-white"><List className="w-2.5 h-2.5" /> Verfügbare Typen (Klicken zum Setzen):</p>
+                          <p className="flex items-center gap-1.5 mb-2 text-white"><List className="w-2.5 h-2.5" /> Erkannte Typen (Anklicken zum Setzen):</p>
                           <div className="flex flex-wrap gap-1.5">
                             {testResult.availableTypes.map(t => (
                               <button
                                 key={t}
-                                onClick={() => { setJiraIssueType(t); toast({ title: "Typ gesetzt", description: t }); }}
+                                onClick={() => { setJiraIssueType(t); toast({ title: "Typ übernommen", description: t }); }}
                                 className={cn(
-                                  "px-2 py-0.5 border text-[8px] font-bold uppercase transition-colors rounded-none",
+                                  "px-2 py-1 border text-[8px] font-bold uppercase transition-colors rounded-none",
                                   jiraIssueType === t 
                                     ? "bg-emerald-500 border-emerald-500 text-slate-900" 
                                     : "bg-white/5 border-white/20 text-emerald-300 hover:bg-white/10"
@@ -778,9 +780,9 @@ export default function SettingsPage() {
 
               <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
                 <Info className="h-4 w-4 text-blue-600" />
-                <AlertTitle className="text-[10px] font-bold uppercase">Hinweis zu Issue Types</AlertTitle>
-                <AlertDescription className="text-[10px]">
-                  Verwenden Sie „Verbindung testen“, um die exakten Namen der Vorgangstypen aus Ihrer Jira-Instanz auszulesen und direkt per Klick zu übernehmen.
+                <AlertTitle className="text-[10px] font-bold uppercase">Tipp zur Fehlerbehebung</AlertTitle>
+                <AlertDescription className="text-[10px] leading-relaxed">
+                  Wenn Sie „Geben Sie einen gültigen Vorgangstyp ein“ sehen, nutzen Sie die Schaltfläche „Verbindung testen“. Das System liest dann die exakten Namen aus Ihrem Jira-Projekt aus. Klicken Sie einfach auf den gewünschten Namen oben in der Liste, um ihn fehlerfrei zu übernehmen.
                 </AlertDescription>
               </Alert>
             </div>
@@ -1063,7 +1065,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">E-Mail</Label>
-                <Input value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} className="rounded-none" />
+                <Input partnerEmail={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">Telefon</Label>
