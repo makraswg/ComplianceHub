@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,7 +34,8 @@ import {
   Bug,
   ChevronDown,
   ChevronUp,
-  FileCode
+  FileCode,
+  AlertCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -50,6 +52,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -64,6 +67,7 @@ export default function JiraSyncPage() {
   const [approvedTickets, setApprovedTickets] = useState<any[]>([]);
   const [doneTickets, setDoneTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   
   // Debug info
   const [debugInfo, setDebugInfo] = useState<{
@@ -88,28 +92,32 @@ export default function JiraSyncPage() {
 
   const loadSyncData = async () => {
     setIsLoading(true);
+    setLastError(null);
     try {
       const configs = await getJiraConfigs(dataSource);
       if (configs.length > 0 && configs[0].enabled) {
         const config = configs[0];
         setActiveConfig(config);
         
-        // Debugging JQL construction (similar to backend logic for UI preview)
         const queries = {
           pending: `project = "${config.projectKey}" AND status NOT IN ("${config.approvedStatusName}", "${config.doneStatusName}", "Canceled", "Rejected")`,
           approved: `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`,
           done: `project = "${config.projectKey}" AND status = "${config.doneStatusName}"`
         };
 
-        const [pending, approved, done] = await Promise.all([
+        const [pendingRes, approvedRes, doneRes] = await Promise.all([
           fetchJiraSyncItems(config.id, 'pending', dataSource),
           fetchJiraSyncItems(config.id, 'approved', dataSource),
           fetchJiraSyncItems(config.id, 'done', dataSource)
         ]);
         
-        setPendingTickets(pending);
+        if (!pendingRes.success) setLastError(pendingRes.error || "Fehler beim Laden der Warteschlange");
+        if (!approvedRes.success) setLastError(approvedRes.error || "Fehler beim Laden der Genehmigungen");
+        if (!doneRes.success) setLastError(doneRes.error || "Fehler beim Laden erledigter Tickets");
+
+        setPendingTickets(pendingRes.items);
         
-        setApprovedTickets(approved.map(t => {
+        setApprovedTickets(approvedRes.items.map(t => {
           const existingAssignment = assignments?.find(a => a.jiraIssueKey === t.key);
           const matchedRole = entitlements?.find(e => t.summary.toLowerCase().includes(e.name.toLowerCase()));
           
@@ -120,20 +128,21 @@ export default function JiraSyncPage() {
           };
         }));
         
-        setDoneTickets(done);
+        setDoneTickets(doneRes.items);
 
         setDebugInfo({
           configSource: dataSource,
           jqlQueries: queries,
           lastResponse: {
-            pendingCount: pending.length,
-            approvedCount: approved.length,
-            doneCount: done.length,
+            pending: pendingRes,
+            approved: approvedRes,
+            done: doneRes,
             timestamp: new Date().toISOString()
           }
         });
       }
     } catch (e: any) {
+      setLastError(e.message);
       toast({ variant: "destructive", title: "API Fehler", description: e.message });
       setDebugInfo(prev => ({ ...prev, lastResponse: { error: e.message, timestamp: new Date().toISOString() } }));
     } finally {
@@ -273,6 +282,16 @@ export default function JiraSyncPage() {
           </Button>
         </div>
       </div>
+
+      {lastError && (
+        <Alert variant="destructive" className="rounded-none border-2">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle className="text-xs font-bold uppercase">Synchronisationsfehler</AlertTitle>
+          <AlertDescription className="text-[10px] font-bold uppercase">
+            {lastError} - Prüfen Sie den Diagnose-Bereich für technische Details.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {!activeConfig && !isLoading && (
         <div className="p-10 border-2 border-dashed flex flex-col items-center justify-center text-center gap-4 bg-muted/10">
@@ -500,11 +519,13 @@ export default function JiraSyncPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-bold uppercase text-slate-500">Antwort-Statistik</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Antwort-Statistik & API-Fehler</Label>
                   <div className="p-3 border bg-white rounded-none">
-                    <pre className="text-[10px] font-mono whitespace-pre-wrap">
-                      {JSON.stringify(debugInfo.lastResponse, null, 2)}
-                    </pre>
+                    <ScrollArea className="h-64">
+                      <pre className="text-[10px] font-mono whitespace-pre-wrap">
+                        {JSON.stringify(debugInfo.lastResponse, null, 2)}
+                      </pre>
+                    </ScrollArea>
                   </div>
                 </div>
               </div>

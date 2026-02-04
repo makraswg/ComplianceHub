@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -74,8 +75,8 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
         cache: 'no-store'
       });
       if (projectRes.ok) {
-        const projectData = await projectRes.json();
-        if (projectData.issueTypes) {
+        const projectData = await projectRes.ok ? await projectRes.json() : null;
+        if (projectData && projectData.issueTypes) {
           availableTypes = projectData.issueTypes
             .filter((t: any) => !t.subtask)
             .map((t: any) => t.name);
@@ -177,6 +178,13 @@ export async function createJiraTicket(
   }
 }
 
+export type JiraSyncResponse = {
+  success: boolean;
+  items: JiraSyncItem[];
+  error?: string;
+  details?: string;
+};
+
 /**
  * Ruft Tickets ab, basierend auf ihrem Typ.
  */
@@ -184,10 +192,12 @@ export async function fetchJiraSyncItems(
   configId: string, 
   type: 'pending' | 'approved' | 'done',
   dataSource: DataSource = 'mysql'
-): Promise<JiraSyncItem[]> {
+): Promise<JiraSyncResponse> {
   const configs = await getJiraConfigs(dataSource);
   const config = configs.find(c => c.id === configId);
-  if (!config || !config.enabled || !config.projectKey) return [];
+  if (!config || !config.enabled || !config.projectKey) {
+    return { success: false, items: [], error: 'Konfiguration unvollständig oder Projekt-Key fehlt.' };
+  }
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
@@ -203,7 +213,6 @@ export async function fetchJiraSyncItems(
       jql += ` AND status = "${doneStatus}"`;
     } else {
       // Pending: Alles was nicht Approved oder Done (oder explizit abgelehnt) ist
-      // Wir schließen typische Abbruch-Status aus
       const excludeStatus = [approvedStatus, doneStatus, "Canceled", "Rejected", "Abgelehnt", "Storniert"]
         .filter(s => !!s)
         .map(s => `"${s}"`)
@@ -214,7 +223,6 @@ export async function fetchJiraSyncItems(
       }
     }
 
-    // Wir sortieren nach Erstellungsdatum (neueste zuerst)
     jql += ' ORDER BY created DESC';
 
     const response = await fetch(`${url}/rest/api/3/search`, {
@@ -232,14 +240,22 @@ export async function fetchJiraSyncItems(
       cache: 'no-store'
     });
 
-    if (!response.ok) return [];
-    const data = await response.json();
-    if (!data.issues) return [];
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return { 
+        success: false, 
+        items: [], 
+        error: `Jira API Fehler (${response.status})`, 
+        details: errorBody 
+      };
+    }
 
-    return data.issues.map((issue: any) => {
+    const data = await response.json();
+    if (!data.issues) return { success: true, items: [] };
+
+    const items = data.issues.map((issue: any) => {
       let extractedEmail = '';
       
-      // Suche nach E-Mail-Adressen in der Beschreibung oder Feldern (für Onboarding Match)
       const findInObject = (obj: any) => {
         if (!obj) return;
         if (obj.emailAddress) extractedEmail = obj.emailAddress;
@@ -264,9 +280,11 @@ export async function fetchJiraSyncItems(
         requestedUserEmail: extractedEmail || undefined
       };
     });
-  } catch (e) {
+
+    return { success: true, items };
+  } catch (e: any) {
     console.error("fetchJiraSyncItems error:", e);
-    return [];
+    return { success: false, items: [], error: 'Netzwerkfehler', details: e.message };
   }
 }
 
