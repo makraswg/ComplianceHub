@@ -92,6 +92,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     if (preparedData.isAdmin !== undefined) preparedData.isAdmin = preparedData.isAdmin ? 1 : 0;
     if (preparedData.isSharedAccount !== undefined) preparedData.isSharedAccount = preparedData.isSharedAccount ? 1 : 0;
     if (preparedData.ldapEnabled !== undefined) preparedData.ldapEnabled = preparedData.ldapEnabled ? 1 : 0;
+    if (preparedData.enabled === false) preparedData.enabled = 0; // Explicit check
 
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);

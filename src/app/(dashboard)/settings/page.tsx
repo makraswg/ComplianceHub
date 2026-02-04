@@ -31,7 +31,6 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { 
-  getJiraConfigs, 
   testJiraConnectionAction, 
   getJiraWorkspacesAction,
   getJiraSchemasAction,
@@ -62,13 +61,16 @@ export default function SettingsPage() {
   
   const [activeTab, setActiveTab] = useState('general');
 
-  // Tenant Management State
+  // Load Configs via Pluggable Hook
+  const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
+  const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
+
+  // Tenant Management State
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   
   // Service Partner State
-  const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const [isPartnerDialogOpen, setIsPartnerDialogOpen] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<any>(null);
 
@@ -117,32 +119,29 @@ export default function SettingsPage() {
   const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Hydrate Jira Form when data is loaded
   useEffect(() => {
-    const loadJira = async () => {
-      const configs = await getJiraConfigs();
-      if (configs.length > 0) {
-        const c = configs[0];
-        setJiraConfigId(c.id);
-        setJiraUrl(c.url || '');
-        setJiraEmail(c.email || '');
-        setJiraToken(c.apiToken || '');
-        setJiraTokenExpiresAt(c.apiTokenExpiresAt || '');
-        setJiraProject(c.projectKey || '');
-        setJiraIssueType(c.issueTypeName || 'Service Request');
-        setJiraApprovedStatus(c.approvedStatusName || 'Approved');
-        setJiraDoneStatus(c.doneStatusName || 'Done');
-        setJiraEnabled(c.enabled || false);
-        setAssetsWorkspaceId(c.assetsWorkspaceId || '');
-        setAssetsSchemaId(c.assetsSchemaId || '');
-        setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
-        setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
-        setAssetsResourceNameAttributeId(c.assetsResourceNameAttributeId || '1');
-        setAssetsRoleNameAttributeId(c.assetsRoleNameAttributeId || '1');
-        setAssetsSystemAttributeId(c.assetsSystemAttributeId || '');
-      }
-    };
-    loadJira();
-  }, []);
+    if (jiraConfigs && jiraConfigs.length > 0) {
+      const c = jiraConfigs[0];
+      setJiraConfigId(c.id);
+      setJiraUrl(c.url || '');
+      setJiraEmail(c.email || '');
+      setJiraToken(c.apiToken || '');
+      setJiraTokenExpiresAt(c.apiTokenExpiresAt || '');
+      setJiraProject(c.projectKey || '');
+      setJiraIssueType(c.issueTypeName || 'Service Request');
+      setJiraApprovedStatus(c.approvedStatusName || 'Approved');
+      setJiraDoneStatus(c.doneStatusName || 'Done');
+      setJiraEnabled(!!c.enabled);
+      setAssetsWorkspaceId(c.assetsWorkspaceId || '');
+      setAssetsSchemaId(c.assetsSchemaId || '');
+      setAssetsResourceObjectTypeId(c.assetsResourceObjectTypeId || '');
+      setAssetsRoleObjectTypeId(c.assetsRoleObjectTypeId || '');
+      setAssetsResourceNameAttributeId(c.assetsResourceNameAttributeId || '1');
+      setAssetsRoleNameAttributeId(c.assetsRoleNameAttributeId || '1');
+      setAssetsSystemAttributeId(c.assetsSystemAttributeId || '');
+    }
+  }, [jiraConfigs]);
 
   const tokenExpiryStatus = useMemo(() => {
     if (!jiraTokenExpiresAt) return null;
@@ -162,7 +161,7 @@ export default function SettingsPage() {
 
   const handleSaveJira = async () => {
     setIsSaving(true);
-    const id = jiraConfigId || `jira-${Math.random().toString(36).substring(2, 7)}`;
+    const id = jiraConfigId || `jira-config-01`;
     const data = {
       id,
       tenantId: 'global',
@@ -186,9 +185,13 @@ export default function SettingsPage() {
     };
 
     try {
-      if (dataSource === 'mysql') await saveCollectionRecord('jiraConfigs', id, data);
-      else setDocumentNonBlocking(doc(db, 'jiraConfigs', id), data);
+      if (dataSource === 'mysql') {
+        await saveCollectionRecord('jiraConfigs', id, data);
+      } else {
+        setDocumentNonBlocking(doc(db, 'jiraConfigs', id), data);
+      }
       toast({ title: "Jira Konfiguration gespeichert" });
+      setTimeout(() => refreshJira(), 200);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
@@ -335,7 +338,7 @@ export default function SettingsPage() {
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
               <div><CardTitle className="text-[10px] font-bold uppercase">Firmen / Standorte</CardTitle></div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedTenant(null); setIsTenantDialogOpen(true); }}>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Mandant hinzufügen
               </Button>
             </CardHeader>
@@ -364,7 +367,7 @@ export default function SettingsPage() {
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
               <div><CardTitle className="text-[10px] font-bold uppercase">Service Partner</CardTitle></div>
-              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedPartner(null); setIsPartnerDialogOpen(true); }}>
+              <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { setSelectedPartner(null); setPartnerName(''); setPartnerContact(''); setPartnerEmail(''); setPartnerPhone(''); setIsPartnerDialogOpen(true); }}>
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Partner hinzufügen
               </Button>
             </CardHeader>
@@ -555,7 +558,17 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="data">
-          {/* Datenquelle Tab Inhalt bleibt gleich */}
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b">
+              <CardTitle className="text-[10px] font-bold uppercase">Aktive Datenquelle</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <p className="text-sm">Aktuell wird <strong>{dataSource.toUpperCase()}</strong> verwendet.</p>
+              <Button variant="outline" size="sm" className="mt-4 rounded-none h-8 text-[10px] uppercase font-bold" onClick={() => window.location.href = '/setup'}>
+                Datenquelle ändern
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
