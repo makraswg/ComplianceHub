@@ -4,41 +4,47 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 export type DataSource = 'firestore' | 'mock' | 'mysql';
+export type TenantId = 'all' | 't1' | 't2';
 
 interface SettingsContextType {
   dataSource: DataSource;
   setDataSource: (source: DataSource) => void;
+  activeTenantId: TenantId;
+  setActiveTenantId: (id: TenantId) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // 1. Initialisieren Sie den Zustand IMMER mit einem konsistenten Standardwert.
-  //    Dies stellt sicher, dass Server und Client beim ersten Rendern dasselbe HTML erzeugen.
   const [dataSource, setDataSource] = useState<DataSource>('firestore');
+  const [activeTenantId, setActiveTenantId] = useState<TenantId>('all');
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // 2. Dieser Effekt wird NUR auf dem Client ausgeführt, nachdem die Komponente gemountet wurde.
   useEffect(() => {
     const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
-      // Aktualisieren Sie den Zustand mit dem Wert aus dem Local Storage.
       setDataSource(savedSource);
     }
-    // Markieren Sie die Komponente als "hydriert".
+    const savedTenant = localStorage.getItem('activeTenantId');
+    if (savedTenant === 'all' || savedTenant === 't1' || savedTenant === 't2') {
+      setActiveTenantId(savedTenant as TenantId);
+    }
     setIsHydrated(true);
-  }, []); // Die leere Abhängigkeitsliste stellt sicher, dass dies nur einmal passiert.
+  }, []);
 
-  // 3. Dieser Effekt speichert Änderungen zurück in den Local Storage.
   useEffect(() => {
-    // Wir speichern erst, nachdem wir den initialen Wert geladen haben, 
-    // um zu verhindern, dass der Standardwert einen gespeicherten Wert überschreibt.
     if (isHydrated) {
       localStorage.setItem('dataSource', dataSource);
+      localStorage.setItem('activeTenantId', activeTenantId);
     }
-  }, [dataSource, isHydrated]);
+  }, [dataSource, activeTenantId, isHydrated]);
 
-  const value = { dataSource, setDataSource };
+  const value = { 
+    dataSource, 
+    setDataSource, 
+    activeTenantId, 
+    setActiveTenantId 
+  };
 
   return (
     <SettingsContext.Provider value={value}>
