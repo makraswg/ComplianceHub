@@ -114,8 +114,8 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     const [riskRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `risks`');
     if (riskRows[0].count === 0) {
       const demoRisks = [
-        { id: 'risk-01', tenantId: 't1', title: 'Unberechtigter Admin-Zugriff', category: 'Identität', impact: 5, probability: 2, owner: 'IT Security', status: 'active', createdAt: new Date().toISOString() },
-        { id: 'risk-02', tenantId: 't1', title: 'Datenverlust durch fehlende MFA', category: 'Sicherheit', impact: 4, probability: 4, owner: 'CISO', status: 'active', createdAt: new Date().toISOString() }
+        { id: 'risk-01', tenantId: 't1', title: 'Unberechtigter Admin-Zugriff', category: 'IT-Sicherheit', impact: 5, probability: 2, owner: 'IT Security', status: 'active', createdAt: new Date().toISOString() },
+        { id: 'risk-02', tenantId: 't1', title: 'Datenverlust durch fehlende MFA', category: 'IT-Sicherheit', impact: 4, probability: 4, owner: 'CISO', status: 'active', createdAt: new Date().toISOString() }
       ];
       for (const r of demoRisks) {
         await connection.execute(
@@ -134,7 +134,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       { id: 'help-03', section: 'Workflows', title: 'Jira Integration', content: 'Der Hub sendet Tickets für Berechtigungsänderungen an Jira. Sobald diese dort erledigt werden, können sie im Hub finalisiert werden, um die Rechte technisch aktiv zu schalten.', order: 3 },
       { id: 'help-04', section: 'Lifecycle', title: 'Onboarding (Joiner)', content: 'Nutzen Sie Berechtigungspakete (Bundles), um neuen Mitarbeitern mit einem Klick alle notwendigen Basis-Rechte zuzuweisen. Ein Jira-Ticket wird automatisch zur Ausführung erstellt.', order: 4 },
       { id: 'help-05', section: 'Governance', title: 'Access Reviews', content: 'Führen Sie regelmäßige Rezertifizierungen durch. Der KI-Advisor unterstützt Sie dabei, unnötige oder riskante Berechtigungen zu identifizieren.', order: 5 },
-      { id: 'help-06', section: 'Risiko', title: 'Risikomanagement', content: 'In diesem Bereich bewerten Sie potenzielle Compliance-Risiken. Nutzen Sie die 5x5 Matrix zur Einordnung und definieren Sie Maßnahmen zur Risikominderung.', order: 6 }
+      { id: 'help-06', section: 'Risiko', title: 'Risikomanagement', content: 'Bewerten Sie Risiken nach Schadenshöhe und Wahrscheinlichkeit. Dokumentieren Sie Kontrollmaßnahmen und führen Sie regelmäßige Reviews durch, um die Risikolage aktuell zu halten.', order: 6 }
     ];
 
     for (const h of defaultHelp) {
