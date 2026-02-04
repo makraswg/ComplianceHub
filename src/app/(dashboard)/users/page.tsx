@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -21,7 +21,13 @@ import {
   ShieldCheck,
   Trash2,
   Pencil,
-  Network
+  Network,
+  User as UserIcon,
+  Info,
+  History,
+  ShieldAlert,
+  Clock,
+  UserPlus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -37,6 +43,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -55,6 +62,7 @@ import {
   useFirestore, 
   setDocumentNonBlocking, 
   deleteDocumentNonBlocking,
+  useUser as useAuthUser
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -62,10 +70,13 @@ import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function UsersPage() {
   const db = useFirestore();
   const router = useRouter();
+  const { user: authUser } = useAuthUser();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -73,6 +84,9 @@ export default function UsersPage() {
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isQuickAssignOpen, setIsQuickAssignOpen] = useState(false);
+  
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   // Form State
@@ -81,12 +95,19 @@ export default function UsersPage() {
   const [department, setDepartment] = useState('');
   const [tenantId, setTenantId] = useState('');
 
-  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  // Quick Assignment State
+  const [qaEntitlementId, setQaEntitlementId] = useState('');
+  const [qaValidUntil, setQaValidUntil] = useState('');
+
+  const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  const [activeSourceFilter, setActiveSourceFilter] = useState<'all' | 'ad' | 'manual'>('all');
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: tenants } = usePluggableCollection<any>('tenants');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
+  const { data: resources } = usePluggableCollection<any>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
+  const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
 
   useEffect(() => {
     setMounted(true);
@@ -118,6 +139,35 @@ export default function UsersPage() {
     setIsAddOpen(false);
     resetForm();
     setTimeout(() => refreshUsers(), 200);
+  };
+
+  const handleQuickAssign = async () => {
+    if (!selectedUser || !qaEntitlementId) return;
+    
+    const assId = `ass-${Math.random().toString(36).substring(2, 9)}`;
+    const assData = {
+      id: assId,
+      userId: selectedUser.id,
+      entitlementId: qaEntitlementId,
+      tenantId: selectedUser.tenantId,
+      status: 'active',
+      grantedBy: authUser?.uid || 'system',
+      grantedAt: new Date().toISOString(),
+      validFrom: new Date().toISOString().split('T')[0],
+      validUntil: qaValidUntil,
+      ticketRef: 'QUICK-ASSIGN',
+      notes: 'Direktzuweisung über Benutzerverzeichnis.',
+      syncSource: 'manual'
+    };
+
+    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assId, assData);
+    else setDocumentNonBlocking(doc(db, 'assignments', assId), assData);
+
+    toast({ title: "Berechtigung zugewiesen" });
+    setIsQuickAssignOpen(false);
+    setQaEntitlementId('');
+    setQaValidUntil('');
+    setTimeout(() => refreshAssignments(), 200);
   };
 
   const handleDeleteUser = async () => {
@@ -184,13 +234,29 @@ export default function UsersPage() {
     setIsAddOpen(true);
   };
 
-  const filteredUsers = users?.filter((user: any) => {
-    if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) return false;
-    const matchesSearch = (user.displayName || '').toLowerCase().includes(search.toLowerCase()) || (user.email || '').toLowerCase().includes(search.toLowerCase());
-    const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
-    const matchesStatus = activeFilter === 'all' || (activeFilter === 'active' && isEnabled) || (activeFilter === 'disabled' && !isEnabled);
-    return matchesSearch && matchesStatus;
-  });
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter((user: any) => {
+      // 1. Mandant
+      if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) return false;
+      
+      // 2. Suche
+      const matchesSearch = (user.displayName || '').toLowerCase().includes(search.toLowerCase()) || (user.email || '').toLowerCase().includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+
+      // 3. Status Filter
+      const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
+      if (activeStatusFilter === 'active' && !isEnabled) return false;
+      if (activeStatusFilter === 'disabled' && isEnabled) return false;
+
+      // 4. Quelle Filter
+      const isAd = user.externalId && !user.externalId.startsWith('MANUAL_');
+      if (activeSourceFilter === 'ad' && !isAd) return false;
+      if (activeSourceFilter === 'manual' && isAd) return false;
+
+      return true;
+    });
+  }, [users, search, activeTenantId, activeStatusFilter, activeSourceFilter]);
 
   if (!mounted) return null;
 
@@ -211,22 +277,35 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+        <div className="relative lg:col-span-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input 
+          <Input 
             placeholder="Name oder E-Mail suchen..." 
-            className="w-full pl-10 h-10 border border-input bg-white px-3 text-sm focus:outline-none"
+            className="pl-10 h-10 border border-input bg-white text-sm focus:outline-none rounded-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex border rounded-none p-1 bg-muted/20">
-          {['all', 'active', 'disabled'].map(f => (
-            <Button key={f} variant={activeFilter === f ? 'default' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase px-4 rounded-none" onClick={() => setActiveFilter(f as any)}>
-              {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : f === 'disabled' ? 'Inaktiv' : f}
-            </Button>
-          ))}
+        <div className="lg:col-span-3">
+          <Label className="text-[9px] font-bold uppercase mb-1.5 block text-muted-foreground">Status</Label>
+          <div className="flex border rounded-none p-1 bg-muted/20 h-10">
+            {['all', 'active', 'disabled'].map(f => (
+              <Button key={f} variant={activeStatusFilter === f ? 'default' : 'ghost'} size="sm" className="flex-1 h-8 text-[9px] font-bold uppercase px-2 rounded-none" onClick={() => setActiveStatusFilter(f as any)}>
+                {f === 'all' ? 'Alle' : f === 'active' ? 'Aktiv' : 'Inaktiv'}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="lg:col-span-3">
+          <Label className="text-[9px] font-bold uppercase mb-1.5 block text-muted-foreground">Herkunft</Label>
+          <div className="flex border rounded-none p-1 bg-muted/20 h-10">
+            {['all', 'ad', 'manual'].map(f => (
+              <Button key={f} variant={activeSourceFilter === f ? 'default' : 'ghost'} size="sm" className="flex-1 h-8 text-[9px] font-bold uppercase px-2 rounded-none" onClick={() => setActiveSourceFilter(f as any)}>
+                {f === 'all' ? 'Alle' : f === 'ad' ? 'AD' : 'Manuell'}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -248,16 +327,31 @@ export default function UsersPage() {
             <TableBody>
               {filteredUsers?.map((user: any) => {
                 const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
+                const isAd = user.externalId && !user.externalId.startsWith('MANUAL_');
                 const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
                 const adCount = userAssignments.filter(a => a.syncSource === 'ldap').length;
+                
                 return (
                   <TableRow key={user.id} className="group hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase text-xs">{user.displayName?.charAt(0)}</div>
+                        <div className="w-8 h-8 bg-slate-100 flex items-center justify-center text-slate-500 font-bold uppercase text-xs">
+                          {user.displayName?.charAt(0)}
+                        </div>
                         <div>
-                          <div className="font-bold text-sm">{user.displayName}</div>
-                          <div className="text-[10px] text-muted-foreground font-mono">{user.email}</div>
+                          <div 
+                            className="font-bold text-sm cursor-pointer hover:text-primary transition-colors flex items-center gap-2"
+                            onClick={() => { setSelectedUser(user); setIsDetailOpen(true); }}
+                          >
+                            {user.displayName}
+                            <Info className="w-3 h-3 opacity-0 group-hover:opacity-50" />
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[9px] text-muted-foreground font-mono">{user.email}</span>
+                            <span className="flex items-center gap-1 text-[8px] font-bold uppercase py-0.5 px-1 bg-muted/50 rounded-sm">
+                              {isAd ? <><Network className="w-2 h-2 text-blue-600" /> AD</> : <><UserIcon className="w-2 h-2 text-slate-500" /> Manuell</>}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </TableCell>
@@ -275,15 +369,26 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-none">
-                          <DropdownMenuItem onSelect={() => openEdit(user)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Zugriffe prüfen</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedUser(user); setIsDeleteAlertOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex justify-end items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 text-[9px] font-bold uppercase gap-1.5 rounded-none hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() => { setSelectedUser(user); setIsQuickAssignOpen(true); }}
+                        >
+                          <UserPlus className="w-3.5 h-3.5" /> Zuweisen
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 rounded-none">
+                            <DropdownMenuItem onSelect={() => { setSelectedUser(user); setIsDetailOpen(true); }}><Info className="w-3.5 h-3.5 mr-2" /> Details & Historie</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEdit(user)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Alle Zugriffe</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedUser(user); setIsDeleteAlertOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -293,6 +398,139 @@ export default function UsersPage() {
         )}
       </div>
 
+      {/* User Details & History Modal */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 rounded-none overflow-hidden">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 flex items-center justify-center text-primary font-bold text-xl uppercase">
+                {selectedUser?.displayName?.charAt(0)}
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold uppercase tracking-wider">{selectedUser?.displayName}</DialogTitle>
+                <div className="flex items-center gap-3 text-xs text-slate-400 font-bold uppercase mt-1">
+                  <span>{selectedUser?.email}</span>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  <span>{selectedUser?.department}</span>
+                  <span className="w-1 h-1 bg-slate-600 rounded-full" />
+                  <span className="text-primary">{selectedUser?.tenantId}</span>
+                </div>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <Tabs defaultValue="access" className="flex-1 flex flex-col">
+            <div className="px-6 border-b bg-muted/10 shrink-0">
+              <TabsList className="h-12 bg-transparent gap-6 p-0">
+                <TabsTrigger value="access" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-bold uppercase">
+                  <ShieldCheck className="w-3.5 h-3.5" /> Aktive Zugriffe
+                </TabsTrigger>
+                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-bold uppercase">
+                  <History className="w-3.5 h-3.5" /> Aktivitätsverlauf
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <div className="p-6">
+                <TabsContent value="access" className="mt-0 space-y-4">
+                  {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').map(a => {
+                    const ent = entitlements?.find(e => e.id === a.entitlementId);
+                    const res = resources?.find(r => r.id === ent?.resourceId);
+                    return (
+                      <div key={a.id} className="flex items-center justify-between p-4 border bg-white group hover:border-primary/30 transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("p-2 rounded-sm", ent?.isAdmin ? "bg-red-50" : "bg-blue-50")}>
+                            {ent?.isAdmin ? <ShieldAlert className="w-4 h-4 text-red-600" /> : <ShieldCheck className="w-4 h-4 text-blue-600" />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold">{res?.name}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{ent?.name}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold uppercase text-muted-foreground">Zugewiesen am</p>
+                          <p className="text-[10px] font-mono">{a.grantedAt ? new Date(a.grantedAt).toLocaleDateString() : '—'}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
+                    <div className="py-20 text-center text-muted-foreground italic text-xs">Keine aktiven Zuweisungen gefunden.</div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="history" className="mt-0">
+                  <div className="space-y-6">
+                    {auditLogs?.filter(log => log.entityId === selectedUser?.id || log.entityId === selectedUser?.displayName).map(log => (
+                      <div key={log.id} className="relative pl-6 pb-6 border-l last:border-0 last:pb-0">
+                        <div className="absolute left-[-5px] top-0 w-2 h-2 rounded-full bg-primary" />
+                        <div className="text-[9px] font-bold uppercase text-muted-foreground mb-1">
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}
+                        </div>
+                        <p className="text-xs font-bold">{log.action}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Akteur: {log.actorUid}</p>
+                      </div>
+                    ))}
+                    {auditLogs?.filter(log => log.entityId === selectedUser?.id || log.entityId === selectedUser?.displayName).length === 0 && (
+                      <div className="py-20 text-center text-muted-foreground italic text-xs">Keine Historie für diesen Benutzer verfügbar.</div>
+                    )}
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </Tabs>
+          <div className="p-4 border-t bg-slate-50 flex justify-end shrink-0">
+            <Button onClick={() => setIsDetailOpen(false)} className="rounded-none h-10 px-8">Schließen</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Assignment Dialog */}
+      <Dialog open={isQuickAssignOpen} onOpenChange={setIsQuickAssignOpen}>
+        <DialogContent className="max-w-md rounded-none">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Berechtigung zuweisen</DialogTitle>
+            <DialogDescription className="text-xs">Neue Rolle für {selectedUser?.displayName} festlegen.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">System / Rolle wählen</Label>
+              <Select value={qaEntitlementId} onValueChange={setQaEntitlementId}>
+                <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <ScrollArea className="h-64">
+                    {entitlements?.filter(e => {
+                      const res = resources?.find(r => r.id === e.resourceId);
+                      return res?.tenantId === 'global' || res?.tenantId === selectedUser?.tenantId;
+                    }).map(e => {
+                      const res = resources?.find(r => r.id === e.resourceId);
+                      return (
+                        <SelectItem key={e.id} value={e.id}>
+                          <div className="flex items-center gap-2">
+                            {e.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                            <span>{res?.name}: {e.name}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase">Gültig bis (Optional)</Label>
+              <Input type="date" value={qaValidUntil} onChange={e => setQaValidUntil(e.target.value)} className="rounded-none" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuickAssignOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId} className="rounded-none font-bold uppercase text-[10px]">Zuweisung erstellen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if (!val) setIsAddOpen(false); }}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}</DialogTitle></DialogHeader>
@@ -331,7 +569,10 @@ export default function UsersPage() {
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent className="rounded-none">
           <AlertDialogHeader><AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Benutzer löschen?</AlertDialogTitle><AlertDialogDescription className="text-xs">Dies entfernt den Benutzer permanent aus dem System.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel><AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 rounded-none text-xs uppercase font-bold">Löschen</AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
