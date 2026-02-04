@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useSettings, DataSource } from '@/context/settings-context';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, XCircle, Beaker, Database, GanttChartSquare, ShieldCheck } from 'lucide-react';
@@ -66,7 +66,7 @@ export default function SetupPage() {
   }, [dataSource]);
 
   const handleTestCloud = async () => {
-    setCloudTest({ status: 'loading', message: 'Cloud-Verbindung wird geprüft...' });
+    setCloudTest({ status: 'loading', message: 'Zentralsystem-Verbindung wird geprüft...' });
     try {
       const { firestore } = initializeFirebase();
       const snap = await getDocs(collection(firestore, 'tenants'));
@@ -116,13 +116,13 @@ export default function SetupPage() {
   return (
     <div className="space-y-6">
         <div className="border-b pb-6">
-            <h1 className="text-2xl font-bold tracking-tight">Setup & Konfiguration</h1>
-            <p className="text-sm text-muted-foreground">Datenquelle und Datenbank-Infrastruktur verwalten.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Setup & Infrastruktur</h1>
+            <p className="text-sm text-muted-foreground">Zentrale Konfiguration der Datenquelle und Datenbanken.</p>
         </div>
 
       <Card className="rounded-none shadow-none border">
         <CardHeader className="bg-muted/10 border-b">
-          <CardTitle className="text-xs font-bold uppercase tracking-widest">Plattform-Datenquelle</CardTitle>
+          <CardTitle className="text-xs font-bold uppercase tracking-widest">Aktive Plattform-Datenquelle</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <RadioGroup 
@@ -130,6 +130,34 @@ export default function SetupPage() {
             onValueChange={handleDataSourceChange}
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
+            {/* MySQL Option */}
+            <Label htmlFor="mysql" className={cn(
+              "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
+              currentSelection === 'mysql' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
+            )}>
+              <div className="flex items-center space-x-3">
+                <RadioGroupItem value="mysql" id="mysql" />
+                <div className="flex flex-col">
+                  <span className="font-bold text-sm">Lokal (MySQL / SQL)</span>
+                  <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">On-Premise (Empfohlen)</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">Nutzt Ihre eigene relationale SQL-Struktur für vollständige Datenkontrolle.</p>
+              <div className="w-full space-y-3 pt-2">
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
+                      <Database className="w-3.5 h-3.5 mr-2" /> Datenbank-Ping
+                  </Button>
+                  <TestResultDisplay result={mysqlTest} />
+                  
+                  <div className="pt-2 border-t">
+                      <Button variant="secondary" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
+                          <GanttChartSquare className="w-3.5 h-3.5 mr-2" /> Initialisieren
+                      </Button>
+                      <TestResultDisplay result={migrationResult} />
+                  </div>
+              </div>
+            </Label>
+
             {/* Cloud Option */}
             <Label htmlFor="firestore" className={cn(
               "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
@@ -138,14 +166,14 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="firestore" id="firestore" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">Zentrales Cloud-System</span>
-                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Managed Service</span>
+                  <span className="font-bold text-sm">Zentral (Cloud Engine)</span>
+                  <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Global Managed</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Verwendet die globale Cloud-Infrastruktur für mandantenübergreifende Koordination.</p>
+              <p className="text-xs text-muted-foreground">Verwendet die globale Infrastruktur für mandantenübergreifende Koordination.</p>
               <div className="w-full pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestCloud(); }}>
-                    <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Cloud-Test
+                    <ShieldCheck className="w-3.5 h-3.5 mr-2" /> System-Test
                   </Button>
                   <TestResultDisplay result={cloudTest} />
               </div>
@@ -159,44 +187,16 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="mock" id="mock" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">Offline-Vorschau</span>
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Demo Modus</span>
+                  <span className="font-bold text-sm">Demo (Vorschau)</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Statisch</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Statische Beispieldaten für Präsentationen und Tests ohne Internetverbindung.</p>
+              <p className="text-xs text-muted-foreground">Statische Beispieldaten für Präsentationen ohne echte Datenbankanbindung.</p>
               <div className="w-full pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
-                    <Beaker className="w-3.5 h-3.5 mr-2" /> Lokal-Test
+                    <Beaker className="w-3.5 h-3.5 mr-2" /> Laden
                   </Button>
                   <TestResultDisplay result={mockTest} />
-              </div>
-            </Label>
-
-            {/* MySQL Option */}
-            <Label htmlFor="mysql" className={cn(
-              "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
-              currentSelection === 'mysql' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
-            )}>
-              <div className="flex items-center space-x-3">
-                <RadioGroupItem value="mysql" id="mysql" />
-                <div className="flex flex-col">
-                  <span className="font-bold text-sm">MySQL (Self-Hosted)</span>
-                  <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">On-Premise</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">Nutzt Ihre eigene relationale SQL-Struktur für vollständige Datenkontrolle.</p>
-              <div className="w-full space-y-3 pt-2">
-                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
-                      <Database className="w-3.5 h-3.5 mr-2" /> DB-Ping
-                  </Button>
-                  <TestResultDisplay result={mysqlTest} />
-                  
-                  <div className="pt-2 border-t">
-                      <Button variant="secondary" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
-                          <GanttChartSquare className="w-3.5 h-3.5 mr-2" /> Initialisieren
-                      </Button>
-                      <TestResultDisplay result={migrationResult} />
-                  </div>
               </div>
             </Label>
           </RadioGroup>
@@ -204,7 +204,7 @@ export default function SetupPage() {
       </Card>
 
       <div className="p-4 bg-muted/20 border text-[10px] font-bold uppercase text-muted-foreground">
-        Hinweis: Änderungen werden sofort wirksam. Daten werden nicht automatisch zwischen Quellen migriert.
+        Hinweis: Die Datenquelle bestimmt, wie Identitäten und Zuweisungen gespeichert werden. MySQL ist die empfohlene Konfiguration für lokale Installationen.
       </div>
     </div>
   );

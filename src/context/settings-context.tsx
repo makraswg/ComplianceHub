@@ -8,31 +8,46 @@ export type DataSource = 'firestore' | 'mock' | 'mysql';
 interface SettingsContextType {
   dataSource: DataSource;
   setDataSource: (source: DataSource) => void;
+  activeTenantId: string;
+  setActiveTenantId: (id: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // Standardmäßig erzwingen wir 'mysql' für eine konsistente lokale Erfahrung.
+  // Der absolute Standard ist 'mysql'
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
+  const [activeTenantId, setActiveTenantId] = useState<string>('all');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Beim Laden prüfen wir, ob der Benutzer zuvor manuell etwas anderes gewählt hat.
+    // Nur beim ersten Laden prüfen wir auf Benutzereinstellungen
     const savedSource = typeof window !== 'undefined' ? localStorage.getItem('dataSource') : null;
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
       setDataSource(savedSource as DataSource);
     }
+    
+    const savedTenant = typeof window !== 'undefined' ? localStorage.getItem('activeTenantId') : null;
+    if (savedTenant) {
+      setActiveTenantId(savedTenant);
+    }
+    
     setIsHydrated(true);
   }, []);
 
   useEffect(() => {
     if (isHydrated && typeof window !== 'undefined') {
       localStorage.setItem('dataSource', dataSource);
+      localStorage.setItem('activeTenantId', activeTenantId);
     }
-  }, [dataSource, isHydrated]);
+  }, [dataSource, activeTenantId, isHydrated]);
 
-  const value = { dataSource, setDataSource };
+  const value = { 
+    dataSource, 
+    setDataSource,
+    activeTenantId,
+    setActiveTenantId
+  };
 
   return (
     <SettingsContext.Provider value={value}>
