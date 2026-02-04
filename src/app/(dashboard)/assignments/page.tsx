@@ -31,7 +31,9 @@ import {
   User as UserIcon,
   Link as LinkIcon,
   Workflow,
-  Lock
+  Lock,
+  ChevronRight,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -66,6 +68,7 @@ import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
@@ -165,7 +168,6 @@ export default function AssignmentsPage() {
   };
 
   const handleRevokeAssignment = async (assignment: Assignment) => {
-    // Sicherheitscheck: Gruppenzuweisungen dürfen hier nicht gelöscht werden
     if (assignment.originGroupId || assignment.syncSource === 'group') {
       toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen können nur über die Zuweisungsgruppe verwaltet werden." });
       return;
@@ -442,127 +444,187 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Optimized Detail Dialog */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] rounded-none p-0 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <ShieldCheck className="w-5 h-5 text-primary" />
-              <div>
-                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Einzelzuweisung Details</DialogTitle>
-                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Zugeordnet an {users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/20 flex items-center justify-center rounded-sm">
+                <ShieldCheck className="w-6 h-6 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-bold uppercase tracking-tight leading-tight">Zuweisung Details</DialogTitle>
+                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                  <UserCircle className="w-3 h-3" /> 
+                  <span className="truncate">Inhaber: {users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}</span>
+                </div>
               </div>
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1">
-            <div className="p-6 space-y-8 text-xs">
-              {/* Basis-Informationen */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><Info className="w-3 h-3" /> Zuweisungs-ID</p>
-                  <p className="font-mono bg-muted/30 px-2 py-1 border">{selectedAssignment?.id}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><ShieldAlert className="w-3 h-3" /> Status</p>
+          <ScrollArea className="flex-1 bg-white">
+            <div className="p-6 space-y-8">
+              {/* Status & Basic Info Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border bg-slate-50/50">
+                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-2 block tracking-widest">Status</Label>
                   <Badge variant="outline" className={cn(
-                    "rounded-none font-bold uppercase text-[10px] px-3",
+                    "rounded-none font-bold uppercase text-[10px] px-3 py-1",
                     selectedAssignment?.status === 'active' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"
                   )}>
                     {selectedAssignment?.status}
                   </Badge>
                 </div>
-                <div>
-                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><LinkIcon className="w-3 h-3" /> Herkunft / Quelle</p>
+                <div className="p-4 border bg-slate-50/50">
+                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-2 block tracking-widest">Mandant</Label>
+                  <div className="flex items-center gap-2 font-bold text-sm text-primary uppercase">
+                    <Building2 className="w-4 h-4" />
+                    {getTenantSlug(selectedAssignment?.tenantId)}
+                  </div>
+                </div>
+                <div className="p-4 border bg-slate-50/50">
+                  <Label className="text-[9px] font-bold uppercase text-muted-foreground mb-2 block tracking-widest">Quelle</Label>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold uppercase tracking-tight">{selectedAssignment?.syncSource || 'Manuelle Erfassung'}</p>
-                    {selectedAssignment?.originGroupId && <Badge variant="outline" className="rounded-none bg-indigo-50 text-indigo-700 border-indigo-100 text-[8px] font-bold uppercase">Gruppe</Badge>}
+                    <span className="font-bold text-xs uppercase">{selectedAssignment?.syncSource || 'Manuell'}</span>
+                    {selectedAssignment?.originGroupId && (
+                      <Badge className="bg-indigo-600 text-white rounded-none text-[8px] h-4">GROUP</Badge>
+                    )}
                   </div>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px] flex items-center gap-1.5"><UserIcon className="w-3 h-3" /> Mandant</p>
-                  <p className="font-bold uppercase text-primary">{getTenantSlug(selectedAssignment?.tenantId)}</p>
                 </div>
               </div>
 
-              {/* Identitäten & Ressourcen */}
-              <div className="space-y-4 pt-6 border-t">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Identität & Berechtigung</h4>
+              {/* Identity Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Separator className="flex-1" />
+                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Identität & Berechtigung</span>
+                  <Separator className="flex-1" />
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-3 border bg-slate-50/50">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Benutzer</p>
-                    <p className="font-bold text-sm mb-1">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannt'}</p>
-                    <p className="text-[9px] font-mono text-muted-foreground">UID: {selectedAssignment?.userId}</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Benutzer</Label>
+                      <span className="text-[9px] font-mono text-muted-foreground opacity-50">UID: {selectedAssignment?.userId}</span>
+                    </div>
+                    <div className="p-4 border bg-white flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <UserIcon className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm leading-tight">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName || 'Unbekannter Nutzer'}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-3 border bg-slate-50/50">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground mb-2">Rolle & System</p>
-                    {(() => {
-                      const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
-                      const res = resources?.find(r => r.id === ent?.resourceId);
-                      return (
-                        <>
-                          <p className="font-bold text-sm mb-1">{res?.name} / {ent?.name}</p>
-                          <p className="text-[9px] font-mono text-muted-foreground">EID: {selectedAssignment?.entitlementId}</p>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
 
-              {/* Gültigkeitszeitraum */}
-              <div className="space-y-4 pt-6 border-t">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Zeitraum & Governance</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Gültig ab</p>
-                    <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-muted-foreground" /><span className="font-bold">{selectedAssignment?.validFrom || '—'}</span></div>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Gültig bis</p>
-                    <div className="flex items-center gap-2"><Clock className="w-3.5 h-3.5 text-muted-foreground" /><span className="font-bold">{selectedAssignment?.validUntil || 'Unbefristet'}</span></div>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Zertifiziert am</p>
-                    <div className="flex items-center gap-2"><ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /><span className="font-bold">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</span></div>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Prüfer (UID)</p>
-                    <p className="truncate font-mono text-[10px]">{selectedAssignment?.reviewedBy || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Erteilung & Tickets */}
-              <div className="space-y-4 pt-6 border-t">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Prozess & Referenzen</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Erteilt von</p>
-                    <p className="font-bold">{selectedAssignment?.grantedBy}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">am {selectedAssignment?.grantedAt && new Date(selectedAssignment.grantedAt).toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Ticket / Jira Key</p>
-                    <div className="flex items-center gap-2">
-                      <Ticket className="w-4 h-4 text-blue-600" />
-                      <span className="font-bold text-sm">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'Keine Referenz'}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-bold uppercase text-slate-500">Rolle & System</Label>
+                      <span className="text-[9px] font-mono text-muted-foreground opacity-50">EID: {selectedAssignment?.entitlementId}</span>
+                    </div>
+                    <div className="p-4 border bg-white flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-sm bg-primary/5 flex items-center justify-center shrink-0">
+                        <Layers className="w-4 h-4 text-primary" />
+                      </div>
+                      {(() => {
+                        const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
+                        const res = resources?.find(r => r.id === ent?.resourceId);
+                        return (
+                          <div>
+                            <p className="font-bold text-sm leading-tight">{res?.name || 'Unbekannt'}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <p className="text-xs text-muted-foreground">{ent?.name}</p>
+                              {ent?.isAdmin && <Badge className="bg-red-100 text-red-700 border-none rounded-none text-[8px] h-4 px-1">ADMIN</Badge>}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Anmerkungen */}
-              <div className="space-y-2 pt-6 border-t">
-                <p className="text-muted-foreground mb-1 uppercase font-bold text-[9px]">Interne Notizen</p>
-                <div className="p-4 bg-amber-50/30 border border-amber-100 italic leading-relaxed">
-                  {selectedAssignment?.notes || 'Keine zusätzlichen Anmerkungen hinterlegt.'}
+              {/* Timeline Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Separator className="flex-1" />
+                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Zeitraum & Governance</span>
+                  <Separator className="flex-1" />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Gültig ab</p>
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                      {selectedAssignment?.validFrom || 'Sofort'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Gültig bis</p>
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      {selectedAssignment?.validUntil || 'Unbefristet'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Zertifiziert</p>
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <ShieldCheck className={cn("w-3.5 h-3.5", selectedAssignment?.lastReviewedAt ? "text-emerald-500" : "text-slate-300")} />
+                      {selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Prüfer</p>
+                    <div className="text-[10px] font-mono truncate text-muted-foreground">
+                      {selectedAssignment?.reviewedBy || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Process & Notes */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Separator className="flex-1" />
+                  <span className="text-[9px] font-black uppercase text-muted-foreground tracking-[0.2em]">Prozess & Notizen</span>
+                  <Separator className="flex-1" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border border-blue-100 bg-blue-50/30">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase text-blue-600">Ticket-Referenz</p>
+                        <p className="font-bold text-xs mt-0.5">{selectedAssignment?.ticketRef || selectedAssignment?.jiraIssueKey || 'KEINE'}</p>
+                      </div>
+                      <Ticket className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="p-3 border">
+                      <p className="text-[9px] font-bold uppercase text-muted-foreground">Erteilt von</p>
+                      <p className="text-xs font-bold mt-0.5">{selectedAssignment?.grantedBy || 'System'}</p>
+                      <p className="text-[9px] text-muted-foreground mt-1">am {selectedAssignment?.grantedAt ? new Date(selectedAssignment.grantedAt).toLocaleString() : 'Unbekannt'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-1.5">
+                      <Info className="w-3 h-3" /> Anmerkungen
+                    </Label>
+                    <div className="p-4 bg-amber-50/30 border border-amber-100 min-h-[80px] text-xs italic leading-relaxed text-slate-600">
+                      {selectedAssignment?.notes || 'Keine zusätzlichen Anmerkungen vorhanden.'}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </ScrollArea>
           
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
-            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Schließen</Button>
+            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-10 px-10 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800">
+              Fenster Schließen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
