@@ -24,7 +24,8 @@ import {
   HelpCircle,
   AlertTriangle,
   ClipboardCheck,
-  BarChart3
+  BarChart3,
+  PieChart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -81,6 +82,7 @@ export function AppSidebar() {
   const riskItems = [
     { name: 'Risiko Dashboard', href: '/risks', icon: BarChart3 },
     { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
+    { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
     { name: 'Audit Log', href: '/audit', icon: Activity },
   ];
 
