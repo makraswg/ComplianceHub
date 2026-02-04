@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Loader2, AlertCircle, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Shield, Loader2, AlertCircle, Mail, ArrowLeft, CheckCircle2, Lock } from 'lucide-react';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
-import { authenticateUserAction } from '@/app/actions/auth-actions'; // Import der neuen, universellen Aktion
+import { authenticateUserAction } from '@/app/actions/auth-actions';
 import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const { user, setUser, isUserLoading } = usePlatformAuth();
   const { dataSource } = useSettings();
   
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -31,11 +32,16 @@ export default function LoginPage() {
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
+  // Prevent hydration mismatch
   useEffect(() => {
-    if (user) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && user) {
       router.push('/dashboard');
     }
-  }, [user, router]);
+  }, [user, router, mounted]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,28 +52,26 @@ export default function LoginPage() {
       if (!email) {
         throw new Error("Bitte geben Sie eine E-Mail Adresse ein.");
       }
-      // Für Firestore/Mock ist das Passwort optional, für MySQL erforderlich
+      
+      // Password is required for MySQL
       if (dataSource === 'mysql' && !password) {
-          throw new Error("Bitte geben Sie ein Passwort ein.");
+          throw new Error("Bitte geben Sie Ihr Passwort ein.");
       }
 
-      // Ruft die neue, universelle Server Action mit der aktuellen Datenquelle auf
       const result = await authenticateUserAction(dataSource, email, password);
       
       if (!result.success || !result.user) {
-        setAuthError(result.error || "Authentifizierung fehlgeschlagen.");
+        setAuthError(result.error || "Zugriff verweigert. Bitte prüfen Sie Ihre Daten.");
         setIsActionLoading(false);
         return;
       }
       
-      toast({ title: "Login erfolgreich", description: `Willkommen, ${result.user.displayName || result.user.email}` });
-      
-      // Setzt die Benutzer-Session im AuthContext
+      toast({ title: "Anmeldung erfolgreich", description: `Willkommen zurück, ${result.user.displayName}` });
       setUser(result.user);
       router.push('/dashboard');
 
     } catch (err: any) {
-      setAuthError(err.message || "Ein unerwarteter Fehler ist aufgetreten.");
+      setAuthError(err.message || "Ein technischer Fehler ist aufgetreten.");
     } finally {
       setIsActionLoading(false);
     }
@@ -75,7 +79,7 @@ export default function LoginPage() {
 
   const handleForgotSubmit = async () => {
     if (!forgotEmail) {
-      toast({ variant: "destructive", title: "Fehler", description: "Bitte E-Mail Adresse eingeben." });
+      toast({ variant: "destructive", title: "E-Mail fehlt", description: "Bitte geben Sie Ihre E-Mail Adresse ein." });
       return;
     }
     
@@ -88,117 +92,179 @@ export default function LoginPage() {
         toast({ variant: "destructive", title: "Fehler", description: res.message });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: "Ein technischer Fehler ist aufgetreten." });
+      toast({ variant: "destructive", title: "Systemfehler", description: "Dienst aktuell nicht erreichbar." });
     } finally {
       setIsForgotLoading(false);
     }
   };
 
-  if (isUserLoading || user) {
-    return <div className="min-h-screen flex items-center justify-center bg-background"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-10 h-10 animate-spin text-primary/20" />
+      </div>
+    );
   }
 
+  if (user) return null;
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="absolute top-0 left-0 p-8 flex items-center gap-2">
-        <Shield className="w-8 h-8 text-primary" />
-        <span className="text-2xl font-headline font-bold text-foreground">ComplianceHub</span>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 font-body">
+      <div className="absolute top-0 left-0 p-8 flex items-center gap-3">
+        <div className="w-10 h-10 bg-primary flex items-center justify-center">
+          <Shield className="w-6 h-6 text-white" />
+        </div>
+        <span className="text-2xl font-headline font-bold tracking-tight text-foreground uppercase">ComplianceHub</span>
       </div>
-      <div className="w-full max-w-md">
-        <Card className="border-none shadow-xl rounded-none">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-headline uppercase">Anmeldung</CardTitle>
-            <CardDescription>
-              Verifizierung über die Plattformdatenbank ({dataSource.toUpperCase()}).
+
+      <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
+        <Card className="border border-border shadow-2xl rounded-none bg-card">
+          <CardHeader className="space-y-1 border-b bg-muted/10 pb-6">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-xl font-headline font-bold uppercase tracking-wider">Plattform Login</CardTitle>
+              <Badge variant="outline" className="rounded-none font-bold text-[9px] uppercase border-primary/20 text-primary">
+                {dataSource}
+              </Badge>
+            </div>
+            <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60">
+              Identitätsprüfung via {dataSource === 'mysql' ? 'Lokale Datenbank' : 'Cloud Verzeichnis'}
             </CardDescription>
           </CardHeader>
+          
           <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-5 pt-6">
               {authError && (
-                <Alert variant="destructive" className="rounded-none">
+                <Alert variant="destructive" className="rounded-none border-2">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Fehler</AlertTitle>
-                  <AlertDescription className="text-xs">{authError}</AlertDescription>
+                  <AlertTitle className="text-[10px] font-bold uppercase">Anmeldefehler</AlertTitle>
+                  <AlertDescription className="text-xs font-medium">{authError}</AlertDescription>
                 </Alert>
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-bold uppercase">E-Mail</Label>
-                <Input id="email" type="email" placeholder="admin@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-none" />
+                <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">E-Mail Adresse</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="name@firma.de" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className="rounded-none h-11 pl-10 border-muted-foreground/20 focus:border-primary transition-all" 
+                    required
+                  />
+                </div>
               </div>
-              {/* Passwortfeld nur anzeigen, wenn es für die Datenquelle relevant ist (z.B. MySQL) */}
+
               {dataSource === 'mysql' && (
-                <div className="space-y-2">
-                    <Label htmlFor="password" title="Passwort" className="text-[10px] font-bold uppercase">Passwort</Label>
-                    <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none" />
-                    <div className="flex justify-end pt-1">
+                <div className="space-y-2 animate-in slide-in-from-top-1">
+                  <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Passwort</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                    <Input 
+                      id="password" 
+                      type="password" 
+                      placeholder="••••••••"
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      className="rounded-none h-11 pl-10 border-muted-foreground/20 focus:border-primary transition-all" 
+                      required
+                    />
+                  </div>
+                  <div className="flex justify-end">
                     <button 
-                        type="button" 
-                        className="text-[10px] font-bold uppercase text-primary hover:underline"
-                        onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
+                      type="button" 
+                      className="text-[10px] font-bold uppercase text-primary hover:text-primary/80 transition-colors"
+                      onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
                     >
-                        Passwort vergessen?
+                      Passwort vergessen?
                     </button>
-                    </div>
+                  </div>
                 </div>
               )}
               
-              <div className="p-3 bg-muted/20 border text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
-                <Shield className="w-3 h-3" /> Aktiver Modus: {dataSource.toUpperCase()}
+              <div className="p-3 bg-muted/30 border border-dashed text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
+                <Shield className="w-3 h-3 text-primary" />
+                Sichere Verbindung zu: {dataSource.toUpperCase()}
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-3">
-              <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 rounded-none font-bold uppercase text-xs" disabled={isActionLoading}>
+            
+            <CardFooter className="flex flex-col gap-3 pb-8">
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground rounded-none font-bold uppercase text-xs tracking-widest transition-all shadow-lg shadow-primary/20" 
+                disabled={isActionLoading}
+              >
                 {isActionLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
-                Anmelden
+                Systemzugang anfordern
               </Button>
             </CardFooter>
           </form>
         </Card>
       </div>
 
+      {/* Forgot Password Dialog */}
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
-        <DialogContent className="rounded-none max-w-sm">
+        <DialogContent className="rounded-none max-w-sm border-2">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase">Passwort zurücksetzen</DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogTitle className="text-sm font-bold uppercase tracking-wider">Passwort-Wiederherstellung</DialogTitle>
+            <DialogDescription className="text-xs font-medium">
               {forgotSuccess 
-                ? "Wir haben eine E-Mail an Sie versendet." 
-                : "Geben Sie Ihre E-Mail Adresse ein, um einen Reset-Link zu erhalten."}
+                ? "Prüfen Sie Ihr Postfach auf weitere Instruktionen." 
+                : "Geben Sie Ihre registrierte E-Mail Adresse ein."}
             </DialogDescription>
           </DialogHeader>
           
           {forgotSuccess ? (
             <div className="py-8 flex flex-col items-center justify-center space-y-4">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-              <p className="text-xs text-center font-bold uppercase">E-Mail wurde versendet!</p>
-              <Button variant="outline" className="rounded-none w-full" onClick={() => setIsForgotOpen(false)}>Schließen</Button>
+              <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              </div>
+              <p className="text-[10px] text-center font-bold uppercase text-emerald-700">Anfrage erfolgreich versendet!</p>
+              <Button variant="outline" className="rounded-none w-full font-bold uppercase text-[10px] h-10" onClick={() => setIsForgotOpen(false)}>Schließen</Button>
             </div>
           ) : (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">E-Mail Adresse</Label>
+                <Label className="text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">Empfänger E-Mail</Label>
                 <Input 
                   type="email" 
-                  placeholder="name@company.com" 
+                  placeholder="admin@firma.de" 
                   value={forgotEmail} 
                   onChange={e => setForgotEmail(e.target.value)} 
-                  className="rounded-none" 
+                  className="rounded-none h-10" 
                 />
               </div>
-              <DialogFooter className="flex flex-col gap-2 sm:flex-col pt-4">
-                <Button className="w-full rounded-none font-bold uppercase text-[10px] gap-2" onClick={handleForgotSubmit} disabled={isForgotLoading}>
+              <DialogFooter className="flex flex-col gap-2 pt-4">
+                <Button 
+                  className="w-full rounded-none font-bold uppercase text-[10px] h-11 gap-2" 
+                  onClick={handleForgotSubmit} 
+                  disabled={isForgotLoading}
+                >
                   {isForgotLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
-                  Reset-Link senden
+                  Reset-Link anfordern
                 </Button>
-                <Button variant="ghost" className="w-full rounded-none font-bold uppercase text-[10px] gap-2" onClick={() => setIsForgotOpen(false)}>
-                  <ArrowLeft className="w-3 h-3" /> Abbrechen
+                <Button 
+                  variant="ghost" 
+                  className="w-full rounded-none font-bold uppercase text-[10px] h-10" 
+                  onClick={() => setIsForgotOpen(false)}
+                >
+                  <ArrowLeft className="w-3 h-3 mr-2" /> Abbrechen
                 </Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function Badge({ children, variant, className }: any) {
+  return (
+    <div className={`px-2 py-0.5 text-[8px] font-bold uppercase border ${className}`}>
+      {children}
     </div>
   );
 }
