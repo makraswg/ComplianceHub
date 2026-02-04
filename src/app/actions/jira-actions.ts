@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getCollectionData } from './mysql-actions';
@@ -62,7 +61,8 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
     });
 
     if (!testRes.ok) {
-      return { success: false, message: `Authentifizierungsfehler (${testRes.status})` };
+      const errorBody = await testRes.text();
+      return { success: false, message: `Authentifizierungsfehler (${testRes.status})`, details: errorBody };
     }
 
     const userData = await testRes.json();
@@ -92,7 +92,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
 }
 
 /**
- * Erstellt ein Ticket in Jira.
+ * Erstellt ein Ticket in Jira Cloud unter Verwendung des Atlassian Document Format (ADF).
  */
 export async function createJiraTicket(
   configId: string, 
@@ -104,14 +104,40 @@ export async function createJiraTicket(
   const config = configs.find(c => c.id === configId);
   
   if (!config || !config.enabled) {
-    console.error("Jira Ticket Fehler: Konfiguration nicht gefunden oder deaktiviert.", { configId, dataSource });
     return { success: false, error: 'Jira nicht konfiguriert oder deaktiviert.' };
   }
 
   const url = cleanJiraUrl(config.url);
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
 
+  // Zusammenfassung auf 255 Zeichen begrenzen (Jira Limit)
+  const safeSummary = summary.substring(0, 250);
+  const safeDescription = description || 'Keine Beschreibung angegeben.';
+
   try {
+    const payload = {
+      fields: {
+        project: { key: config.projectKey },
+        summary: safeSummary,
+        description: {
+          type: 'doc',
+          version: 1,
+          content: [
+            {
+              type: 'paragraph',
+              content: [
+                {
+                  type: 'text',
+                  text: safeDescription
+                }
+              ]
+            }
+          ]
+        },
+        issuetype: { name: config.issueTypeName || 'Task' }
+      }
+    };
+
     const response = await fetch(`${url}/rest/api/3/issue`, {
       method: 'POST',
       headers: {
@@ -119,38 +145,28 @@ export async function createJiraTicket(
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify({
-        fields: {
-          project: { key: config.projectKey },
-          summary: summary,
-          description: {
-            type: 'doc',
-            version: 1,
-            content: [{ type: 'paragraph', content: [{ type: 'text', text: description }] }]
-          },
-          issuetype: { name: config.issueTypeName || 'Service Request' }
-        }
-      }),
+      body: JSON.stringify(payload),
       cache: 'no-store'
     });
 
     const data = await response.json();
     
     if (!response.ok) {
-      console.error("Jira API Response Fehler:", data);
-      const errorMsg = data.errorMessages?.join(', ') || 'Unbekannter API Fehler';
-      const fieldsErrors = data.errors ? JSON.stringify(data.errors) : '';
+      console.error("Jira API Error (400+):", JSON.stringify(data, null, 2));
+      const errorMsg = data.errorMessages?.join(', ') || 'Ungültige Anfrage (Fehler 400)';
+      const fieldErrors = data.errors ? Object.entries(data.errors).map(([k, v]) => `${k}: ${v}`).join('; ') : '';
+      
       return { 
         success: false, 
         error: `Jira API Fehler (${response.status})`, 
-        details: `${errorMsg} ${fieldsErrors}`
+        details: `${errorMsg}. ${fieldErrors}`.trim()
       };
     }
 
     return { success: true, key: data.key };
   } catch (e: any) {
-    console.error("Jira Netzwerkfehler:", e);
-    return { success: false, error: 'Netzwerkfehler beim Jira-Aufruf', details: e.message };
+    console.error("Jira Exception:", e);
+    return { success: false, error: 'Netzwerkfehler oder ungültiges ADF-Format', details: e.message };
   }
 }
 
@@ -245,7 +261,18 @@ export async function resolveJiraTicket(
     await fetch(`${url}/rest/api/3/issue/${issueKey}/comment`, {
       method: 'POST',
       headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ body: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: comment }] }] } })
+      body: JSON.stringify({ 
+        body: { 
+          type: 'doc', 
+          version: 1, 
+          content: [
+            { 
+              type: 'paragraph', 
+              content: [{ type: 'text', text: comment }] 
+            }
+          ] 
+        } 
+      })
     });
 
     if (config.doneStatusName) {
