@@ -33,7 +33,8 @@ import {
   Lock,
   ChevronRight,
   UserCircle,
-  Building2
+  Building2,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -42,7 +43,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import {
   DropdownMenu,
@@ -86,6 +88,11 @@ export default function AssignmentsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Revoke State
+  const [isRevokeOpen, setIsRevokeOpen] = useState(false);
+  const [assignmentToRevoke, setAssignmentToRevoke] = useState<Assignment | null>(null);
+  const [revokeValidUntil, setRevokeValidUntil] = useState(new Date().toISOString().split('T')[0]);
   
   // Create Form State
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -167,31 +174,55 @@ export default function AssignmentsPage() {
     }
   };
 
-  const handleRevokeAssignment = async (assignment: Assignment) => {
+  const handleRevokeAssignment = (assignment: Assignment) => {
     if (assignment.originGroupId || assignment.syncSource === 'group') {
       toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen können nur über die Zuweisungsgruppe verwaltet werden." });
       return;
     }
+    setAssignmentToRevoke(assignment);
+    setRevokeValidUntil(new Date().toISOString().split('T')[0]);
+    setIsRevokeOpen(true);
+  };
 
-    const updateData = { status: 'removed', lastReviewedAt: new Date().toISOString() };
-    if (dataSource === 'mysql') await saveCollectionRecord('assignments', assignment.id, { ...assignment, ...updateData });
-    else updateDocumentNonBlocking(doc(db, 'assignments', assignment.id), updateData);
-    
-    const user = users?.find(u => u.id === assignment.userId);
-    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
-    const resResource = resources?.find(r => r.id === ent?.resourceId);
+  const confirmRevokeAssignment = async () => {
+    if (!assignmentToRevoke) return;
 
-    await logAuditEventAction(dataSource, {
-      tenantId: assignment.tenantId || 'global',
-      actorUid: authUser?.email || 'system',
-      action: `Zugriff entzogen: ${user?.displayName} -> ${resResource?.name}/${ent?.name}`,
-      entityType: 'assignment',
-      entityId: assignment.id,
-      after: { ...assignment, ...updateData }
-    });
+    setIsSaving(true);
+    const updateData = { 
+      status: 'removed', 
+      validUntil: revokeValidUntil,
+      lastReviewedAt: new Date().toISOString() 
+    };
 
-    toast({ title: "Berechtigung widerrufen" });
-    setTimeout(() => { refreshAssignments(); refreshAudit(); }, 200);
+    try {
+      if (dataSource === 'mysql') {
+        await saveCollectionRecord('assignments', assignmentToRevoke.id, { ...assignmentToRevoke, ...updateData });
+      } else {
+        updateDocumentNonBlocking(doc(db, 'assignments', assignmentToRevoke.id), updateData);
+      }
+      
+      const user = users?.find(u => u.id === assignmentToRevoke.userId);
+      const ent = entitlements?.find(e => e.id === assignmentToRevoke.entitlementId);
+      const resResource = resources?.find(r => r.id === ent?.resourceId);
+
+      await logAuditEventAction(dataSource, {
+        tenantId: assignmentToRevoke.tenantId || 'global',
+        actorUid: authUser?.email || 'system',
+        action: `Zugriff entzogen (bis: ${revokeValidUntil}): ${user?.displayName} -> ${resResource?.name}/${ent?.name}`,
+        entityType: 'assignment',
+        entityId: assignmentToRevoke.id,
+        after: { ...assignmentToRevoke, ...updateData }
+      });
+
+      setIsRevokeOpen(false);
+      setAssignmentToRevoke(null);
+      toast({ title: "Berechtigung widerrufen" });
+      setTimeout(() => { refreshAssignments(); refreshAudit(); }, 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBulkExpiredJira = async () => {
@@ -439,6 +470,49 @@ export default function AssignmentsPage() {
             <Button onClick={handleCreateAssignment} disabled={!selectedEntitlementId || isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2">
               {isSaving && <Loader2 className="w-3 h-3 animate-spin" />}
               Zuweisen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revoke Confirmation Dialog with Date Prompt */}
+      <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
+        <DialogContent className="max-w-sm rounded-none border-2">
+          <DialogHeader>
+            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-4 h-4" />
+              Zugriff Widerrufen
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Legen Sie fest, bis zu welchem Datum der Zugriff noch gültig sein soll. Für sofortigen Entzug wählen Sie das heutige Datum.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted/20 border rounded-none">
+              <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Mitarbeiter</p>
+              <p className="text-xs font-bold">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
+              <p className="text-[10px] font-bold uppercase text-muted-foreground mt-2 mb-1">System / Rolle</p>
+              {(() => {
+                const ent = entitlements?.find(e => e.id === assignmentToRevoke?.entitlementId);
+                const res = resources?.find(r => r.id === ent?.resourceId);
+                return <p className="text-xs font-bold">{res?.name} / {ent?.name}</p>;
+              })()}
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[9px] font-bold uppercase">Gültig bis</Label>
+              <Input 
+                type="date" 
+                value={revokeValidUntil} 
+                onChange={e => setRevokeValidUntil(e.target.value)} 
+                className="rounded-none h-9" 
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="ghost" onClick={() => setIsRevokeOpen(false)} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase">Abbrechen</Button>
+            <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase gap-2 bg-red-600 hover:bg-red-700 text-white">
+              {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+              Entzug Bestätigen
             </Button>
           </DialogFooter>
         </DialogContent>
