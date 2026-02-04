@@ -444,9 +444,10 @@ export default function AssignmentsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Optimized Detail Dialog with proper scroll handling */}
+      {/* FIXED Detail Dialog with robust scrollable area */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-none p-0 overflow-hidden flex flex-col border shadow-2xl">
+          {/* Header remains static */}
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/20 flex items-center justify-center rounded-sm shrink-0">
@@ -462,7 +463,8 @@ export default function AssignmentsPage() {
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1 bg-white">
+          {/* Scrollable body with flex-1 and min-h-0 to allow scrolling */}
+          <ScrollArea className="flex-1 min-h-0 bg-white">
             <div className="p-6 space-y-6">
               {/* Status & Basic Info Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -621,6 +623,7 @@ export default function AssignmentsPage() {
             </div>
           </ScrollArea>
           
+          {/* Footer remains static at bottom */}
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
             <Button onClick={() => setIsDetailsOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-slate-800">
               Fenster Schließen
