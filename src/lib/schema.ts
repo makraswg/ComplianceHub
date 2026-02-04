@@ -138,6 +138,45 @@ export const appSchema: AppSchema = {
       syncSource: 'VARCHAR(50) DEFAULT "manual"',
     },
   },
+  risks: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      category: 'VARCHAR(100)',
+      description: 'TEXT',
+      impact: 'INT DEFAULT 3',
+      probability: 'INT DEFAULT 3',
+      owner: 'VARCHAR(255)',
+      status: 'VARCHAR(50) DEFAULT "active"',
+      lastReviewDate: 'VARCHAR(50)',
+      createdAt: 'VARCHAR(50) NOT NULL',
+    },
+  },
+  riskMeasures: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      riskId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      owner: 'VARCHAR(255)',
+      dueDate: 'VARCHAR(50)',
+      status: 'VARCHAR(50) DEFAULT "planned"',
+      effectiveness: 'INT DEFAULT 3',
+      notes: 'TEXT',
+    },
+  },
+  riskReviews: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      riskId: 'VARCHAR(255) NOT NULL',
+      date: 'VARCHAR(50) NOT NULL',
+      reviewer: 'VARCHAR(255) NOT NULL',
+      prevScore: 'INT',
+      newScore: 'INT',
+      notes: 'TEXT',
+    },
+  },
   auditEvents: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

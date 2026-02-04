@@ -21,7 +21,10 @@ import {
   User as UserIcon,
   Lock,
   Loader2,
-  HelpCircle
+  HelpCircle,
+  AlertTriangle,
+  ClipboardCheck,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -73,6 +76,11 @@ export function AppSidebar() {
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
     { name: 'Access Reviews', href: '/reviews', icon: CheckCircle },
+  ];
+
+  const riskItems = [
+    { name: 'Risiko Dashboard', href: '/risks', icon: BarChart3 },
+    { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
     { name: 'Audit Log', href: '/audit', icon: Activity },
   ];
 
@@ -132,7 +140,7 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <div className="px-3 flex-1 overflow-y-auto space-y-6 pt-4">
+      <div className="px-3 flex-1 overflow-y-auto space-y-6 pt-4 custom-scrollbar">
         <div>
           <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
             IAM Operationen
@@ -148,6 +156,32 @@ export function AppSidebar() {
                     "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
                     isActive 
                       ? "bg-primary text-primary-foreground" 
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  )}
+                >
+                  <item.icon className="w-3.5 h-3.5" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div>
+          <p className="px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+            <AlertTriangle className="w-3 h-3 text-orange-500" /> Risikomanagement
+          </p>
+          <nav className="space-y-1">
+            {riskItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link 
+                  key={item.name} 
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
+                    isActive 
+                      ? "bg-orange-600 text-white" 
                       : "text-slate-400 hover:bg-white/5 hover:text-white"
                   )}
                 >

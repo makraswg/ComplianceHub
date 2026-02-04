@@ -190,6 +190,42 @@ export interface HelpContent {
   order: number;
 }
 
+export interface Risk {
+  id: string;
+  tenantId: string;
+  title: string;
+  category: string;
+  description: string;
+  impact: number; // 1-5
+  probability: number; // 1-5
+  owner: string;
+  status: 'active' | 'mitigated' | 'accepted' | 'closed';
+  lastReviewDate?: string;
+  createdAt: string;
+}
+
+export interface RiskMeasure {
+  id: string;
+  riskId: string;
+  title: string;
+  description?: string;
+  owner: string;
+  dueDate: string;
+  status: 'planned' | 'active' | 'completed' | 'on_hold';
+  effectiveness: number; // 1-5
+  notes?: string;
+}
+
+export interface RiskReview {
+  id: string;
+  riskId: string;
+  date: string;
+  reviewer: string;
+  prevScore: number;
+  newScore: number;
+  notes: string;
+}
+
 export interface JiraSyncItem {
   key: string;
   summary: string;

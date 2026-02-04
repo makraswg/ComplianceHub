@@ -85,17 +85,36 @@
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
     },
-    "HelpContent": {
-      "title": "HelpContent",
+    "Risk": {
+      "title": "Risk",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "section": { "type": "string" },
+        "tenantId": { "type": "string" },
         "title": { "type": "string" },
-        "content": { "type": "string" },
-        "order": { "type": "number" }
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "impact": { "type": "number" },
+        "probability": { "type": "number" },
+        "owner": { "type": "string" },
+        "status": { "type": "string" },
+        "lastReviewDate": { "type": "string" }
       },
-      "required": ["id", "section", "title", "content"]
+      "required": ["id", "tenantId", "title", "impact", "probability"]
+    },
+    "RiskMeasure": {
+      "title": "RiskMeasure",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "riskId": { "type": "string" },
+        "title": { "type": "string" },
+        "owner": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string" },
+        "effectiveness": { "type": "number" }
+      },
+      "required": ["id", "riskId", "title"]
     }
   },
   "auth": {
@@ -109,7 +128,8 @@
       { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
       { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
-      { "path": "helpContent/{helpId}", "definition": { "schema": { "$ref": "#/backend/entities/HelpContent" } } }
+      { "path": "risks/{riskId}", "definition": { "schema": { "$ref": "#/backend/entities/Risk" } } },
+      { "path": "riskMeasures/{measureId}", "definition": { "schema": { "$ref": "#/backend/entities/RiskMeasure" } } }
     ]
   }
 }
