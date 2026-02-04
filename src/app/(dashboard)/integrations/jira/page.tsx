@@ -29,7 +29,11 @@ import {
   ArrowRight,
   Zap,
   Ticket,
-  UserMinus
+  UserMinus,
+  Bug,
+  ChevronDown,
+  ChevronUp,
+  FileCode
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
@@ -43,6 +47,8 @@ import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export default function JiraSyncPage() {
   const { dataSource } = useSettings();
@@ -51,11 +57,23 @@ export default function JiraSyncPage() {
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'completed'>('pending');
+  const [showDebug, setShowDebug] = useState(false);
   
   const [pendingTickets, setPendingTickets] = useState<any[]>([]);
   const [approvedTickets, setApprovedTickets] = useState<any[]>([]);
   const [doneTickets, setDoneTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
+  
+  // Debug info
+  const [debugInfo, setDebugInfo] = useState<{
+    configSource: string;
+    jqlQueries: Record<string, string>;
+    lastResponse: any;
+  }>({
+    configSource: 'none',
+    jqlQueries: {},
+    lastResponse: null
+  });
 
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
@@ -72,12 +90,20 @@ export default function JiraSyncPage() {
     try {
       const configs = await getJiraConfigs(dataSource);
       if (configs.length > 0 && configs[0].enabled) {
-        setActiveConfig(configs[0]);
+        const config = configs[0];
+        setActiveConfig(config);
         
+        // Debugging JQL construction (similar to backend logic for UI preview)
+        const queries = {
+          pending: `project = "${config.projectKey}" AND status NOT IN ("${config.approvedStatusName}", "${config.doneStatusName}", "Canceled", "Rejected")`,
+          approved: `project = "${config.projectKey}" AND status = "${config.approvedStatusName}"`,
+          done: `project = "${config.projectKey}" AND status = "${config.doneStatusName}"`
+        };
+
         const [pending, approved, done] = await Promise.all([
-          fetchJiraSyncItems(configs[0].id, 'pending', dataSource),
-          fetchJiraSyncItems(configs[0].id, 'approved', dataSource),
-          fetchJiraSyncItems(configs[0].id, 'done', dataSource)
+          fetchJiraSyncItems(config.id, 'pending', dataSource),
+          fetchJiraSyncItems(config.id, 'approved', dataSource),
+          fetchJiraSyncItems(config.id, 'done', dataSource)
         ]);
         
         setPendingTickets(pending);
@@ -94,21 +120,28 @@ export default function JiraSyncPage() {
         }));
         
         setDoneTickets(done);
+
+        setDebugInfo({
+          configSource: dataSource,
+          jqlQueries: queries,
+          lastResponse: {
+            pendingCount: pending.length,
+            approvedCount: approved.length,
+            doneCount: done.length,
+            timestamp: new Date().toISOString()
+          }
+        });
       }
     } catch (e: any) {
       toast({ variant: "destructive", title: "API Fehler", description: e.message });
+      setDebugInfo(prev => ({ ...prev, lastResponse: { error: e.message, timestamp: new Date().toISOString() } }));
     } finally {
       setIsLoading(false);
     }
   };
 
-  /**
-   * Finalisiert einen Onboarding- oder Offboarding-Vorgang, wenn das Jira Ticket erledigt ist.
-   */
   const handleApplyCompletedTicket = async (ticket: any) => {
     const linkedAssignments = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
-    
-    // Fallback: Suche nach User via Email, falls keine Ticket-Key Verknüpfung in Assignments existiert
     let targetAssignments = linkedAssignments;
     let affectedUserId = linkedAssignments.length > 0 ? linkedAssignments[0].userId : null;
 
@@ -116,7 +149,6 @@ export default function JiraSyncPage() {
       const user = users?.find(u => u.email.toLowerCase() === ticket.requestedUserEmail.toLowerCase());
       if (user) {
         affectedUserId = user.id;
-        // Suche alle Assignments für diesen User, die "pending_removal" oder "requested" sind
         targetAssignments = assignments?.filter(a => a.userId === user.id && (a.status === 'requested' || a.status === 'pending_removal')) || [];
       }
     }
@@ -129,10 +161,7 @@ export default function JiraSyncPage() {
     const isLeaver = ticket.summary.toLowerCase().includes('offboarding');
     const timestamp = new Date().toISOString();
 
-    // Verarbeite alle verknüpften Zuweisungen
     for (const a of targetAssignments) {
-      // Onboarding: requested -> active
-      // Offboarding: pending_removal -> removed
       let newStatus: 'active' | 'removed' = 'active';
       if (isLeaver || a.status === 'pending_removal') {
         newStatus = 'removed';
@@ -151,7 +180,6 @@ export default function JiraSyncPage() {
       }
     }
 
-    // Bei Offboarding auch den Benutzer deaktivieren
     if (isLeaver && affectedUserId) {
       const user = users?.find(u => u.id === affectedUserId);
       if (user) {
@@ -230,9 +258,19 @@ export default function JiraSyncPage() {
           <h1 className="text-2xl font-bold tracking-tight">Jira Synchronisation</h1>
           <p className="text-sm text-muted-foreground">Gateway für Genehmigungen und Abschluss-Bestätigungen.</p>
         </div>
-        <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
-          {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowDebug(!showDebug)} 
+            className={cn("h-9 font-bold uppercase text-[10px] rounded-none", showDebug && "bg-slate-100")}
+          >
+            <Bug className="w-3.5 h-3.5 mr-2" /> Diagnose
+          </Button>
+          <Button variant="outline" size="sm" onClick={loadSyncData} disabled={isLoading} className="h-9 font-bold uppercase text-[10px] rounded-none">
+            {isLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Aktualisieren
+          </Button>
+        </div>
       </div>
 
       {!activeConfig && !isLoading && (
@@ -376,7 +414,6 @@ export default function JiraSyncPage() {
                 </TableHeader>
                 <TableBody>
                   {doneTickets.map((ticket) => {
-                    // Suche nach verknüpften Zuweisungen (via Ticket-Key oder E-Mail)
                     const linkedViaKey = assignments?.filter(a => a.jiraIssueKey === ticket.key) || [];
                     let linkedAssignments = linkedViaKey;
                     
@@ -437,6 +474,63 @@ export default function JiraSyncPage() {
             </div>
           </TabsContent>
         </Tabs>
+      )}
+
+      {/* Technical Diagnostics Area */}
+      {showDebug && (
+        <Card className="rounded-none border-2 border-slate-200 shadow-none bg-slate-50 mt-12 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+          <CardHeader className="bg-slate-900 text-white py-3">
+            <CardTitle className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-primary" />
+              Technische Diagnose: Jira API-Tunnel
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Aktive Konfiguration</Label>
+                  <div className="p-3 border bg-white rounded-none space-y-2">
+                    <div className="flex justify-between text-[10px] font-bold border-b pb-1"><span>Quelle:</span> <span className="text-primary uppercase">{debugInfo.configSource}</span></div>
+                    <div className="flex justify-between text-[10px] font-bold border-b pb-1"><span>Projekt Key:</span> <span className="uppercase">{activeConfig?.projectKey || 'MISSING'}</span></div>
+                    <div className="flex justify-between text-[10px] font-bold border-b pb-1"><span>Status OK:</span> <span>{activeConfig?.approvedStatusName || 'MISSING'}</span></div>
+                    <div className="flex justify-between text-[10px] font-bold"><span>Status DONE:</span> <span>{activeConfig?.doneStatusName || 'MISSING'}</span></div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Antwort-Statistik</Label>
+                  <div className="p-3 border bg-white rounded-none">
+                    <pre className="text-[10px] font-mono whitespace-pre-wrap">
+                      {JSON.stringify(debugInfo.lastResponse, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
+                    <FileCode className="w-3 h-3" /> Generierte JQL Abfragen
+                  </Label>
+                  <div className="space-y-2">
+                    {Object.entries(debugInfo.jqlQueries).map(([key, jql]) => (
+                      <div key={key} className="p-2 border bg-slate-100 rounded-none">
+                        <p className="text-[8px] font-black uppercase text-slate-400 mb-1">{key} Queue</p>
+                        <code className="text-[9px] font-mono break-all text-slate-700 leading-relaxed block">
+                          {jql}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-2 italic">
+                    Tipp: Kopieren Sie diese JQL-Abfragen direkt in den Jira Issue Navigator, um zu prüfen ob Jira dort Ergebnisse zurückliefert.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
