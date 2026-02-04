@@ -17,7 +17,8 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [dataSource, setDataSource] = useState<DataSource>('firestore');
+  // Changed default to 'mysql'
+  const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [activeTenantId, setActiveTenantId] = useState<TenantId>('all');
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -25,6 +26,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const savedSource = localStorage.getItem('dataSource');
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
       setDataSource(savedSource as DataSource);
+    } else {
+      // If no valid source in storage, ensure mysql is set (default for new sessions)
+      setDataSource('mysql');
     }
     const savedTenant = localStorage.getItem('activeTenantId');
     if (savedTenant) {

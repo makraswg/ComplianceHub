@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -134,6 +135,51 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     console.error("MySQL Save Error:", error);
     if (connection) connection.release();
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Authentifiziert einen Plattform-Nutzer gegen die MySQL-Datenbank.
+ */
+export async function authenticatePlatformUserAction(email: string, password: string): Promise<{ 
+  success: boolean; 
+  user?: any; 
+  error?: string 
+}> {
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    // Wir fragen den User ab und prüfen, ob er aktiviert ist (1 für true in MySQL)
+    const [rows]: any = await connection.execute(
+      'SELECT * FROM `platformUsers` WHERE `email` = ? AND `enabled` = 1', 
+      [email]
+    );
+    connection.release();
+
+    if (!rows || rows.length === 0) {
+      return { success: false, error: 'Benutzer nicht gefunden oder deaktiviert.' };
+    }
+
+    const user = rows[0];
+    
+    // Passwort-Vergleich via bcrypt
+    if (!user.password) {
+        return { success: false, error: 'Kein Passwort für diesen Benutzer hinterlegt.' };
+    }
+
+    const isMatch = bcrypt.compareSync(password, user.password);
+    
+    if (isMatch) {
+      // Passwort für den Transport entfernen
+      const { password: _, ...userWithoutPassword } = user;
+      return { success: true, user: userWithoutPassword };
+    } else {
+      return { success: false, error: 'Ungültiges Passwort.' };
+    }
+  } catch (error: any) {
+    if (connection) connection.release();
+    console.error("MySQL Auth Error:", error);
+    return { success: false, error: `Datenbank-Fehler: ${error.message}` };
   }
 }
 

@@ -4,7 +4,7 @@
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { Bell, ChevronDown, Globe, Building2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { SettingsProvider, useSettings } from '@/context/settings-context';
+import { useSettings } from '@/context/settings-context';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { Tenant } from '@/lib/types';
 import {
@@ -84,16 +84,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SettingsProvider>
-      <div className="flex min-h-screen bg-background">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <HeaderContent />
-          <main className="flex-1 p-8 max-w-[1600px] mx-auto w-full">
-            {children}
-          </main>
-        </div>
+    <div className="flex min-h-screen bg-background">
+      <AppSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <HeaderContent />
+        <main className="flex-1 p-8 max-w-[1600px] mx-auto w-full">
+          {children}
+        </main>
       </div>
-    </SettingsProvider>
+    </div>
   );
 }
