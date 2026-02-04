@@ -13,12 +13,12 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // We force 'mysql' as the hard default to ensure consistency between editor and preview.
+  // Standardmäßig erzwingen wir 'mysql' für eine konsistente lokale Erfahrung.
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Only on client side
+    // Beim Laden prüfen wir, ob der Benutzer zuvor manuell etwas anderes gewählt hat.
     const savedSource = typeof window !== 'undefined' ? localStorage.getItem('dataSource') : null;
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
       setDataSource(savedSource as DataSource);

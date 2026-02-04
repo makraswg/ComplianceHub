@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, XCircle, Beaker, Database, GanttChartSquare, ShieldCheck } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { initializeFirebase } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
 import { testMysqlConnectionAction } from '@/app/actions/mysql-actions';
@@ -55,24 +56,23 @@ export default function SetupPage() {
   const { dataSource, setDataSource } = useSettings();
   const [currentSelection, setCurrentSelection] = useState(dataSource);
   
-  const [firestoreTest, setFirestoreTest] = useState<TestResult>({ status: 'idle', message: '' });
+  const [cloudTest, setCloudTest] = useState<TestResult>({ status: 'idle', message: '' });
   const [mockTest, setMockTest] = useState<TestResult>({ status: 'idle', message: '' });
   const [mysqlTest, setMysqlTest] = useState<TestResult>({ status: 'idle', message: '' });
   const [migrationResult, setMigrationResult] = useState<TestResult>({ status: 'idle', message: '' });
-
-  const db = useFirestore();
 
   useEffect(() => {
     setCurrentSelection(dataSource);
   }, [dataSource]);
 
-  const handleTestFirestore = async () => {
-    setFirestoreTest({ status: 'loading', message: 'Cloud-Verbindung wird geprüft...' });
+  const handleTestCloud = async () => {
+    setCloudTest({ status: 'loading', message: 'Cloud-Verbindung wird geprüft...' });
     try {
-      const snap = await getDocs(collection(db, 'tenants'));
-      setFirestoreTest({ status: 'success', message: `Verbindung ok (${snap.size} Mandanten gefunden)` });
+      const { firestore } = initializeFirebase();
+      const snap = await getDocs(collection(firestore, 'tenants'));
+      setCloudTest({ status: 'success', message: `Verbindung ok (${snap.size} Mandanten gefunden)` });
     } catch (e: any) {
-      setFirestoreTest({ status: 'error', message: `Fehler: ${e.message}` });
+      setCloudTest({ status: 'error', message: `Fehler: ${e.message}` });
     }
   };
 
@@ -102,7 +102,7 @@ export default function SetupPage() {
           details: result.details
       });
       toast({
-        title: result.success ? "Migration erfolgreich" : "Migration fehlgeschlagen",
+        title: result.success ? "Erfolgreich" : "Fehlgeschlagen",
         description: result.message,
         variant: result.success ? "default" : "destructive",
       });
@@ -117,15 +117,12 @@ export default function SetupPage() {
     <div className="space-y-6">
         <div className="border-b pb-6">
             <h1 className="text-2xl font-bold tracking-tight">Setup & Konfiguration</h1>
-            <p className="text-sm text-muted-foreground">Konfigurieren Sie die Datenquelle der Anwendung und testen Sie die Verbindungen.</p>
+            <p className="text-sm text-muted-foreground">Datenquelle und Datenbank-Infrastruktur verwalten.</p>
         </div>
 
       <Card className="rounded-none shadow-none border">
         <CardHeader className="bg-muted/10 border-b">
-          <CardTitle className="text-xs font-bold uppercase tracking-widest">Datenquellen-Management</CardTitle>
-          <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">
-            Wählen Sie aus, welche Datenbank die Anwendung verwenden soll.
-          </CardDescription>
+          <CardTitle className="text-xs font-bold uppercase tracking-widest">Plattform-Datenquelle</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <RadioGroup 
@@ -133,7 +130,7 @@ export default function SetupPage() {
             onValueChange={handleDataSourceChange}
             className="grid grid-cols-1 md:grid-cols-3 gap-6"
           >
-            {/* Firestore Option */}
+            {/* Cloud Option */}
             <Label htmlFor="firestore" className={cn(
               "flex flex-col items-start space-y-4 border p-6 cursor-pointer transition-all",
               currentSelection === 'firestore' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
@@ -141,16 +138,16 @@ export default function SetupPage() {
               <div className="flex items-center space-x-3">
                 <RadioGroupItem value="firestore" id="firestore" />
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm">Cloud Datenbank (Zentral)</span>
+                  <span className="font-bold text-sm">Zentrales Cloud-System</span>
                   <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Managed Service</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Verwendet die skalierbare NoSQL-Zentralinstanz für globale Koordination.</p>
+              <p className="text-xs text-muted-foreground">Verwendet die globale Cloud-Infrastruktur für mandantenübergreifende Koordination.</p>
               <div className="w-full pt-2">
-                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestFirestore(); }}>
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestCloud(); }}>
                     <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Cloud-Test
                   </Button>
-                  <TestResultDisplay result={firestoreTest} />
+                  <TestResultDisplay result={cloudTest} />
               </div>
             </Label>
 
@@ -166,7 +163,7 @@ export default function SetupPage() {
                   <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Demo Modus</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Statische Beispieldaten für schnelle Präsentationen ohne Internetverbindung.</p>
+              <p className="text-xs text-muted-foreground">Statische Beispieldaten für Präsentationen und Tests ohne Internetverbindung.</p>
               <div className="w-full pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
                     <Beaker className="w-3.5 h-3.5 mr-2" /> Lokal-Test
@@ -187,7 +184,7 @@ export default function SetupPage() {
                   <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">On-Premise</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">Verwendet Ihre eigene relationale SQL-Struktur für volle Datenhoheit.</p>
+              <p className="text-xs text-muted-foreground">Nutzt Ihre eigene relationale SQL-Struktur für vollständige Datenkontrolle.</p>
               <div className="w-full space-y-3 pt-2">
                   <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
                       <Database className="w-3.5 h-3.5 mr-2" /> DB-Ping
@@ -207,7 +204,7 @@ export default function SetupPage() {
       </Card>
 
       <div className="p-4 bg-muted/20 border text-[10px] font-bold uppercase text-muted-foreground">
-        Hinweis: Ein Wechsel der Datenquelle während einer Sitzung aktualisiert die Ansicht sofort. Daten werden nicht automatisch zwischen Quellen migriert.
+        Hinweis: Änderungen werden sofort wirksam. Daten werden nicht automatisch zwischen Quellen migriert.
       </div>
     </div>
   );
