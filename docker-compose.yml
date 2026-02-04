@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  compliance-db:
+    image: mysql:8.0
+    container_name: compliance-hub-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: compliance_hub
+      MYSQL_USER: compliance_user
+      MYSQL_PASSWORD: hub_secret_password
+      MYSQL_ROOT_PASSWORD: root_secret_password
+    ports:
+      - "3307:3306" # Extern 3307, falls schon ein lokales MySQL auf 3306 läuft
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - compliance-hub-network
+
+  compliance-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: compliance-hub-app
+    restart: always
+    ports:
+      - "9002:3000"
+    environment:
+      - NODE_ENV=production
+      - MYSQL_HOST=compliance-db
+      - MYSQL_PORT=3306
+      - MYSQL_DATABASE=compliance_hub
+      - MYSQL_USER=compliance_user
+      - MYSQL_PASSWORD=hub_secret_password
+      - OLLAMA_URL=http://host.docker.internal:11434
+    depends_on:
+      - compliance-db
+    networks:
+      - compliance-hub-network
+    # Erlaubt den Zugriff auf Ollama auf dem Host-Rechner
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  compliance-hub-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
