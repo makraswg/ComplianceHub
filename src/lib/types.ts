@@ -28,6 +28,7 @@ export interface User {
   onboardingDate?: string;
   offboardingDate?: string;
   lastSyncedAt: string;
+  adGroups?: string[]; // New: List of group DNs from AD
 }
 
 export interface Resource {
@@ -54,6 +55,7 @@ export interface Entitlement {
   isSharedAccount?: boolean | number;
   passwordManagerUrl?: string;
   tenantId?: string;
+  externalMapping?: string; // New: AD Group DN or ID for auto-assignment
 }
 
 export interface Assignment {
@@ -72,6 +74,7 @@ export interface Assignment {
   lastReviewedAt?: string;
   reviewedBy?: string;
   tenantId?: string;
+  syncSource?: 'manual' | 'ldap' | 'group'; // New: Track source of assignment
 }
 
 export interface AssignmentGroup {

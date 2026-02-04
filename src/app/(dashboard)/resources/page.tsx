@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -35,7 +35,8 @@ import {
   RefreshCw,
   ShieldAlert,
   Building2,
-  Globe
+  Globe,
+  Network
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -92,6 +93,7 @@ import { cn } from '@/lib/utils';
 import { exportResourcesPdf } from '@/lib/export-utils';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { Entitlement } from '@/lib/types';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -102,16 +104,17 @@ export default function ResourcesPage() {
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEntitlementOpen, setIsEntitlementOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedResource, setSelectedResource] = useState<any>(null);
   const [editingResource, setEditingResource] = useState<any>(null);
 
-  const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState('SaaS');
-  const [newOwner, setNewOwner] = useState('');
-  const [newUrl, setNewUrl] = useState('');
-  const [newCriticality, setNewCriticality] = useState('medium');
-  const [newResourceTenantId, setNewResourceTenantId] = useState<string>('global');
+  // Entitlement Management State
+  const [editingEntitlement, setEditingEntitlement] = useState<Entitlement | null>(null);
+  const [isEntitlementEditOpen, setIsEntitlementEditOpen] = useState(false);
+  const [entName, setEntName] = useState('');
+  const [entDesc, setEntDesc] = useState('');
+  const [entRisk, setEntRisk] = useState<'low' | 'medium' | 'high'>('medium');
+  const [entIsAdmin, setEntIsAdmin] = useState(false);
+  const [entExternalMapping, setEntExternalMapping] = useState('');
 
   const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<any>('resources');
   const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<any>('entitlements');
@@ -120,53 +123,56 @@ export default function ResourcesPage() {
     setMounted(true);
   }, []);
 
-  const handleSaveResource = async () => {
-    if (!newName || !newOwner) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name und Besitzer sind erforderlich." });
-      return;
-    }
+  const handleSaveEntitlement = async () => {
+    if (!entName || !selectedResource) return;
 
-    const resourceId = editingResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
-    const resData = {
-      id: resourceId,
-      name: newName,
-      type: newType,
-      owner: newOwner,
-      url: newUrl,
-      criticality: newCriticality,
-      tenantId: newResourceTenantId,
-      createdAt: editingResource?.createdAt || new Date().toISOString()
+    const id = editingEntitlement?.id || `ent-${Math.random().toString(36).substring(2, 9)}`;
+    const entData = {
+      id,
+      resourceId: selectedResource.id,
+      tenantId: selectedResource.tenantId || 'global',
+      name: entName,
+      description: entDesc,
+      riskLevel: entRisk,
+      isAdmin: entIsAdmin,
+      externalMapping: entExternalMapping
     };
 
     if (dataSource === 'mysql') {
-      await saveCollectionRecord('resources', resourceId, resData);
+      await saveCollectionRecord('entitlements', id, entData);
     } else {
-      setDocumentNonBlocking(doc(db, 'resources', resourceId), resData);
+      setDocumentNonBlocking(doc(db, 'entitlements', id), entData);
     }
 
-    toast({ title: editingResource ? "System aktualisiert" : "System registriert" });
-    setIsCreateOpen(false);
-    resetResourceForm();
-    setTimeout(() => refreshResources(), 200);
+    toast({ title: editingEntitlement ? "Rolle aktualisiert" : "Rolle erstellt" });
+    setIsEntitlementEditOpen(false);
+    setEditingEntitlement(null);
+    setTimeout(() => refreshEntitlements(), 200);
   };
 
-  const resetResourceForm = () => {
-    setNewName('');
-    setNewOwner('');
-    setNewUrl('');
-    setNewType('SaaS');
-    setNewCriticality('medium');
-    setNewResourceTenantId('global');
-    setEditingResource(null);
+  const openEntitlementDialog = (ent?: Entitlement) => {
+    if (ent) {
+      setEditingEntitlement(ent);
+      setEntName(ent.name);
+      setEntDesc(ent.description);
+      setEntRisk(ent.riskLevel);
+      setEntIsAdmin(!!ent.isAdmin);
+      setEntExternalMapping(ent.externalMapping || '');
+    } else {
+      setEditingEntitlement(null);
+      setEntName('');
+      setEntDesc('');
+      setEntRisk('medium');
+      setEntIsAdmin(false);
+      setEntExternalMapping('');
+    }
+    setIsEntitlementEditOpen(true);
   };
 
   const filteredResources = resources?.filter((res: any) => {
     const matchesSearch = res.name.toLowerCase().includes(search.toLowerCase()) || (res.owner || '').toLowerCase().includes(search.toLowerCase());
-    
-    // Filter Logik: Zeige Global + spezifischen Mandanten
     const isGlobal = res.tenantId === 'global' || !res.tenantId;
     const matchesTenant = activeTenantId === 'all' || isGlobal || res.tenantId === activeTenantId;
-
     return matchesSearch && matchesTenant;
   });
 
@@ -177,9 +183,9 @@ export default function ResourcesPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
-          <p className="text-sm text-muted-foreground">Systeminventar für {activeTenantId === 'all' ? 'alle Standorte' : (activeTenantId === 't1' ? 'Acme Corp' : 'Global Tech')}.</p>
+          <p className="text-sm text-muted-foreground">Systeminventar und AD-Gruppen Mapping.</p>
         </div>
-        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetResourceForm(); setIsCreateOpen(true); }}>
+        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
           <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
         </Button>
       </div>
@@ -203,96 +209,122 @@ export default function ResourcesPage() {
               <TableRow>
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Anwendung</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Verfügbarkeit</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Typ</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Kritikalität</TableHead>
-                <TableHead className="text-right font-bold uppercase text-[10px]">Management</TableHead>
+                <TableHead className="font-bold uppercase text-[10px]">Rollen / AD Mapping</TableHead>
+                <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredResources?.map((resource: any) => (
-                <TableRow key={resource.id} className="group hover:bg-muted/5 border-b">
-                  <TableCell className="py-4">
-                    <div className="font-bold text-sm">{resource.name}</div>
-                    <div className="text-[10px] text-muted-foreground font-bold uppercase">{resource.owner}</div>
-                  </TableCell>
-                  <TableCell>
-                    {(!resource.tenantId || resource.tenantId === 'global') ? (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700 rounded-none border-blue-100 text-[8px] font-bold uppercase">
-                        <Globe className="w-2.5 h-2.5 mr-1" /> Global
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-slate-50 text-slate-700 rounded-none border-slate-200 text-[8px] font-bold uppercase">
-                        <Building2 className="w-2.5 h-2.5 mr-1" /> {resource.tenantId === 't1' ? 'Acme Corp' : 'Global Tech'}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-[9px] uppercase font-bold py-0 rounded-none">{resource.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={cn("rounded-none text-[9px] border-none", resource.criticality === 'high' ? "bg-red-500 text-white" : "bg-blue-600 text-white")}>
-                      {resource.criticality.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-none w-48">
-                        <DropdownMenuItem onSelect={() => { setEditingResource(resource); setNewName(resource.name); setNewType(resource.type); setNewOwner(resource.owner); setNewResourceTenantId(resource.tenantId || 'global'); setIsCreateOpen(true); }}>
-                          Bearbeiten
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementOpen(true); }}>
-                          Rollen verwalten
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredResources?.map((resource: any) => {
+                const resourceEnts = entitlements?.filter(e => e.resourceId === resource.id) || [];
+                return (
+                  <TableRow key={resource.id} className="group hover:bg-muted/5 border-b">
+                    <TableCell className="py-4">
+                      <div className="font-bold text-sm">{resource.name}</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase">{resource.type}</div>
+                    </TableCell>
+                    <TableCell>
+                      {(!resource.tenantId || resource.tenantId === 'global') ? (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 rounded-none border-blue-100 text-[8px] font-bold uppercase">Global</Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-slate-50 text-slate-700 rounded-none border-slate-200 text-[8px] font-bold uppercase">{resource.tenantId}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {resourceEnts.map(e => (
+                          <Badge key={e.id} variant="secondary" className="rounded-none text-[8px] uppercase gap-1">
+                            {e.isAdmin && <ShieldAlert className="w-2.5 h-2.5 text-red-600" />}
+                            {e.name}
+                            {e.externalMapping && <Network className="w-2.5 h-2.5 text-blue-600" />}
+                          </Badge>
+                        ))}
+                        {resourceEnts.length === 0 && <span className="text-[10px] italic text-muted-foreground">Keine Rollen</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase" onClick={() => { setSelectedResource(resource); setIsEntitlementOpen(true); }}>Rollen verwalten</Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
       </div>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="rounded-none border shadow-2xl">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">System registrieren</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-1 gap-4 py-4">
+      {/* Role Management Dialog */}
+      <Dialog open={isEntitlementOpen} onOpenChange={setIsEntitlementOpen}>
+        <DialogContent className="max-w-4xl rounded-none">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">Rollen für {selectedResource?.name}</DialogTitle>
+            <DialogDescription className="text-xs">Definieren Sie Berechtigungen und deren AD-Gruppen Mapping.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Button size="sm" className="mb-4 h-8 text-[9px] font-bold uppercase rounded-none" onClick={() => openEntitlementDialog()}>
+              <Plus className="w-3 h-3 mr-1" /> Neue Rolle
+            </Button>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-[10px] font-bold uppercase">Name</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase">AD Mapping (DN)</TableHead>
+                  <TableHead className="text-[10px] font-bold uppercase">Risiko</TableHead>
+                  <TableHead className="text-right text-[10px] font-bold uppercase">Aktionen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {entitlements?.filter(e => e.resourceId === selectedResource?.id).map(e => (
+                  <TableRow key={e.id}>
+                    <TableCell className="font-bold text-xs">
+                      <div className="flex items-center gap-2">
+                        {e.isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
+                        {e.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-[9px] text-muted-foreground truncate max-w-[200px]">{e.externalMapping || '—'}</TableCell>
+                    <TableCell><Badge className="text-[8px] uppercase rounded-none">{e.riskLevel}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEntitlementDialog(e)}><Pencil className="w-3 h-3" /></Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Edit/Create Dialog */}
+      <Dialog open={isEntitlementEditOpen} onOpenChange={setIsEntitlementEditOpen}>
+        <DialogContent className="rounded-none">
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{editingEntitlement ? 'Rolle bearbeiten' : 'Neue Rolle'}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Gültigkeitsbereich (Firma)</Label>
-              <Select value={newResourceTenantId} onValueChange={setNewResourceTenantId}>
-                <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                <SelectContent className="rounded-none">
-                  <SelectItem value="global">Global (Für alle verfügbar)</SelectItem>
-                  <SelectItem value="t1">Nur Acme Corp</SelectItem>
-                  <SelectItem value="t2">Nur Global Tech</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-[10px] font-bold uppercase">Name der Rolle</Label>
+              <Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-none h-10" />
             </div>
             <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Anwendungsname</Label>
-              <Input value={newName} onChange={e => setNewName(e.target.value)} className="rounded-none" />
+              <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2">
+                <Network className="w-3 h-3" /> AD Gruppe (Distinguished Name)
+              </Label>
+              <Input 
+                placeholder="CN=Gruppe,OU=Roles,DC=..." 
+                value={entExternalMapping} 
+                onChange={e => setEntExternalMapping(e.target.value)} 
+                className="rounded-none h-10 font-mono text-[10px]" 
+              />
+              <p className="text-[9px] text-muted-foreground italic">Mitglieder dieser AD-Gruppe werden beim Sync automatisch zugewiesen.</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Typ</Label>
-                <Select value={newType} onValueChange={setNewType}>
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="SaaS">SaaS</SelectItem>
-                    <SelectItem value="OnPrem">On-Prem</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Besitzer</Label>
-                <Input value={newOwner} onChange={e => setNewOwner(e.target.value)} className="rounded-none" />
+            <div className="flex items-center gap-4 pt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="is-admin" checked={entIsAdmin} onCheckedChange={(val) => setEntIsAdmin(!!val)} />
+                <Label htmlFor="is-admin" className="text-[10px] font-bold uppercase cursor-pointer text-red-600">Admin-Berechtigung</Label>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
+            <Button variant="outline" onClick={() => setIsEntitlementEditOpen(false)} className="rounded-none">Abbrechen</Button>
+            <Button onClick={handleSaveEntitlement} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

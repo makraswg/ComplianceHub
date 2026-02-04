@@ -38,6 +38,7 @@ export const appSchema: AppSchema = {
       onboardingDate: 'VARCHAR(50)',
       offboardingDate: 'VARCHAR(50)',
       lastSyncedAt: 'VARCHAR(50)',
+      adGroups: 'TEXT', // Stored as JSON string
     },
   },
   groups: {
@@ -87,6 +88,7 @@ export const appSchema: AppSchema = {
       isAdmin: 'BOOLEAN DEFAULT FALSE',
       isSharedAccount: 'BOOLEAN DEFAULT FALSE',
       passwordManagerUrl: 'TEXT',
+      externalMapping: 'TEXT', // AD Group DN
     },
   },
   assignments: {
@@ -105,6 +107,7 @@ export const appSchema: AppSchema = {
       ticketRef: 'VARCHAR(255)',
       jiraIssueKey: 'VARCHAR(50)',
       notes: 'TEXT',
+      syncSource: 'VARCHAR(50) DEFAULT "manual"',
     },
   },
   auditEvents: {
