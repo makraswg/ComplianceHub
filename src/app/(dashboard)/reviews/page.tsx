@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Table, 
   TableBody, 
@@ -17,8 +17,6 @@ import {
   XCircle, 
   AlertCircle, 
   Search, 
-  ShieldAlert,
-  Layers,
   Calendar,
   Loader2,
   RefreshCw,
@@ -28,7 +26,6 @@ import {
   BrainCircuit,
   CheckCircle2,
   Sparkles,
-  Zap,
   ChevronRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -39,8 +36,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter,
-  DialogDescription
+  DialogFooter
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { 
@@ -60,22 +56,15 @@ import { getAccessAdvice } from '@/ai/flows/access-advisor-flow';
 export default function AccessReviewsPage() {
   const db = useFirestore();
   const { user } = useUser();
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'pending' | 'completed' | 'all'>('pending');
   const [search, setSearch] = useState('');
 
-  // AI Advisor State (Single)
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [selectedReviewItem, setSelectedReviewItem] = useState<any>(null);
-
-  // Bulk AI State
-  const [isBulkOpen, setIsBulkOpen] = useState(false);
-  const [isBulkLoading, setIsBulkLoading] = useState(false);
-  const [bulkProgress, setBulkBulkProgress] = useState(0);
-  const [bulkResults, setBulkResults] = useState<any[]>([]);
 
   const { data: assignments, isLoading, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: users } = usePluggableCollection<any>('users');
@@ -85,6 +74,34 @@ export default function AccessReviewsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const filteredAssignments = useMemo(() => {
+    if (!assignments) return [];
+    
+    return assignments.filter(assignment => {
+      // 1. Tenant Filter
+      if (activeTenantId !== 'all' && assignment.tenantId !== activeTenantId) return false;
+
+      const userDoc = users?.find(u => u.id === assignment.userId);
+      const ent = entitlements?.find(e => e.id === assignment.entitlementId);
+      const res = resources?.find(r => r.id === ent?.resourceId);
+      
+      const userName = userDoc?.displayName || userDoc?.name || '';
+      const resName = res?.name || '';
+      
+      // 2. Search Filter
+      const matchesSearch = 
+        userName.toLowerCase().includes(search.toLowerCase()) || 
+        resName.toLowerCase().includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+      
+      // 3. Campaign Filter
+      const isCompleted = !!assignment.lastReviewedAt;
+      if (activeFilter === 'pending') return !isCompleted && assignment.status !== 'removed';
+      if (activeFilter === 'completed') return isCompleted;
+      return true;
+    });
+  }, [assignments, users, entitlements, resources, search, activeFilter, activeTenantId]);
 
   const handleReview = async (assignmentId: string, action: 'certify' | 'revoke') => {
     const existing = assignments?.find(a => a.id === assignmentId);
@@ -96,36 +113,13 @@ export default function AccessReviewsPage() {
       reviewedBy: user?.uid || 'system'
     };
 
-    const auditId = `audit-${Math.random().toString(36).substring(2, 9)}`;
-    const auditData = {
-      id: auditId,
-      actorUid: user?.uid || 'system',
-      action: action === 'certify' ? 'Zertifizierung' : 'Widerruf (Review)',
-      entityType: 'assignment',
-      entityId: assignmentId,
-      timestamp: new Date().toISOString(),
-      tenantId: 't1',
-      before: existing,
-      after: { ...existing, ...reviewData }
-    };
-
     if (dataSource === 'mysql') {
-      const saveRes = await saveCollectionRecord('assignments', assignmentId, { ...existing, ...reviewData });
-      if (!saveRes.success) {
-        toast({ variant: "destructive", title: "Fehler", description: "Speichern in MySQL fehlgeschlagen." });
-        return;
-      }
-      await saveCollectionRecord('auditEvents', auditId, auditData);
+      await saveCollectionRecord('assignments', assignmentId, { ...existing, ...reviewData });
     } else {
       updateDocumentNonBlocking(doc(db, 'assignments', assignmentId), reviewData);
-      addDocumentNonBlocking(collection(db, 'auditEvents'), auditData);
     }
 
-    toast({
-      title: action === 'certify' ? "Zuweisung zertifiziert" : "Zuweisung widerrufen",
-      description: "Die Compliance-Anforderung wurde erfüllt.",
-    });
-
+    toast({ title: action === 'certify' ? "Zertifiziert" : "Widerrufen" });
     setTimeout(() => refreshAssignments(), 150);
   };
 
@@ -133,7 +127,6 @@ export default function AccessReviewsPage() {
     const userDoc = users?.find(u => u.id === assignment.userId);
     const ent = entitlements?.find(e => e.id === assignment.entitlementId);
     const res = resources?.find(r => r.id === ent?.resourceId);
-
     if (!userDoc) return;
 
     setSelectedReviewItem({ assignment, user: userDoc, ent, res });
@@ -143,98 +136,27 @@ export default function AccessReviewsPage() {
 
     try {
       const advice = await getAccessAdvice({
-        userDisplayName: userDoc.name || userDoc.displayName,
+        userDisplayName: userDoc.displayName || userDoc.name,
         userEmail: userDoc.email,
-        department: userDoc.department || 'Allgemein',
-        assignments: [{
-          resourceName: res?.name || 'Unbekannt',
-          entitlementName: ent?.name || 'Unbekannt',
-          riskLevel: ent?.riskLevel || 'medium'
-        }]
+        department: userDoc.department || 'IT',
+        assignments: [{ resourceName: res?.name || '?', entitlementName: ent?.name || '?', riskLevel: ent?.riskLevel || 'low' }]
       });
       setAiAdvice(advice);
     } catch (e) {
-      toast({ variant: "destructive", title: "KI-Fehler", description: "Empfehlung konnte nicht geladen werden." });
       setIsAdvisorOpen(false);
     } finally {
       setIsAdvisorLoading(false);
     }
   };
 
-  const startBulkCheck = async () => {
-    const pendingItems = filteredAssignments?.filter(a => !a.lastReviewedAt && a.status !== 'removed') || [];
-    if (pendingItems.length === 0) {
-      toast({ title: "Keine ausstehenden Reviews", description: "Alle angezeigten Elemente wurden bereits geprüft." });
-      return;
-    }
-
-    setIsBulkOpen(true);
-    setIsBulkLoading(true);
-    setBulkBulkProgress(0);
-    setBulkResults([]);
-
-    const results = [];
-    for (let i = 0; i < pendingItems.length; i++) {
-      const assignment = pendingItems[i];
-      const userDoc = users?.find(u => u.id === assignment.userId);
-      const ent = entitlements?.find(e => e.id === assignment.entitlementId);
-      const res = resources?.find(r => r.id === ent?.resourceId);
-
-      if (userDoc) {
-        try {
-          const advice = await getAccessAdvice({
-            userDisplayName: userDoc.name || userDoc.displayName,
-            userEmail: userDoc.email,
-            department: userDoc.department || 'Allgemein',
-            assignments: [{
-              resourceName: res?.name || 'Unbekannt',
-              entitlementName: ent?.name || 'Unbekannt',
-              riskLevel: ent?.riskLevel || 'medium'
-            }]
-          });
-          results.push({ assignment, user: userDoc, advice });
-        } catch (e) {
-          console.error("Bulk AI error for item", assignment.id, e);
-        }
-      }
-      setBulkBulkProgress(Math.round(((i + 1) / pendingItems.length) * 100));
-    }
-
-    setBulkResults(results);
-    setIsBulkLoading(false);
-  };
-
-  const filteredAssignments = assignments?.filter(assignment => {
-    const userDoc = users?.find(u => u.id === assignment.userId);
-    const ent = entitlements?.find(e => e.id === assignment.entitlementId);
-    const res = resources?.find(r => r.id === ent?.resourceId);
-    
-    const userName = userDoc?.displayName || userDoc?.name || '';
-    const resName = res?.name || '';
-    const matchesSearch = 
-      userName.toLowerCase().includes(search.toLowerCase()) || 
-      resName.toLowerCase().includes(search.toLowerCase());
-    
-    const isCompleted = !!assignment.lastReviewedAt;
-    if (activeFilter === 'pending') return matchesSearch && !isCompleted && assignment.status !== 'removed';
-    if (activeFilter === 'completed') return matchesSearch && isCompleted;
-    return matchesSearch;
-  });
-
-  const stats = {
-    total: assignments?.filter(a => a.status !== 'removed').length || 0,
-    completed: assignments?.filter(a => !!a.lastReviewedAt).length || 0,
-    overdue: assignments?.filter(a => {
-      if (a.status === 'removed') return false;
-      const ninetyDaysAgo = new Date().getTime() - (90 * 24 * 60 * 60 * 1000);
-      const isOld = a.grantedAt && new Date(a.grantedAt).getTime() < ninetyDaysAgo;
-      const isExpired = a.validUntil && new Date(a.validUntil).getTime() < new Date().getTime();
-      return (isOld || isExpired) && !a.lastReviewedAt;
-    }).length || 0,
-    expired: assignments?.filter(a => a.status === 'active' && a.validUntil && new Date(a.validUntil).getTime() < new Date().getTime()).length || 0
-  };
-
-  const progressPercent = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+  const stats = useMemo(() => {
+    const base = assignments?.filter(a => activeTenantId === 'all' || a.tenantId === activeTenantId) || [];
+    return {
+      total: base.filter(a => a.status !== 'removed').length,
+      completed: base.filter(a => !!a.lastReviewedAt).length,
+      overdue: base.filter(a => !a.lastReviewedAt && a.validUntil && new Date(a.validUntil) < new Date()).length
+    };
+  }, [assignments, activeTenantId]);
 
   if (!mounted) return null;
 
@@ -243,368 +165,99 @@ export default function AccessReviewsPage() {
       <div className="flex items-center justify-between border-b pb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Access Reviews</h1>
-          <p className="text-sm text-muted-foreground">Vierteljährliche Überprüfung kritischer Berechtigungen.</p>
+          <p className="text-sm text-muted-foreground">Prüfung für {activeTenantId === 'all' ? 'alle Mandanten' : activeTenantId}.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none border-blue-200 text-blue-600 hover:bg-blue-50" onClick={startBulkCheck}>
-            <Sparkles className="w-3.5 h-3.5 mr-2" /> KI-Bulk-Check
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => refreshAssignments()}>
-            <RefreshCw className="w-3.5 h-3.5 mr-2" /> Aktualisieren
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => refreshAssignments()}>
+          <RefreshCw className="w-3.5 h-3.5 mr-2" /> Aktualisieren
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="shadow-none rounded-none border">
-          <CardHeader className="py-3 bg-muted/20 border-b">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Fortschritt</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-3xl font-bold">{progressPercent}%</span>
-              <span className="text-[10px] text-muted-foreground uppercase font-bold">Kampagne</span>
-            </div>
-            <Progress value={progressPercent} className="h-1.5 rounded-none bg-slate-100" />
-            <p className="text-[9px] text-muted-foreground mt-2 font-bold uppercase tracking-wider">
-              {stats.completed} von {stats.total} abgeschlossen
-            </p>
-          </CardContent>
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="rounded-none border shadow-none p-4">
+          <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Fortschritt</p>
+          <div className="text-2xl font-bold">{stats.total > 0 ? Math.round((stats.completed/stats.total)*100) : 0}%</div>
+          <Progress value={stats.total > 0 ? (stats.completed/stats.total)*100 : 0} className="h-1 mt-2 rounded-none" />
         </Card>
-
-        <Card className="shadow-none rounded-none border border-red-200">
-          <CardHeader className="py-3 bg-red-50/50 border-b border-red-200">
-            <CardTitle className="text-[10px] font-bold uppercase text-red-700">Kritisch / Überfällig</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 flex items-center justify-between">
-            <span className="text-3xl font-bold text-red-600">{stats.overdue}</span>
-            <AlertCircle className="w-8 h-8 text-red-100" />
-          </CardContent>
+        <Card className="rounded-none border shadow-none p-4 border-red-200">
+          <p className="text-[9px] font-bold uppercase text-red-600 mb-1">Überfällig</p>
+          <div className="text-2xl font-bold text-red-600">{stats.overdue}</div>
         </Card>
-
-        <Card className="shadow-none rounded-none border border-orange-200">
-          <CardHeader className="py-3 bg-orange-50/50 border-b border-orange-200">
-            <CardTitle className="text-[10px] font-bold uppercase text-orange-700">Abgelaufen</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 flex items-center justify-between">
-            <span className="text-3xl font-bold text-orange-600">{stats.expired}</span>
-            <Clock className="w-8 h-8 text-orange-100" />
-          </CardContent>
-        </Card>
-
-        <Alert className="rounded-none border shadow-none bg-blue-50/30">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle className="text-[10px] font-bold uppercase text-blue-800 tracking-wider">Review Guide</AlertTitle>
-          <AlertDescription className="text-[10px] text-blue-700 leading-relaxed">
-            Berechtigungen ohne Enddatum oder mit abgelaufener Gültigkeit müssen priorisiert geprüft werden.
-          </AlertDescription>
-        </Alert>
       </div>
 
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex border rounded-none p-1 bg-muted/20 w-full md:w-auto">
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex border rounded-none p-1 bg-muted/20">
           {['pending', 'completed', 'all'].map(id => (
-            <Button 
-              key={id}
-              variant={activeFilter === id ? 'default' : 'ghost'} 
-              size="sm" 
-              className="flex-1 md:flex-none text-[10px] font-bold uppercase rounded-none h-8 px-6"
-              onClick={() => setActiveFilter(id as any)}
-            >
+            <Button key={id} variant={activeFilter === id ? 'default' : 'ghost'} size="sm" className="h-8 text-[9px] font-bold uppercase px-6" onClick={() => setActiveFilter(id as any)}>
               {id === 'pending' ? 'Ausstehend' : id === 'completed' ? 'Erledigt' : 'Alle'}
             </Button>
           ))}
         </div>
-        <div className="relative flex-1 md:max-w-xs">
+        <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
-            placeholder="Suchen nach Benutzer oder System..." 
-            className="pl-10 h-10 rounded-none bg-white shadow-none" 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <Input placeholder="Suchen..." className="pl-10 h-10 rounded-none bg-white" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
       <div className="admin-card overflow-hidden">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <Loader2 className="animate-spin w-8 h-8 text-primary" />
-            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Lade Review-Liste...</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-muted/30">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="py-4 font-bold uppercase tracking-widest text-[10px]">Benutzer</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">System / Rolle</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">Gültigkeit</TableHead>
-                <TableHead className="font-bold uppercase tracking-widest text-[10px]">KI-Check</TableHead>
-                <TableHead className="text-right font-bold uppercase tracking-widest text-[10px]">Aktion</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssignments?.map((assignment) => {
-                const userDoc = users?.find(u => u.id === assignment.userId);
-                const ent = entitlements?.find(e => e.id === assignment.entitlementId);
-                const res = resources?.find(r => r.id === ent?.resourceId);
-                const isExpired = assignment.validUntil && new Date(assignment.validUntil).getTime() < new Date().getTime();
-                
-                return (
-                  <TableRow key={assignment.id} className="group hover:bg-muted/5 border-b">
-                    <TableCell className="py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-none bg-slate-100 flex items-center justify-center text-[10px] font-bold uppercase">
-                          {(userDoc?.displayName || userDoc?.name || '?').charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm">{userDoc?.displayName || userDoc?.name || assignment.userId}</div>
-                          <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter">{userDoc?.department || 'Keine Abteilung'}</div>
-                        </div>
+        <Table>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              <TableHead className="py-4 font-bold uppercase text-[10px]">Benutzer</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">System / Rolle</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">KI-Advisor</TableHead>
+              <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAssignments.map((a) => {
+              const userDoc = users?.find(u => u.id === a.userId);
+              const ent = entitlements?.find(e => e.id === a.entitlementId);
+              const res = resources?.find(r => r.id === ent?.resourceId);
+              return (
+                <TableRow key={a.id} className="hover:bg-muted/5 border-b">
+                  <TableCell className="py-4">
+                    <div className="font-bold text-sm">{userDoc?.displayName}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase">{a.tenantId}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-bold text-sm">{res?.name}</div>
+                    <div className="text-xs text-muted-foreground">{ent?.name}</div>
+                  </TableCell>
+                  <TableCell className="text-[10px] font-bold">
+                    {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'}
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase text-blue-600" onClick={() => openQuickAdvisor(a)}>KI-Check</Button>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {a.lastReviewedAt ? <Badge className="bg-emerald-50 text-emerald-700 rounded-none text-[8px]">GEPRÜFT</Badge> : (
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" className="h-8 text-[9px] font-bold uppercase border-red-200 text-red-600" onClick={() => handleReview(a.id, 'revoke')}>Widerruf</Button>
+                        <Button size="sm" className="h-8 text-[9px] font-bold uppercase bg-emerald-600" onClick={() => handleReview(a.id, 'certify')}>Bestätigen</Button>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-sm">{res?.name}</span>
-                        <span className="text-xs text-muted-foreground">{ent?.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {assignment.validUntil ? (
-                        <div className={cn(
-                          "flex items-center gap-1.5 font-bold text-[10px] uppercase",
-                          isExpired ? "text-red-600" : "text-slate-600"
-                        )}>
-                          {isExpired ? <AlertTriangle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
-                          {new Date(assignment.validUntil).toLocaleDateString()}
-                          {isExpired && <span className="ml-1 text-[8px] bg-red-100 px-1 py-0.5">ABGELAUFEN</span>}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider italic">Unbefristet</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-8 text-[9px] font-bold uppercase text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-none"
-                        onClick={() => openQuickAdvisor(assignment)}
-                      >
-                        <BrainCircuit className="w-3.5 h-3.5 mr-1.5" /> Analysieren
-                      </Button>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {assignment.lastReviewedAt ? (
-                        <div className="flex items-center justify-end gap-1.5 text-emerald-600 font-bold text-[10px] uppercase">
-                          <CheckCircle className="w-3.5 h-3.5" /> Zertifiziert
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-end gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="h-8 text-[9px] font-bold uppercase rounded-none border-red-200 text-red-600 hover:bg-red-50"
-                            onClick={() => handleReview(assignment.id, 'revoke')}
-                          >
-                            <XCircle className="w-3 h-3 mr-1" /> Widerruf
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            className="h-8 text-[9px] font-bold uppercase rounded-none bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => handleReview(assignment.id, 'certify')}
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" /> Bestätigen
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {!isLoading && filteredAssignments?.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    <p className="text-[10px] font-bold uppercase tracking-widest">Keine ausstehenden Reviews gefunden.</p>
+                    )}
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
 
-      {/* Single AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
-        <DialogContent className="max-w-2xl rounded-none border shadow-2xl overflow-hidden p-0">
-          <div className="bg-slate-900 text-white p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Badge className="bg-blue-600 text-white rounded-none border-none font-bold text-[9px]">ACCESS ADVISOR AI</Badge>
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-400">
-                <BrainCircuit className="w-4 h-4 text-blue-400" />
-                Review Check
+        <DialogContent className="max-w-2xl rounded-none">
+          {isAdvisorLoading ? <div className="p-20 text-center"><Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" /><p className="mt-4 text-[10px] font-bold uppercase">Analysiere Risikoprofil...</p></div> : aiAdvice && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-bold uppercase">KI Analyse für {selectedReviewItem?.user?.displayName}</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 border bg-blue-50/50"><p className="text-[9px] font-bold uppercase">Risiko Score</p><p className="text-3xl font-bold">{aiAdvice.riskScore}/100</p></div>
+                <div className="p-4 border bg-orange-50/50"><p className="text-[9px] font-bold uppercase">Empfehlung</p><p className="text-sm font-bold uppercase mt-1">{aiAdvice.riskScore > 50 ? 'Widerruf prüfen' : 'Behalten'}</p></div>
               </div>
+              <p className="text-xs italic bg-slate-50 p-4 border">"{aiAdvice.summary}"</p>
             </div>
-            <h2 className="text-xl font-bold font-headline">Schnellcheck: {selectedReviewItem?.user?.displayName || selectedReviewItem?.user?.name}</h2>
-            <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-widest">
-              System: {selectedReviewItem?.res?.name} • Rolle: {selectedReviewItem?.ent?.name}
-            </p>
-          </div>
-          
-          <div className="p-6">
-            {isAdvisorLoading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Analysiere Berechtigung...</p>
-              </div>
-            ) : aiAdvice && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="admin-card p-4 border-l-4 border-l-blue-600 bg-blue-50/50">
-                    <p className="text-[9px] font-bold uppercase text-blue-600 mb-1">Risiko-Score</p>
-                    <div className="text-3xl font-bold flex items-baseline gap-1">
-                      {aiAdvice.riskScore} <span className="text-sm font-normal text-muted-foreground">/ 100</span>
-                    </div>
-                  </div>
-                  <div className="admin-card p-4 border-l-4 border-l-orange-500 bg-orange-50/50">
-                    <p className="text-[9px] font-bold uppercase text-orange-600 mb-1">KI Empfehlung</p>
-                    <div className="text-sm font-bold flex items-center gap-1.5 uppercase mt-1">
-                      {aiAdvice.riskScore > 50 ? (
-                        <span className="text-red-600 flex items-center gap-1"><ShieldAlert className="w-4 h-4" /> Widerruf prüfen</span>
-                      ) : (
-                        <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Unbedenklich</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h4 className="text-[10px] font-bold uppercase text-primary tracking-widest flex items-center gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center bg-primary text-white rounded-full text-[8px]">!</span> Zusammenfassung
-                  </h4>
-                  <p className="text-sm leading-relaxed text-slate-700 bg-slate-50 p-4 border italic">
-                    "{aiAdvice.summary}"
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold uppercase text-emerald-600 tracking-widest">Handlungsempfehlung</h4>
-                  <ul className="space-y-2">
-                    {aiAdvice.recommendations.map((r: string, i: number) => (
-                      <li key={i} className="text-xs flex gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                        <span className="font-bold">{r}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <DialogFooter className="p-6 border-t bg-slate-50">
-            <Button variant="outline" onClick={() => setIsAdvisorOpen(false)} className="rounded-none">Abbrechen</Button>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline"
-                className="rounded-none border-red-200 text-red-600 hover:bg-red-50 font-bold uppercase text-[10px]" 
-                onClick={() => { handleReview(selectedReviewItem.assignment.id, 'revoke'); setIsAdvisorOpen(false); }}
-              >
-                Widerrufen
-              </Button>
-              <Button 
-                className="rounded-none bg-emerald-600 hover:bg-emerald-700 font-bold uppercase text-[10px]" 
-                onClick={() => { handleReview(selectedReviewItem.assignment.id, 'certify'); setIsAdvisorOpen(false); }}
-              >
-                Bestätigen
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk AI Advisor Dialog */}
-      <Dialog open={isBulkOpen} onOpenChange={setIsBulkOpen}>
-        <DialogContent className="max-w-3xl rounded-none border shadow-2xl p-0 overflow-hidden">
-          <div className="bg-slate-900 text-white p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-600 rounded-none"><Sparkles className="w-5 h-5" /></div>
-              <div>
-                <DialogTitle className="text-xl font-bold uppercase tracking-tight">KI-Bulk Analyse</DialogTitle>
-                <DialogDescription className="text-slate-400 text-xs uppercase font-bold tracking-widest">
-                  Analysiere {filteredAssignments?.filter(a => !a.lastReviewedAt).length} ausstehende Elemente
-                </DialogDescription>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 space-y-6">
-            {isBulkLoading ? (
-              <div className="space-y-6 py-10">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[10px] font-bold uppercase">
-                    <span>Prüfe Risikoprofile...</span>
-                    <span>{bulkProgress}%</span>
-                  </div>
-                  <Progress value={bulkProgress} className="h-2 rounded-none bg-slate-100" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[1,2,3].map(i => <div key={i} className="h-1 bg-slate-100 animate-pulse" />)}
-                </div>
-                <p className="text-center text-xs text-muted-foreground italic">Der Access Advisor prüft Berechtigungen gegen Job-Profile...</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="admin-card p-4 border-l-4 border-l-red-500">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Kritische Risiken</p>
-                    <p className="text-2xl font-bold text-red-600">{bulkResults.filter(r => r.advice.riskScore > 70).length}</p>
-                  </div>
-                  <div className="admin-card p-4 border-l-4 border-l-orange-500">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Erhöhtes Risiko</p>
-                    <p className="text-2xl font-bold text-orange-600">{bulkResults.filter(r => r.advice.riskScore > 40 && r.advice.riskScore <= 70).length}</p>
-                  </div>
-                  <div className="admin-card p-4 border-l-4 border-l-emerald-500">
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground">Unbedenklich</p>
-                    <p className="text-2xl font-bold text-emerald-600">{bulkResults.filter(r => r.advice.riskScore <= 40).length}</p>
-                  </div>
-                </div>
-
-                <div className="border rounded-none">
-                  <div className="bg-muted/30 p-2 border-b text-[10px] font-bold uppercase">KI-Einstufung (Top-Prioritäten)</div>
-                  <div className="max-h-64 overflow-y-auto divide-y">
-                    {bulkResults.sort((a, b) => b.advice.riskScore - a.advice.riskScore).map((res, idx) => (
-                      <div key={idx} className="p-3 flex items-center justify-between hover:bg-muted/5 group">
-                        <div className="flex items-center gap-3">
-                          <div className={cn(
-                            "w-8 h-8 rounded-none flex items-center justify-center font-bold text-xs text-white",
-                            res.advice.riskScore > 70 ? "bg-red-600" : res.advice.riskScore > 40 ? "bg-orange-500" : "bg-emerald-500"
-                          )}>
-                            {res.advice.riskScore}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">{res.user.displayName}</p>
-                            <p className="text-[9px] text-muted-foreground uppercase">{res.advice.summary.substring(0, 60)}...</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold uppercase rounded-none opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setIsBulkOpen(false); setSelectedReviewItem({ assignment: res.assignment, user: res.user }); setIsAdvisorOpen(true); setAiAdvice(res.advice); }}>
-                          Details <ChevronRight className="w-3 h-3 ml-1" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="p-6 bg-slate-50 border-t">
-            <Button variant="outline" className="rounded-none h-10" onClick={() => setIsBulkOpen(false)}>Schließen</Button>
-            {!isBulkLoading && (
-              <Button className="rounded-none bg-blue-600 hover:bg-blue-700 h-10 font-bold uppercase text-xs" onClick={() => setIsBulkOpen(false)}>
-                Review fortsetzen
-              </Button>
-            )}
-          </DialogFooter>
+          )}
+          <DialogFooter><Button variant="outline" onClick={() => setIsAdvisorOpen(false)} className="rounded-none">Schließen</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

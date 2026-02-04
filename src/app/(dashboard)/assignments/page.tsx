@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { 
   Table, 
@@ -18,13 +18,8 @@ import {
   Plus, 
   MoreHorizontal,
   ShieldAlert,
-  Calendar,
-  AlertTriangle,
-  Zap,
-  Filter,
-  ShieldCheck,
-  Ticket,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -60,7 +55,7 @@ import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 
 export default function AssignmentsPage() {
   const db = useFirestore();
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const searchParams = useSearchParams();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
@@ -71,7 +66,6 @@ export default function AssignmentsPage() {
   const [isJiraActionLoading, setIsJiraActionLoading] = useState(false);
   
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
@@ -89,8 +83,39 @@ export default function AssignmentsPage() {
     setMounted(true);
   }, []);
 
+  const filteredAssignments = useMemo(() => {
+    if (!assignments) return [];
+    
+    return assignments.filter(a => {
+      // 1. Tenant Filter
+      if (activeTenantId !== 'all' && a.tenantId !== activeTenantId) return false;
+
+      const user = users?.find(u => u.id === a.userId);
+      const ent = entitlements?.find(e => e.id === a.entitlementId);
+      const res = resources?.find(r => r.id === ent?.resourceId);
+      
+      // 2. Search Filter
+      const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || 
+                          (res?.name || '').toLowerCase().includes(search.toLowerCase());
+      if (!matchSearch) return false;
+      
+      // 3. Status/Tab Filter
+      const matchTab = activeTab === 'all' || a.status === activeTab;
+      if (!matchTab) return false;
+      
+      // 4. Admin Filter
+      const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
+      const matchAdmin = !adminOnly || isAdmin;
+      if (!matchAdmin) return false;
+
+      return true;
+    });
+  }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
+
   const handleCreateAssignment = async () => {
     if (!selectedUserId || !selectedEntitlementId) return;
+    
+    const targetTenantId = users?.find(u => u.id === selectedUserId)?.tenantId || 'global';
     const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
     const assignmentData = {
       id: assignmentId,
@@ -104,7 +129,7 @@ export default function AssignmentsPage() {
       jiraIssueKey,
       ticketRef: jiraIssueKey || 'MANUELL',
       notes,
-      tenantId: 't1'
+      tenantId: targetTenantId
     };
 
     if (dataSource === 'mysql') {
@@ -119,12 +144,12 @@ export default function AssignmentsPage() {
   };
 
   const handleBulkCreateJiraTickets = async () => {
-    const expiredWithoutTicket = assignments?.filter(a => 
+    const expiredWithoutTicket = filteredAssignments.filter(a => 
       a.status === 'active' && 
       a.validUntil && 
       new Date(a.validUntil) < new Date() && 
       !a.jiraIssueKey
-    ) || [];
+    );
 
     if (expiredWithoutTicket.length === 0) return;
 
@@ -156,8 +181,6 @@ export default function AssignmentsPage() {
           } else {
             updateDocumentNonBlocking(doc(db, 'assignments', a.id), updateData);
           }
-        } else {
-          console.error(`Jira Error for ${a.id}:`, result.error, result.details);
         }
       }
 
@@ -173,28 +196,12 @@ export default function AssignmentsPage() {
     }
   };
 
-  const filteredAssignments = assignments?.filter(a => {
-    const user = users?.find(u => u.id === a.userId);
-    const ent = entitlements?.find(e => e.id === a.entitlementId);
-    const res = resources?.find(r => r.id === ent?.resourceId);
-    
-    const matchSearch = (user?.displayName || '').toLowerCase().includes(search.toLowerCase()) || 
-                        (res?.name || '').toLowerCase().includes(search.toLowerCase());
-    
-    const matchTab = activeTab === 'all' || a.status === activeTab;
-    
-    const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
-    const matchAdmin = !adminOnly || isAdmin;
-
-    return matchSearch && matchTab && matchAdmin;
-  });
-
-  const expiredWithoutTicketCount = assignments?.filter(a => 
+  const expiredCount = filteredAssignments.filter(a => 
     a.status === 'active' && 
     a.validUntil && 
     new Date(a.validUntil) < new Date() && 
     !a.jiraIssueKey
-  ).length || 0;
+  ).length;
 
   if (!mounted) return null;
 
@@ -206,7 +213,7 @@ export default function AssignmentsPage() {
           <p className="text-sm text-muted-foreground">Aktive und ausstehende Berechtigungen im Überblick.</p>
         </div>
         <div className="flex gap-2">
-          {expiredWithoutTicketCount > 0 && (
+          {expiredCount > 0 && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -215,7 +222,7 @@ export default function AssignmentsPage() {
               disabled={isJiraActionLoading}
             >
               {isJiraActionLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Zap className="w-3.5 h-3.5 mr-2" />}
-              {expiredWithoutTicketCount} Tickets erstellen
+              {expiredCount} Tickets erstellen
             </Button>
           )}
           <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsCreateOpen(true)}>
@@ -255,12 +262,13 @@ export default function AssignmentsPage() {
               <TableHead className="py-4 font-bold uppercase text-[10px]">Mitarbeiter</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">System / Rolle</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Ticket</TableHead>
               <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAssignments?.map((a) => {
+            {filteredAssignments.map((a) => {
               const user = users?.find(u => u.id === a.userId);
               const ent = entitlements?.find(e => e.id === a.entitlementId);
               const res = resources?.find(r => r.id === ent?.resourceId);
@@ -293,18 +301,24 @@ export default function AssignmentsPage() {
                       {a.status.replace('_', ' ')}
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-[10px] font-bold uppercase text-muted-foreground">
+                    {a.tenantId || 'global'}
+                  </TableCell>
                   <TableCell className="text-xs font-mono">{a.jiraIssueKey || '—'}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-none w-48">
-                        <DropdownMenuItem onSelect={() => setIsEditDialogOpen(true)}>Bearbeiten</DropdownMenuItem>
+                        <DropdownMenuItem>Details</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );
             })}
+            {filteredAssignments.length === 0 && !isLoading && (
+              <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground italic">Keine Zuweisungen für diesen Filter gefunden.</TableCell></TableRow>
+            )}
           </TableBody>
         </Table>
       </div>
@@ -317,14 +331,24 @@ export default function AssignmentsPage() {
               <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId}>
                 <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">{users?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
+                <SelectContent className="rounded-none">
+                  {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
+                    <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.tenantId})</SelectItem>
+                  )}
+                </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase">Rolle</Label>
               <Select value={selectedEntitlementId} onValueChange={setSelectedEntitlementId}>
                 <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent className="rounded-none">{entitlements?.map(e => <SelectItem key={e.id} value={e.id}>{e.name} ({resources?.find(r => r.id === e.resourceId)?.name})</SelectItem>)}</SelectContent>
+                <SelectContent className="rounded-none">
+                  {entitlements?.map(e => {
+                    const res = resources?.find(r => r.id === e.resourceId);
+                    if (activeTenantId !== 'all' && res?.tenantId !== 'global' && res?.tenantId !== activeTenantId) return null;
+                    return <SelectItem key={e.id} value={e.id}>{e.name} ({res?.name})</SelectItem>
+                  })}
+                </SelectContent>
               </Select>
             </div>
           </div>
