@@ -1,17 +1,20 @@
+
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
 import { appSchema } from '@/lib/schema';
 import { PoolConnection } from 'mysql2/promise';
+import bcrypt from 'bcryptjs';
 
 /**
  * Führt eine Datenbank-Migration basierend auf dem definierten App-Schema durch.
  * Diese Funktion ist idempotent und kann sicher mehrfach ausgeführt werden.
  * Sie erstellt Tabellen und fügt Spalten hinzu, löscht aber nichts.
+ * Zusätzlich wird ein initialer Admin-Account erstellt, falls keiner existiert.
  */
 export async function runDatabaseMigrationAction(): Promise<{ success: boolean; message: string; details: string[] }> {
   let connection: PoolConnection | undefined;
-  const details: string[] = []; // Sammelt detaillierte Log-Meldungen
+  const details: string[] = [];
 
   try {
     connection = await getMysqlConnection();
@@ -25,7 +28,6 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     for (const tableName of Object.keys(appSchema)) {
       const tableDefinition = appSchema[tableName];
 
-      // 1. Prüfen, ob die Tabelle existiert
       const [tableExistsResult] = await connection.execute(
         `SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name = ?`,
         [dbName, tableName]
@@ -34,7 +36,6 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       const tableExists = (tableExistsResult as any[]).length > 0;
 
       if (!tableExists) {
-        // 2a. Tabelle existiert nicht -> Erstellen
         const columnsSql = Object.entries(tableDefinition.columns)
           .map(([colName, colDef]) => `\`${colName}\` ${colDef}`)
           .join(', \n');
@@ -45,13 +46,11 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
         details.push(`   ✅ Tabelle '${tableName}' erfolgreich erstellt.`);
 
       } else {
-        // 2b. Tabelle existiert -> Spalten prüfen
         details.push(`🔍 Tabelle '${tableName}' existiert, prüfe Spalten...`);
 
         for (const columnName of Object.keys(tableDefinition.columns)) {
           const columnDefinition = tableDefinition.columns[columnName];
 
-          // Prüfen, ob die Spalte existiert
           const [columnExistsResult] = await connection.execute(
             `SELECT column_name FROM information_schema.columns WHERE table_schema = ? AND table_name = ? AND column_name = ?`,
             [dbName, tableName, columnName]
@@ -60,9 +59,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
           const columnExists = (columnExistsResult as any[]).length > 0;
 
           if (!columnExists) {
-            // Spalte existiert nicht -> Hinzufügen
             const addColumnSql = `ALTER TABLE \`${tableName}\` ADD COLUMN \`${columnName}\` ${columnDefinition}`;
-            
             details.push(`   🏃 Spalte '${columnName}' in '${tableName}' nicht gefunden, wird hinzugefügt...`);
             await connection.execute(addColumnSql);
             details.push(`      ✅ Spalte '${columnName}' erfolgreich hinzugefügt.`);
@@ -73,10 +70,30 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
+    // SEEDING: Default Admin Account erstellen, falls keiner existiert
+    details.push('🌱 Prüfe auf initialen Admin-Account...');
+    const [userRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `platformUsers`');
+    if (userRows[0].count === 0) {
+      const adminId = 'puser-initial-admin';
+      const adminEmail = 'admin@compliance-hub.local';
+      const adminPassword = 'admin123';
+      const salt = bcrypt.genSaltSync(10);
+      const hashedPassword = bcrypt.hashSync(adminPassword, salt);
+      const now = new Date().toISOString();
+
+      await connection.execute(
+        'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now]
+      );
+      details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
+    } else {
+      details.push('   ✔️ Admin-Account bereits vorhanden.');
+    }
+
     connection.release();
     return { 
         success: true, 
-        message: 'Datenbank-Migration erfolgreich abgeschlossen.',
+        message: 'Datenbank-Migration und Seeding erfolgreich abgeschlossen.',
         details
     };
 
