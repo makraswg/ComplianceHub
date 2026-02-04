@@ -25,7 +25,10 @@ import {
   Settings2,
   Info,
   GitGraph,
-  AlertTriangle
+  AlertTriangle,
+  Link as LinkIcon,
+  User as UserIcon,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -94,6 +97,10 @@ export default function ResourcesPage() {
   const [resType, setResType] = useState('SaaS');
   const [resCriticality, setResCriticality] = useState('medium');
   const [resTenantId, setResTenantId] = useState('global');
+  const [resOwner, setResOwner] = useState('');
+  const [resUrl, setResUrl] = useState('');
+  const [resDocUrl, setResDocUrl] = useState('');
+  const [resNotes, setResNotes] = useState('');
 
   // Entitlement Form State
   const [entName, setEntName] = useState('');
@@ -127,8 +134,11 @@ export default function ResourcesPage() {
       type: resType,
       criticality: resCriticality,
       tenantId: resTenantId,
-      owner: 'Unbekannt',
-      url: '#'
+      owner: resOwner || 'Unbekannt',
+      url: resUrl || '#',
+      documentationUrl: resDocUrl,
+      notes: resNotes,
+      createdAt: selectedResource?.createdAt || new Date().toISOString()
     };
     if (dataSource === 'mysql') await saveCollectionRecord('resources', id, data);
     else setDocumentNonBlocking(doc(db, 'resources', id), data);
@@ -170,11 +180,27 @@ export default function ResourcesPage() {
 
   const openResourceEdit = (res: any) => {
     setSelectedResource(res);
-    setResName(res.name);
-    setResType(res.type);
-    setResCriticality(res.criticality);
+    setResName(res.name || '');
+    setResType(res.type || 'SaaS');
+    setResCriticality(res.criticality || 'medium');
     setResTenantId(res.tenantId || 'global');
+    setResOwner(res.owner || '');
+    setResUrl(res.url || '');
+    setResDocUrl(res.documentationUrl || '');
+    setResNotes(res.notes || '');
     setIsResourceDialogOpen(true);
+  };
+
+  const resetResourceForm = () => {
+    setSelectedResource(null);
+    setResName('');
+    setResType('SaaS');
+    setResCriticality('medium');
+    setResTenantId('global');
+    setResOwner('');
+    setResUrl('');
+    setResDocUrl('');
+    setResNotes('');
   };
 
   const openEntitlementEdit = (ent?: Entitlement) => {
@@ -216,7 +242,7 @@ export default function ResourcesPage() {
           <h1 className="text-2xl font-bold tracking-tight">Ressourcenkatalog</h1>
           <p className="text-sm text-muted-foreground">Inventar für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
         </div>
-        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { setSelectedResource(null); setResName(''); setIsResourceDialogOpen(true); }}>
+        <Button size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { resetResourceForm(); setIsResourceDialogOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> System registrieren
         </Button>
       </div>
@@ -252,27 +278,32 @@ export default function ResourcesPage() {
                   <TableRow key={resource.id} className="group hover:bg-muted/5 border-b">
                     <TableCell className="py-4">
                       <div className="font-bold text-sm">{resource.name}</div>
-                      <div className="text-[10px] text-muted-foreground font-bold uppercase">{resource.type}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none py-0 h-4">{resource.type}</Badge>
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase flex items-center gap-1">
+                          <UserIcon className="w-2.5 h-2.5" /> {resource.owner}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">
+                      <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none border-primary/20 text-primary">
                         {getTenantSlug(resource.tenantId)}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", resource.criticality === 'high' ? "text-red-600 border-red-100" : "text-slate-600")}>
+                      <Badge variant="outline" className={cn("text-[8px] font-bold uppercase rounded-none", resource.criticality === 'high' ? "bg-red-50 text-red-700 border-red-100" : "bg-slate-50 text-slate-600 border-slate-200")}>
                         {resource.criticality}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {resourceEnts.slice(0, 3).map(e => (
-                          <Badge key={e.id} variant="secondary" className="rounded-none text-[8px] uppercase gap-1">
-                            {e.isAdmin && <ShieldAlert className="w-2.5 h-2.5 text-red-600" />}
+                          <Badge key={e.id} variant="secondary" className="rounded-none text-[8px] uppercase gap-1 bg-muted/50">
+                            {e.isAdmin ? <ShieldAlert className="w-2.5 h-2.5 text-red-600" /> : <GitGraph className="w-2.5 h-2.5 text-slate-400" />}
                             {e.name}
                           </Badge>
                         ))}
-                        {resourceEnts.length > 3 && <span className="text-[8px] font-bold">+{resourceEnts.length - 3} weitere</span>}
+                        {resourceEnts.length > 3 && <span className="text-[8px] font-bold text-muted-foreground">+{resourceEnts.length - 3}</span>}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -281,6 +312,9 @@ export default function ResourcesPage() {
                         <DropdownMenuContent align="end" className="w-56 rounded-none">
                           <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementListOpen(true); }}><Settings2 className="w-3.5 h-3.5 mr-2" /> Rollen verwalten</DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => openResourceEdit(resource)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                          {resource.url && resource.url !== '#' && (
+                            <DropdownMenuItem onSelect={() => window.open(resource.url, '_blank')}><LinkIcon className="w-3.5 h-3.5 mr-2" /> System öffnen</DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedResource(resource); setIsResourceDeleteOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -296,38 +330,117 @@ export default function ResourcesPage() {
 
       {/* Resource Edit Dialog */}
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
-        <DialogContent className="max-w-md rounded-none">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{selectedResource ? 'System bearbeiten' : 'System registrieren'}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">System-Name</Label><Input value={resName} onChange={e => setResName(e.target.value)} className="rounded-none" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Typ</Label><Select value={resType} onValueChange={setResType}><SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger><SelectContent className="rounded-none">{['SaaS', 'OnPrem', 'IoT', 'Cloud'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select></div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Scope</Label>
-                <Select value={resTenantId} onValueChange={setResTenantId}>
-                  <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="global">Global (Alle Firmen)</SelectItem>
-                    {tenants?.map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name} ({t.slug})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <DialogContent className="max-w-2xl rounded-none border shadow-2xl p-0 overflow-hidden flex flex-col h-[85vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <Network className="w-5 h-5 text-primary" />
+              <DialogTitle className="text-sm font-bold uppercase tracking-wider">
+                {selectedResource ? 'System bearbeiten' : 'System registrieren'}
+              </DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-8">
+              {/* Stammdaten */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Stammdaten & Scope</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Anwendung</Label>
+                    <Input value={resName} onChange={e => setResName(e.target.value)} placeholder="z.B. SAP S/4HANA" className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">System-Typ</Label>
+                    <Select value={resType} onValueChange={setResType}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {['SaaS', 'OnPrem', 'IoT', 'Cloud', 'Andere'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Zugehörigkeit (Mandant)</Label>
+                    <Select value={resTenantId} onValueChange={setResTenantId}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="global">Global (Alle Standorte)</SelectItem>
+                        {tenants?.map((t: any) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name} ({t.slug})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Verantwortlichkeit & Kritikalität */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                  <ShieldAlert className="w-3.5 h-3.5 text-primary" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Compliance & Kontrolle</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher (Owner)</Label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input value={resOwner} onChange={e => setResOwner(e.target.value)} placeholder="Name des Administrators" className="rounded-none h-10 pl-10" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Kritikalität</Label>
+                    <Select value={resCriticality} onValueChange={setResCriticality}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="low">Niedrig (Standard-IT)</SelectItem>
+                        <SelectItem value="medium">Mittel (Business-App)</SelectItem>
+                        <SelectItem value="high">Hoch (Kernprozess / Kritisch)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Links & Doku */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                  <LinkIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Verknüpfungen & Dokumentation</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Anwendungs-URL</Label>
+                    <Input value={resUrl} onChange={e => setResUrl(e.target.value)} placeholder="https://portal.company.com" className="rounded-none h-10 font-mono text-[11px]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Dokumentations-Link</Label>
+                    <Input value={resDocUrl} onChange={e => setResDocUrl(e.target.value)} placeholder="https://wiki.company.com/doku/sap" className="rounded-none h-10 font-mono text-[11px]" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Anmerkungen */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-widest">Zusätzliche Informationen</h3>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Interne Notizen</Label>
+                  <Textarea value={resNotes} onChange={e => setResNotes(e.target.value)} placeholder="Besonderheiten bei der Berechtigungsvergabe, Wartungsfenster etc." className="rounded-none min-h-[100px] resize-none" />
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Kritikalität</Label>
-              <Select value={resCriticality} onValueChange={setResCriticality}>
-                <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
-                <SelectContent className="rounded-none">
-                  <SelectItem value="low">Niedrig (Standard)</SelectItem>
-                  <SelectItem value="medium">Mittel (Business)</SelectItem>
-                  <SelectItem value="high">Hoch (Kritisch)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter><Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px]">Speichern</Button></DialogFooter>
+          </ScrollArea>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsResourceDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
+            <Button onClick={handleSaveResource} className="rounded-none font-bold uppercase text-[10px] px-10">System speichern</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
