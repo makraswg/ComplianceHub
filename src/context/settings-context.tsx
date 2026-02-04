@@ -9,6 +9,8 @@ interface SettingsContextType {
   setDataSource: (source: DataSource) => void;
   activeTenantId: string;
   setActiveTenantId: (id: string) => void;
+  theme: 'light' | 'dark';
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -16,6 +18,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [activeTenantId, setActiveTenantId] = useState<string>('all');
+  const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -28,9 +31,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     if (savedTenant) {
       setActiveTenantId(savedTenant);
     }
+
+    const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') : null;
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setThemeState(savedTheme as 'light' | 'dark');
+    } else if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setThemeState('dark');
+    }
     
     setIsHydrated(true);
   }, []);
+
+  const setTheme = (newTheme: 'light' | 'dark') => {
+    setThemeState(newTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newTheme);
+      if (newTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  };
 
   useEffect(() => {
     if (isHydrated && typeof window !== 'undefined') {
@@ -43,7 +65,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     dataSource, 
     setDataSource,
     activeTenantId,
-    setActiveTenantId
+    setActiveTenantId,
+    theme,
+    setTheme
   };
 
   return (

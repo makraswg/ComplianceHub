@@ -2,7 +2,7 @@
 "use client";
 
 import { AppSidebar } from '@/components/layout/app-sidebar';
-import { Bell, ChevronDown, Globe, Building2, Loader2 } from 'lucide-react';
+import { Bell, ChevronDown, Globe, Building2, Loader2, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/context/settings-context';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 function HeaderContent() {
-  const { activeTenantId, setActiveTenantId } = useSettings();
+  const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
   const { data: tenants, isLoading } = usePluggableCollection<Tenant>('tenants');
 
   const getTenantLabel = () => {
@@ -33,6 +33,14 @@ function HeaderContent() {
       </div>
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground h-9 w-9"
+            onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          >
+            {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+          </Button>
           <Button variant="ghost" size="icon" className="text-muted-foreground h-9 w-9">
             <Bell className="w-4 h-4" />
           </Button>

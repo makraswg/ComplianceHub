@@ -110,10 +110,10 @@ export default function DashboardPage() {
   if (!mounted) return null;
 
   const stats = [
-    { title: 'Benutzer', value: filteredData.users.length, icon: Users, label: 'Identitäten', color: 'text-blue-600', bg: 'bg-blue-50', loading: usersLoading },
-    { title: 'Systeme', value: filteredData.resources.length, icon: Layers, label: 'Katalog', color: 'text-indigo-600', bg: 'bg-indigo-50', loading: resourcesLoading },
-    { title: 'Zugriffe', value: filteredData.assignments.filter((a: any) => a.status === 'active').length, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-50', loading: assignmentsLoading },
-    { title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-600', bg: 'bg-orange-50', loading: auditLoading },
+    { title: 'Benutzer', value: filteredData.users.length, icon: Users, label: 'Identitäten', color: 'text-blue-600', bg: 'bg-blue-500/10', loading: usersLoading },
+    { title: 'Systeme', value: filteredData.resources.length, icon: Layers, label: 'Katalog', color: 'text-indigo-600', bg: 'bg-indigo-500/10', loading: resourcesLoading },
+    { title: 'Zugriffe', value: filteredData.assignments.filter((a: any) => a.status === 'active').length, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-600', bg: 'bg-emerald-500/10', loading: assignmentsLoading },
+    { title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-600', bg: 'bg-orange-500/10', loading: auditLoading },
   ];
 
   return (
@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <Card key={stat.title} className="shadow-none rounded-none border">
+          <Card key={stat.title} className="shadow-none rounded-none border bg-card">
             <CardContent className="p-5">
               <div className="flex items-center gap-4">
                 <div className={cn("p-2 rounded-sm", stat.bg, stat.color)}><stat.icon className="w-4 h-4" /></div>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 shadow-none rounded-none border">
+        <Card className="lg:col-span-2 shadow-none rounded-none border bg-card">
           <CardHeader className="border-b bg-muted/10 py-3">
             <CardTitle className="text-xs font-bold uppercase tracking-widest">Zertifizierungs-Kampagne (Q1/2024)</CardTitle>
           </CardHeader>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
               </div>
               <Badge className="rounded-none bg-blue-600 uppercase text-[9px] px-3">Laufend</Badge>
             </div>
-            <Progress value={68} className="h-2 rounded-none bg-slate-100" />
+            <Progress value={68} className="h-2 rounded-none bg-muted" />
             <div className="grid grid-cols-2 gap-4 mt-8">
               <div className="p-4 border bg-muted/5">
                 <p className="text-[9px] font-bold uppercase text-muted-foreground mb-1">Offene Prüfungen</p>
@@ -183,7 +183,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-none rounded-none border">
+        <Card className="shadow-none rounded-none border bg-card">
           <CardHeader className="border-b bg-muted/10 py-3">
             <CardTitle className="text-xs font-bold uppercase tracking-widest">Risiko-Profil</CardTitle>
           </CardHeader>
@@ -203,7 +203,10 @@ export default function DashboardPage() {
                   >
                     {riskData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', fontSize: '10px' }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -224,7 +227,7 @@ export default function DashboardPage() {
 
       {/* Compliance Report Dialog */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="rounded-none max-w-md">
+        <DialogContent className="rounded-none max-w-md bg-card">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold uppercase">Compliance Bericht generieren</DialogTitle>
             <DialogDescription className="text-xs">
@@ -235,7 +238,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-4 py-4">
             <Button
               variant="outline"
-              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4"
+              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4 bg-transparent"
               onClick={() => handleExport('user')}
               disabled={isExporting}
             >
@@ -250,7 +253,7 @@ export default function DashboardPage() {
 
             <Button
               variant="outline"
-              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4"
+              className="justify-start h-16 rounded-none border-primary/20 hover:border-primary hover:bg-primary/5 gap-4 bg-transparent"
               onClick={() => handleExport('resource')}
               disabled={isExporting}
             >
