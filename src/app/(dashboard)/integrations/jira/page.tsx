@@ -36,6 +36,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { fetchJiraSyncItems, resolveJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -234,7 +235,7 @@ export default function JiraSyncPage() {
       if (dataSource === 'mysql') {
         await saveCollectionRecord('assignments', assignmentId, assignmentData, dataSource);
       } else {
-        addDocumentNonBlocking(collection(db, 'assignments'), assignmentData);
+        updateDocumentNonBlocking(doc(db, 'assignments', assignmentId), assignmentData);
       }
     }
 
