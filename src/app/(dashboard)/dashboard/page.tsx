@@ -288,7 +288,7 @@ export default function DashboardPage() {
               <div className="p-2 bg-blue-50 text-blue-600 rounded-sm group-hover:bg-blue-100"><UserCircle className="w-6 h-6" /></div>
               <div className="text-left">
                 <p className="text-xs font-bold uppercase">Nach Benutzern</p>
-                <p className="text-[10px] text-muted-foreground">Struktur: Mitarbeiter -> Berechtigungen</p>
+                <p className="text-[10px] text-muted-foreground">Struktur: Mitarbeiter &rarr; Berechtigungen</p>
               </div>
             </Button>
             <Button 
@@ -299,7 +299,7 @@ export default function DashboardPage() {
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-sm group-hover:bg-indigo-100"><Layers className="w-6 h-6" /></div>
               <div className="text-left">
                 <p className="text-xs font-bold uppercase">Nach Ressourcen</p>
-                <p className="text-[10px] text-muted-foreground">Struktur: System -> Berechtigte Personen</p>
+                <p className="text-[10px] text-muted-foreground">Struktur: System &rarr; Berechtigte Personen</p>
               </div>
             </Button>
           </div>
