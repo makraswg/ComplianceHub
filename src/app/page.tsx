@@ -122,8 +122,9 @@ export default function LoginPage() {
                 <Input id="email" type="email" placeholder="admin@company.com" value={email} onChange={(e) => setEmail(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" title="Passwort" className="text-[10px] font-bold uppercase">Passwort</Label>
+                <Label htmlFor="password" title="Passwort" className="text-[10px] font-bold uppercase">Passwort</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none" />
+                <div className="flex justify-end pt-1">
                   <button 
                     type="button" 
                     className="text-[10px] font-bold uppercase text-primary hover:underline"
@@ -132,7 +133,6 @@ export default function LoginPage() {
                     Passwort vergessen?
                   </button>
                 </div>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="rounded-none" />
               </div>
               
               <div className="p-3 bg-muted/20 border text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
@@ -178,7 +178,7 @@ export default function LoginPage() {
                   className="rounded-none" 
                 />
               </div>
-              <DialogFooter className="flex flex-col gap-2 sm:flex-col">
+              <DialogFooter className="flex flex-col gap-2 sm:flex-col pt-4">
                 <Button className="w-full rounded-none font-bold uppercase text-[10px] gap-2" onClick={handleForgotSubmit} disabled={isForgotLoading}>
                   {isForgotLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
                   Reset-Link senden
