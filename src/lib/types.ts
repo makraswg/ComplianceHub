@@ -182,6 +182,14 @@ export interface SyncJob {
   enabled: boolean | number;
 }
 
+export interface HelpContent {
+  id: string;
+  section: string;
+  title: string;
+  content: string;
+  order: number;
+}
+
 export interface JiraSyncItem {
   key: string;
   summary: string;

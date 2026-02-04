@@ -20,7 +20,8 @@ import {
   UserPlus,
   User as UserIcon,
   Lock,
-  Loader2
+  Loader2,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -212,6 +213,18 @@ export function AppSidebar() {
             >
               <Settings className="w-3.5 h-3.5" />
               <span>Einstellungen</span>
+            </Link>
+            <Link 
+              href="/help"
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
+                pathname === '/help' 
+                  ? "bg-primary text-primary-foreground" 
+                  : "text-slate-400 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span>Hilfe & Doku</span>
             </Link>
           </nav>
         </div>

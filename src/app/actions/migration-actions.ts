@@ -109,6 +109,27 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
+    // SEEDING: Initial Help Content
+    details.push('🌱 Erstelle Hilfe-Inhalte...');
+    const defaultHelp = [
+      { id: 'help-01', section: 'Allgemein', title: 'Willkommen beim ComplianceHub', content: 'Der ComplianceHub ist Ihr zentrales Werkzeug zur Verwaltung von IT-Berechtigungen und Identitäten. Hier werden Onboarding-, Offboarding- und Review-Prozesse revisionssicher dokumentiert.', order: 1 },
+      { id: 'help-02', section: 'Identitäten', title: 'Benutzerverwaltung', content: 'Im Benutzerverzeichnis finden Sie alle Mitarbeiter. Diese können manuell angelegt oder automatisch via LDAP (Active Directory) synchronisiert werden.', order: 2 },
+      { id: 'help-03', section: 'Workflows', title: 'Jira Integration', content: 'Der Hub sendet Tickets für Berechtigungsänderungen an Jira. Sobald diese dort erledigt werden, können sie im Hub finalisiert werden, um die Rechte technisch aktiv zu schalten.', order: 3 },
+      { id: 'help-04', section: 'Lifecycle', title: 'Onboarding (Joiner)', content: 'Nutzen Sie Berechtigungspakete (Bundles), um neuen Mitarbeitern mit einem Klick alle notwendigen Basis-Rechte zuzuweisen. Ein Jira-Ticket wird automatisch zur Ausführung erstellt.', order: 4 },
+      { id: 'help-05', section: 'Governance', title: 'Access Reviews', content: 'Führen Sie regelmäßige Rezertifizierungen durch. Der KI-Advisor unterstützt Sie dabei, unnötige oder riskante Berechtigungen zu identifizieren.', order: 5 }
+    ];
+
+    for (const h of defaultHelp) {
+      const [helpRows]: any = await connection.execute('SELECT id FROM `helpContent` WHERE id = ?', [h.id]);
+      if (helpRows.length === 0) {
+        await connection.execute(
+          'INSERT INTO `helpContent` (id, section, title, content, `order`) VALUES (?, ?, ?, ?, ?)',
+          [h.id, h.section, h.title, h.content, h.order]
+        );
+        details.push(`   ✅ Hilfe-Sektion erstellt: ${h.title}`);
+      }
+    }
+
     connection.release();
     return { 
         success: true, 

@@ -23,6 +23,7 @@ const collectionToTableMap: { [key: string]: string } = {
   smtpConfigs: 'smtpConfigs',
   aiConfigs: 'aiConfigs',
   syncJobs: 'syncJobs',
+  helpContent: 'helpContent',
 };
 
 /**

@@ -207,5 +207,14 @@ export const appSchema: AppSchema = {
       lastMessage: 'TEXT',
       enabled: 'BOOLEAN DEFAULT TRUE',
     }
+  },
+  helpContent: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      section: 'VARCHAR(100) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      content: 'TEXT NOT NULL',
+      `order`: 'INT DEFAULT 0'
+    }
   }
 };

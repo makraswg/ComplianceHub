@@ -84,6 +84,18 @@
         "syncSource": { "type": "string" }
       },
       "required": ["id", "tenantId", "userId", "entitlementId", "status"]
+    },
+    "HelpContent": {
+      "title": "HelpContent",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "section": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "section", "title", "content"]
     }
   },
   "auth": {
@@ -96,7 +108,8 @@
       { "path": "users/{userId}", "definition": { "schema": { "$ref": "#/backend/entities/User" } } },
       { "path": "resources/{resourceId}", "definition": { "schema": { "$ref": "#/backend/entities/Resource" } } },
       { "path": "entitlements/{entitlementId}", "definition": { "schema": { "$ref": "#/backend/entities/Entitlement" } } },
-      { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } }
+      { "path": "assignments/{assignmentId}", "definition": { "schema": { "$ref": "#/backend/entities/Assignment" } } },
+      { "path": "helpContent/{helpId}", "definition": { "schema": { "$ref": "#/backend/entities/HelpContent" } } }
     ]
   }
 }
