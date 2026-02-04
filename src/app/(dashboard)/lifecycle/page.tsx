@@ -359,24 +359,28 @@ export default function LifecyclePage() {
                   <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
                     <Layers className="w-3.5 h-3.5" /> 2. Rollenpaket auswählen
                   </Label>
-                  <ScrollArea className="h-64 border rounded-none p-4 bg-slate-50/50">
-                    <div className="grid grid-cols-1 gap-2">
+                  <ScrollArea className="h-64 border rounded-none p-2 bg-slate-50/50">
+                    <div className="grid grid-cols-1 gap-1.5">
                       {bundles?.filter((b: any) => activeTenantId === 'all' || b.tenantId === activeTenantId).map((bundle: any) => (
                         <div 
                           key={bundle.id} 
                           className={cn(
-                            "p-4 border cursor-pointer transition-all flex items-center justify-between group",
+                            "p-3 border cursor-pointer transition-all flex items-center justify-between group rounded-none",
                             selectedBundleId === bundle.id 
-                              ? "border-primary bg-primary/10 ring-1 ring-primary" 
-                              : "bg-white hover:border-slate-300"
+                              ? "border-primary bg-primary/5 ring-1 ring-inset ring-primary" 
+                              : "bg-white border-slate-200 hover:border-slate-300"
                           )}
                           onClick={() => setSelectedBundleId(bundle.id)}
                         >
                           <div>
-                            <div className="font-bold text-xs uppercase group-hover:text-primary transition-colors">{bundle.name}</div>
-                            <p className="text-[9px] text-muted-foreground uppercase font-bold mt-0.5">{(bundle.entitlementIds || []).length} Berechtigungen</p>
+                            <div className="font-bold text-[11px] uppercase group-hover:text-primary transition-colors">{bundle.name}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[8px] text-muted-foreground uppercase font-bold">{(bundle.entitlementIds || []).length} Rollen</span>
+                              <span className="text-[8px] text-slate-300">|</span>
+                              <span className="text-[8px] text-muted-foreground truncate max-w-[150px] italic">{bundle.description}</span>
+                            </div>
                           </div>
-                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-3.5 h-3.5 text-primary" />}
                         </div>
                       ))}
                       {(!bundles || bundles.length === 0) && (
@@ -427,7 +431,7 @@ export default function LifecyclePage() {
                   <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : users?.filter((u: any) => (activeTenantId === 'all' || u.tenantId === activeTenantId) && u.displayName.toLowerCase().includes(search.toLowerCase())).map((u: any) => (
                   <TableRow key={u.id} className="hover:bg-muted/5 border-b">
-                    <TableCell className="py-4">
+                    <TableCell className="py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-slate-100 flex items-center justify-center rounded-full text-[10px] font-bold uppercase text-slate-500">{u.displayName?.charAt(0)}</div>
                         <div>
@@ -476,8 +480,8 @@ export default function LifecyclePage() {
                   <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : bundles?.filter((b: any) => activeTenantId === 'all' || b.tenantId === activeTenantId).map((bundle: any) => (
                   <TableRow key={bundle.id} className="hover:bg-muted/5 border-b">
-                    <TableCell className="py-4">
-                      <div className="font-bold text-sm uppercase">{bundle.name}</div>
+                    <TableCell className="py-3">
+                      <div className="font-bold text-[13px] uppercase tracking-tight">{bundle.name}</div>
                       <div className="text-[10px] text-muted-foreground italic truncate max-w-md">{bundle.description || 'Keine Beschreibung'}</div>
                     </TableCell>
                     <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{getTenantSlug(bundle.tenantId)}</Badge></TableCell>
@@ -570,7 +574,7 @@ export default function LifecyclePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {filteredRoles.map((ent: any) => {
                     const isSelected = selectedEntitlementIds.includes(ent.id);
                     const res = resources?.find((r: any) => r.id === ent.resourceId);
@@ -578,20 +582,20 @@ export default function LifecyclePage() {
                       <div 
                         key={ent.id} 
                         className={cn(
-                          "p-3 border cursor-pointer transition-all flex items-start justify-between gap-3 group",
+                          "p-2.5 border cursor-pointer transition-all flex items-start justify-between gap-3 group rounded-none",
                           isSelected 
                             ? "bg-emerald-50 border-emerald-500 ring-1 ring-emerald-500" 
-                            : "bg-white hover:bg-slate-50"
+                            : "bg-white hover:bg-slate-50 border-slate-200"
                         )}
                         onClick={() => setSelectedEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}
                       >
                         <div className="min-w-0">
-                          <p className="font-bold text-[11px] truncate group-hover:text-primary transition-colors">{ent.name}</p>
-                          <p className="text-[9px] text-muted-foreground uppercase font-bold mt-0.5 truncate">{res?.name || 'System'}</p>
+                          <p className="font-bold text-[10px] truncate group-hover:text-primary transition-colors">{ent.name}</p>
+                          <p className="text-[8px] text-muted-foreground uppercase font-bold mt-0.5 truncate">{res?.name || 'System'}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {ent.isAdmin && <ShieldAlert className="w-3.5 h-3.5 text-red-600" />}
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                          {ent.isAdmin && <ShieldAlert className="w-3 h-3 text-red-600" />}
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
                         </div>
                       </div>
                     );
