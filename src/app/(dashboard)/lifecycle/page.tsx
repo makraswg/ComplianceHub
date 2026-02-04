@@ -15,18 +15,37 @@ import {
   Search,
   CheckCircle2,
   Zap,
-  ShieldAlert
+  ShieldAlert,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Info
 } from 'lucide-react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
   setDocumentNonBlocking, 
   updateDocumentNonBlocking,
+  deleteDocumentNonBlocking
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
 import { Switch } from '@/components/ui/switch';
 import { 
@@ -62,12 +81,15 @@ export default function LifecyclePage() {
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
   const [onboardingDate, setOnboardingDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Bundle State
   const [isBundleCreateOpen, setIsBundleCreateOpen] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState<any>(null);
   const [bundleName, setBundleName] = useState('');
   const [bundleDesc, setBundleDesc] = useState('');
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
   const [roleSearchTerm, setRoleSearchTerm] = useState('');
   const [adminOnlyFilter, setAdminOnlyFilter] = useState(false);
+  const [isBundleDeleteOpen, setIsBundleDeleteOpen] = useState(false);
 
   const [userToOffboard, setUserToOffboard] = useState<any>(null);
   const [isOffboardConfirmOpen, setIsOffboardConfirmOpen] = useState(false);
@@ -100,7 +122,7 @@ export default function LifecyclePage() {
       toast({ variant: "destructive", title: "Fehler", description: "Name und Rollen erforderlich." });
       return;
     }
-    const bundleId = `bundle-${Math.random().toString(36).substring(2, 9)}`;
+    const bundleId = selectedBundle?.id || `bundle-${Math.random().toString(36).substring(2, 9)}`;
     const bundleData = {
       id: bundleId,
       tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
@@ -108,11 +130,39 @@ export default function LifecyclePage() {
       description: bundleDesc,
       entitlementIds: selectedEntitlementIds
     };
-    if (dataSource === 'mysql') await saveCollectionRecord('bundles', bundleId, bundleData);
-    else setDocumentNonBlocking(doc(db, 'bundles', bundleId), bundleData);
-    toast({ title: "Bundle erstellt" });
-    setIsBundleCreateOpen(false);
-    setTimeout(() => refreshBundles(), 200);
+    
+    try {
+      if (dataSource === 'mysql') await saveCollectionRecord('bundles', bundleId, bundleData);
+      else setDocumentNonBlocking(doc(db, 'bundles', bundleId), bundleData);
+      
+      toast({ title: selectedBundle ? "Bundle aktualisiert" : "Bundle erstellt" });
+      setIsBundleCreateOpen(false);
+      setTimeout(() => refreshBundles(), 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
+    }
+  };
+
+  const openEditBundle = (bundle: any) => {
+    setSelectedBundle(bundle);
+    setBundleName(bundle.name);
+    setBundleDesc(bundle.description || '');
+    setSelectedEntitlementIds(bundle.entitlementIds || []);
+    setIsBundleCreateOpen(true);
+  };
+
+  const handleDeleteBundle = async () => {
+    if (!selectedBundle) return;
+    try {
+      if (dataSource === 'mysql') await deleteCollectionRecord('bundles', selectedBundle.id);
+      else deleteDocumentNonBlocking(doc(db, 'bundles', selectedBundle.id));
+      
+      toast({ title: "Bundle gelöscht" });
+      setIsBundleDeleteOpen(false);
+      setTimeout(() => refreshBundles(), 200);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
+    }
   };
 
   const startOnboarding = async () => {
@@ -184,7 +234,13 @@ export default function LifecyclePage() {
           <h1 className="text-2xl font-bold tracking-tight">Identity Lifecycle Hub</h1>
           <p className="text-sm text-muted-foreground">Prozesse für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
         </div>
-        <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => setIsBundleCreateOpen(true)}>
+        <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { 
+          setSelectedBundle(null); 
+          setBundleName(''); 
+          setBundleDesc(''); 
+          setSelectedEntitlementIds([]); 
+          setIsBundleCreateOpen(true); 
+        }}>
           <Package className="w-3.5 h-3.5 mr-2" /> Bundle definieren
         </Button>
       </div>
@@ -250,20 +306,60 @@ export default function LifecyclePage() {
         </TabsContent>
 
         <TabsContent value="bundles">
-          <div className="grid grid-cols-3 gap-6">
-            {bundles?.filter(b => activeTenantId === 'all' || b.tenantId === activeTenantId).map(bundle => (
-              <Card key={bundle.id} className="rounded-none shadow-none border">
-                <CardHeader className="bg-muted/10 border-b py-3 font-bold text-xs uppercase">{bundle.name}</CardHeader>
-                <CardContent className="p-4 text-xs text-muted-foreground">{bundle.description}</CardContent>
-              </Card>
-            ))}
+          <div className="admin-card overflow-hidden">
+            <Table>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
+                  <TableHead className="py-4 font-bold uppercase text-[10px]">Paket-Name</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Beschreibung</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
+                  <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bundles?.filter(b => activeTenantId === 'all' || b.tenantId === activeTenantId).map((bundle) => (
+                  <TableRow key={bundle.id} className="hover:bg-muted/5 border-b">
+                    <TableCell className="py-4 font-bold text-sm uppercase">{bundle.name}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{bundle.description || '—'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs">{(bundle.entitlementIds || []).length}</span>
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Rollen</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-5 h-5" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-none w-48">
+                          <DropdownMenuItem onSelect={() => openEditBundle(bundle)}>
+                            <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedBundle(bundle); setIsBundleDeleteOpen(true); }}>
+                            <Trash2 className="w-3.5 h-3.5 mr-2" /> Paket löschen
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {(!bundles || bundles.length === 0) && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine Pakete definiert.</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </TabsContent>
       </Tabs>
 
       <Dialog open={isBundleCreateOpen} onOpenChange={setIsBundleCreateOpen}>
         <DialogContent className="max-w-4xl rounded-none">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Neues Paket definieren</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold uppercase">
+              {selectedBundle ? 'Paket bearbeiten' : 'Neues Paket definieren'}
+            </DialogTitle>
+          </DialogHeader>
           <div className="py-4 space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Paket-Name</Label><Input value={bundleName} onChange={e => setBundleName(e.target.value)} className="rounded-none" /></div>
@@ -294,6 +390,21 @@ export default function LifecyclePage() {
           <DialogFooter><Button onClick={handleCreateBundle} className="rounded-none font-bold uppercase text-[10px] px-10">Paket speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isBundleDeleteOpen} onOpenChange={setIsBundleDeleteOpen}>
+        <AlertDialogContent className="rounded-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 font-bold uppercase text-sm">Paket löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              Dies entfernt die Definition des Pakets **{selectedBundle?.name}**. Existierende Zuweisungen für Benutzer bleiben unberührt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBundle} className="bg-red-600 rounded-none text-xs uppercase font-bold">Bestätigen</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={isOffboardConfirmOpen} onOpenChange={setIsOffboardConfirmOpen}>
         <AlertDialogContent className="rounded-none">
