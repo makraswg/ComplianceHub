@@ -68,21 +68,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGuestLogin = () => {
-    // For demo purposes, we create a fake guest user
-    const guestUser = {
-      id: 'guest',
-      email: 'guest@demo.local',
-      displayName: 'Gast Nutzer',
-      role: 'viewer' as any,
-      tenantId: 'all',
-      createdAt: new Date().toISOString(),
-      enabled: true
-    };
-    setUser(guestUser);
-    router.push('/dashboard');
-  };
-
   const handleForgotSubmit = async () => {
     if (!forgotEmail) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte E-Mail Adresse eingeben." });
@@ -158,13 +143,6 @@ export default function LoginPage() {
               <Button type="submit" className="w-full h-11 bg-primary hover:bg-primary/90 rounded-none font-bold uppercase text-xs" disabled={isActionLoading}>
                 {isActionLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
                 Anmelden
-              </Button>
-              <div className="relative w-full text-center">
-                <span className="bg-background px-2 text-[10px] text-muted-foreground uppercase font-bold">Oder</span>
-                <div className="absolute top-1/2 left-0 right-0 -z-10 h-px bg-border" />
-              </div>
-              <Button type="button" variant="outline" className="w-full rounded-none font-bold uppercase text-[10px]" onClick={handleGuestLogin} disabled={isActionLoading}>
-                Anonym fortfahren (Demo)
               </Button>
             </CardFooter>
           </form>
