@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -32,7 +33,6 @@ export default function LoginPage() {
   const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
-  // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -53,8 +53,8 @@ export default function LoginPage() {
         throw new Error("Bitte geben Sie eine E-Mail Adresse ein.");
       }
       
-      // Password is required for MySQL
-      if (dataSource === 'mysql' && !password) {
+      // We always require a password for a professional look, even in cloud mode
+      if (!password) {
           throw new Error("Bitte geben Sie Ihr Passwort ein.");
       }
 
@@ -127,7 +127,7 @@ export default function LoginPage() {
               </div>
             </div>
             <CardDescription className="text-xs uppercase font-bold text-muted-foreground/60">
-              Identitätsprüfung via {dataSource === 'mysql' ? 'Lokale Datenbank' : 'Cloud Verzeichnis'}
+              Identitätsprüfung via {dataSource === 'mysql' ? 'Lokale Datenbank' : 'Zentrales Verzeichnis'}
             </CardDescription>
           </CardHeader>
           
@@ -157,32 +157,30 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {dataSource === 'mysql' && (
-                <div className="space-y-2 animate-in slide-in-from-top-1">
-                  <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Passwort</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      placeholder="••••••••"
-                      value={password} 
-                      onChange={(e) => setPassword(e.target.value)} 
-                      className="rounded-none h-11 pl-10 border-muted-foreground/20 focus:border-primary transition-all" 
-                      required
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button 
-                      type="button" 
-                      className="text-[10px] font-bold uppercase text-primary hover:text-primary/80 transition-colors"
-                      onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
-                    >
-                      Passwort vergessen?
-                    </button>
-                  </div>
+              <div className="space-y-2 animate-in slide-in-from-top-1">
+                <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Passwort</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    placeholder="••••••••"
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="rounded-none h-11 pl-10 border-muted-foreground/20 focus:border-primary transition-all" 
+                    required
+                  />
                 </div>
-              )}
+                <div className="flex justify-end">
+                  <button 
+                    type="button" 
+                    className="text-[10px] font-bold uppercase text-primary hover:text-primary/80 transition-colors"
+                    onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
+                  >
+                    Passwort vergessen?
+                  </button>
+                </div>
+              </div>
               
               <div className="p-3 bg-muted/30 border border-dashed text-[9px] font-bold uppercase text-muted-foreground flex items-center gap-2">
                 <Shield className="w-3 h-3 text-primary" />
@@ -197,7 +195,7 @@ export default function LoginPage() {
                 disabled={isActionLoading}
               >
                 {isActionLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
-                Systemzugang anfordern
+                Anmelden
               </Button>
             </CardFooter>
           </form>

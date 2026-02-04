@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -12,24 +13,21 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  // Der konsistente Startwert ist 'mysql'.
+  // We force 'mysql' as the hard default to ensure consistency between editor and preview.
   const [dataSource, setDataSource] = useState<DataSource>('mysql');
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Dieser Effekt wird NUR auf dem Client ausgeführt, nachdem die Komponente gemountet wurde.
   useEffect(() => {
-    // Wenn im Local Storage ein gespeicherter Wert existiert, wird dieser verwendet.
-    const savedSource = localStorage.getItem('dataSource');
+    // Only on client side
+    const savedSource = typeof window !== 'undefined' ? localStorage.getItem('dataSource') : null;
     if (savedSource === 'firestore' || savedSource === 'mock' || savedSource === 'mysql') {
       setDataSource(savedSource as DataSource);
     }
-    // Markiert die Komponente als "hydriert", um Hydration-Fehler zu vermeiden.
     setIsHydrated(true);
   }, []);
 
-  // Dieser Effekt speichert zukünftige Änderungen zurück in den Local Storage.
   useEffect(() => {
-    if (isHydrated) {
+    if (isHydrated && typeof window !== 'undefined') {
       localStorage.setItem('dataSource', dataSource);
     }
   }, [dataSource, isHydrated]);
