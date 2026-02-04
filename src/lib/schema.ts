@@ -196,5 +196,16 @@ export const appSchema: AppSchema = {
       geminiModel: 'VARCHAR(255)',
       enabled: 'BOOLEAN DEFAULT TRUE',
     }
+  },
+  syncJobs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      lastRun: 'VARCHAR(50)',
+      lastStatus: 'VARCHAR(20)',
+      lastMessage: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
   }
 };

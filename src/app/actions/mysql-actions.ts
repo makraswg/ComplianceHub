@@ -22,7 +22,38 @@ const collectionToTableMap: { [key: string]: string } = {
   servicePartners: 'servicePartners',
   smtpConfigs: 'smtpConfigs',
   aiConfigs: 'aiConfigs',
+  syncJobs: 'syncJobs',
 };
+
+/**
+ * Hilfsfunktion zum Umwandeln von MySQL Werten in echte JavaScript-Typen.
+ */
+function normalizeRecord(item: any, tableName: string) {
+  const normalized = { ...item };
+  
+  // JSON-Felder für spezifische Tabellen parsen
+  if (tableName === 'groups' || tableName === 'bundles') {
+    normalized.entitlementConfigs = item.entitlementConfigs ? (typeof item.entitlementConfigs === 'string' ? JSON.parse(item.entitlementConfigs) : item.entitlementConfigs) : [];
+    normalized.userConfigs = item.userConfigs ? (typeof item.userConfigs === 'string' ? JSON.parse(item.userConfigs) : item.userConfigs) : [];
+    normalized.entitlementIds = item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [];
+    normalized.userIds = item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [];
+  }
+
+  if (tableName === 'auditEvents') {
+    normalized.before = item.before ? (typeof item.before === 'string' ? JSON.parse(item.before) : item.before) : null;
+    normalized.after = item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null;
+  }
+
+  // Booleans für alle Tabellen normalisieren (MySQL TINYINT(1) -> Boolean)
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'ldapEnabled'];
+  boolFields.forEach(f => {
+    if (normalized[f] !== undefined && normalized[f] !== null) {
+      normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
+    }
+  });
+
+  return normalized;
+}
 
 /**
  * Führt eine sichere Leseoperation auf einer Tabelle aus, unabhängig von der Datenquelle.
@@ -55,47 +86,17 @@ export async function getCollectionData(collectionName: string, dataSource: Data
     const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
     connection.release();
     
-    let data = JSON.parse(JSON.stringify(rows));
+    let rawData = JSON.parse(JSON.stringify(rows));
     
-    // JSON-Felder für spezifische Tabellen parsen
-    if (tableName === 'groups' || tableName === 'bundles') {
-      data = data.map((item: any) => ({
-        ...item,
-        entitlementConfigs: item.entitlementConfigs ? (typeof item.entitlementConfigs === 'string' ? JSON.parse(item.entitlementConfigs) : item.entitlementConfigs) : [],
-        userConfigs: item.userConfigs ? (typeof item.userConfigs === 'string' ? JSON.parse(item.userConfigs) : item.userConfigs) : [],
-        entitlementIds: item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [],
-        userIds: item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [],
-      }));
-    }
-
-    if (tableName === 'auditEvents') {
-      data = data.map((item: any) => ({
-        ...item,
-        before: item.before ? (typeof item.before === 'string' ? JSON.parse(item.before) : item.before) : null,
-        after: item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null,
-      }));
-    }
-
     // Security: Passwörter niemals an das Frontend schicken
     if (tableName === 'platformUsers') {
-      data = data.map((u: any) => {
+      rawData = rawData.map((u: any) => {
         const { password, ...rest } = u;
         return rest;
       });
     }
 
-    // Global: Booleans für alle Tabellen normalisieren (MySQL TINYINT(1) -> Boolean)
-    data = data.map((item: any) => {
-      const normalized = { ...item };
-      const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'ldapEnabled'];
-      boolFields.forEach(f => {
-        if (normalized[f] !== undefined && normalized[f] !== null) {
-          normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
-        }
-      });
-      return normalized;
-    });
-    
+    const data = rawData.map((item: any) => normalizeRecord(item, tableName));
     return { data, error: null };
 
   } catch (error: any) {
@@ -157,11 +158,12 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     }
 
     // MySQL spezifische Boolean-Konvertierung
-    if (preparedData.enabled !== undefined) preparedData.enabled = preparedData.enabled ? 1 : 0;
-    if (preparedData.isAdmin !== undefined) preparedData.isAdmin = preparedData.isAdmin ? 1 : 0;
-    if (preparedData.isSharedAccount !== undefined) preparedData.isSharedAccount = preparedData.isSharedAccount ? 1 : 0;
-    if (preparedData.ldapEnabled !== undefined) preparedData.ldapEnabled = preparedData.ldapEnabled ? 1 : 0;
-    if (preparedData.enabled === false) preparedData.enabled = 0; 
+    const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
+    boolKeys.forEach(key => {
+      if (preparedData[key] !== undefined) {
+        preparedData[key] = preparedData[key] ? 1 : 0;
+      }
+    });
 
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);

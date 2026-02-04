@@ -172,6 +172,16 @@ export interface AiConfig {
   enabled: boolean | number;
 }
 
+export interface SyncJob {
+  id: string;
+  name: string;
+  description: string;
+  lastRun?: string;
+  lastStatus?: 'success' | 'error' | 'running';
+  lastMessage?: string;
+  enabled: boolean | number;
+}
+
 export interface JiraSyncItem {
   key: string;
   summary: string;

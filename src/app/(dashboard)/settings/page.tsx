@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -34,7 +35,12 @@ import {
   Cpu,
   Info,
   List,
-  Check
+  Check,
+  Play,
+  Activity,
+  History,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -48,11 +54,13 @@ import {
 } from '@/app/actions/jira-actions';
 import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
 import { testOllamaConnectionAction } from '@/app/actions/ai-actions';
+import { triggerSyncJobAction } from '@/app/actions/sync-actions';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { 
   useFirestore, 
   setDocumentNonBlocking, 
+  useUser as useAuthUser
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -67,11 +75,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlatformUser, Role, SmtpConfig, AiConfig } from '@/lib/types';
+import { PlatformUser, Role, SmtpConfig, AiConfig, SyncJob } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
   const { dataSource } = useSettings();
+  const { user: authUser } = useAuthUser();
   
   const [activeTab, setActiveTab] = useState('general');
 
@@ -79,6 +88,7 @@ export default function SettingsPage() {
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
   const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
   const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
+  const { data: syncJobs, refresh: refreshJobs, isLoading: isJobsLoading } = usePluggableCollection<SyncJob>('syncJobs');
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
@@ -166,6 +176,7 @@ export default function SettingsPage() {
   const [isTestingJira, setIsTestingJira] = useState(false);
   const [isDiscovering, setIsDiscovering] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; availableTypes?: string[] } | null>(null);
+  const [runningJobId, setRunningJobId] = useState<string | null>(null);
 
   // Hydrate AI Config
   useEffect(() => {
@@ -219,22 +230,6 @@ export default function SettingsPage() {
       setAssetsSystemAttributeId(c.assetsSystemAttributeId || '');
     }
   }, [jiraConfigs]);
-
-  const tokenExpiryStatus = useMemo(() => {
-    if (!jiraTokenExpiresAt) return null;
-    const expiryDate = new Date(jiraTokenExpiresAt);
-    const now = new Date();
-    const diffTime = expiryDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffTime < 0) {
-      return { type: 'expired', title: 'Token abgelaufen', message: 'Das Jira API Token ist ungültig. Bitte neues Token generieren.' };
-    }
-    if (diffDays <= 14) {
-      return { type: 'warning', title: 'Token läuft bald ab', message: `Das Jira API Token läuft in ${diffDays} Tagen ab. Bitte rechtzeitig erneuern.` };
-    }
-    return null;
-  }, [jiraTokenExpiresAt]);
 
   const handleSaveAi = async () => {
     setIsSaving(true);
@@ -456,6 +451,23 @@ export default function SettingsPage() {
     setTimeout(() => refreshPlatformUsers(), 200);
   };
 
+  const handleRunSyncJob = async (jobId: string) => {
+    setRunningJobId(jobId);
+    try {
+      const res = await triggerSyncJobAction(jobId, dataSource, authUser?.email || 'admin');
+      if (res.success) {
+        toast({ title: "Sync-Job ausgeführt" });
+      } else {
+        toast({ variant: "destructive", title: "Sync fehlgeschlagen", description: res.error });
+      }
+      setTimeout(() => refreshJobs(), 500);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setRunningJobId(null);
+    }
+  };
+
   const handleDeletePlatformUser = async (id: string) => {
     if (dataSource === 'mysql') await deleteCollectionRecord('platformUsers', id);
     else {
@@ -471,6 +483,22 @@ export default function SettingsPage() {
     const tenant = tenants?.find(t => t.id === id);
     return tenant ? tenant.slug : id;
   };
+
+  const tokenExpiryStatus = useMemo(() => {
+    if (!jiraTokenExpiresAt) return null;
+    const expiryDate = new Date(jiraTokenExpiresAt);
+    const now = new Date();
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffTime < 0) {
+      return { type: 'expired', title: 'Token abgelaufen', message: 'Das Jira API Token ist ungültig. Bitte neues Token generieren.' };
+    }
+    if (diffDays <= 14) {
+      return { type: 'warning', title: 'Token läuft bald ab', message: `Das Jira API Token läuft in ${diffDays} Tagen ab. Bitte rechtzeitig erneuern.` };
+    }
+    return null;
+  }, [jiraTokenExpiresAt]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-20">
@@ -490,6 +518,7 @@ export default function SettingsPage() {
           <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
           <TabsTrigger value="smtp" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Mail className="w-3.5 h-3.5" /> E-Mail (SMTP)</TabsTrigger>
           <TabsTrigger value="ai" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><BrainCircuit className="w-3.5 h-3.5" /> KI (Ollama)</TabsTrigger>
+          <TabsTrigger value="jobs" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Activity className="w-3.5 h-3.5" /> Sync-Jobs</TabsTrigger>
           <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
         </TabsList>
 
@@ -516,6 +545,81 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="jobs" className="space-y-6">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-[10px] font-bold uppercase">Synchronisations-Jobs & Tasks</CardTitle>
+                <CardDescription className="text-[9px] uppercase font-bold">Überwachung und Steuerung der Hintergrund-Prozesse.</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="h-8 rounded-none text-[9px] font-bold uppercase" onClick={() => refreshJobs()} disabled={isJobsLoading}>
+                <RefreshCw className={cn("w-3 h-3 mr-2", isJobsLoading && "animate-spin")} /> Aktualisieren
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="font-bold uppercase text-[10px] py-4">Prozess / Aufgabe</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Letzter Status</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Letzte Ausführung</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Aktion</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {syncJobs?.map((job) => (
+                    <TableRow key={job.id} className="border-b">
+                      <TableCell className="py-4">
+                        <div className="font-bold text-xs">{job.name}</div>
+                        <div className="text-[9px] text-muted-foreground uppercase mt-0.5">{job.description}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="outline" className={cn(
+                            "rounded-none text-[8px] font-bold uppercase px-2 w-fit border-none",
+                            job.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700" : 
+                            job.lastStatus === 'error' ? "bg-red-50 text-red-700" : 
+                            job.lastStatus === 'running' ? "bg-blue-50 text-blue-700 animate-pulse" : "bg-slate-100"
+                          )}>
+                            {job.lastStatus || 'Nie ausgeführt'}
+                          </Badge>
+                          {job.lastMessage && <span className="text-[8px] text-muted-foreground italic truncate max-w-[200px]">{job.lastMessage}</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground font-mono">
+                        {job.lastRun ? new Date(job.lastRun).toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 rounded-none font-bold uppercase text-[9px] gap-2"
+                          onClick={() => handleRunSyncJob(job.id)}
+                          disabled={runningJobId === job.id || job.lastStatus === 'running'}
+                        >
+                          {runningJobId === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+                          Jetzt Starten
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!syncJobs || syncJobs.length === 0) && !isJobsLoading && (
+                    <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine Jobs registriert. Bitte führen Sie die Datenbank-Migration erneut durch.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <Alert className="rounded-none border-blue-200 bg-blue-50 text-blue-800">
+            <Info className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-[10px] font-bold uppercase">Hinweis zur Automatisierung</AlertTitle>
+            <AlertDescription className="text-xs">
+              Die Jobs werden aktuell im Client-Kontext getriggert oder manuell angestoßen. Für eine vollautomatische Ausführung (z.B. alle 15 Min.) wird ein zusätzlicher Scheduler-Dienst in Ihrer Infrastruktur benötigt.
+            </AlertDescription>
+          </Alert>
+        </TabsContent>
+
         <TabsContent value="ai">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -525,7 +629,7 @@ export default function SettingsPage() {
                     <CardTitle className="text-[10px] font-bold uppercase">KI Provider Konfiguration</CardTitle>
                     <CardDescription className="text-[9px] uppercase font-bold">Wählen Sie zwischen Cloud (Gemini) oder lokalem Server (Ollama).</CardDescription>
                   </div>
-                  <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
+                  <Switch checked={!!aiEnabled} onCheckedChange={setAiEnabled} />
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-2">
@@ -600,7 +704,7 @@ export default function SettingsPage() {
                     <CardTitle className="text-[10px] font-bold uppercase">1. Jira Cloud Verbindung</CardTitle>
                     <CardDescription className="text-[9px] uppercase font-bold">API-Zugriff für Ticket-Erstellung und Assets-Synchronisation.</CardDescription>
                   </div>
-                  <Switch checked={jiraEnabled} onCheckedChange={setJiraEnabled} />
+                  <Switch checked={!!jiraEnabled} onCheckedChange={setJiraEnabled} />
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -757,7 +861,7 @@ export default function SettingsPage() {
                                 className={cn(
                                   "px-2 py-1 border text-[8px] font-bold uppercase transition-colors rounded-none",
                                   jiraIssueType === t 
-                                    ? "bg-emerald-500 border-emerald-500 text-slate-900" 
+                                    ? "bg-emerald-50 border-emerald-500 text-slate-900" 
                                     : "bg-white/5 border-white/20 text-emerald-300 hover:bg-white/10"
                                 )}
                               >
@@ -826,7 +930,7 @@ export default function SettingsPage() {
                       </TableCell>
                       <TableCell className="text-[10px] font-bold uppercase">{getTenantSlug(u.tenantId)}</TableCell>
                       <TableCell>
-                        {u.enabled ? (
+                        {!!u.enabled ? (
                           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 rounded-none text-[8px] font-bold uppercase">Aktiv</Badge>
                         ) : (
                           <Badge variant="outline" className="text-muted-foreground rounded-none text-[8px] font-bold uppercase">Inaktiv</Badge>
@@ -916,7 +1020,7 @@ export default function SettingsPage() {
                     <CardTitle className="text-[10px] font-bold uppercase">SMTP Server Konfiguration</CardTitle>
                     <CardDescription className="text-[9px] uppercase font-bold">Wird für Passwort-Reset und Benachrichtigungen benötigt.</CardDescription>
                   </div>
-                  <Switch checked={smtpEnabled} onCheckedChange={setSmtpEnabled} />
+                  <Switch checked={!!smtpEnabled} onCheckedChange={setSmtpEnabled} />
                 </CardHeader>
                 <CardContent className="p-6 space-y-4">
                   <div className="grid grid-cols-3 gap-4">
@@ -961,7 +1065,7 @@ export default function SettingsPage() {
                 </CardContent>
                 <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
                   <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestSmtp} disabled={isTestingSmtp}>
-                    {isTestingSmtp ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
+                    {isTestingSmtp ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
                   </Button>
                   <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveSmtp} disabled={isSaving}>
                     <Save className="w-3 h-3 mr-2" /> Speichern
@@ -1040,7 +1144,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between pt-4 border-t">
               <Label className="text-[10px] font-bold uppercase">Nutzer aktiviert</Label>
-              <Switch checked={userEnabled} onCheckedChange={setUserEnabled} />
+              <Switch checked={!!userEnabled} onCheckedChange={setUserEnabled} />
             </div>
           </div>
           <DialogFooter>
@@ -1065,7 +1169,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">E-Mail</Label>
-                <Input partnerEmail={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} className="rounded-none" />
+                <Input value={partnerEmail} onChange={e => setPartnerEmail(e.target.value)} className="rounded-none" />
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">Telefon</Label>
@@ -1091,7 +1195,7 @@ export default function SettingsPage() {
             <div className="pt-4 border-t space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] font-bold uppercase">LDAP Anbindung (Active Directory)</Label>
-                <Switch checked={ldapEnabled} onCheckedChange={setLdapEnabled} />
+                <Switch checked={!!ldapEnabled} onCheckedChange={setLdapEnabled} />
               </div>
               {ldapEnabled && (
                 <div className="space-y-4 animate-in slide-in-from-top-2">

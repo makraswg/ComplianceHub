@@ -90,6 +90,25 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       details.push('   ✔️ Admin-Account bereits vorhanden.');
     }
 
+    // SEEDING: Standard Jobs anlegen
+    details.push('🌱 Initialisiere Synchronisations-Jobs...');
+    const defaultJobs = [
+      { id: 'job-ldap-sync', name: 'LDAP / AD Nutzerabgleich', description: 'Synchronisiert Identitäten und Gruppenmitgliedschaften aus dem Active Directory.', enabled: 1 },
+      { id: 'job-jira-sync', name: 'Jira Ticket Scanner', description: 'Prüft Jira auf genehmigte Onboarding- oder Offboarding-Vorgänge.', enabled: 1 },
+      { id: 'job-assets-sync', name: 'Jira Assets Import', description: 'Importiert IT-Ressourcen und Rollendefinitionen aus Jira Assets (JSM).', enabled: 0 }
+    ];
+
+    for (const job of defaultJobs) {
+      const [jobRows]: any = await connection.execute('SELECT id FROM `syncJobs` WHERE id = ?', [job.id]);
+      if (jobRows.length === 0) {
+        await connection.execute(
+          'INSERT INTO `syncJobs` (id, name, description, enabled) VALUES (?, ?, ?, ?)',
+          [job.id, job.name, job.description, job.enabled]
+        );
+        details.push(`   ✅ Job angelegt: ${job.name}`);
+      }
+    }
+
     connection.release();
     return { 
         success: true, 
