@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -54,7 +53,7 @@ import {
 import { doc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
-import { Assignment, User, Entitlement, Resource } from '@/lib/types';
+import { Assignment, User, Entitlement, Resource, Tenant } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { createJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
@@ -76,7 +75,7 @@ export default function AssignmentsPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
-  // Create Form State - OPTIMIZED
+  // Create Form State
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedResourceId, setSelectedResourceId] = useState('');
   const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
@@ -86,6 +85,7 @@ export default function AssignmentsPage() {
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
     setMounted(true);
@@ -175,6 +175,12 @@ export default function AssignmentsPage() {
     });
   }, [assignments, users, entitlements, resources, search, activeTab, adminOnly, activeTenantId]);
 
+  const getTenantSlug = (id?: string) => {
+    if (!id) return '—';
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   if (!mounted) return null;
 
   return (
@@ -243,7 +249,7 @@ export default function AssignmentsPage() {
                 <TableRow key={a.id} className="hover:bg-muted/5 border-b">
                   <TableCell className="py-4">
                     <div className="font-bold text-sm">{user?.displayName || a.userId}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase">{a.tenantId}</div>
+                    <div className="text-[10px] text-muted-foreground uppercase font-bold">{getTenantSlug(a.tenantId)}</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -302,7 +308,7 @@ export default function AssignmentsPage() {
                 <SelectContent className="rounded-none">
                   <ScrollArea className="h-48">
                     {users?.filter(u => activeTenantId === 'all' || u.tenantId === activeTenantId).map(u => 
-                      <SelectItem key={u.id} value={u.id}>{u.displayName} ({u.tenantId})</SelectItem>
+                      <SelectItem key={u.id} value={u.id}>{u.displayName} ({getTenantSlug(u.tenantId)})</SelectItem>
                     )}
                   </ScrollArea>
                 </SelectContent>

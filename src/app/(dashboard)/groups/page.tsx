@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -66,7 +65,7 @@ import {
 import { doc, collection } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { AssignmentGroup, User, Entitlement, Resource } from '@/lib/types';
+import { AssignmentGroup, User, Entitlement, Resource, Tenant } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 
@@ -97,6 +96,7 @@ export default function GroupsPage() {
   const { data: entitlements, isLoading: isEntitlementsLoading } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
     setMounted(true);
@@ -207,6 +207,11 @@ export default function GroupsPage() {
     setSelectedEntitlementIds([]);
   };
 
+  const getTenantSlug = (id: string) => {
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   if (!mounted) return null;
 
   return (
@@ -261,7 +266,7 @@ export default function GroupsPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-[10px] font-bold uppercase text-muted-foreground">{group.tenantId}</TableCell>
+                  <TableCell className="text-[10px] font-bold uppercase text-muted-foreground">{getTenantSlug(group.tenantId)}</TableCell>
                   <TableCell className="text-[10px] font-bold">
                     Ab: {group.validFrom || 'Sofort'}<br/>
                     {group.validUntil && `Bis: ${group.validUntil}`}
@@ -293,7 +298,6 @@ export default function GroupsPage() {
         )}
       </div>
 
-      {/* Dialoge vereinfacht für Mandanten-Reaktivität */}
       <Dialog open={isAddOpen || isEditOpen} onOpenChange={(val) => { if(!val) { setIsAddOpen(false); setIsEditOpen(false); resetForm(); } }}>
         <DialogContent className="max-w-4xl rounded-none">
           <DialogHeader><DialogTitle className="text-sm font-bold uppercase">{isEditOpen ? 'Gruppe bearbeiten' : 'Neue Gruppe'}</DialogTitle></DialogHeader>
@@ -305,11 +309,10 @@ export default function GroupsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">Mandant (Scope)</Label>
-                <Input value={activeTenantId === 'all' ? 'System Standard (t1)' : activeTenantId} disabled className="rounded-none bg-muted/20" />
+                <Input value={activeTenantId === 'all' ? 'System Standard (t1)' : getTenantSlug(activeTenantId)} disabled className="rounded-none bg-muted/20" />
               </div>
             </div>
-            {/* Hier würden die Tabs für Mitglieder/Rollen folgen, analog zur bestehenden UI aber gefiltert nach activeTenantId */}
-            <p className="text-[10px] text-muted-foreground italic">Hinweis: Mitglieder und Rollen werden im nächsten Schritt basierend auf dem Mandanten {activeTenantId} gefiltert.</p>
+            <p className="text-[10px] text-muted-foreground italic">Hinweis: Mitglieder und Rollen werden im nächsten Schritt basierend auf dem Mandanten {getTenantSlug(activeTenantId)} gefiltert.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="rounded-none">Abbrechen</Button>

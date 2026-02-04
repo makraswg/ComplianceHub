@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -253,6 +252,11 @@ export default function UsersPage() {
     });
   }, [users, search, activeTenantId, activeStatusFilter, activeSourceFilter]);
 
+  const getTenantSlug = (id: string) => {
+    const tenant = tenants?.find(t => t.id === id);
+    return tenant ? tenant.slug : id;
+  };
+
   if (!mounted) return null;
 
   return (
@@ -350,7 +354,7 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{user.tenantId}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{getTenantSlug(user.tenantId)}</Badge></TableCell>
                     <TableCell className="text-xs">{user.department || '—'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -393,7 +397,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Quick Assignment Dialog - OPTIMIZED */}
+      {/* Quick Assignment Dialog */}
       <Dialog open={isQuickAssignOpen} onOpenChange={setIsQuickAssignOpen}>
         <DialogContent className="max-w-md rounded-none">
           <DialogHeader>
@@ -453,7 +457,7 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Restliche Dialoge unverändert */}
+      {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0 rounded-none overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -468,7 +472,7 @@ export default function UsersPage() {
                   <span className="w-1 h-1 bg-slate-600 rounded-full" />
                   <span>{selectedUser?.department}</span>
                   <span className="w-1 h-1 bg-slate-600 rounded-full" />
-                  <span className="text-primary">{selectedUser?.tenantId}</span>
+                  <span className="text-primary">{getTenantSlug(selectedUser?.tenantId)}</span>
                 </div>
               </div>
             </div>
@@ -543,7 +547,7 @@ export default function UsersPage() {
                 <Select value={tenantId} onValueChange={setTenantId}>
                   <SelectTrigger className="rounded-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                   <SelectContent className="rounded-none">
-                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.slug})</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
