@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -27,7 +28,9 @@ import {
   Calendar,
   Clock,
   Layers,
-  X
+  X,
+  ArrowRight,
+  ShieldCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -67,7 +70,7 @@ import {
 import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { AssignmentGroup, User, Entitlement, Resource, Tenant } from '@/lib/types';
+import { AssignmentGroup, User, Entitlement, Resource, Tenant, GroupMemberConfig } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 
@@ -88,16 +91,22 @@ export default function GroupsPage() {
   const [selectedGroup, setSelectedGroup] = useState<AssignmentGroup | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [validFrom, setValidFrom] = useState(new Date().toISOString().split('T')[0]);
-  const [validUntil, setValidUntil] = useState('');
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
+  
+  // Member States
+  const [userConfigs, setUserConfigs] = useState<GroupMemberConfig[]>([]);
+  const [entitlementConfigs, setEntitlementConfigs] = useState<GroupMemberConfig[]>([]);
+
+  // Individual Date Prompt State
+  const [isDatePromptOpen, setIsDatePromptOpen] = useState(false);
+  const [promptContext, setPromptContext] = useState<{ type: 'user' | 'entitlement', id: string, action: 'add' | 'remove' } | null>(null);
+  const [tempValidFrom, setPromptValidFrom] = useState(new Date().toISOString().split('T')[0]);
+  const [tempValidUntil, setPromptValidUntil] = useState<string>('');
 
   const { data: groups, isLoading: isGroupsLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
   const { data: users, isLoading: isUsersLoading } = usePluggableCollection<User>('users');
   const { data: entitlements, isLoading: isEntitlementsLoading } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
-  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
+  const { refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
@@ -138,25 +147,29 @@ export default function GroupsPage() {
     });
   }, [entitlements, resources, entitlementSearch, activeTenantId]);
 
-  const syncGroupAssignments = async (groupId: string, groupName: string, userIds: string[], entIds: string[], gValidFrom: string, gValidUntil: string, tenantId: string) => {
+  const syncGroupAssignments = async (groupId: string, groupName: string, uConfigs: GroupMemberConfig[], eConfigs: GroupMemberConfig[], tenantId: string) => {
     const timestamp = new Date().toISOString();
-    const today = timestamp.split('T')[0];
 
-    // Erstelle Zuweisungen für alle Kombinationen
-    for (const uid of userIds) {
-      for (const eid of entIds) {
-        const assId = `ga_${groupId}_${uid}_${eid}`.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 50);
+    for (const uc of uConfigs) {
+      for (const ec of eConfigs) {
+        const assId = `ga_${groupId}_${uc.id}_${ec.id}`.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 50);
         
+        // Nutze die restriktivere Gültigkeit (entweder vom Nutzer oder von der Rolle in der Gruppe)
+        const effectiveFrom = (uc.validFrom && ec.validFrom) ? (uc.validFrom > ec.validFrom ? uc.validFrom : ec.validFrom) : (uc.validFrom || ec.validFrom || timestamp.split('T')[0]);
+        
+        // Wenn einer von beiden removed ist, wird das Ticket auf removed gesetzt
+        const isCurrentlyRemoved = (uc.validUntil && new Date(uc.validUntil) < new Date()) || (ec.validUntil && new Date(ec.validUntil) < new Date());
+
         const assignmentData = {
           id: assId,
-          userId: uid,
-          entitlementId: eid,
+          userId: uc.id,
+          entitlementId: ec.id,
           originGroupId: groupId,
-          status: 'active',
+          status: isCurrentlyRemoved ? 'removed' : 'active',
           grantedBy: authUser?.displayName || 'System',
           grantedAt: timestamp,
-          validFrom: gValidFrom || today,
-          validUntil: gValidUntil || null,
+          validFrom: effectiveFrom,
+          validUntil: uc.validUntil || ec.validUntil || null,
           ticketRef: `GRUPPE: ${groupName}`,
           notes: `Automatisierte Zuweisung via Gruppe: ${groupName}`,
           tenantId: tenantId,
@@ -186,11 +199,12 @@ export default function GroupsPage() {
       id: groupId,
       name,
       description,
-      validFrom,
-      validUntil: validUntil || null,
-      userIds: selectedUserIds,
-      entitlementIds: selectedEntitlementIds,
-      tenantId: targetTenantId
+      userConfigs,
+      entitlementConfigs,
+      tenantId: targetTenantId,
+      // Legacy arrays for indexing/searching
+      userIds: userConfigs.map(u => u.id),
+      entitlementIds: entitlementConfigs.map(e => e.id)
     };
 
     try {
@@ -200,7 +214,7 @@ export default function GroupsPage() {
         setDocumentNonBlocking(doc(db, 'groups', groupId), groupData, { merge: true });
       }
 
-      await syncGroupAssignments(groupId, name, selectedUserIds, selectedEntitlementIds, validFrom, validUntil, targetTenantId);
+      await syncGroupAssignments(groupId, name, userConfigs, entitlementConfigs, targetTenantId);
 
       setIsDialogOpen(false);
       toast({ title: selectedGroup ? "Gruppe aktualisiert" : "Gruppe erstellt" });
@@ -230,10 +244,8 @@ export default function GroupsPage() {
     setSelectedGroup(null);
     setName('');
     setDescription('');
-    setValidFrom(new Date().toISOString().split('T')[0]);
-    setValidUntil('');
-    setSelectedUserIds([]);
-    setSelectedEntitlementIds([]);
+    setUserConfigs([]);
+    setEntitlementConfigs([]);
     setUserSearch('');
     setEntitlementSearch('');
   };
@@ -242,19 +254,53 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
-    setValidFrom(group.validFrom || new Date().toISOString().split('T')[0]);
-    setValidUntil(group.validUntil || '');
-    setSelectedUserIds(group.userIds || []);
-    setSelectedEntitlementIds(group.entitlementIds || []);
+    setUserConfigs(group.userConfigs || []);
+    setEntitlementConfigs(group.entitlementConfigs || []);
     setIsDialogOpen(true);
   };
 
-  const toggleUserId = (id: string) => {
-    setSelectedUserIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const handleToggleItem = (type: 'user' | 'entitlement', id: string) => {
+    const list = type === 'user' ? userConfigs : entitlementConfigs;
+    const isAlreadySelected = list.some(item => item.id === id);
+    
+    setPromptContext({ type, id, action: isAlreadySelected ? 'remove' : 'add' });
+    setPromptValidFrom(new Date().toISOString().split('T')[0]);
+    
+    if (isAlreadySelected) {
+      const existing = list.find(item => item.id === id);
+      setPromptValidUntil(existing?.validUntil || new Date().toISOString().split('T')[0]);
+    } else {
+      setPromptValidUntil('');
+    }
+    
+    setIsDatePromptOpen(true);
   };
 
-  const toggleEntitlementId = (id: string) => {
-    setSelectedEntitlementIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  const confirmDatePrompt = () => {
+    if (!promptContext) return;
+    const { type, id, action } = promptContext;
+    const list = type === 'user' ? userConfigs : entitlementConfigs;
+    const setList = type === 'user' ? setUserConfigs : setEntitlementConfigs;
+
+    if (action === 'add') {
+      const newConfig: GroupMemberConfig = {
+        id,
+        validFrom: tempValidFrom,
+        validUntil: tempValidUntil || null
+      };
+      setList([...list, newConfig]);
+    } else {
+      // Wenn entfernt wird, wird entweder das validUntil gesetzt (Soft Remove) 
+      // oder das Element wird komplett aus der Liste entfernt (Hard Remove)
+      if (!tempValidUntil) {
+        setList(list.filter(item => item.id !== id));
+      } else {
+        setList(list.map(item => item.id === id ? { ...item, validUntil: tempValidUntil } : item));
+      }
+    }
+
+    setIsDatePromptOpen(false);
+    setPromptContext(null);
   };
 
   if (!mounted) return null;
@@ -293,7 +339,6 @@ export default function GroupsPage() {
               <TableRow>
                 <TableHead className="py-4 font-bold uppercase text-[10px]">Gruppe</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
-                <TableHead className="font-bold uppercase text-[10px]">Gültigkeit</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Besetzung</TableHead>
                 <TableHead className="font-bold uppercase text-[10px]">Berechtigungen</TableHead>
                 <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
@@ -312,22 +357,16 @@ export default function GroupsPage() {
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none">{getTenantSlug(group.tenantId)}</Badge></TableCell>
-                  <TableCell className="text-[10px] font-bold uppercase">
-                    <div className="flex flex-col">
-                      <span className="text-muted-foreground">Ab: {group.validFrom || 'Sofort'}</span>
-                      {group.validUntil && <span className="text-amber-600">Bis: {group.validUntil}</span>}
-                    </div>
-                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 font-bold text-xs">
                       <Users className="w-3 h-3 text-muted-foreground" />
-                      {group.userIds?.length || 0}
+                      {group.userConfigs?.length || 0}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5 font-bold text-xs">
                       <Shield className="w-3 h-3 text-muted-foreground" />
-                      {group.entitlementIds?.length || 0}
+                      {group.entitlementConfigs?.length || 0}
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -342,7 +381,7 @@ export default function GroupsPage() {
                 </TableRow>
               ))}
               {filteredGroups.length === 0 && !isGroupsLoading && (
-                <TableRow><TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground italic">Keine Zuweisungsgruppen gefunden.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground italic">Keine Zuweisungsgruppen gefunden.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -360,35 +399,14 @@ export default function GroupsPage() {
           
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8">
-              {/* Basisdaten */}
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Gruppe</Label>
-                    <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. IT-Abteilung Kernteam" className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
-                    <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Zweck der Gruppe..." className="rounded-none h-10" />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Gruppe</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. IT-Abteilung Kernteam" className="rounded-none h-10" />
                 </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig ab</Label>
-                      <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-none h-10" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gültig bis (Optional)</Label>
-                      <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-none h-10" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Geltungsbereich (Mandant)</Label>
-                    <div className="h-10 px-3 flex items-center border bg-muted/20 text-xs font-bold uppercase">
-                      {activeTenantId === 'all' ? 'System Global' : getTenantSlug(activeTenantId)}
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
+                  <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="Zweck der Gruppe..." className="rounded-none h-10" />
                 </div>
               </div>
 
@@ -397,7 +415,7 @@ export default function GroupsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                      <Users className="w-3.5 h-3.5" /> 1. Mitglieder wählen ({selectedUserIds.length})
+                      <Users className="w-3.5 h-3.5" /> 1. Mitglieder wählen ({userConfigs.length})
                     </Label>
                     <div className="relative w-48">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
@@ -409,26 +427,33 @@ export default function GroupsPage() {
                       />
                     </div>
                   </div>
-                  <div className="border rounded-none h-64 overflow-hidden flex flex-col">
+                  <div className="border rounded-none h-[450px] overflow-hidden flex flex-col">
                     <ScrollArea className="flex-1 bg-muted/5">
                       <div className="p-2 space-y-1">
-                        {filteredUsersSelection.map(u => (
-                          <div 
-                            key={u.id} 
-                            className={cn(
-                              "flex items-center gap-3 p-2 cursor-pointer transition-colors text-xs border border-transparent",
-                              selectedUserIds.includes(u.id) ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
-                            )}
-                            onClick={() => toggleUserId(u.id)}
-                          >
-                            <Checkbox checked={selectedUserIds.includes(u.id)} className="rounded-none pointer-events-none" />
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold truncate">{u.displayName}</p>
-                              <p className="text-[9px] text-muted-foreground truncate">{u.email}</p>
+                        {filteredUsersSelection.map(u => {
+                          const config = userConfigs.find(c => c.id === u.id);
+                          const isSelected = !!config;
+                          return (
+                            <div 
+                              key={u.id} 
+                              className={cn(
+                                "flex items-center gap-3 p-2 cursor-pointer transition-colors text-xs border border-transparent",
+                                isSelected ? "bg-primary/10 border-primary/20" : "hover:bg-muted"
+                              )}
+                              onClick={() => handleToggleItem('user', u.id)}
+                            >
+                              <Checkbox checked={isSelected} className="rounded-none pointer-events-none" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold truncate">{u.displayName}</p>
+                                {config && (
+                                  <p className="text-[8px] text-primary font-bold uppercase mt-0.5">
+                                    {config.validFrom} {config.validUntil ? `→ ${config.validUntil}` : ' (Unbefristet)'}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                        {filteredUsersSelection.length === 0 && <p className="text-[10px] text-center py-10 text-muted-foreground italic">Keine Benutzer gefunden.</p>}
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   </div>
@@ -438,7 +463,7 @@ export default function GroupsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5" /> 2. Rollen zuweisen ({selectedEntitlementIds.length})
+                      <Shield className="w-3.5 h-3.5" /> 2. Rollen zuweisen ({entitlementConfigs.length})
                     </Label>
                     <div className="relative w-48">
                       <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
@@ -450,22 +475,24 @@ export default function GroupsPage() {
                       />
                     </div>
                   </div>
-                  <div className="border rounded-none h-64 overflow-hidden flex flex-col">
+                  <div className="border rounded-none h-[450px] overflow-hidden flex flex-col">
                     <ScrollArea className="flex-1 bg-muted/5">
                       <div className="p-2 space-y-1">
                         {filteredEntitlementsSelection.map(e => {
                           const res = resources?.find(r => r.id === e.resourceId);
+                          const config = entitlementConfigs.find(c => c.id === e.id);
+                          const isSelected = !!config;
                           return (
                             <div 
                               key={e.id} 
                               className={cn(
                                 "flex items-center gap-3 p-2 cursor-pointer transition-colors text-xs border border-transparent",
-                                selectedEntitlementIds.includes(e.id) ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted"
+                                isSelected ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted"
                               )}
-                              onClick={() => toggleEntitlementId(e.id)}
+                              onClick={() => handleToggleItem('entitlement', e.id)}
                             >
                               <Checkbox 
-                                checked={selectedEntitlementIds.includes(e.id)} 
+                                checked={isSelected} 
                                 className="rounded-none pointer-events-none data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600" 
                               />
                               <div className="flex-1 min-w-0">
@@ -473,12 +500,16 @@ export default function GroupsPage() {
                                 <p className="text-[9px] text-muted-foreground uppercase flex items-center gap-1">
                                   <Layers className="w-2 h-2" /> {res?.name || 'System'}
                                 </p>
+                                {config && (
+                                  <p className="text-[8px] text-emerald-600 font-bold uppercase mt-0.5">
+                                    {config.validFrom} {config.validUntil ? `→ ${config.validUntil}` : ' (Unbefristet)'}
+                                  </p>
+                                )}
                               </div>
                               {e.isAdmin && <Shield className="w-3 h-3 text-red-600" />}
                             </div>
                           );
                         })}
-                        {filteredEntitlementsSelection.length === 0 && <p className="text-[10px] text-center py-10 text-muted-foreground italic">Keine Rollen gefunden.</p>}
                       </div>
                     </ScrollArea>
                   </div>
@@ -491,11 +522,47 @@ export default function GroupsPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
             <Button 
               onClick={handleSaveGroup} 
-              disabled={isSaving || !name || selectedUserIds.length === 0 || selectedEntitlementIds.length === 0} 
+              disabled={isSaving || !name || userConfigs.length === 0 || entitlementConfigs.length === 0} 
               className="rounded-none h-10 px-10 font-bold uppercase text-[10px] gap-2"
             >
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               Gruppe & Zuweisungen speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Item-Level Date Prompt */}
+      <Dialog open={isDatePromptOpen} onOpenChange={setIsDatePromptOpen}>
+        <DialogContent className="max-w-sm rounded-none border-2">
+          <DialogHeader>
+            <DialogTitle className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              {promptContext?.action === 'add' ? 'Gültigkeit festlegen' : 'Entfernung bestätigen'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {promptContext?.action === 'add' 
+                ? 'Ab wann soll dieses Element der Gruppe hinzugefügt werden?' 
+                : 'Bis wann soll dieses Element noch gültig sein? (Leer lassen für sofortigen Entzug)'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {promptContext?.action === 'add' && (
+              <div className="space-y-2">
+                <Label className="text-[9px] font-bold uppercase">Gültig ab</Label>
+                <Input type="date" value={tempValidFrom} onChange={e => setPromptValidFrom(e.target.value)} className="rounded-none h-9" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label className="text-[9px] font-bold uppercase">{promptContext?.action === 'add' ? 'Freigabe bis (Optional)' : 'Gültig bis'}</Label>
+              <Input type="date" value={tempValidUntil} onChange={e => setPromptValidUntil(e.target.value)} className="rounded-none h-9" />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button variant="ghost" onClick={() => setIsDatePromptOpen(false)} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase">Abbrechen</Button>
+            <Button onClick={confirmDatePrompt} className="rounded-none h-9 flex-1 text-[10px] font-bold uppercase gap-2">
+              {promptContext?.action === 'add' ? <Plus className="w-3 h-3" /> : <X className="w-3 h-3" />}
+              Bestätigen
             </Button>
           </DialogFooter>
         </DialogContent>

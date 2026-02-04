@@ -70,10 +70,10 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
-      entitlementIds: 'TEXT',
-      userIds: 'TEXT',
-      validFrom: 'VARCHAR(50)',
-      validUntil: 'VARCHAR(50)',
+      entitlementConfigs: 'TEXT',
+      userConfigs: 'TEXT',
+      entitlementIds: 'TEXT', // Legacy
+      userIds: 'TEXT', // Legacy
     },
   },
   bundles: {

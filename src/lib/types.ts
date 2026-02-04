@@ -103,15 +103,21 @@ export interface Assignment {
   syncSource?: 'manual' | 'ldap' | 'group';
 }
 
+export interface GroupMemberConfig {
+  id: string;
+  validFrom?: string;
+  validUntil?: string | null;
+}
+
 export interface AssignmentGroup {
   id: string;
   tenantId: string;
   name: string;
   description: string;
-  entitlementIds: string[];
-  userIds: string[];
-  validFrom?: string;
-  validUntil?: string;
+  entitlementConfigs: GroupMemberConfig[];
+  userConfigs: GroupMemberConfig[];
+  userIds?: string[]; // Legacy support or redundant tracking
+  entitlementIds?: string[]; // Legacy support
 }
 
 export interface Bundle {

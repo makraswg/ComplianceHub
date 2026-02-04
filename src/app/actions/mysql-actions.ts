@@ -43,6 +43,8 @@ export async function getCollectionData(collectionName: string): Promise<{ data:
     if (tableName === 'groups' || tableName === 'bundles') {
       data = data.map((item: any) => ({
         ...item,
+        entitlementConfigs: item.entitlementConfigs ? (typeof item.entitlementConfigs === 'string' ? JSON.parse(item.entitlementConfigs) : item.entitlementConfigs) : [],
+        userConfigs: item.userConfigs ? (typeof item.userConfigs === 'string' ? JSON.parse(item.userConfigs) : item.userConfigs) : [],
         entitlementIds: item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [],
         userIds: item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [],
       }));
@@ -90,6 +92,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const preparedData = { ...data, id };
     
     if (tableName === 'groups' || tableName === 'bundles') {
+      if (Array.isArray(preparedData.entitlementConfigs)) preparedData.entitlementConfigs = JSON.stringify(preparedData.entitlementConfigs);
+      if (Array.isArray(preparedData.userConfigs)) preparedData.userConfigs = JSON.stringify(preparedData.userConfigs);
       if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
       if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
     }
