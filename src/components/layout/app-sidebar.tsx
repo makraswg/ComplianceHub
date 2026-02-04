@@ -34,7 +34,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuLabel,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
 
 export function AppSidebar() {
@@ -162,21 +163,29 @@ export function AppSidebar() {
       <div className="p-4 border-t border-slate-800">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-3 p-2 rounded-none hover:bg-white/5 cursor-pointer outline-none transition-colors group">
-              <Avatar className="h-8 w-8 rounded-none border border-slate-700">
+            <Button 
+              variant="ghost" 
+              className="w-full h-auto p-2 justify-start items-center gap-3 rounded-none hover:bg-white/5 hover:text-white border-none group transition-colors"
+            >
+              <Avatar className="h-8 w-8 rounded-none border border-slate-700 shrink-0">
                 <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px] uppercase">
                   {user?.email?.charAt(0) || 'A'}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 overflow-hidden">
-                <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors">
+              <div className="flex-1 overflow-hidden text-left">
+                <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors text-slate-200">
                   {user?.email || 'Administrator'}
                 </p>
                 <p className="text-[10px] text-slate-500 truncate uppercase tracking-tighter">Mein Konto</p>
               </div>
-            </div>
+            </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" sideOffset={12} className="w-56 rounded-none border-slate-800 bg-slate-900 text-slate-200">
+          <DropdownMenuContent 
+            side="right" 
+            align="end" 
+            sideOffset={12} 
+            className="w-56 rounded-none border-slate-800 bg-slate-900 text-slate-200 z-[100]"
+          >
             <DropdownMenuLabel className="text-[9px] font-bold uppercase text-slate-500 px-3 py-2">
               Benutzerverwaltung
             </DropdownMenuLabel>

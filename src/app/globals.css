@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -63,9 +64,10 @@ body[style*="pointer-events: none"] {
   pointer-events: auto !important;
 }
 
-/* Ensure dialogs work correctly even when triggered from dropdowns */
-[data-radix-popper-content-wrapper] {
-  z-index: 50 !important;
+/* Ensure dialogs and dropdowns work correctly even when triggered from nested layouts */
+[data-radix-popper-content-wrapper], 
+[data-radix-portal] {
+  z-index: 100 !important;
 }
 
 .admin-card {
