@@ -30,6 +30,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       uid: 'VARCHAR(255)',
       email: 'VARCHAR(255) NOT NULL',
+      password: 'VARCHAR(255)',
       displayName: 'VARCHAR(255) NOT NULL',
       role: 'VARCHAR(50) NOT NULL',
       tenantId: 'VARCHAR(255) DEFAULT "all"',

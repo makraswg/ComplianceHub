@@ -35,6 +35,7 @@ export interface PlatformUser {
   id: string;
   uid?: string; // Firebase Auth UID
   email: string;
+  password?: string; // Password field for initial setup or prototype storage
   displayName: string;
   role: Role;
   tenantId: string; // 'all' or specific tenantId

@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Users,
   ShieldCheck,
-  Trash2
+  Trash2,
+  Lock
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +78,7 @@ export default function SettingsPage() {
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
   const [userRole, setUserRole] = useState<Role>('viewer');
   const [userTenantId, setUserTenantId] = useState('all');
   const [userEnabled, setUserEnabled] = useState(true);
@@ -318,6 +320,7 @@ export default function SettingsPage() {
       role: userRole,
       tenantId: userTenantId,
       enabled: userEnabled,
+      password: userPassword || selectedUser?.password || '',
       createdAt: selectedUser?.createdAt || new Date().toISOString()
     };
     if (dataSource === 'mysql') await saveCollectionRecord('platformUsers', id, data);
@@ -394,7 +397,7 @@ export default function SettingsPage() {
                 <CardDescription className="text-[9px] font-bold uppercase mt-1">Verwalten Sie den Zugriff auf dieses System.</CardDescription>
               </div>
               <Button size="sm" className="h-8 text-[10px] font-bold uppercase rounded-none" onClick={() => { 
-                setSelectedUser(null); setUserName(''); setUserEmail(''); setUserRole('viewer'); setUserTenantId('all'); setUserEnabled(true);
+                setSelectedUser(null); setUserName(''); setUserEmail(''); setUserPassword(''); setUserRole('viewer'); setUserTenantId('all'); setUserEnabled(true);
                 setIsUserDialogOpen(true); 
               }}>
                 <Plus className="w-3.5 h-3.5 mr-1.5" /> Nutzer hinzufügen
@@ -432,7 +435,7 @@ export default function SettingsPage() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => {
-                            setSelectedUser(u); setUserName(u.displayName); setUserEmail(u.email); setUserRole(u.role); setUserTenantId(u.tenantId); setUserEnabled(!!u.enabled);
+                            setSelectedUser(u); setUserName(u.displayName); setUserEmail(u.email); setUserPassword(''); setUserRole(u.role); setUserTenantId(u.tenantId); setUserEnabled(!!u.enabled);
                             setIsUserDialogOpen(true);
                           }}><Pencil className="w-3.5 h-3.5" /></Button>
                           <Button variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeletePlatformUser(u.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
@@ -696,6 +699,12 @@ export default function SettingsPage() {
             <div className="space-y-2">
               <Label className="text-[10px] font-bold uppercase">E-Mail (Login)</Label>
               <Input value={userEmail} onChange={e => setUserEmail(e.target.value)} className="rounded-none" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                <Lock className="w-3 h-3" /> Passwort {selectedUser && '(Leer lassen für keine Änderung)'}
+              </Label>
+              <Input type="password" value={userPassword} onChange={e => setUserPassword(e.target.value)} className="rounded-none" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
