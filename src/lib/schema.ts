@@ -146,6 +146,7 @@ export const appSchema: AppSchema = {
       url: 'TEXT NOT NULL',
       email: 'VARCHAR(255)',
       apiToken: 'TEXT',
+      apiTokenExpiresAt: 'VARCHAR(50)',
       projectKey: 'VARCHAR(50)',
       issueTypeName: 'VARCHAR(100)',
       approvedStatusName: 'VARCHAR(100)',

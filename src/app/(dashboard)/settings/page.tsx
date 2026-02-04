@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,30 +10,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Settings, 
   Save, 
-  Lock,
   Database,
   ExternalLink,
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  Zap,
-  Box,
   Plus,
   Building2,
-  Trash2,
   Pencil,
-  Search,
-  RefreshCw,
-  ChevronRight,
   Network,
   Contact,
-  ShieldCheck,
-  Globe,
-  Terminal,
-  Unplug,
   Wand2,
   FileSearch,
-  Fingerprint
+  Unplug,
+  Calendar,
+  AlertCircle
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -44,10 +35,9 @@ import {
   testJiraConnectionAction, 
   getJiraWorkspacesAction,
   getJiraSchemasAction,
-  getJiraObjectTypesAction,
   getJiraAttributesAction
 } from '@/app/actions/jira-actions';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { cn } from '@/lib/utils';
 import { 
   useFirestore, 
@@ -64,6 +54,7 @@ import {
 } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -72,12 +63,12 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
 
   // Tenant Management State
-  const { data: tenants, isLoading: isTenantsLoading, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
+  const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   
   // Service Partner State
-  const { data: servicePartners, isLoading: isPartnersLoading, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
+  const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const [isPartnerDialogOpen, setIsPartnerDialogOpen] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<any>(null);
 
@@ -104,6 +95,7 @@ export default function SettingsPage() {
   const [jiraUrl, setJiraUrl] = useState('');
   const [jiraEmail, setJiraEmail] = useState('');
   const [jiraToken, setJiraToken] = useState('');
+  const [jiraTokenExpiresAt, setJiraTokenExpiresAt] = useState('');
   const [jiraProject, setJiraProject] = useState('');
   const [jiraIssueType, setJiraIssueType] = useState('Service Request');
   const [jiraApprovedStatus, setJiraApprovedStatus] = useState('Approved');
@@ -134,6 +126,7 @@ export default function SettingsPage() {
         setJiraUrl(c.url || '');
         setJiraEmail(c.email || '');
         setJiraToken(c.apiToken || '');
+        setJiraTokenExpiresAt(c.apiTokenExpiresAt || '');
         setJiraProject(c.projectKey || '');
         setJiraIssueType(c.issueTypeName || 'Service Request');
         setJiraApprovedStatus(c.approvedStatusName || 'Approved');
@@ -151,6 +144,22 @@ export default function SettingsPage() {
     loadJira();
   }, []);
 
+  const tokenExpiryStatus = useMemo(() => {
+    if (!jiraTokenExpiresAt) return null;
+    const expiryDate = new Date(jiraTokenExpiresAt);
+    const now = new Date();
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffTime < 0) {
+      return { type: 'expired', title: 'Token abgelaufen', message: 'Das Jira API Token ist ungültig. Bitte neues Token generieren.' };
+    }
+    if (diffDays <= 14) {
+      return { type: 'warning', title: 'Token läuft bald ab', message: `Das Jira API Token läuft in ${diffDays} Tagen ab. Bitte rechtzeitig erneuern.` };
+    }
+    return null;
+  }, [jiraTokenExpiresAt]);
+
   const handleSaveJira = async () => {
     setIsSaving(true);
     const id = jiraConfigId || `jira-${Math.random().toString(36).substring(2, 7)}`;
@@ -161,6 +170,7 @@ export default function SettingsPage() {
       url: jiraUrl,
       email: jiraEmail,
       apiToken: jiraToken,
+      apiTokenExpiresAt: jiraTokenExpiresAt,
       projectKey: jiraProject,
       issueTypeName: jiraIssueType,
       approvedStatusName: jiraApprovedStatus,
@@ -382,6 +392,15 @@ export default function SettingsPage() {
         <TabsContent value="jira">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
+              
+              {tokenExpiryStatus && (
+                <Alert variant={tokenExpiryStatus.type === 'expired' ? 'destructive' : 'default'} className={cn("rounded-none border-2", tokenExpiryStatus.type === 'warning' && "border-amber-500 bg-amber-50 text-amber-900")}>
+                  {tokenExpiryStatus.type === 'expired' ? <AlertCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                  <AlertTitle className="font-bold uppercase text-xs">{tokenExpiryStatus.title}</AlertTitle>
+                  <AlertDescription className="text-xs">{tokenExpiryStatus.message}</AlertDescription>
+                </Alert>
+              )}
+
               {/* Jira Connection */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
@@ -404,6 +423,17 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">API Token</Label>
                       <Input type="password" value={jiraToken} onChange={e => setJiraToken(e.target.value)} className="rounded-none" />
+                    </div>
+                    <div className="space-y-2 col-span-2">
+                      <Label className="text-[10px] font-bold uppercase flex items-center gap-2">
+                        <Calendar className="w-3 h-3" /> Token gültig bis
+                      </Label>
+                      <Input 
+                        type="date" 
+                        value={jiraTokenExpiresAt} 
+                        onChange={e => setJiraTokenExpiresAt(e.target.value)} 
+                        className={cn("rounded-none", tokenExpiryStatus?.type === 'expired' && "border-red-500", tokenExpiryStatus?.type === 'warning' && "border-amber-500")} 
+                      />
                     </div>
                   </div>
                 </CardContent>
@@ -522,6 +552,10 @@ export default function SettingsPage() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="data">
+          {/* Datenquelle Tab Inhalt bleibt gleich */}
         </TabsContent>
       </Tabs>
 

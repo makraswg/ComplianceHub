@@ -117,6 +117,7 @@ export interface JiraConfig {
   url: string;
   email: string;
   apiToken: string;
+  apiTokenExpiresAt?: string;
   projectKey: string;
   issueTypeName: string;
   approvedStatusName: string;
