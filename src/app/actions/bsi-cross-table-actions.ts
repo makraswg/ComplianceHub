@@ -7,8 +7,7 @@ import * as XLSX from 'xlsx';
 
 /**
  * Importiert Maßnahmen und deren Relationen zu Gefährdungen aus der BSI Kreuztabelle (Excel).
- * Diese Version ist extrem robust gegenüber Header-Variationen und Blatt-Strukturen.
- * Berücksichtigt, dass Zelle A1 oft Metadaten/Titel enthält.
+ * Optimiert für Header-Strukturen wie: [Baustein-Code] | Name | CIA | G 0.x
  */
 export async function runBsiCrossTableImportAction(
   base64Content: string, 
@@ -30,7 +29,8 @@ export async function runBsiCrossTableImportAction(
 
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
-      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      // Wir nutzen {header: 1} um ein Array von Arrays zu erhalten (AOA)
+      const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
       if (rows.length === 0) {
         log += `Blatt "${sheetName}" ist leer.\n`;
@@ -46,80 +46,97 @@ export async function runBsiCrossTableImportAction(
         hazards: [] as { code: string, index: number }[]
       };
 
-      // Scan die ersten 50 Zeilen (BSI Excel hat oft lange Header/Legenden oder Titel in A1)
+      // Scan die ersten 50 Zeilen nach Gefährdungs-Codes (G 0.x)
       for (let i = 0; i < Math.min(rows.length, 50); i++) {
         const row = rows[i];
         if (!row || !Array.isArray(row)) continue;
 
-        const currentMap = {
-          baustein: -1,
-          mCode: -1,
-          mTitel: -1,
-          hazards: [] as { code: string, index: number }[]
-        };
+        const currentHazards: { code: string, index: number }[] = [];
+        let foundBausteinLabel = -1;
+        let foundTitleLabel = -1;
+        let foundCodeLabel = -1;
 
         row.forEach((cell, idx) => {
-          const val = String(cell || '').trim().toUpperCase();
+          const val = String(cell || '').trim();
           if (!val) return;
           
-          // Baustein-Spalte erkennen
-          if (val.includes('BAUSTEIN') || val === 'ELEMENT' || val === 'GRUPPE' || val.includes('KOMPONENTE')) {
-            currentMap.baustein = idx;
-          }
-          
-          // Maßnahmen-Code erkennen
-          if (val.includes('ID') || val.includes('CODE') || val.includes('NR.') || val.includes('MASSNAHMEN-NR') || val === 'NR' || val.includes('BEZEICHNER')) {
-            currentMap.mCode = idx;
-          }
-          
-          // Titel erkennen
-          if (val.includes('TITEL') || val.includes('BEZEICHNUNG') || (val.includes('MASSNAHME') && !val.includes('NR'))) {
-            if (currentMap.mTitel === -1) currentMap.mTitel = idx;
-          }
-
-          // Gefährdungen erkennen (Regex: G gefolgt von 0. oder 0 und einer Nummer)
-          // Erkennt: "G 0.1", "G0.1", "G 0.1 Feuer", "G 0.1 (Elementare Gefährdung)"
+          // 1. Gefährdungen erkennen (G 0.1, G 0.15 etc)
           const gMatch = val.match(/G\s*0[.\s]*([0-9]+)/i);
           if (gMatch) {
-            currentMap.hazards.push({ 
+            currentHazards.push({ 
               code: `G 0.${gMatch[1]}`, 
               index: idx 
             });
+            return;
+          }
+
+          // 2. Kernspalten erkennen
+          const upperVal = val.toUpperCase();
+          
+          // Baustein-Spalte (Entweder Label "Baustein" oder ein Code-Muster wie NET.2.2)
+          if (upperVal.includes('BAUSTEIN') || upperVal === 'ELEMENT' || /^[A-Z]{2,4}\.[0-9]+/.test(val)) {
+            if (foundBausteinLabel === -1) foundBausteinLabel = idx;
+          }
+          
+          // Titel-Spalte
+          if (upperVal === 'NAME' || upperVal === 'TITEL' || upperVal === 'BEZEICHNUNG' || (upperVal.includes('MASSNAHME') && !upperVal.includes('NR'))) {
+            if (foundTitleLabel === -1) foundTitleLabel = idx;
+          }
+
+          // Code-Spalte (M 1.1 etc)
+          if (upperVal.includes('ID') || upperVal.includes('CODE') || upperVal.includes('NR.') || upperVal === 'NR') {
+            if (foundCodeLabel === -1) foundCodeLabel = idx;
           }
         });
 
-        // Ein Blatt ist relevant, wenn Gefährdungen UND Identifikations-Spalten vorhanden sind
-        // Wir sind hier etwas toleranter: Entweder Baustein oder Code muss da sein
-        if (currentMap.hazards.length >= 1 && (currentMap.mCode !== -1 || currentMap.baustein !== -1)) {
+        // Ein Blatt ist relevant, wenn Gefährdungen vorhanden sind
+        if (currentHazards.length >= 1) {
           headerRowIndex = i;
-          colMap = currentMap;
+          colMap.hazards = currentHazards;
+          
+          // Fallback-Logik für Spaltenindizes basierend auf Beispielen: NET.2.2 | Name | CIA | G 0.x
+          colMap.baustein = foundBausteinLabel !== -1 ? foundBausteinLabel : 0;
+          colMap.mTitel = foundTitleLabel !== -1 ? foundTitleLabel : (foundBausteinLabel === 0 ? 1 : 1);
+          colMap.mCode = foundCodeLabel !== -1 ? foundCodeLabel : colMap.baustein; // Oft identisch in der ID-Spalte
+          
           break;
         }
       }
 
       if (headerRowIndex === -1) {
-        log += `Blatt "${sheetName}" übersprungen (Keine Kopfzeile mit G 0.x gefunden).\n`;
-        continue;
+        continue; // Kein Kreuztabellen-Blatt
       }
 
-      log += `Verarbeite Blatt "${sheetName}" (Daten ab Zeile ${headerRowIndex + 1}).\n`;
+      log += `Blatt "${sheetName}": Header in Zeile ${headerRowIndex + 1} gefunden. Spalten: B=${colMap.baustein}, T=${colMap.mTitel}, G-Anzahl=${colMap.hazards.length}\n`;
       processedSheets++;
+
+      // Baustein-Vorgabe vom Header oder Blattnamen (z.B. "NET.2.2")
+      const headerBausteinRaw = String(rows[headerRowIndex][colMap.baustein] || '').trim();
+      const sheetBaustein = headerBausteinRaw.match(/^[A-Z]{2,4}\.[0-9.]+/) ? headerBausteinRaw.match(/^[A-Z]{2,4}\.[0-9.]+/)![0] : sheetName.split(' ')[0];
 
       // --- SCHRITT 2: Daten verarbeiten ---
       for (let i = headerRowIndex + 1; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !Array.isArray(row)) continue;
 
-        const baustein = String(row[colMap.baustein] || '').trim();
-        const mCode = String(row[colMap.mCode] || '').trim();
+        let baustein = String(row[colMap.baustein] || '').trim();
+        let mCode = String(row[colMap.mCode] || '').trim();
         const mTitel = String(row[colMap.mTitel] || '').trim();
 
-        // Zeile überspringen wenn keine Identifikation möglich
-        if (!mCode && !baustein) continue;
+        // Wenn kein Code da ist, ist es keine Datenzeile
+        if (!mCode && !baustein && !mTitel) continue;
 
-        // Schlüsselbildung: Baustein + Code (Normalisiert)
-        const cleanMCode = mCode || 'M-UNKNOWN';
-        const cleanBaustein = baustein || 'GLOBAL';
+        // Normalisierung: Wenn mCode den Baustein enthält (z.B. NET.2.2.M1)
+        if (mCode.includes('.')) {
+          const parts = mCode.split('.');
+          if (parts.length > 1) {
+            baustein = parts.slice(0, -1).join('.');
+            mCode = parts[parts.length - 1];
+          }
+        }
+
+        const cleanBaustein = baustein || sheetBaustein || 'GLOBAL';
+        const cleanMCode = mCode || `M-${i}`;
         const measureId = `m-${cleanBaustein}-${cleanMCode}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         
         // Maßnahme speichern
@@ -131,12 +148,12 @@ export async function runBsiCrossTableImportAction(
         }, dataSource);
         totalMeasures++;
 
-        // Relationen zu den gefundenen G-Spalten prüfen
+        // Relationen zu den G-Spalten
         for (const hCol of colMap.hazards) {
-          const cellVal = row[hCol.index];
+          const cellVal = String(row[hCol.index] || '').trim();
           
-          // Boolean Presence Logik: Wenn Zelle nicht leer ist, besteht eine Relation
-          if (cellVal !== undefined && cellVal !== null && String(cellVal).trim() !== '') {
+          // Boolean Presence: Nicht leer = Relation
+          if (cellVal !== '') {
             const relId = `rel-${measureId}-${hCol.code.replace(/[^a-z0-9]/gi, '_')}`.toLowerCase();
             
             await saveCollectionRecord('hazardMeasureRelations', relId, {
@@ -151,7 +168,7 @@ export async function runBsiCrossTableImportAction(
     }
 
     if (processedSheets === 0) {
-      const errorMsg = "Keine relevanten Kreuztabellen-Blätter gefunden. Stellen Sie sicher, dass Spalten wie 'G 0.1' und 'Baustein' vorhanden sind.";
+      const errorMsg = "Keine Kreuztabellen-Struktur (G 0.x Spalten) identifiziert. Bitte prüfen Sie das Format.";
       await saveCollectionRecord('importRuns', runId, {
         id: runId,
         catalogId: 'excel-krt',
@@ -160,11 +177,10 @@ export async function runBsiCrossTableImportAction(
         itemCount: 0,
         log: log + `FEHLER: ${errorMsg}`
       }, dataSource);
-      
       return { success: false, message: errorMsg, count: 0 };
     }
 
-    const successMsg = `Import abgeschlossen: ${totalMeasures} Maßnahmen und ${totalRelations} Relationen aus ${processedSheets} Blättern identifiziert.`;
+    const successMsg = `Import erfolgreich: ${totalMeasures} Maßnahmen und ${totalRelations} Relationen aus ${processedSheets} Blättern verarbeitet.`;
     await saveCollectionRecord('importRuns', runId, {
       id: runId,
       catalogId: 'excel-krt',
@@ -185,6 +201,6 @@ export async function runBsiCrossTableImportAction(
       itemCount: 0,
       log: log + `FEHLER: ${error.message}`
     }, dataSource);
-    return { success: false, message: `Fehler beim Import: ${error.message}`, count: 0 };
+    return { success: false, message: `Systemfehler: ${error.message}`, count: 0 };
   }
 }
