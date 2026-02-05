@@ -271,6 +271,23 @@ export default function RiskDashboardPage() {
     };
   }, [filteredRisks]);
 
+  const filteredBsiCatalog = useMemo(() => {
+    const flatCatalog: { module: BsiModule; threat: BsiThreat }[] = [];
+    BSI_CATALOG.forEach(module => {
+      if (selectedBsiModule !== 'all' && module.id !== selectedBsiModule) return;
+      module.threats.forEach(threat => {
+        const matchesSearch = 
+          threat.title.toLowerCase().includes(bsiSearch.toLowerCase()) || 
+          threat.description.toLowerCase().includes(bsiSearch.toLowerCase()) ||
+          module.title.toLowerCase().includes(bsiSearch.toLowerCase());
+        if (matchesSearch) {
+          flatCatalog.push({ module, threat });
+        }
+      });
+    });
+    return flatCatalog;
+  }, [bsiSearch, selectedBsiModule]);
+
   if (!mounted) return null;
 
   return (
