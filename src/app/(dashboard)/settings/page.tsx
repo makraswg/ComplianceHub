@@ -35,7 +35,8 @@ import {
   FileUp,
   Settings as SettingsIcon,
   Fingerprint,
-  Workflow
+  Workflow,
+  Table as TableIcon
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -48,10 +49,10 @@ import {
   getJiraWorkspacesAction, 
   getJiraSchemasAction,
   getJiraObjectTypesAction,
-  getJiraAttributesAction,
   getJiraConfigs
 } from '@/app/actions/jira-actions';
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
+import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -73,11 +74,15 @@ export default function SettingsPage() {
   const [jiraObjectTypes, setJiraObjectTypes] = useState<any[]>([]);
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
 
-  // Import State
+  // Import State XML
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importName, setImportName] = useState('BSI Kompendium');
   const [importVersion, setImportVersion] = useState('2023');
   const [isImporting, setIsImporting] = useState(false);
+
+  // Import State Excel (Cross Table)
+  const [selectedExcel, setSelectedExcel] = useState<File | null>(null);
+  const [isExcelImporting, setIsExcelImporting] = useState(false);
 
   // Data Fetching
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
@@ -199,25 +204,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handleExcelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!file.name.toLowerCase().endsWith('.xlsx')) {
+        toast({ variant: "destructive", title: "Ungültiges Format", description: "Bitte laden Sie eine Excel-Datei (.xlsx) hoch." });
+        return;
+      }
+      setSelectedExcel(file);
+    }
+  };
+
   const handleRunXmlImport = async () => {
     if (!selectedFile) return;
     setIsImporting(true);
-    
     try {
       const reader = new FileReader();
-      
       const xmlContent = await new Promise<string>((resolve, reject) => {
         reader.onload = (e) => resolve(e.target?.result as string);
         reader.onerror = () => reject(new Error("Fehler beim Lesen der Datei"));
         reader.readAsText(selectedFile);
       });
-
-      const res = await runBsiXmlImportAction({
-        catalogName: importName,
-        version: importVersion,
-        xmlContent
-      }, dataSource);
-
+      const res = await runBsiXmlImportAction({ catalogName: importName, version: importVersion, xmlContent }, dataSource);
       if (res.success) {
         toast({ title: "Import erfolgreich", description: res.message });
         setSelectedFile(null);
@@ -227,6 +235,30 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Import fehlgeschlagen", description: e.message });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleRunExcelImport = async () => {
+    if (!selectedExcel) return;
+    setIsExcelImporting(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = (e) => {
+          const res = e.target?.result as string;
+          resolve(res.split(',')[1]);
+        };
+        reader.readAsDataURL(selectedExcel);
+      });
+      const res = await runBsiCrossTableImportAction(base64, dataSource);
+      if (res.success) {
+        toast({ title: "Excel Import erfolgreich", description: res.message });
+        setSelectedExcel(null);
+      } else throw new Error(res.message);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Excel Import fehlgeschlagen", description: e.message });
+    } finally {
+      setIsExcelImporting(false);
     }
   };
 
@@ -269,7 +301,7 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 min-w-0">
-          {/* 1. General Section */}
+          {/* General Section */}
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -296,7 +328,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* 2. Platform Users Section */}
+          {/* Platform Users Section */}
           <TabsContent value="pusers" className="mt-0">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -331,7 +363,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* 3. Identität & Sync Section */}
+          {/* Sync Section */}
           <TabsContent value="sync" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -355,14 +387,6 @@ export default function SettingsPage() {
                     <Label className="text-[10px] font-bold uppercase">Base DN (Users)</Label>
                     <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-none h-10 font-mono text-xs" />
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Bind DN (Service Account)</Label>
-                    <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} className="rounded-none h-10 font-mono text-xs" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Bind Password</Label>
-                    <Input type="password" value={tenantDraft.ldapBindPassword || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} className="rounded-none h-10" />
-                  </div>
                 </div>
                 <div className="flex justify-end pt-4">
                   <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-10 h-11">
@@ -373,7 +397,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* 4. Jira Gateway Section */}
+          {/* Integrations Section */}
           <TabsContent value="integrations" className="mt-0">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -419,16 +443,8 @@ export default function SettingsPage() {
                         <Input value={jiraDraft.projectKey || ''} onChange={e => setJiraDraft({...jiraDraft, projectKey: e.target.value})} placeholder="IT" className="rounded-none font-black uppercase" />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase">Vorgangstyp Name</Label>
-                        <Input value={jiraDraft.issueTypeName || 'Task'} onChange={e => setJiraDraft({...jiraDraft, issueTypeName: e.target.value})} className="rounded-none" />
-                      </div>
-                      <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase">Status: Genehmigt</Label>
                         <Input value={jiraDraft.approvedStatusName || 'Approved'} onChange={e => setJiraDraft({...jiraDraft, approvedStatusName: e.target.value})} className="rounded-none" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase">Status: Erledigt</Label>
-                        <Input value={jiraDraft.doneStatusName || 'Done'} onChange={e => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none" />
                       </div>
                     </div>
                   </TabsContent>
@@ -472,7 +488,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* 5. AI Advisor Section */}
+          {/* AI Advisor Section */}
           <TabsContent value="ai" className="mt-0">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -512,68 +528,12 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* 6. E-Mail Section */}
-          <TabsContent value="email" className="mt-0">
-            <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">SMTP Mail-Benachrichtigungen</CardTitle>
-                  <CardDescription className="text-[9px] uppercase font-bold mt-1">Versand von Audit-Alerts und System-Mails.</CardDescription>
-                </div>
-                <Switch checked={!!smtpDraft.enabled} onCheckedChange={v => setSmtpDraft({...smtpDraft, enabled: v})} />
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-[10px] font-bold uppercase">SMTP Host</Label>
-                    <Input value={smtpDraft.host || ''} onChange={e => setSmtpDraft({...smtpDraft, host: e.target.value})} placeholder="smtp.firma.local" className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Port</Label>
-                    <Input value={smtpDraft.port || '587'} onChange={e => setSmtpDraft({...smtpDraft, port: e.target.value})} className="rounded-none h-10" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Absender-E-Mail (From)</Label>
-                    <Input value={smtpDraft.fromEmail || ''} onChange={e => setSmtpDraft({...smtpDraft, fromEmail: e.target.value})} placeholder="compliance@firma.de" className="rounded-none h-10" />
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={() => handleSaveConfig('smtpConfigs', smtpDraft.id!, smtpDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-10 h-11">
-                    SMTP Speichern
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* 7. Risiko-Zyklen Section */}
-          <TabsContent value="risks" className="mt-0">
-            <Card className="rounded-none border shadow-none">
-              <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Compliance Risiko Review Zyklen</CardTitle>
-                <CardDescription className="text-[9px] uppercase font-bold mt-1">Definition der Überprüfungszeiträume für das Risikoinventar.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="space-y-4 max-w-sm">
-                  {['IT-Sicherheit', 'Datenschutz', 'Rechtlich', 'Betrieblich'].map(c => (
-                    <div key={c} className="flex justify-between items-center p-4 border bg-slate-50/50">
-                      <span className="text-[11px] font-bold uppercase">{c}</span>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" defaultValue="365" className="w-20 h-9 rounded-none text-center font-bold" />
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Tage</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* 8. BSI Data Import Section */}
+          {/* Catalog Data Section */}
           <TabsContent value="data" className="mt-0 space-y-6">
+            {/* XML Import */}
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI IT-Grundschutz XML Import</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI IT-Grundschutz XML Import (DocBook 5)</CardTitle>
                 <CardDescription className="text-[9px] uppercase font-bold mt-1">Einlesen offizieller Gefährdungskataloge zur Risiko-Ableitung.</CardDescription>
               </CardHeader>
               <CardContent className="p-8 space-y-6">
@@ -590,22 +550,17 @@ export default function SettingsPage() {
                 
                 <div className="space-y-4">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2"><FileCode className="w-3.5 h-3.5" /> XML-Datei hochladen</Label>
-                  <div 
-                    className={cn(
-                      "relative border-2 border-dashed rounded-none p-12 text-center flex flex-col items-center gap-4 transition-colors",
-                      selectedFile ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
-                    )}
-                  >
-                    <div className={cn("w-16 h-16 rounded-full flex items-center justify-center", selectedFile ? "bg-primary/20 text-primary" : "bg-slate-200 text-slate-400")}>
+                  <div className="relative border-2 border-dashed rounded-none p-12 text-center flex flex-col items-center gap-4 transition-colors bg-slate-50">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-slate-200 text-slate-400">
                       {isImporting ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileUp className="w-8 h-8" />}
                     </div>
                     <div className="space-y-1">
                       {selectedFile ? (
-                        <p className="text-sm font-bold">{selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
+                        <p className="text-sm font-bold">{selectedFile.name}</p>
                       ) : (
                         <>
-                          <p className="text-sm font-bold uppercase">Datei hierher ziehen oder klicken</p>
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase">Unterstützt offizielle BSI .xml Formate</p>
+                          <p className="text-sm font-bold uppercase">BSI XML hierher ziehen oder klicken</p>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase">Unterstützt offizielle BSI .xml Formate (DocBook)</p>
                         </>
                       )}
                     </div>
@@ -616,17 +571,53 @@ export default function SettingsPage() {
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                       disabled={isImporting}
                     />
-                    {!selectedFile && (
-                      <Button variant="outline" className="rounded-none uppercase font-bold text-[9px] pointer-events-none">Datei auswählen</Button>
-                    )}
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button variant="outline" onClick={() => setSelectedFile(null)} className="rounded-none text-[10px] font-bold uppercase h-11" disabled={isImporting}>Leeren</Button>
+                <div className="flex justify-end pt-4">
                   <Button onClick={handleRunXmlImport} disabled={!selectedFile || isImporting} className="rounded-none font-bold uppercase text-[10px] h-11 px-12 gap-2 bg-slate-900 text-white">
-                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 
-                    {isImporting ? 'Wird verarbeitet...' : 'Katalog Importieren'}
+                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Katalog Importieren
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Excel Import (Cross Table) */}
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI Kreuztabelle Excel Import (2023)</CardTitle>
+                <CardDescription className="text-[9px] uppercase font-bold mt-1">Importiert Relationen zwischen Maßnahmen (M) und Gefährdungen (G 0.x).</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2"><TableIcon className="w-3.5 h-3.5" /> Excel-Datei hochladen</Label>
+                  <div className="relative border-2 border-dashed rounded-none p-12 text-center flex flex-col items-center gap-4 transition-colors bg-emerald-50/30 border-emerald-100">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-600">
+                      {isExcelImporting ? <Loader2 className="w-8 h-8 animate-spin" /> : <TableIcon className="w-8 h-8" />}
+                    </div>
+                    <div className="space-y-1">
+                      {selectedExcel ? (
+                        <p className="text-sm font-bold text-emerald-800">{selectedExcel.name}</p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold uppercase text-emerald-800">Kreuztabelle (.xlsx) auswählen</p>
+                          <p className="text-[10px] text-emerald-600 font-bold uppercase">krt2023_Excel.xlsx vom BSI</p>
+                        </>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      accept=".xlsx" 
+                      onChange={handleExcelChange} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                      disabled={isExcelImporting}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <Button onClick={handleRunExcelImport} disabled={!selectedExcel || isExcelImporting} className="rounded-none font-bold uppercase text-[10px] h-11 px-12 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white">
+                    {isExcelImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Kreuztabelle Einlesen
                   </Button>
                 </div>
               </CardContent>
@@ -643,7 +634,6 @@ export default function SettingsPage() {
                     <TableHeader className="bg-muted/30">
                       <TableRow>
                         <TableHead className="text-[9px] font-bold uppercase py-2 px-6">Zeitpunkt</TableHead>
-                        <TableHead className="text-[9px] font-bold uppercase">Katalog</TableHead>
                         <TableHead className="text-[9px] font-bold uppercase">Status</TableHead>
                         <TableHead className="text-right pr-6 text-[9px] font-bold uppercase">Einträge</TableHead>
                       </TableRow>
@@ -652,7 +642,6 @@ export default function SettingsPage() {
                       {importRuns?.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(run => (
                         <TableRow key={run.id}>
                           <TableCell className="text-[10px] font-mono px-6">{new Date(run.timestamp).toLocaleString()}</TableCell>
-                          <TableCell className="text-[10px] font-bold uppercase">{run.catalogId?.split('-').slice(1,-1).join(' ') || '---'}</TableCell>
                           <TableCell><Badge variant="outline" className={cn("text-[8px] font-bold border-none px-1.5", run.status === 'success' ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>{run.status}</Badge></TableCell>
                           <TableCell className="text-right pr-6 font-bold text-xs">{run.itemCount}</TableCell>
                         </TableRow>

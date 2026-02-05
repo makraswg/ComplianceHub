@@ -81,6 +81,21 @@ export const appSchema: AppSchema = {
       contentHash: 'VARCHAR(64)',
     }
   },
+  hazardMeasures: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      code: 'VARCHAR(50) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      baustein: 'VARCHAR(100)',
+    }
+  },
+  hazardMeasureRelations: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      measureId: 'VARCHAR(255) NOT NULL',
+      hazardCode: 'VARCHAR(50) NOT NULL',
+    }
+  },
   importRuns: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -89,15 +104,6 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(20)',
       itemCount: 'INT',
       log: 'LONGTEXT',
-    }
-  },
-  importIssues: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      runId: 'VARCHAR(255) NOT NULL',
-      severity: 'VARCHAR(20)',
-      itemRef: 'VARCHAR(255)',
-      message: 'TEXT',
     }
   },
   risks: {
@@ -122,13 +128,6 @@ export const appSchema: AppSchema = {
       reviewCycleDays: 'INT',
       createdAt: 'VARCHAR(50) NOT NULL',
     },
-  },
-  riskCategorySettings: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      defaultReviewDays: 'INT DEFAULT 365'
-    }
   },
   riskMeasures: {
     columns: {
@@ -169,11 +168,6 @@ export const appSchema: AppSchema = {
       doneStatusName: 'VARCHAR(100)',
       workspaceId: 'VARCHAR(255)',
       schemaId: 'VARCHAR(255)',
-      resourceObjectTypeId: 'VARCHAR(255)',
-      entitlementObjectTypeId: 'VARCHAR(255)',
-      resourceLabelAttrId: 'VARCHAR(255)',
-      entitlementLabelAttrId: 'VARCHAR(255)',
-      resourceToEntitlementAttrId: 'VARCHAR(255)',
       autoSyncAssets: 'BOOLEAN DEFAULT FALSE',
     }
   },
@@ -185,7 +179,6 @@ export const appSchema: AppSchema = {
       ollamaUrl: 'TEXT',
       ollamaModel: 'VARCHAR(100)',
       geminiModel: 'VARCHAR(100)',
-      enabledForAdvisor: 'BOOLEAN DEFAULT FALSE',
     }
   },
   smtpConfigs: {
@@ -194,8 +187,6 @@ export const appSchema: AppSchema = {
       enabled: 'BOOLEAN DEFAULT FALSE',
       host: 'VARCHAR(255)',
       port: 'VARCHAR(10)',
-      user: 'VARCHAR(255)',
-      password: 'TEXT',
       fromEmail: 'VARCHAR(255)',
     }
   },
@@ -239,7 +230,6 @@ export const appSchema: AppSchema = {
       riskLevel: 'VARCHAR(50)',
       isAdmin: 'BOOLEAN DEFAULT FALSE',
       isSharedAccount: 'BOOLEAN DEFAULT FALSE',
-      passwordManagerUrl: 'TEXT',
       tenantId: 'VARCHAR(255)',
       externalMapping: 'VARCHAR(255)'
     }

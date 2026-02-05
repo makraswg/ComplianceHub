@@ -27,7 +27,9 @@ import {
   ShieldCheck,
   ShieldAlert,
   ArrowRightLeft,
-  HelpCircle
+  HelpCircle,
+  ClipboardCheck,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -48,7 +50,7 @@ import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
-import { Risk, RiskCategorySetting, Hazard, Resource } from '@/lib/types';
+import { Risk, Hazard, Resource, RiskMeasure } from '@/lib/types';
 import { usePlatformAuth } from '@/context/auth-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -60,6 +62,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRouter } from 'next/navigation';
 import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
 
 const ASSESSMENT_GUIDE = {
   impact: [
@@ -104,7 +107,6 @@ function RiskDashboardContent() {
   const [owner, setOwner] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
-  const [reviewCycleDays, setReviewCycleDays] = useState<string>('');
 
   // Verhindert das Zurücksetzen des Formulars bei Hintergrund-Updates des Katalogs
   const [appliedDeriveId, setAppliedDeriveId] = useState<string | null>(null);
@@ -112,12 +114,14 @@ function RiskDashboardContent() {
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
+  const { data: allMeasures, refresh: refreshMeasures } = usePluggableCollection<any>('hazardMeasures');
+  const { data: relations } = usePluggableCollection<any>('hazardMeasureRelations');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Effekt für die Ableitung aus dem Katalog (nur einmal pro ID ausführen)
+  // Effekt für die Ableitung aus dem Katalog
   useEffect(() => {
     const deriveId = searchParams.get('derive');
     if (deriveId && hazards && deriveId !== appliedDeriveId) {
@@ -153,7 +157,6 @@ function RiskDashboardContent() {
       owner,
       description,
       status,
-      reviewCycleDays: reviewCycleDays ? parseInt(reviewCycleDays) : undefined,
       createdAt: selectedRisk?.createdAt || new Date().toISOString(),
       lastReviewDate: selectedRisk?.lastReviewDate || new Date().toISOString()
     };
@@ -167,8 +170,7 @@ function RiskDashboardContent() {
           action: isNew ? 'Risiko identifiziert' : 'Risiko-Bewertung aktualisiert',
           entityType: 'risk',
           entityId: id,
-          after: riskData,
-          before: selectedRisk || undefined
+          after: riskData
         });
         toast({ title: "Risiko gespeichert" });
         setIsRiskDialogOpen(false);
@@ -180,6 +182,32 @@ function RiskDashboardContent() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleAdoptMeasure = async (measure: any) => {
+    if (!selectedRisk && !hazardId) return;
+    
+    const riskId = selectedRisk?.id || `temp-risk-${Math.random().toString(36).substring(2, 5)}`;
+    const msrId = `msr-adopt-${Math.random().toString(36).substring(2, 9)}`;
+    
+    const newMeasure: RiskMeasure = {
+      id: msrId,
+      riskId: riskId,
+      title: `${measure.code}: ${measure.title}`,
+      description: `Abgeleitet aus Baustein ${measure.baustein}.`,
+      owner: owner || 'Noch offen',
+      dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      status: 'planned',
+      effectiveness: 3
+    };
+
+    try {
+      const res = await saveCollectionRecord('riskMeasures', msrId, newMeasure, dataSource);
+      if (res.success) {
+        toast({ title: "Maßnahme übernommen", description: "Sie wurde als 'Geplant' für dieses Risiko hinterlegt." });
+        refreshMeasures();
+      }
+    } catch (e) {}
   };
 
   const resetForm = () => {
@@ -195,7 +223,6 @@ function RiskDashboardContent() {
     setOwner('');
     setDescription('');
     setStatus('active');
-    setReviewCycleDays('');
     setAppliedDeriveId(null);
   };
 
@@ -212,9 +239,21 @@ function RiskDashboardContent() {
     setOwner(risk.owner);
     setDescription(risk.description || '');
     setStatus(risk.status);
-    setReviewCycleDays(risk.reviewCycleDays?.toString() || '');
     setIsRiskDialogOpen(true);
   };
+
+  const suggestedMeasures = useMemo(() => {
+    if (!hazardId || !relations || !allMeasures) return [];
+    const hazard = hazards?.find(h => h.id === hazardId);
+    if (!hazard) return [];
+    
+    // Wir suchen Relationen für den Hazard-Code (z.B. G 0.1)
+    const matchingRelIds = relations
+      .filter((r: any) => r.hazardCode === hazard.code)
+      .map((r: any) => r.measureId);
+    
+    return allMeasures.filter((m: any) => matchingRelIds.includes(m.id));
+  }, [hazardId, hazards, relations, allMeasures]);
 
   const filteredRisks = useMemo(() => {
     if (!risks) return [];
@@ -241,7 +280,7 @@ function RiskDashboardContent() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push('/risks/catalog')} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50">
             <Library className="w-4 h-4 mr-2" /> Gefährdungskatalog
-          </Button>
+          </Library>
           <Button onClick={() => { resetForm(); setIsRiskDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 bg-orange-600 hover:bg-orange-700 text-white border-none shadow-lg">
             <Plus className="w-4 h-4 mr-2" /> Risiko anlegen
           </Button>
@@ -342,7 +381,7 @@ function RiskDashboardContent() {
       </div>
 
       <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) setIsRiskDialogOpen(false); }}>
-        <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[90vh] border-2 shadow-2xl">
+        <DialogContent className="max-w-5xl rounded-none p-0 overflow-hidden flex flex-col h-[90vh] border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-3">
@@ -353,144 +392,170 @@ function RiskDashboardContent() {
             </div>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-white dark:bg-slate-950">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2 col-span-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Geben Sie dem Risiko einen Namen, der das Bedrohungsszenario kurz beschreibt.</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-11 text-base font-bold" placeholder="z.B. Datenverlust durch Ransomware" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Betroffenes IT-System (Asset)</Label>
-                <Select value={assetId} onValueChange={setAssetId}>
-                  <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Asset wählen..." /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="none">Kein spezifisches Asset (Global)</SelectItem>
-                    {resources?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Kategorie</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="IT-Sicherheit">IT-Sicherheit</SelectItem>
-                    <SelectItem value="Datenschutz">Datenschutz (DSGVO)</SelectItem>
-                    <SelectItem value="Rechtlich">Rechtlich / Verträge</SelectItem>
-                    <SelectItem value="Betrieblich">Betrieblich / Verfügbarkeit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-12 border-t pt-6">
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-red-600" />
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-red-600">1. Inhärentes Risiko (Brutto)</h3>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
+          <div className="flex-1 overflow-hidden flex">
+            {/* Linke Seite: Formular */}
+            <ScrollArea className="flex-1 border-r">
+              <div className="p-8 space-y-8 bg-white dark:bg-slate-950">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit</Label>
-                      <Popover>
-                        <PopoverTrigger asChild><button className="text-[9px] font-black text-red-600 uppercase underline">Definitionen</button></PopoverTrigger>
-                        <PopoverContent className="w-64 rounded-none p-0">
-                          <div className="p-3 bg-red-600 text-white font-black text-[10px] uppercase">Häufigkeit-Stufen</div>
-                          <div className="p-2 space-y-2">
-                            {ASSESSMENT_GUIDE.probability.map(p => (
-                              <div key={p.level} className="text-[9px] border-b pb-1 last:border-0">
-                                <span className="font-black text-red-600 mr-1">{p.level}: {p.title}</span>
-                                <p className="text-muted-foreground italic mt-0.5">{p.desc}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild><HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" /></TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-[10px] font-bold uppercase">Geben Sie dem Risiko einen Namen, der das Bedrohungsszenario kurz beschreibt.</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                    <div className="flex gap-1">
-                      {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", probability === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
-                      ))}
-                    </div>
+                    <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-11 text-base font-bold" placeholder="z.B. Datenverlust durch Ransomware" />
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[10px] font-bold uppercase">Schadenshöhe</Label>
-                      <Popover>
-                        <PopoverTrigger asChild><button className="text-[9px] font-black text-red-600 uppercase underline">Definitionen</button></PopoverTrigger>
-                        <PopoverContent className="w-64 rounded-none p-0">
-                          <div className="p-3 bg-red-600 text-white font-black text-[10px] uppercase">Schaden-Stufen</div>
-                          <div className="p-2 space-y-2">
-                            {ASSESSMENT_GUIDE.impact.map(i => (
-                              <div key={i.level} className="text-[9px] border-b pb-1 last:border-0">
-                                <span className="font-black text-red-600 mr-1">{i.level}: {i.title}</span>
-                                <p className="text-muted-foreground italic mt-0.5">{i.desc}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Betroffenes IT-System (Asset)</Label>
+                    <Select value={assetId} onValueChange={setAssetId}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Asset wählen..." /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="none">Kein spezifisches Asset (Global)</SelectItem>
+                        {resources?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-muted-foreground">Kategorie</Label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        <SelectItem value="IT-Sicherheit">IT-Sicherheit</SelectItem>
+                        <SelectItem value="Datenschutz">Datenschutz (DSGVO)</SelectItem>
+                        <SelectItem value="Rechtlich">Rechtlich / Verträge</SelectItem>
+                        <SelectItem value="Betrieblich">Betrieblich / Verfügbarkeit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-8 border-t pt-6">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <div className="flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-red-600" />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-red-600">1. Inhärentes Risiko (Brutto)</h3>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
-                      ))}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit</Label>
+                        <div className="flex gap-1">
+                          {['1', '2', '3', '4', '5'].map(v => (
+                            <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", probability === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Schadenshöhe</Label>
+                        <div className="flex gap-1">
+                          {['1', '2', '3', '4', '5'].map(v => (
+                            <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-red-50 border-2 border-red-100 flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase text-red-700">Brutto Score:</span>
+                        <span className="text-3xl font-black text-red-700">{parseInt(impact) * parseInt(probability)}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="p-4 bg-red-50 border-2 border-red-100 flex justify-between items-center">
-                    <span className="text-[9px] font-black uppercase text-red-700">Brutto Score:</span>
-                    <span className="text-3xl font-black text-red-700">{parseInt(impact) * parseInt(probability)}</span>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">2. Restrisiko (Netto)</h3>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
+                        <div className="flex gap-1">
+                          {['1', '2', '3', '4', '5'].map(v => (
+                            <button key={v} onClick={() => setResProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resProbability === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Schadenshöhe (Netto)</Label>
+                        <div className="flex gap-1">
+                          {['1', '2', '3', '4', '5'].map(v => (
+                            <button key={v} onClick={() => setResImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resImpact === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-emerald-50 border-2 border-emerald-100 flex justify-between items-center">
+                        <span className="text-[9px] font-black uppercase text-emerald-700">Netto Score:</span>
+                        <span className="text-3xl font-black text-emerald-700">{parseInt(resImpact) * parseInt(resProbability)}</span>
+                      </div>
+                    </div>
                   </div>
+                </div>
+
+                <div className="space-y-2 pt-6 border-t">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario-Beschreibung</Label>
+                  <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="..." className="rounded-none min-h-[120px] leading-relaxed" />
                 </div>
               </div>
+            </ScrollArea>
 
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600">2. Restrisiko (Netto)</h3>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (Mit Maßnahmen)</Label>
-                    <div className="flex gap-1">
-                      {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setResProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resProbability === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (Mit Maßnahmen)</Label>
-                    <div className="flex gap-1">
-                      {['1', '2', '3', '4', '5'].map(v => (
-                        <button key={v} onClick={() => setResImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border transition-colors", resImpact === v ? "bg-emerald-600 border-emerald-600 text-white" : "bg-muted/30 hover:bg-muted/50")}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="p-4 bg-emerald-50 border-2 border-emerald-100 flex justify-between items-center">
-                    <span className="text-[9px] font-black uppercase text-emerald-700">Netto Score:</span>
-                    <span className="text-3xl font-black text-emerald-700">{parseInt(resImpact) * parseInt(resProbability)}</span>
-                  </div>
-                </div>
+            {/* Rechte Seite: Maßnahmen-Vorschläge aus Kreuztabelle */}
+            <aside className="w-80 bg-slate-50 flex flex-col">
+              <div className="p-4 border-b bg-slate-100 flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-primary" />
+                <h3 className="text-[10px] font-black uppercase tracking-widest">Maßnahmenvorschläge</h3>
               </div>
-            </div>
-
-            <div className="space-y-2 pt-6 border-t">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Szenario & Kontroll-Effektivität</Label>
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Beschreiben Sie hier, warum das Risiko besteht und wie die Maßnahmen das Risiko senken." className="rounded-none min-h-[120px] leading-relaxed" />
-            </div>
+              <ScrollArea className="flex-1">
+                <div className="p-4 space-y-4">
+                  {!hazardId ? (
+                    <div className="text-center py-10">
+                      <Info className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Leiten Sie das Risiko aus dem Katalog ab, um Vorschläge zu erhalten.</p>
+                    </div>
+                  ) : suggestedMeasures.length === 0 ? (
+                    <div className="text-center py-10">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-300 mb-2" />
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Lade Maßnahmen aus Kreuztabelle...</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">Passende IT-Grundschutz Maßnahmen:</p>
+                      {suggestedMeasures.map((m: any) => (
+                        <Card key={m.id} className="rounded-none border shadow-none bg-white group hover:border-primary transition-colors">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <Badge variant="outline" className="rounded-none text-[7px] font-black h-4 px-1 bg-slate-50 mb-1">{m.code}</Badge>
+                                <p className="text-[10px] font-bold leading-tight line-clamp-2">{m.title}</p>
+                                <p className="text-[8px] text-muted-foreground mt-1 uppercase font-black">Baustein: {m.baustein}</p>
+                              </div>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-7 w-7 shrink-0 hover:bg-emerald-50 hover:text-emerald-600"
+                                onClick={() => handleAdoptMeasure(m)}
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-4 bg-slate-100 border-t">
+                <p className="text-[8px] text-slate-400 italic leading-relaxed uppercase font-bold">
+                  Vorschläge basieren auf der offiziellen BSI-Kreuztabelle Maßnahmen vs. Gefährdungen.
+                </p>
+              </div>
+            </aside>
           </div>
           
           <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
