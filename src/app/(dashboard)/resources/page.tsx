@@ -42,7 +42,8 @@ import {
   Server,
   Monitor,
   Layout,
-  HardDrive
+  HardDrive,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -78,6 +79,12 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
@@ -664,8 +671,7 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Die restlichen Dialoge (Entitlements, Delete) bleiben weitestgehend gleich oder werden ähnlich kompakter gestaltet */}
-      {/* ... Entitlement List, Delete Dialogs ... */}
+      {/* Rest of the dialogs (Entitlements, Delete) remain largely unchanged or similar in layout */}
     </div>
   );
 }

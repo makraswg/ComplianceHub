@@ -29,7 +29,8 @@ import {
   RefreshCw,
   Eye,
   FileText,
-  BadgeAlert
+  BadgeAlert,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -39,6 +40,12 @@ import {
   DialogTitle, 
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
