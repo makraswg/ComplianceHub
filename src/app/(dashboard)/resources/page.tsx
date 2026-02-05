@@ -44,7 +44,8 @@ import {
   Layout,
   HardDrive,
   Save,
-  HelpCircle
+  HelpCircle,
+  ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -139,6 +140,7 @@ export default function ResourcesPage() {
   const [affectedGroups, setAffectedGroups] = useState<string[]>([]);
   const [processingPurpose, setProcessingPurpose] = useState('');
   const [dataLocation, setDataLocation] = useState('');
+  const [vvtIds, setVvtIds] = useState<string[]>([]); // New: Linked Processing Activities
   
   // Architektur & Risiko
   const [isInternetExposed, setIsInternetExposed] = useState(false);
@@ -159,19 +161,12 @@ export default function ResourcesPage() {
   const [resDocUrl, setResDocUrl] = useState('');
   const [notes, setNotes] = useState('');
 
-  // Entitlement Form State
-  const [entName, setEntName] = useState('');
-  const [entDescription, setEntDescription] = useState('');
-  const [entRisk, setEntRisk] = useState<'low' | 'medium' | 'high'>('medium');
-  const [entIsAdmin, setEntIsAdmin] = useState(false);
-  const [entMapping, setEntMapping] = useState('');
-  const [entParentId, setEntParentId] = useState<string>('none');
-
   const { data: resources, isLoading, refresh: refreshResources } = usePluggableCollection<Resource>('resources');
   const { data: entitlements, refresh: refreshEntitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: partners } = usePluggableCollection<any>('servicePartners');
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
+  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
 
   useEffect(() => {
     setMounted(true);
@@ -207,6 +202,7 @@ export default function ResourcesPage() {
       affectedGroups,
       processingPurpose,
       dataLocation,
+      vvtIds,
       isInternetExposed,
       isBusinessCritical,
       isSpof,
@@ -251,6 +247,7 @@ export default function ResourcesPage() {
     setAffectedGroups(res.affectedGroups || []);
     setProcessingPurpose(res.processingPurpose || '');
     setDataLocation(res.dataLocation || '');
+    setVvtIds(res.vvtIds || []);
     setIsInternetExposed(!!res.isInternetExposed);
     setIsBusinessCritical(!!res.isBusinessCritical);
     setIsSpof(!!res.isSpof);
@@ -282,6 +279,7 @@ export default function ResourcesPage() {
     setAffectedGroups([]);
     setProcessingPurpose('');
     setDataLocation('');
+    setVvtIds([]);
     setIsInternetExposed(false);
     setIsBusinessCritical(false);
     setIsSpof(false);
@@ -610,6 +608,36 @@ export default function ResourcesPage() {
                         ))}
                         {(!subjectGroups || subjectGroups.length === 0) && (
                           <p className="text-[9px] text-red-600 col-span-2">Keine Gruppen in Einstellungen definiert.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 pt-6 border-t">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase flex items-center gap-2 text-primary">
+                        <ClipboardList className="w-3.5 h-3.5" /> Verknüpfte Verarbeitungstätigkeiten (VVT)
+                      </Label>
+                      <p className="text-[9px] text-muted-foreground italic">Welche Geschäftsprozesse nutzen dieses System? (Art. 30 DSGVO)</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border p-4 bg-slate-50/50">
+                        {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
+                          <div key={v.id} className="flex items-center gap-3 p-2 bg-white border">
+                            <Checkbox 
+                              checked={vvtIds.includes(v.id)} 
+                              onCheckedChange={(checked) => {
+                                setVvtIds(prev => checked ? [...prev, v.id] : prev.filter(id => id !== v.id));
+                              }}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold truncate">{v.name}</p>
+                              <p className="text-[8px] text-muted-foreground uppercase font-black">Version: {v.version}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {(!vvts || vvts.length === 0) && (
+                          <div className="col-span-2 py-4 text-center text-[10px] font-bold text-muted-foreground uppercase italic border-2 border-dashed">
+                            Keine Verarbeitungstätigkeiten im VVT erfasst.
+                          </div>
                         )}
                       </div>
                     </div>

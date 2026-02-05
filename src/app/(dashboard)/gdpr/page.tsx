@@ -30,7 +30,9 @@ import {
   Eye,
   FileText,
   BadgeAlert,
-  Save
+  Save,
+  Layers,
+  History
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -53,9 +55,10 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessingActivity } from '@/lib/types';
+import { ProcessingActivity, Resource } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 export default function GdprPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -67,6 +70,7 @@ export default function GdprPage() {
 
   // Form State
   const [name, setName] = useState('');
+  const [version, setVersion] = useState('1.0');
   const [description, setDescription] = useState('');
   const [responsibleDepartment, setResponsibleDepartment] = useState('');
   const [legalBasis, setLegalBasis] = useState('Art. 6 Abs. 1 lit. b (Vertrag)');
@@ -74,6 +78,7 @@ export default function GdprPage() {
   const [status, setStatus] = useState<ProcessingActivity['status']>('active');
 
   const { data: activities, isLoading, refresh } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
 
   useEffect(() => {
     setMounted(true);
@@ -89,6 +94,7 @@ export default function GdprPage() {
       id,
       tenantId: targetTenantId,
       name,
+      version,
       description,
       responsibleDepartment,
       legalBasis,
@@ -117,6 +123,7 @@ export default function GdprPage() {
   const openEdit = (act: ProcessingActivity) => {
     setSelectedActivity(act);
     setName(act.name);
+    setVersion(act.version || '1.0');
     setDescription(act.description || '');
     setResponsibleDepartment(act.responsibleDepartment || '');
     setLegalBasis(act.legalBasis || '');
@@ -148,7 +155,7 @@ export default function GdprPage() {
             <p className="text-sm text-muted-foreground mt-1">Verarbeitungsverzeichnis (VVT) gemäß Art. 30 DSGVO.</p>
           </div>
         </div>
-        <Button onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none bg-emerald-600 hover:bg-emerald-700 text-white">
+        <Button onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); setVersion('1.0'); }} className="h-10 font-bold uppercase text-[10px] rounded-none bg-emerald-600 hover:bg-emerald-700 text-white">
           <Plus className="w-4 h-4 mr-2" /> Neue Tätigkeit erfassen
         </Button>
       </div>
@@ -159,8 +166,8 @@ export default function GdprPage() {
           <p className="text-3xl font-black">{activities?.length || 0}</p>
         </div>
         <div className="p-6 border bg-white flex flex-col gap-2">
-          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Offene Prüfungen</p>
-          <p className="text-3xl font-black text-orange-600">3</p>
+          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Integrierte IT-Systeme</p>
+          <p className="text-3xl font-black text-blue-600">{resources?.filter(r => (r.vvtIds || []).length > 0).length || 0}</p>
         </div>
         <div className="p-6 border bg-white flex flex-col gap-2">
           <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">DSGVO-Compliance Score</p>
@@ -183,69 +190,91 @@ export default function GdprPage() {
           <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead className="py-4 font-bold uppercase text-[10px]">Verarbeitungstätigkeit</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Rechtsgrundlage</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">Version</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Verantwortlich</TableHead>
+              <TableHead className="font-bold uppercase text-[10px]">IT-Systeme</TableHead>
               <TableHead className="font-bold uppercase text-[10px]">Status</TableHead>
               <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-            ) : filteredActivities.map((act) => (
-              <TableRow key={act.id} className="hover:bg-muted/5 group border-b last:border-0">
-                <TableCell className="py-4">
-                  <div className="font-bold text-sm">{act.name}</div>
-                  <div className="text-[9px] text-muted-foreground uppercase font-black truncate max-w-xs">{act.description}</div>
-                </TableCell>
-                <TableCell className="text-xs font-bold text-slate-600">
-                  {act.legalBasis}
-                </TableCell>
-                <TableCell className="text-xs font-bold uppercase">
-                  {act.responsibleDepartment}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={cn(
-                    "rounded-none uppercase text-[8px] font-black border-none px-2",
-                    act.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-                  )}>
-                    {act.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-none w-48">
-                      <DropdownMenuItem onSelect={() => openEdit(act)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Eintrag löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+              <TableRow><TableCell colSpan={6} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+            ) : filteredActivities.map((act) => {
+              const linkedResources = resources?.filter(r => (r.vvtIds || []).includes(act.id)) || [];
+              return (
+                <TableRow key={act.id} className="hover:bg-muted/5 group border-b last:border-0">
+                  <TableCell className="py-4">
+                    <div className="font-bold text-sm">{act.name}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase font-black truncate max-w-xs">{act.legalBasis}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-none bg-slate-50 text-slate-600 text-[9px] font-black uppercase border-none h-5 px-2">
+                      {act.version || '1.0'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs font-bold uppercase">
+                    {act.responsibleDepartment}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="w-3 h-3 text-blue-500" />
+                      <span className="text-xs font-bold">{linkedResources.length}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn(
+                      "rounded-none uppercase text-[8px] font-black border-none px-2",
+                      act.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+                    )}>
+                      {act.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-none w-48">
+                        <DropdownMenuItem onSelect={() => openEdit(act)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Eintrag löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
+        <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl h-[90vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <FileCheck className="w-5 h-5 text-emerald-500" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Verarbeitungstätigkeit erfassen</DialogTitle>
+              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Verarbeitungstätigkeit bearbeiten</DialogTitle>
             </div>
           </DialogHeader>
           <ScrollArea className="flex-1 bg-white">
-            <div className="p-8 space-y-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Tätigkeit</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Lohnabrechnung durchführen" className="rounded-none h-10 font-bold" />
+            <div className="p-8 space-y-8">
+              <div className="grid grid-cols-3 gap-6">
+                <div className="space-y-2 col-span-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Name der Tätigkeit</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="z.B. Lohnabrechnung durchführen" className="rounded-none h-10 font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2">
+                    <History className="w-3.5 h-3.5 text-blue-500" /> Version
+                  </Label>
+                  <Input value={version} onChange={e => setVersion(e.target.value)} placeholder="z.B. 1.0" className="rounded-none h-10 font-mono" />
+                </div>
               </div>
+
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung des Prozesses</Label>
                 <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Was genau passiert hier?" className="rounded-none min-h-[80px]" />
               </div>
-              <div className="grid grid-cols-2 gap-6">
+
+              <div className="grid grid-cols-2 gap-6 pt-6 border-t">
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortliche Abteilung</Label>
                   <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-none h-10" />
@@ -278,6 +307,36 @@ export default function GdprPage() {
                   </Select>
                 </div>
               </div>
+
+              {selectedActivity && (
+                <div className="space-y-4 pt-6 border-t">
+                  <Label className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2">
+                    <Layers className="w-4 h-4" /> Genutzte IT-Systeme (aus Ressourcenkatalog)
+                  </Label>
+                  <div className="border bg-slate-50 p-4 rounded-none">
+                    {(() => {
+                      const linked = resources?.filter(r => (r.vvtIds || []).includes(selectedActivity.id)) || [];
+                      return linked.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {linked.map(r => (
+                            <div key={r.id} className="flex items-center gap-2 p-2 bg-white border text-xs font-bold uppercase">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                              {r.name}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground italic text-center py-2">
+                          Bisher wurde dieses VVT-Eintrag in keinem IT-System referenziert.
+                        </p>
+                      );
+                    })()}
+                  </div>
+                  <p className="text-[9px] text-muted-foreground italic">
+                    Tipp: IT-Systeme können direkt im Ressourcenkatalog unter dem Tab „Datenschutz“ verknüpft werden.
+                  </p>
+                </div>
+              )}
             </div>
           </ScrollArea>
           <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">

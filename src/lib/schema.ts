@@ -157,6 +157,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      version: 'VARCHAR(50) DEFAULT "1.0"',
       description: 'TEXT',
       responsibleDepartment: 'VARCHAR(255)',
       legalBasis: 'VARCHAR(255)',

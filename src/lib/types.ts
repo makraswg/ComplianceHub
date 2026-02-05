@@ -90,7 +90,7 @@ export interface Resource {
   // Links (JSON Arrays)
   riskIds?: string[];
   measureIds?: string[];
-  vvtIds?: string[];
+  vvtIds?: string[]; // IDs of ProcessingActivities
   
   url: string;
   documentationUrl?: string;
@@ -102,6 +102,7 @@ export interface ProcessingActivity {
   id: string;
   tenantId: string;
   name: string;
+  version: string; // Neu: Versionierung
   description: string;
   responsibleDepartment: string;
   legalBasis: string;
