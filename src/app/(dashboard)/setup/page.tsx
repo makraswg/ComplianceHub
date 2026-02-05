@@ -275,16 +275,18 @@ export default function SetupPage() {
                     <AlertDialogTitle className="flex items-center gap-2 text-red-600">
                       <AlertTriangle className="w-5 h-5" /> Sind Sie absolut sicher?
                     </AlertDialogTitle>
-                    <AlertDialogDescription className="text-xs leading-relaxed">
-                      Diese Aktion löscht unwiderruflich alle im System erfassten:
-                      <ul className="list-disc list-inside mt-2 space-y-1 font-bold">
-                        <li>Importierten Kataloge & Gefährdungen</li>
-                        <li>Risikoinventare & Maßnahmenpläne</li>
-                        <li>Ressourcen & Rollendefinitionen</li>
-                        <li>Aktiven und historischen Zuweisungen</li>
-                        <li>Audit-Logs</li>
-                      </ul>
-                      <p className="mt-4 italic">Hub-Administratoren, IAM-Nutzer und technische Konfigurationen werden NICHT gelöscht.</p>
+                    <AlertDialogDescription className="text-xs leading-relaxed" asChild>
+                      <div>
+                        Diese Aktion löscht unwiderruflich alle im System erfassten:
+                        <ul className="list-disc list-inside mt-2 space-y-1 font-bold">
+                          <li>Importierten Kataloge & Gefährdungen</li>
+                          <li>Risikoinventare & Maßnahmenpläne</li>
+                          <li>Ressourcen & Rollendefinitionen</li>
+                          <li>Aktiven und historischen Zuweisungen</li>
+                          <li>Audit-Logs</li>
+                        </ul>
+                        <div className="mt-4 italic">Hub-Administratoren, IAM-Nutzer und technische Konfigurationen werden NICHT gelöscht.</div>
+                      </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
