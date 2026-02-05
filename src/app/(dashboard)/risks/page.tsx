@@ -31,7 +31,9 @@ import {
   Zap,
   Sparkles,
   X,
-  CalendarCheck
+  CalendarCheck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -70,6 +72,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -85,6 +88,7 @@ function RiskDashboardContent() {
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
+  const [showScoringHelp, setShowScoringHelp] = useState(false);
 
   // Advisor State
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
@@ -241,6 +245,7 @@ function RiskDashboardContent() {
     setOwner('');
     setDescription('');
     setStatus('active');
+    setShowScoringHelp(false);
   };
 
   const openEdit = (risk: Risk) => {
@@ -455,6 +460,43 @@ function RiskDashboardContent() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              {/* Bewertungshilfe Section */}
+              <div className="bg-slate-50 border-y py-4 px-6 -mx-8">
+                <Collapsible open={showScoringHelp} onOpenChange={setShowScoringHelp}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500">
+                      <HelpCircle className="w-3.5 h-3.5 text-primary" />
+                      Bewertungshilfe (1-5 Skala)
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 text-[9px] font-bold uppercase gap-1">
+                        {showScoringHelp ? <><ChevronUp className="w-3 h-3" /> Ausblenden</> : <><ChevronDown className="w-3 h-3" /> Einblenden</>}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent className="pt-4 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-black uppercase text-primary border-b pb-1">Wahrscheinlichkeit</p>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] leading-tight"><strong>1 (Sehr selten):</strong> <span className="text-muted-foreground">Theoretisch denkbar, tritt alle 10+ Jahre auf.</span></p>
+                          <p className="text-[10px] leading-tight"><strong>3 (Gelegentlich):</strong> <span className="text-muted-foreground">Tritt ca. alle 1-2 Jahre im Branchenumfeld auf.</span></p>
+                          <p className="text-[10px] leading-tight"><strong>5 (Sehr häufig):</strong> <span className="text-muted-foreground">Tritt fast täglich oder wöchentlich auf.</span></p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-black uppercase text-red-600 border-b pb-1">Schadenshöhe</p>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] leading-tight"><strong>1 (Sehr gering):</strong> <span className="text-muted-foreground">Vernachlässigbarer Aufwand zur Behebung.</span></p>
+                          <p className="text-[10px] leading-tight"><strong>3 (Mittel):</strong> <span className="text-muted-foreground">Spürbare Auswirkungen auf Geschäftsprozesse.</span></p>
+                          <p className="text-[10px] leading-tight"><strong>5 (Sehr hoch):</strong> <span className="text-muted-foreground">Existenzbedrohend, massiver Imageverlust.</span></p>
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
               
               <div className="grid grid-cols-2 gap-8 border-t pt-6">
