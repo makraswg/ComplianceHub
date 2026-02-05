@@ -174,7 +174,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col lg:flex-row gap-8">
         <aside className="w-full lg:w-64 shrink-0">
           <nav className="space-y-1">
             {navItems.map((item) => (
@@ -202,7 +202,7 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           
           {/* ORGANISATION */}
-          <TabsContent value="general" className="mt-0 space-y-6 block">
+          <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Aktiver Mandant</CardTitle>
@@ -256,7 +256,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* PLATTFORM-NUTZER */}
-          <TabsContent value="pusers" className="mt-0 space-y-6 block">
+          <TabsContent value="pusers" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <div className="space-y-1">
@@ -302,8 +302,8 @@ export default function SettingsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <div className={cn("w-1.5 h-1.5 rounded-full", pu.enabled ? "bg-emerald-500" : "bg-red-500")} />
-                            <span className="text-[9px] font-bold uppercase">{pu.enabled ? 'Aktiv' : 'Gesperrt'}</span>
+                            <div className={cn("w-1.5 h-1.5 rounded-full", (pu.enabled === 1 || pu.enabled === true) ? "bg-emerald-500" : "bg-red-500")} />
+                            <span className="text-[9px] font-bold uppercase">{(pu.enabled === 1 || pu.enabled === true) ? 'Aktiv' : 'Gesperrt'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right pr-6">
@@ -325,8 +325,70 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* IDENTITÄT & SYNC */}
+          <TabsContent value="sync" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Anbindung</CardTitle>
+                <Switch 
+                  checked={!!activeTenant?.ldapEnabled} 
+                  onCheckedChange={(val) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapEnabled: val })} 
+                />
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <Label className="text-[10px] font-bold uppercase">LDAP URL</Label>
+                    <Input 
+                      placeholder="ldap://dc01.firma.local" 
+                      value={activeTenant?.ldapUrl || ''} 
+                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapUrl: e.target.value })} 
+                      className="rounded-none h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Port</Label>
+                    <Input 
+                      placeholder="389" 
+                      value={activeTenant?.ldapPort || ''} 
+                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapPort: e.target.value })} 
+                      className="rounded-none h-10"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label className="text-[10px] font-bold uppercase">Base DN</Label>
+                    <Input 
+                      placeholder="DC=firma,DC=local" 
+                      value={activeTenant?.ldapBaseDn || ''} 
+                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBaseDn: e.target.value })} 
+                      className="rounded-none h-10 font-mono text-xs"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Bind DN</Label>
+                    <Input 
+                      placeholder="CN=svc_compliance,OU=ServiceAccounts,..." 
+                      value={activeTenant?.ldapBindDn || ''} 
+                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBindDn: e.target.value })} 
+                      className="rounded-none h-10 font-mono text-xs"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Bind Passwort</Label>
+                    <Input 
+                      type="password" 
+                      value={activeTenant?.ldapBindPassword || ''} 
+                      onChange={(e) => activeTenant && handleSaveConfig('tenants', activeTenant.id, { ...activeTenant, ldapBindPassword: e.target.value })} 
+                      className="rounded-none h-10"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* JIRA GATEWAY */}
-          <TabsContent value="integrations" className="mt-0 space-y-6 block">
+          <TabsContent value="integrations" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Jira Gateway & Assets Engine</CardTitle>
@@ -370,6 +432,47 @@ export default function SettingsPage() {
                         <Label className="text-[10px] font-bold uppercase">Vorgangstyp</Label>
                         <Input value={currentJira.issueTypeName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, issueTypeName: e.target.value })} className="rounded-none" />
                       </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-emerald-600">Genehmigt-Status (Trigger)</Label>
+                        <Input placeholder="Approved" value={currentJira.approvedStatusName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, approvedStatusName: e.target.value })} className="rounded-none" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-blue-600">Abschluss-Status (Sync)</Label>
+                        <Input placeholder="Done" value={currentJira.doneStatusName} onChange={(e) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, doneStatusName: e.target.value })} className="rounded-none" />
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="assets" className="space-y-6">
+                    <div className="p-4 bg-blue-50/50 border border-blue-100 flex items-start gap-3">
+                      <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                      <p className="text-[10px] text-blue-800 leading-relaxed font-bold uppercase">
+                        Konfigurieren Sie hier den Abgleich Ihrer IT-Assets (Systeme und Rollen) direkt aus der Jira Assets Datenbank (Insight).
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
+                        <Select value={currentJira.workspaceId} onValueChange={(val) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, workspaceId: val })}>
+                          <SelectTrigger className="rounded-none h-10">
+                            <SelectValue placeholder={isDiscoveryLoading ? "Lade..." : "Workspace wählen..."} />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase">Schema ID</Label>
+                        <Select value={currentJira.schemaId} onValueChange={(val) => handleSaveConfig('jiraConfigs', currentJira.id, { ...currentJira, schemaId: val })}>
+                          <SelectTrigger className="rounded-none h-10">
+                            <SelectValue placeholder="Schema wählen..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -378,7 +481,7 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* AI ADVISOR */}
-          <TabsContent value="ai" className="mt-0 block">
+          <TabsContent value="ai" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">KI Access Advisor</CardTitle>
@@ -396,28 +499,59 @@ export default function SettingsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {currentAi.provider === 'google' && (
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Gemini Modell</Label>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Endpoint / Modell</Label>
+                    {currentAi.provider === 'ollama' ? (
+                      <Input placeholder="http://localhost:11434" value={currentAi.ollamaUrl} onChange={(e) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, ollamaUrl: e.target.value })} className="rounded-none h-10" />
+                    ) : (
                       <Select value={currentAi.geminiModel} onValueChange={(val) => handleSaveConfig('aiConfigs', currentAi.id, { ...currentAi, geminiModel: val })}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
-                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash (Schnell)</SelectItem>
+                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro (Präzise)</SelectItem>
                         </SelectContent>
                       </Select>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* E-MAIL */}
+          <TabsContent value="email" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">E-Mail (SMTP) Benachrichtigungen</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2 md:col-span-1">
+                    <Label className="text-[10px] font-bold uppercase">SMTP Host</Label>
+                    <Input placeholder="smtp.office365.com" className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Port</Label>
+                    <Input placeholder="587" className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Benutzer</Label>
+                    <Input className="rounded-none h-10" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase">Passwort</Label>
+                    <Input type="password" title="Passwort" className="rounded-none h-10" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* RISKS */}
-          <TabsContent value="risks" className="mt-0 block">
+          <TabsContent value="risks" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Review Zyklen</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Globale Risiko Review Zyklen</CardTitle>
               </CardHeader>
               <CardContent className="p-8">
                 <div className="grid grid-cols-1 gap-4">
@@ -427,7 +561,12 @@ export default function SettingsPage() {
                       <div key={cat} className="flex items-center justify-between p-4 border bg-slate-50/50">
                         <span className="font-bold text-xs uppercase">{cat}</span>
                         <div className="flex items-center gap-3">
-                          <Input type="number" defaultValue={setting?.defaultReviewDays || 365} className="w-24 h-9 rounded-none text-center font-bold" />
+                          <Input 
+                            type="number" 
+                            defaultValue={setting?.defaultReviewDays || 365} 
+                            onBlur={(e) => handleSaveConfig('riskCategorySettings', cat, { id: cat, tenantId: activeTenantId, defaultReviewDays: parseInt(e.target.value) })}
+                            className="w-24 h-9 rounded-none text-center font-bold" 
+                          />
                           <span className="text-[9px] font-black text-slate-400 uppercase">Tage</span>
                         </div>
                       </div>
@@ -439,10 +578,10 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* DATA IMPORT */}
-          <TabsContent value="data" className="mt-0 block space-y-6">
+          <TabsContent value="data" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 text-center">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI Katalog Import</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">BSI Katalog Import Engine</CardTitle>
               </CardHeader>
               <CardContent className="p-12 flex flex-col items-center gap-6">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
@@ -469,7 +608,7 @@ export default function SettingsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {importRuns?.map(run => (
+                      {importRuns?.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(run => (
                         <TableRow key={run.id}>
                           <TableCell className="text-[10px] font-mono py-4">{new Date(run.timestamp).toLocaleString()}</TableCell>
                           <TableCell>
@@ -488,15 +627,15 @@ export default function SettingsPage() {
           </TabsContent>
 
         </div>
-      </div>
+      </Tabs>
 
       {/* User CRUD Dialog */}
       <Dialog open={isUserDialogOpen} onOpenChange={setIsUserAddOpen}>
         <DialogContent className="rounded-none max-w-md">
-          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Administrator hinzufügen</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Plattform-Nutzer hinzufügen</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Name</Label><Input className="rounded-none" /></div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">E-Mail</Label><Input className="rounded-none" /></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Anzeigename</Label><Input className="rounded-none" /></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">E-Mail Adresse</Label><Input className="rounded-none" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase">Rolle</Label>
@@ -504,18 +643,18 @@ export default function SettingsPage() {
                   <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-none">
                     <SelectItem value="superAdmin">Super Admin</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                    <SelectItem value="editor">Bearbeiter</SelectItem>
+                    <SelectItem value="viewer">Betrachter</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Zugehörigkeit</Label>
+                <Label className="text-[10px] font-bold uppercase">Zuständigkeit</Label>
                 <Select defaultValue="all">
                   <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
                   <SelectContent className="rounded-none">
-                    <SelectItem value="all">Alle (Global)</SelectItem>
+                    <SelectItem value="all">Alle Standorte</SelectItem>
                     {tenants?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -524,7 +663,7 @@ export default function SettingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUserAddOpen(false)} className="rounded-none uppercase text-[10px]">Abbrechen</Button>
-            <Button className="rounded-none uppercase text-[10px] font-bold px-8">Speichern</Button>
+            <Button className="rounded-none uppercase text-[10px] font-bold px-8">Nutzer speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
