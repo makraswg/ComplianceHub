@@ -4,16 +4,13 @@
 import { Catalog, HazardModule, Hazard, ImportRun, DataSource } from '@/lib/types';
 import { saveCollectionRecord } from './mysql-actions';
 import { XMLParser } from 'fast-xml-parser';
-import { crypto } from 'next/dist/compiled/@edge-runtime/primitives';
+import { createHash } from 'node:crypto';
 
 /**
  * Erzeugt einen SHA-256 Hash aus einem String zur Dublettenprüfung.
  */
 async function generateHash(content: string): Promise<string> {
-  const msgUint8 = new TextEncoder().encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return createHash('sha256').update(content).digest('hex');
 }
 
 export interface BsiImportInput {
@@ -41,10 +38,11 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
     
     const jsonObj = parser.parse(input.xmlContent);
     
-    // Die Struktur von BSI XMLs variiert je nach Version (Kompendium vs. Katalog)
-    // Wir suchen nach Modulen und Gefährdungen
-    const root = jsonObj.grundschutz || jsonObj.kompendium || jsonObj;
-    const modules = root.bausteine?.baustein || root.module?.modul || [];
+    // Suche nach der Wurzel (BSI XML Struktur variiert je nach Edition)
+    const root = jsonObj.grundschutz || jsonObj.kompendium || jsonObj.it_grundschutz || jsonObj;
+    
+    // Extrahiere Bausteine/Module
+    const modules = root.bausteine?.baustein || root.module?.modul || root.elemente?.element || [];
     const modulesList = Array.isArray(modules) ? modules : [modules];
 
     // 1. Katalog-Stammsatz anlegen
@@ -58,8 +56,8 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
     await saveCollectionRecord('catalogs', catalogId, catalog, dataSource);
 
     for (const mod of modulesList) {
-      const modCode = mod['@_code'] || mod.code || 'UNKNOWN';
-      const modTitle = mod.titel || mod.title || modCode;
+      const modCode = mod['@_code'] || mod.code || mod.id || 'UNKNOWN';
+      const modTitle = mod.titel || mod.title || mod.name || modCode;
       const moduleId = `mod-${catalogId}-${modCode}`;
 
       const moduleRecord: HazardModule = {
@@ -70,16 +68,17 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
       };
       await saveCollectionRecord('hazardModules', moduleId, moduleRecord, dataSource);
 
-      // Gefährdungen extrahieren
-      const threats = mod.gefaehrdungen?.gefaehrdung || mod.threats?.threat || [];
+      // Gefährdungen extrahieren (Suche in verschiedenen Pfaden)
+      const threats = mod.gefaehrdungen?.gefaehrdung || mod.threats?.threat || mod.risiken?.risiko || [];
       const threatsList = Array.isArray(threats) ? threats : [threats];
 
       for (const threat of threatsList) {
-        const threatCode = threat['@_code'] || threat.code || `G_${Math.random().toString(36).substring(2,5)}`;
-        const threatTitle = threat.titel || threat.title || 'Unbenannt';
-        const threatDesc = threat.beschreibung || threat.description || '';
+        const threatCode = threat['@_code'] || threat.code || threat.id || `G_${Math.random().toString(36).substring(2,5)}`;
+        const threatTitle = threat.titel || threat.title || threat.name || 'Unbenannt';
+        const threatDesc = threat.beschreibung || threat.description || threat.text || '';
         const threatId = `haz-${moduleId}-${threatCode}`;
 
+        // Content-Hashing zur Dublettenprüfung
         const contentForHash = `${threatTitle}|${threatDesc}`;
         const hash = await generateHash(contentForHash);
 
@@ -97,7 +96,7 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
       }
     }
 
-    log += `Import erfolgreich. ${itemCount} Gefährdungen verarbeitet.\n`;
+    log += `Import erfolgreich abgeschlossen. ${itemCount} Gefährdungen verarbeitet.\n`;
     
     const run: ImportRun = {
       id: runId,
@@ -109,7 +108,7 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
     };
     await saveCollectionRecord('importRuns', runId, run, dataSource);
 
-    return { success: true, runId, message: `${itemCount} Einträge aus XML importiert.` };
+    return { success: true, runId, message: `${itemCount} Einträge erfolgreich aus XML importiert.` };
 
   } catch (error: any) {
     console.error("BSI XML Import Error:", error);
@@ -119,7 +118,7 @@ export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: D
       timestamp: now,
       status: 'failed',
       itemCount,
-      log: log + `FEHLER: ${error.message}`
+      log: log + `FEHLER BEIM PARSING: ${error.message}`
     };
     await saveCollectionRecord('importRuns', runId, errorRun, dataSource);
     return { success: false, runId, message: `XML Parser Fehler: ${error.message}` };
