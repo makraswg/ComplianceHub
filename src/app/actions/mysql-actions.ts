@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -10,37 +11,44 @@ import bcrypt from 'bcryptjs';
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
   platformUsers: 'platformUsers',
-  groups: 'groups',
-  entitlements: 'entitlements',
-  resources: 'resources',
-  assignments: 'assignments',
   tenants: 'tenants',
   auditEvents: 'auditEvents',
-  jiraConfigs: 'jiraConfigs',
-  bundles: 'bundles',
-  servicePartners: 'servicePartners',
-  smtpConfigs: 'smtpConfigs',
-  aiConfigs: 'aiConfigs',
-  syncJobs: 'syncJobs',
-  helpContent: 'helpContent',
+  catalogs: 'catalogs',
+  hazardModules: 'hazardModules',
+  hazards: 'hazards',
+  importRuns: 'importRuns',
+  importIssues: 'importIssues',
   risks: 'risks',
   riskMeasures: 'riskMeasures',
-  riskReviews: 'riskReviews',
   riskCategorySettings: 'riskCategorySettings',
+  resources: 'resources',
+  entitlements: 'entitlements',
+  assignments: 'assignments',
+  groups: 'groups',
+  bundles: 'bundles'
 };
 
 function normalizeRecord(item: any, tableName: string) {
   const normalized = { ...item };
-  if (tableName === 'groups' || tableName === 'bundles') {
-    normalized.entitlementConfigs = item.entitlementConfigs ? (typeof item.entitlementConfigs === 'string' ? JSON.parse(item.entitlementConfigs) : item.entitlementConfigs) : [];
-    normalized.userConfigs = item.userConfigs ? (typeof item.userConfigs === 'string' ? JSON.parse(item.userConfigs) : item.userConfigs) : [];
-    normalized.entitlementIds = item.entitlementIds ? (typeof item.entitlementIds === 'string' ? JSON.parse(item.entitlementIds) : item.entitlementIds) : [];
-    normalized.userIds = item.userIds ? (typeof item.userIds === 'string' ? JSON.parse(item.userIds) : item.userIds) : [];
+  
+  const jsonFields: Record<string, string[]> = {
+    groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
+    bundles: ['entitlementIds'],
+    auditEvents: ['before', 'after']
+  };
+
+  if (jsonFields[tableName]) {
+    jsonFields[tableName].forEach(field => {
+      if (item[field]) {
+        try {
+          normalized[field] = typeof item[field] === 'string' ? JSON.parse(item[field]) : item[field];
+        } catch (e) {
+          normalized[field] = [];
+        }
+      }
+    });
   }
-  if (tableName === 'auditEvents') {
-    normalized.before = item.before ? (typeof item.before === 'string' ? JSON.parse(item.before) : item.before) : null;
-    normalized.after = item.after ? (typeof item.after === 'string' ? JSON.parse(item.after) : item.after) : null;
-  }
+
   const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -91,23 +99,31 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
   try {
     connection = await getMysqlConnection();
     const preparedData = { ...data, id };
-    if (tableName === 'groups' || tableName === 'bundles') {
-      if (Array.isArray(preparedData.entitlementConfigs)) preparedData.entitlementConfigs = JSON.stringify(preparedData.entitlementConfigs);
-      if (Array.isArray(preparedData.userConfigs)) preparedData.userConfigs = JSON.stringify(preparedData.userConfigs);
-      if (Array.isArray(preparedData.entitlementIds)) preparedData.entitlementIds = JSON.stringify(preparedData.entitlementIds);
-      if (Array.isArray(preparedData.userIds)) preparedData.userIds = JSON.stringify(preparedData.userIds);
+    
+    // JSON Serialization
+    const jsonFields: Record<string, string[]> = {
+      groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
+      bundles: ['entitlementIds'],
+      auditEvents: ['before', 'after']
+    };
+
+    if (jsonFields[tableName]) {
+      jsonFields[tableName].forEach(field => {
+        if (Array.isArray(preparedData[field]) || typeof preparedData[field] === 'object') {
+          preparedData[field] = JSON.stringify(preparedData[field]);
+        }
+      });
     }
-    if (tableName === 'auditEvents') {
-      if (preparedData.before && typeof preparedData.before === 'object') preparedData.before = JSON.stringify(preparedData.before);
-      if (preparedData.after && typeof preparedData.after === 'object') preparedData.after = JSON.stringify(preparedData.after);
-    }
+
     const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
+    
     const keys = Object.keys(preparedData);
     const values = Object.values(preparedData);
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
+    
     await connection.execute(sql, values);
     connection.release();
     return { success: true, error: null };
@@ -143,20 +159,13 @@ export async function testMysqlConnectionAction(): Promise<{ success: boolean; m
     return await testMysqlConnection();
 }
 
-/**
- * Aktualisiert das Passwort eines Plattform-Benutzers in der MySQL Datenbank.
- */
 export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error: string | null }> {
   let connection;
   try {
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(newPassword, salt);
-
     connection = await getMysqlConnection();
-    await connection.execute(
-      'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
-      [hashedPassword, email]
-    );
+    await connection.execute('UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?', [hashedPassword, email]);
     connection.release();
     return { success: true, error: null };
   } catch (error: any) {

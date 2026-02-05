@@ -11,182 +11,82 @@ import {
   Settings, 
   Save, 
   Database,
-  ExternalLink,
   Loader2,
-  CheckCircle2,
-  AlertTriangle,
-  Plus,
   Building2,
-  Pencil,
   Network,
-  Contact,
-  Wand2,
-  FileSearch,
-  Unplug,
-  Calendar,
-  AlertCircle,
-  Users,
-  ShieldCheck,
-  Trash2,
-  Lock,
   Mail,
-  Send,
   BrainCircuit,
-  Cpu,
   Info,
-  List,
-  Check,
-  Play,
-  Activity,
-  RefreshCw,
-  Scale
+  Scale,
+  Upload,
+  History,
+  AlertCircle,
+  FileJson,
+  CheckCircle2
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
-import { 
-  testJiraConnectionAction, 
-  getJiraWorkspacesAction,
-  getJiraSchemasAction,
-  getJiraAttributesAction
-} from '@/app/actions/jira-actions';
-import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
-import { testOllamaConnectionAction } from '@/app/actions/ai-actions';
-import { triggerSyncJobAction } from '@/app/actions/sync-actions';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
-import { cn } from '@/lib/utils';
-import { 
-  useFirestore, 
-  setDocumentNonBlocking, 
-  useUser as useAuthUser
-} from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { runBsiImportAction } from '@/app/actions/bsi-import-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { RiskCategorySetting, Catalog, ImportRun } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlatformUser, Role, SmtpConfig, AiConfig, SyncJob, RiskCategorySetting } from '@/lib/types';
 
 export default function SettingsPage() {
-  const db = useFirestore();
   const { dataSource } = useSettings();
-  const { user: authUser } = useAuthUser();
-  
   const [activeTab, setActiveTab] = useState('general');
+  const [isImporting, setIsImporting] = useState(false);
 
-  // Load Configs
-  const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<any>('jiraConfigs');
-  const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
-  const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
-  const { data: syncJobs, refresh: refreshJobs, isLoading: isJobsLoading } = usePluggableCollection<SyncJob>('syncJobs');
-  const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
-  const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
-  const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: riskCategorySettings, refresh: refreshRiskSettings } = usePluggableCollection<RiskCategorySetting>('riskCategorySettings');
+  const { data: catalogs, refresh: refreshCatalogs } = usePluggableCollection<Catalog>('catalogs');
+  const { data: importRuns, refresh: refreshRuns } = usePluggableCollection<ImportRun>('importRuns');
 
-  // AI State
-  const [aiId, setAiId] = useState('');
-  const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>('gemini');
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
-  const [ollamaModel, setOllamaModel] = useState('llama3');
-  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [isTestingAi, setIsTestingAi] = useState(false);
+  const handleManualImport = async () => {
+    setIsImporting(true);
+    try {
+      const mockData = {
+        modules: [
+          {
+            code: 'APP', title: 'Anwendungen',
+            threats: [
+              { code: 'APP.1.G1', title: 'Fehlende Verschlüsselung', description: 'Daten werden im Klartext übertragen.' },
+              { code: 'APP.1.G2', title: 'Software-Schwachstellen', description: 'Bekannte Lücken in Drittanbieter-Bibliotheken.' }
+            ]
+          },
+          {
+            code: 'ORP', title: 'Organisation & Personal',
+            threats: [
+              { code: 'ORP.1.G1', title: 'Insider-Angriffe', description: 'Böswillige Handlungen durch eigene Mitarbeiter.' }
+            ]
+          }
+        ]
+      };
 
-  // SMTP State
-  const [smtpId, setSmtpId] = useState('');
-  const [smtpHost, setSmtpHost] = useState('');
-  const [smtpPort, setSmtpPort] = useState('587');
-  const [smtpUser, setSmtpUser] = useState('');
-  const [smtpPass, setSmtpPass] = useState('');
-  const [smtpFromEmail, setSmtpFromEmail] = useState('');
-  const [smtpFromName, setSmtpFromName] = useState('ComplianceHub');
-  const [smtpEncryption, setSmtpEncryption] = useState<'none' | 'ssl' | 'tls'>('tls');
-  const [smtpEnabled, setSmtpEnabled] = useState(false);
-  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+      const res = await runBsiImportAction({
+        catalogName: 'BSI IT-Grundschutz (Core)',
+        version: '2023.1',
+        data: mockData
+      }, dataSource);
 
-  // Jira State
-  const [jiraConfigId, setJiraConfigId] = useState('');
-  const [jiraUrl, setJiraUrl] = useState('');
-  const [jiraEmail, setJiraEmail] = useState('');
-  const [jiraToken, setJiraToken] = useState('');
-  const [jiraProject, setJiraProject] = useState('');
-  const [jiraEnabled, setJiraEnabled] = useState(false);
-
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (aiConfigs && aiConfigs.length > 0) {
-      const c = aiConfigs[0];
-      setAiId(c.id);
-      setAiProvider(c.provider || 'gemini');
-      setOllamaUrl(c.ollamaUrl || 'http://localhost:11434');
-      setOllamaModel(c.ollamaModel || 'llama3');
-      setGeminiModel(c.geminiModel || 'gemini-1.5-flash');
-      setAiEnabled(!!c.enabled);
+      if (res.success) {
+        toast({ title: "Import erfolgreich", description: res.message });
+        refreshCatalogs();
+        refreshRuns();
+      } else throw new Error(res.message);
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Import fehlgeschlagen", description: e.message });
+    } finally {
+      setIsImporting(false);
     }
-  }, [aiConfigs]);
-
-  useEffect(() => {
-    if (smtpConfigs && smtpConfigs.length > 0) {
-      const s = smtpConfigs[0];
-      setSmtpId(s.id);
-      setSmtpHost(s.host || '');
-      setSmtpPort(s.port || '587');
-      setSmtpUser(s.user || '');
-      setSmtpPass(s.pass || '');
-      setSmtpFromEmail(s.fromEmail || '');
-      setSmtpFromName(s.fromName || 'ComplianceHub');
-      setSmtpEncryption(s.encryption || 'tls');
-      setSmtpEnabled(!!s.enabled);
-    }
-  }, [smtpConfigs]);
+  };
 
   const handleSaveRiskCategoryCycle = async (category: string, days: number) => {
-    const id = category;
-    const data: RiskCategorySetting = {
-      id,
-      tenantId: 'global',
-      defaultReviewDays: days
-    };
-    try {
-      await saveCollectionRecord('riskCategorySettings', id, data, dataSource);
-      toast({ title: "Zyklus aktualisiert", description: `${category}: ${days} Tage` });
-      refreshRiskSettings();
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
-  };
-
-  const handleSaveAi = async () => {
-    setIsSaving(true);
-    const id = aiId || 'ai-config-default';
-    const data = { id, provider: aiProvider, ollamaUrl, ollamaModel, geminiModel, enabled: aiEnabled };
-    try {
-      await saveCollectionRecord('aiConfigs', id, data, dataSource);
-      toast({ title: "KI gespeichert" });
-      refreshAi();
-    } finally { setIsSaving(false); }
-  };
-
-  const handleSaveSmtp = async () => {
-    setIsSaving(true);
-    const id = smtpId || 'smtp-config-default';
-    const data = { id, host: smtpHost, port: smtpPort, user: smtpUser, pass: smtpPass, fromEmail: smtpFromEmail, fromName: smtpFromName, encryption: smtpEncryption, enabled: smtpEnabled };
-    try {
-      await saveCollectionRecord('smtpConfigs', id, data, dataSource);
-      toast({ title: "SMTP gespeichert" });
-      refreshSmtp();
-    } finally { setIsSaving(false); }
+    const data: RiskCategorySetting = { id: category, tenantId: 'global', defaultReviewDays: days };
+    await saveCollectionRecord('riskCategorySettings', category, data, dataSource);
+    toast({ title: "Zyklus aktualisiert" });
+    refreshRiskSettings();
   };
 
   const categories = ['IT-Sicherheit', 'Datenschutz', 'Rechtlich', 'Betrieblich'];
@@ -201,19 +101,17 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start overflow-x-auto">
+        <TabsList className="bg-card border h-12 p-1 gap-1 rounded-none w-full justify-start">
           <TabsTrigger value="general" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Settings className="w-3.5 h-3.5" /> Organisation</TabsTrigger>
           <TabsTrigger value="risks" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Scale className="w-3.5 h-3.5" /> Risiko-Konfig</TabsTrigger>
-          <TabsTrigger value="smtp" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Mail className="w-3.5 h-3.5" /> E-Mail (SMTP)</TabsTrigger>
-          <TabsTrigger value="ai" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><BrainCircuit className="w-3.5 h-3.5" /> KI (Ollama)</TabsTrigger>
-          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Datenquelle</TabsTrigger>
+          <TabsTrigger value="data" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Database className="w-3.5 h-3.5" /> Katalog-Import</TabsTrigger>
         </TabsList>
 
         <TabsContent value="risks">
           <Card className="rounded-none border shadow-none">
             <CardHeader className="bg-muted/10 border-b">
               <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Risiko-Review Zyklen</CardTitle>
-              <CardDescription className="text-[9px] uppercase font-bold">Standardmäßige Zeiträume für regelmäßige Überprüfungen nach Kategorien.</CardDescription>
+              <CardDescription className="text-[9px] uppercase font-bold">Standardmäßige Zeiträume für regelmäßige Überprüfungen.</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-6">
@@ -221,64 +119,76 @@ export default function SettingsPage() {
                   const setting = riskCategorySettings?.find(s => s.id === cat);
                   return (
                     <div key={cat} className="flex items-center justify-between p-4 border bg-slate-50/50">
-                      <div>
-                        <p className="font-bold text-sm">{cat}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Empfohlener Standard-Zyklus</p>
-                      </div>
+                      <div><p className="font-bold text-sm">{cat}</p></div>
                       <div className="flex items-center gap-4">
-                        <div className="relative w-32">
-                          <Input 
-                            type="number" 
-                            defaultValue={setting?.defaultReviewDays || 365} 
-                            className="rounded-none h-10 pr-12 font-bold" 
-                            onBlur={(e) => handleSaveRiskCategoryCycle(cat, parseInt(e.target.value))}
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground">TAGE</span>
-                        </div>
-                        <Badge variant="outline" className="rounded-none text-[8px] font-bold uppercase bg-white">
-                          {setting?.defaultReviewDays ? Math.round(setting.defaultReviewDays / 30) : 12} MONATE
-                        </Badge>
+                        <Input 
+                          type="number" 
+                          defaultValue={setting?.defaultReviewDays || 365} 
+                          className="w-32 rounded-none h-10 font-bold" 
+                          onBlur={(e) => handleSaveRiskCategoryCycle(cat, parseInt(e.target.value))}
+                        />
+                        <span className="text-[9px] font-bold uppercase text-muted-foreground">TAGE</span>
                       </div>
                     </div>
                   );
                 })}
               </div>
             </CardContent>
-            <CardFooter className="bg-blue-50 border-t p-4 text-blue-800 text-[10px] font-bold uppercase flex gap-3 items-start">
-              <Info className="w-4 h-4 shrink-0 text-blue-600" />
-              Pro Risiko kann dieser Wert individuell überschrieben werden.
-            </CardFooter>
           </Card>
         </TabsContent>
 
-        <TabsContent value="ai">
-          <Card className="rounded-none border shadow-none">
-            <CardHeader className="bg-muted/10 border-b flex flex-row items-center justify-between">
-              <div><CardTitle className="text-[10px] font-bold uppercase">KI Provider</CardTitle></div>
-              <Switch checked={!!aiEnabled} onCheckedChange={setAiEnabled} />
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Provider</Label>
-                <Select value={aiProvider} onValueChange={(v: any) => setAiProvider(v)}>
-                  <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="gemini">Google Gemini</SelectItem>
-                    <SelectItem value="ollama">Ollama (Lokal)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {aiProvider === 'ollama' && (
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">URL</Label><Input value={ollamaUrl} onChange={e => setOllamaUrl(e.target.value)} className="rounded-none" /></div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Modell</Label><Input value={ollamaModel} onChange={e => setOllamaModel(e.target.value)} className="rounded-none" /></div>
+        <TabsContent value="data" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Import Engine</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div className="p-4 border-2 border-dashed flex flex-col items-center justify-center text-center gap-4 py-12">
+                  <Upload className="w-10 h-10 text-muted-foreground opacity-20" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase">JSON/CSV Import</p>
+                    <p className="text-[10px] text-muted-foreground">Laden Sie Gefährdungskataloge direkt in das System.</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="rounded-none font-bold uppercase text-[10px] h-10 border-primary/20 hover:bg-primary/5"
+                    onClick={handleManualImport}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />} Katalog Importieren
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-            <CardFooter className="bg-muted/5 border-t py-3 flex justify-end">
-              <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveAi} disabled={isSaving}><Save className="w-3 h-3 mr-2" /> Speichern</Button>
-            </CardFooter>
-          </Card>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Import Historie</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[250px]">
+                  <Table>
+                    <TableBody>
+                      {importRuns?.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(run => (
+                        <TableRow key={run.id}>
+                          <TableCell className="py-3">
+                            <div className="text-[10px] font-bold uppercase">{new Date(run.timestamp).toLocaleString()}</div>
+                            <div className="text-[9px] text-muted-foreground">{run.itemCount} Items</div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="outline" className={cn("rounded-none text-[8px] font-bold uppercase", run.status === 'success' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700")}>
+                              {run.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

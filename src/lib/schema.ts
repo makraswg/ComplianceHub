@@ -38,16 +38,6 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50)',
     },
   },
-  servicePartners: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      contactPerson: 'VARCHAR(255)',
-      email: 'VARCHAR(255)',
-      phone: 'VARCHAR(50)',
-    },
-  },
   users: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -64,91 +54,70 @@ export const appSchema: AppSchema = {
       adGroups: 'TEXT',
     },
   },
-  groups: {
+  catalogs: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
-      description: 'TEXT',
-      entitlementConfigs: 'TEXT',
-      userConfigs: 'TEXT',
-      entitlementIds: 'TEXT', // Legacy
-      userIds: 'TEXT', // Legacy
-    },
-  },
-  bundles: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      description: 'TEXT',
-      entitlementIds: 'TEXT',
+      version: 'VARCHAR(50)',
+      provider: 'VARCHAR(100)',
+      importedAt: 'VARCHAR(50)',
     }
   },
-  resources: {
+  hazardModules: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      category: 'VARCHAR(50)',
-      type: 'VARCHAR(100)',
-      operatorId: 'VARCHAR(255)',
-      dataClassification: 'VARCHAR(50)',
-      dataLocation: 'VARCHAR(255)',
-      mfaType: 'VARCHAR(50)',
-      authMethod: 'VARCHAR(255)',
-      url: 'TEXT',
-      documentationUrl: 'TEXT',
-      criticality: 'VARCHAR(20) DEFAULT "medium"',
-      notes: 'TEXT',
-      createdAt: 'VARCHAR(50)',
-    },
+      catalogId: 'VARCHAR(255) NOT NULL',
+      code: 'VARCHAR(50) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+    }
   },
-  entitlements: {
+  hazards: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      resourceId: 'VARCHAR(255) NOT NULL',
-      parentId: 'VARCHAR(255)',
-      name: 'VARCHAR(255) NOT NULL',
+      moduleId: 'VARCHAR(255) NOT NULL',
+      code: 'VARCHAR(50) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
-      riskLevel: 'VARCHAR(20) DEFAULT "medium"',
-      isAdmin: 'BOOLEAN DEFAULT FALSE',
-      isSharedAccount: 'BOOLEAN DEFAULT FALSE',
-      passwordManagerUrl: 'TEXT',
-      externalMapping: 'TEXT',
-    },
+      contentHash: 'VARCHAR(64)',
+    }
   },
-  assignments: {
+  importRuns: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      userId: 'VARCHAR(255) NOT NULL',
-      entitlementId: 'VARCHAR(255) NOT NULL',
-      originGroupId: 'VARCHAR(255)',
-      status: 'VARCHAR(50) DEFAULT "active"',
-      grantedBy: 'VARCHAR(255)',
-      grantedAt: 'VARCHAR(50)',
-      validFrom: 'VARCHAR(50)',
-      validUntil: 'VARCHAR(50)',
-      lastReviewedAt: 'VARCHAR(50)',
-      ticketRef: 'VARCHAR(255)',
-      jiraIssueKey: 'VARCHAR(50)',
-      notes: 'TEXT',
-      syncSource: 'VARCHAR(50) DEFAULT "manual"',
-    },
+      catalogId: 'VARCHAR(255)',
+      timestamp: 'VARCHAR(50)',
+      status: 'VARCHAR(20)',
+      itemCount: 'INT',
+      log: 'TEXT',
+    }
+  },
+  importIssues: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      runId: 'VARCHAR(255) NOT NULL',
+      severity: 'VARCHAR(20)',
+      itemRef: 'VARCHAR(255)',
+      message: 'TEXT',
+    }
   },
   risks: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
+      assetId: 'VARCHAR(255)',
+      hazardId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       category: 'VARCHAR(100)',
       description: 'TEXT',
       impact: 'INT DEFAULT 3',
       probability: 'INT DEFAULT 3',
+      residualImpact: 'INT',
+      residualProbability: 'INT',
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
+      acceptanceStatus: 'VARCHAR(20) DEFAULT "pending"',
+      acceptanceReason: 'TEXT',
+      acceptedBy: 'VARCHAR(255)',
       lastReviewDate: 'VARCHAR(50)',
       reviewCycleDays: 'INT',
       createdAt: 'VARCHAR(50) NOT NULL',
@@ -174,17 +143,6 @@ export const appSchema: AppSchema = {
       notes: 'TEXT',
     },
   },
-  riskReviews: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      riskId: 'VARCHAR(255) NOT NULL',
-      date: 'VARCHAR(50) NOT NULL',
-      reviewer: 'VARCHAR(255) NOT NULL',
-      prevScore: 'INT',
-      newScore: 'INT',
-      notes: 'TEXT',
-    },
-  },
   auditEvents: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -197,71 +155,5 @@ export const appSchema: AppSchema = {
       before: 'TEXT',
       after: 'TEXT',
     },
-  },
-  jiraConfigs: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      url: 'TEXT NOT NULL',
-      email: 'VARCHAR(255)',
-      apiToken: 'TEXT',
-      apiTokenExpiresAt: 'VARCHAR(50)',
-      projectKey: 'VARCHAR(50)',
-      issueTypeName: 'VARCHAR(100)',
-      approvedStatusName: 'VARCHAR(100)',
-      doneStatusName: 'VARCHAR(100)',
-      enabled: 'BOOLEAN DEFAULT FALSE',
-      assetsWorkspaceId: 'VARCHAR(255)',
-      assetsSchemaId: 'VARCHAR(255)',
-      assetsResourceObjectTypeId: 'VARCHAR(255)',
-      assetsRoleObjectTypeId: 'VARCHAR(255)',
-      assetsResourceNameAttributeId: 'VARCHAR(255)',
-      assetsRoleNameAttributeId: 'VARCHAR(255)',
-      assetsSystemAttributeId: 'VARCHAR(255)',
-    }
-  },
-  smtpConfigs: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      host: 'VARCHAR(255) NOT NULL',
-      port: 'VARCHAR(10) NOT NULL',
-      user: 'VARCHAR(255)',
-      pass: 'VARCHAR(255)',
-      fromEmail: 'VARCHAR(255)',
-      fromName: 'VARCHAR(255)',
-      encryption: 'VARCHAR(20)',
-      enabled: 'BOOLEAN DEFAULT FALSE',
-    }
-  },
-  aiConfigs: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      provider: 'VARCHAR(50) NOT NULL',
-      ollamaUrl: 'TEXT',
-      ollamaModel: 'VARCHAR(255)',
-      geminiModel: 'VARCHAR(255)',
-      enabled: 'BOOLEAN DEFAULT TRUE',
-    }
-  },
-  syncJobs: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      name: 'VARCHAR(255) NOT NULL',
-      description: 'TEXT',
-      lastRun: 'VARCHAR(50)',
-      lastStatus: 'VARCHAR(20)',
-      lastMessage: 'TEXT',
-      enabled: 'BOOLEAN DEFAULT TRUE',
-    }
-  },
-  helpContent: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      section: 'VARCHAR(100) NOT NULL',
-      title: 'VARCHAR(255) NOT NULL',
-      content: 'TEXT NOT NULL',
-      'order': 'INT DEFAULT 0'
-    }
   }
 };

@@ -7,7 +7,6 @@ export interface Tenant {
   name: string;
   slug: string;
   createdAt: string;
-  // LDAP Configuration
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;
@@ -34,23 +33,14 @@ export interface User {
 
 export interface PlatformUser {
   id: string;
-  uid?: string; // Firebase Auth UID
+  uid?: string;
   email: string;
-  password?: string; // Password field for initial setup or prototype storage
+  password?: string;
   displayName: string;
   role: Role;
-  tenantId: string; // 'all' or specific tenantId
+  tenantId: string;
   enabled: boolean | number;
   createdAt: string;
-}
-
-export interface ServicePartner {
-  id: string;
-  tenantId: string;
-  name: string; // Company Name
-  contactPerson: string;
-  email: string;
-  phone?: string;
 }
 
 export interface Resource {
@@ -59,11 +49,11 @@ export interface Resource {
   name: string;
   category: 'it_tool' | 'business_critical' | 'test' | 'standard_app' | 'infrastructure';
   type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
-  operatorId: string; // Reference to ServicePartner
+  operatorId: string;
   dataClassification: 'public' | 'internal' | 'confidential' | 'strictly_confidential';
   dataLocation: string;
   mfaType: 'none' | 'standard_otp' | 'standard_mail' | 'optional_otp' | 'optional_mail';
-  authMethod: 'direct' | string; // 'direct' or ID of another resource (SSO)
+  authMethod: 'direct' | string;
   url: string;
   documentationUrl?: string;
   criticality: 'low' | 'medium' | 'high';
@@ -104,109 +94,81 @@ export interface Assignment {
   syncSource?: 'manual' | 'ldap' | 'group';
 }
 
-export interface GroupMemberConfig {
-  id: string;
-  validFrom?: string;
-  validUntil?: string | null;
-}
-
-export interface AssignmentGroup {
-  id: string;
-  tenantId: string;
-  name: string;
-  description: string;
-  entitlementConfigs: GroupMemberConfig[];
-  userConfigs: GroupMemberConfig[];
-  userIds?: string[]; // Legacy support or redundant tracking
-  entitlementIds?: string[]; // Legacy support
-}
-
-export interface Bundle {
-  id: string;
-  tenantId: string;
-  name: string;
-  description: string;
-  entitlementIds: string[];
-}
-
-export interface JiraConfig {
-  id: string;
-  tenantId: string;
-  name: string;
-  url: string;
-  email: string;
-  apiToken: string;
-  apiTokenExpiresAt?: string;
-  projectKey: string;
-  issueTypeName: string;
-  approvedStatusName: string;
-  doneStatusName: string;
-  enabled: boolean;
-  assetsWorkspaceId?: string;
-  assetsSchemaId?: string;
-  assetsResourceObjectTypeId?: string;
-  assetsRoleObjectTypeId?: string;
-  assetsResourceNameAttributeId?: string;
-  assetsRoleNameAttributeId?: string;
-  assetsSystemAttributeId?: string;
-}
-
-export interface SmtpConfig {
-  id: string;
-  host: string;
-  port: string;
-  user: string;
-  pass: string;
-  fromEmail: string;
-  fromName: string;
-  encryption: 'none' | 'ssl' | 'tls';
-  enabled: boolean | number;
-}
-
-export interface AiConfig {
-  id: string;
-  provider: 'gemini' | 'ollama';
-  ollamaUrl: string;
-  ollamaModel: string;
-  geminiModel: string;
-  enabled: boolean | number;
-}
-
-export interface SyncJob {
+// Catalog System
+export interface Catalog {
   id: string;
   name: string;
-  description: string;
-  lastRun?: string;
-  lastStatus?: 'success' | 'error' | 'running';
-  lastMessage?: string;
-  enabled: boolean | number;
+  version: string;
+  provider: string; // e.g. BSI
+  importedAt: string;
 }
 
-export interface HelpContent {
+export interface HazardModule {
   id: string;
-  section: string;
+  catalogId: string;
+  code: string; // e.g. ORP, APP
   title: string;
-  content: string;
-  order: number;
 }
 
+export interface Hazard {
+  id: string;
+  moduleId: string;
+  code: string; // e.g. APP.1
+  title: string;
+  description: string;
+  contentHash: string;
+}
+
+export interface ImportRun {
+  id: string;
+  catalogId: string;
+  timestamp: string;
+  status: 'success' | 'partial' | 'failed';
+  itemCount: number;
+  log: string;
+}
+
+export interface ImportIssue {
+  id: string;
+  runId: string;
+  severity: 'warning' | 'error';
+  itemRef: string;
+  message: string;
+}
+
+// Risk 2.0
 export interface Risk {
   id: string;
   tenantId: string;
+  assetId?: string; // Link to Resource
+  hazardId?: string; // Link to Catalog Hazard
   title: string;
   category: string;
   description: string;
-  impact: number; // 1-5
-  probability: number; // 1-5
+  
+  // Inherent (Raw)
+  impact: number;
+  probability: number;
+  
+  // Residual (After Controls)
+  residualImpact?: number;
+  residualProbability?: number;
+  
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
+  
+  // Acceptance
+  acceptanceStatus?: 'pending' | 'accepted' | 'rejected';
+  acceptanceReason?: string;
+  acceptedBy?: string;
+  
   lastReviewDate?: string;
-  reviewCycleDays?: number; // Override for default category cycle
+  reviewCycleDays?: number;
   createdAt: string;
 }
 
 export interface RiskCategorySetting {
-  id: string; // Category Name
+  id: string;
   tenantId: string;
   defaultReviewDays: number;
 }
@@ -219,29 +181,8 @@ export interface RiskMeasure {
   owner: string;
   dueDate: string;
   status: 'planned' | 'active' | 'completed' | 'on_hold';
-  effectiveness: number; // 1-5
+  effectiveness: number;
   notes?: string;
-}
-
-export interface RiskReview {
-  id: string;
-  riskId: string;
-  date: string;
-  reviewer: string;
-  prevScore: number;
-  newScore: number;
-  notes: string;
-}
-
-export interface JiraSyncItem {
-  key: string;
-  summary: string;
-  status: string;
-  reporter: string;
-  created: string;
-  requestedUserEmail?: string;
-  requestedRoleName?: string;
-  requestedResourceName?: string;
 }
 
 export interface Document {

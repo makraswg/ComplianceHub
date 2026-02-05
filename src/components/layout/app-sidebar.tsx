@@ -18,14 +18,14 @@ import {
   Settings2,
   RefreshCw,
   UserPlus,
-  User as UserIcon,
   Lock,
   Loader2,
   HelpCircle,
   AlertTriangle,
   ClipboardCheck,
   BarChart3,
-  PieChart
+  PieChart,
+  Library
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -81,6 +81,7 @@ export function AppSidebar() {
 
   const riskItems = [
     { name: 'Risiko Dashboard', href: '/risks', icon: BarChart3 },
+    { name: 'Gefährdungskatalog', href: '/risks/catalog', icon: Library },
     { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
     { name: 'Audit Log', href: '/audit', icon: Activity },
@@ -91,15 +92,9 @@ export function AppSidebar() {
   ];
 
   const handleLogout = async () => {
-    try {
-      // Logout from custom session
-      logout();
-      // Also try to sign out from Firebase if a session existed
-      try { await signOut(auth); } catch(e) {}
-      router.push('/');
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+    logout();
+    try { await signOut(auth); } catch(e) {}
+    router.push('/');
   };
 
   const handleUpdatePassword = async () => {
@@ -111,18 +106,15 @@ export function AppSidebar() {
       toast({ variant: "destructive", title: "Fehler", description: "Passwort muss mind. 6 Zeichen lang sein." });
       return;
     }
-
     setIsUpdatingPassword(true);
     try {
       const res = await updatePlatformUserPasswordAction(user?.email || '', newPassword);
       if (res.success) {
-        toast({ title: "Passwort aktualisiert", description: "Ihr Passwort wurde erfolgreich geändert." });
+        toast({ title: "Passwort aktualisiert" });
         setIsPasswordDialogOpen(false);
         setNewPassword('');
         setConfirmPassword('');
-      } else {
-        throw new Error(res.error || "Unbekannter Fehler beim Aktualisieren des Passworts.");
-      }
+      } else throw new Error(res.error || "Fehler");
     } catch (e: any) {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
@@ -138,34 +130,20 @@ export function AppSidebar() {
         </div>
         <div>
           <span className="font-headline font-bold text-xl tracking-tight block">ComplianceHub</span>
-          <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase block">Identity Management</span>
+          <span className="text-[10px] text-muted-foreground font-bold tracking-widest uppercase block">Governance Platform</span>
         </div>
       </div>
 
       <div className="px-3 flex-1 overflow-y-auto space-y-6 pt-4 custom-scrollbar">
         <div>
-          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            IAM Operationen
-          </p>
+          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">IAM Operationen</p>
           <nav className="space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link 
-                  key={item.name} 
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="w-3.5 h-3.5" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+            {navItems.map((item) => (
+              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                <item.icon className="w-3.5 h-3.5" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
           </nav>
         </div>
 
@@ -174,93 +152,25 @@ export function AppSidebar() {
             <AlertTriangle className="w-3 h-3 text-orange-500" /> Risikomanagement
           </p>
           <nav className="space-y-1">
-            {riskItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link 
-                  key={item.name} 
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                    isActive 
-                      ? "bg-orange-600 text-white" 
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="w-3.5 h-3.5" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+            {riskItems.map((item) => (
+              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href ? "bg-orange-600 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                <item.icon className="w-3.5 h-3.5" />
+                <span>{item.name}</span>
+              </Link>
+            ))}
           </nav>
         </div>
 
         <div>
-          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            Integrationen
-          </p>
+          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Konfiguration</p>
           <nav className="space-y-1">
-            {integrationItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link 
-                  key={item.name} 
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="w-3.5 h-3.5" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div>
-          <p className="px-3 mb-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            Konfiguration
-          </p>
-          <nav className="space-y-1">
-            <Link 
-              href="/setup"
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                pathname === '/setup' 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
+            <Link href="/setup" className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === '/setup' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <Settings2 className="w-3.5 h-3.5" />
               <span>Setup & Daten</span>
             </Link>
-            <Link 
-              href="/settings"
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                pathname === '/settings' 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
+            <Link href="/settings" className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === '/settings' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <Settings className="w-3.5 h-3.5" />
               <span>Einstellungen</span>
-            </Link>
-            <Link 
-              href="/help"
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider",
-                pathname === '/help' 
-                  ? "bg-primary text-primary-foreground" 
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Hilfe & Doku</span>
             </Link>
           </nav>
         </div>
@@ -269,73 +179,32 @@ export function AppSidebar() {
       <div className="p-4 border-t border-border">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              className="w-full h-auto p-2 justify-start items-center gap-3 rounded-none hover:bg-muted group transition-colors focus-visible:ring-0 focus-visible:ring-offset-0"
-            >
-              <Avatar className="h-8 w-8 rounded-none border border-border shrink-0">
-                <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px] uppercase">
-                  {user?.email?.charAt(0) || user?.displayName?.charAt(0) || 'A'}
-                </AvatarFallback>
+            <Button variant="ghost" className="w-full h-auto p-2 justify-start items-center gap-3 rounded-none hover:bg-muted">
+              <Avatar className="h-8 w-8 rounded-none border border-border">
+                <AvatarFallback className="bg-primary/20 text-primary font-bold text-[10px] uppercase">{user?.email?.charAt(0) || 'A'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden text-left">
-                <p className="text-[11px] font-bold truncate group-hover:text-primary transition-colors">
-                  {user?.displayName || user?.email || 'Administrator'}
-                </p>
+                <p className="text-[11px] font-bold truncate">{user?.displayName || user?.email || 'Administrator'}</p>
                 <p className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Mein Konto</p>
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            side="right" 
-            align="end" 
-            sideOffset={12} 
-            className="w-56 rounded-none z-[100]"
-          >
-            <DropdownMenuLabel className="text-[9px] font-bold uppercase text-muted-foreground px-3 py-2">
-              Benutzerverwaltung
-            </DropdownMenuLabel>
+          <DropdownMenuContent side="right" align="end" className="w-56 rounded-none">
+            <DropdownMenuItem onSelect={() => setIsPasswordDialogOpen(true)} className="gap-3 text-[11px] font-bold uppercase"><Lock className="w-3.5 h-3.5" /> Passwort ändern</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onSelect={() => setIsPasswordDialogOpen(true)}
-              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer transition-colors"
-            >
-              <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Passwort ändern
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onSelect={handleLogout}
-              className="gap-3 px-3 py-2 text-[11px] font-bold uppercase cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" /> Abmelden
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleLogout} className="gap-3 text-[11px] font-bold uppercase text-red-600"><LogOut className="w-3.5 h-3.5" /> Abmelden</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
 
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
         <DialogContent className="rounded-none max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase">Passwort ändern</DialogTitle>
-            <DialogDescription className="text-xs">Vergeben Sie ein neues Passwort für Ihren Account.</DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-sm font-bold uppercase">Passwort ändern</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Neues Passwort</Label>
-              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-none" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase">Bestätigen</Label>
-              <Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-none" />
-            </div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Neues Passwort</Label><Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="rounded-none" /></div>
+            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Bestätigen</Label><Input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="rounded-none" /></div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)} className="rounded-none">Abbrechen</Button>
-            <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-none font-bold uppercase text-[10px] gap-2">
-              {isUpdatingPassword && <Loader2 className="w-3 h-3 animate-spin" />}
-              Aktualisieren
-            </Button>
-          </DialogFooter>
+          <DialogFooter><Button onClick={handleUpdatePassword} disabled={isUpdatingPassword} className="rounded-none font-bold uppercase text-[10px]">{isUpdatingPassword ? '...' : 'Aktualisieren'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
