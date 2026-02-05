@@ -90,7 +90,8 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     details.push('🌱 Erstelle Hilfe-Inhalte...');
     const defaultHelp = [
       { id: 'help-01', section: 'Allgemein', title: 'Willkommen beim ComplianceHub', content: 'Der ComplianceHub ist Ihr zentrales Werkzeug zur Verwaltung von IT-Berechtigungen und Identitäten. Hier werden Onboarding-, Offboarding- und Review-Prozesse revisionssicher dokumentiert.', order: 1 },
-      { id: 'help-06', section: 'Risiko', title: 'Risikomanagement & Review-Zyklen', content: 'Risiko-Reviews dienen der regelmäßigen Neubewertung der Bedrohungslage. \n\nRegelungen: \n- ISO 27001 fordert eine regelmäßige Überprüfung (mind. jährlich).\n- Kritische Risiken (Score > 15) sollten quartalsweise geprüft werden.\n- Das System markiert Risiken nach 90 Tagen automatisch als prüfungsfällig.\n\nReviews können über die Schaltfläche "Jetzt Prüfen" direkt in der Risikoliste durchgeführt werden.', order: 6 }
+      { id: 'help-workflow-01', section: 'Risiko', title: 'Der Risikomanagement Workflow', content: 'Ein Risiko durchläuft im ComplianceHub einen standardisierten Prozess:\n\n1. Identifikation: Nutzen Sie den Gefährdungskatalog, um Bedrohungen abzuleiten.\n2. Bewertung: Bewerten Sie das inhärente Risiko (Schadenshöhe & Eintrittswahrscheinlichkeit) mit Hilfe der Scoring-Tipps.\n3. Behandlung: Verknüpfen Sie Maßnahmen (z.B. BSI-Empfehlungen), um das Restrisiko zu senken.\n4. Überwachung: Führen Sie regelmäßige Reviews über den Review-Button durch, um die Aktualität der Bewertung zu bestätigen.\n5. Analyse: Nutzen Sie die Berichte zur Management-Übersicht.', order: 2 },
+      { id: 'help-06', section: 'Risiko', title: 'Risiko-Reviews & Re-Zertifizierung', content: 'Risiko-Reviews dienen der regelmäßigen Neubewertung der Bedrohungslage. \n\nRegelungen: \n- ISO 27001 fordert eine regelmäßige Überprüfung (mind. jährlich).\n- Kritische Risiken (Score > 15) sollten quartalsweise geprüft werden.\n- Das System markiert Risiken nach 90 Tagen automatisch als prüfungsfällig.\n\nReviews müssen über den "Review"-Button in der Zeile aktiv bestätigt oder aktualisiert werden.', order: 6 }
     ];
 
     for (const h of defaultHelp) {
@@ -102,10 +103,9 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
         );
         details.push(`   ✅ Hilfe-Sektion erstellt: ${h.title}`);
       } else {
-        // Update existing help content during migration if needed
         await connection.execute(
-          'UPDATE `helpContent` SET content = ? WHERE id = ?',
-          [h.content, h.id]
+          'UPDATE `helpContent` SET content = ?, section = ?, title = ? WHERE id = ?',
+          [h.content, h.section, h.title, h.id]
         );
       }
     }

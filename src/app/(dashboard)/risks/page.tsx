@@ -34,7 +34,9 @@ import {
   CalendarCheck,
   ChevronDown,
   ChevronUp,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  GitPullRequest
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -84,6 +86,7 @@ function RiskDashboardContent() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [showWorkflowGuide, setShowWorkflowGuide] = useState(true);
   
   // Modals
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
@@ -344,6 +347,40 @@ function RiskDashboardContent() {
           </Button>
         </div>
       </div>
+
+      {/* Workflow Guide */}
+      {showWorkflowGuide && (
+        <Card className="rounded-none border-2 border-primary/10 bg-primary/5 shadow-none relative overflow-hidden animate-in fade-in slide-in-from-top-4">
+          <button onClick={() => setShowWorkflowGuide(false)} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <GitPullRequest className="w-4 h-4 text-primary" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-primary">GRC Prozess-Lifecycle</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { step: "1. Identifikation", desc: "Über Katalog ableiten oder manuell erfassen.", icon: Library },
+                { step: "2. Bewertung", desc: "Inhärentes Risiko via 1-5 Scoring festlegen.", icon: Scale },
+                { step: "3. Behandlung", desc: "BSI Maßnahmen via Advisor verknüpfen.", icon: Zap },
+                { step: "4. Überwachung", desc: "Regelmäßige Reviews & Re-Zertifizierung.", icon: ShieldCheck }
+              ].map((item, i) => (
+                <div key={i} className="flex gap-3 items-start relative">
+                  <div className="w-8 h-8 rounded-none bg-white border flex items-center justify-center shrink-0 shadow-sm">
+                    <item.icon className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase mb-0.5">{item.step}</p>
+                    <p className="text-[9px] text-muted-foreground leading-tight">{item.desc}</p>
+                  </div>
+                  {i < 3 && <ArrowRight className="hidden md:block absolute -right-4 top-2 w-3 h-3 text-slate-300" />}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         <div className="flex gap-4">
