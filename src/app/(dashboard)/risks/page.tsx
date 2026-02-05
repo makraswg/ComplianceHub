@@ -181,13 +181,9 @@ export default function RiskDashboardPage() {
     };
 
     try {
-      // 1. Update the risk itself
       await saveCollectionRecord('risks', selectedRisk.id, updatedRisk, dataSource);
-      
-      // 2. Save the review record
       await saveCollectionRecord('riskReviews', reviewRecord.id, reviewRecord, dataSource);
 
-      // 3. Audit Log
       await logAuditEventAction(dataSource, {
         tenantId: selectedRisk.tenantId,
         actorUid: authUser?.email || 'system',
@@ -259,25 +255,21 @@ export default function RiskDashboardPage() {
 
   const stats = useMemo(() => {
     if (!filteredRisks) return { high: 0, medium: 0, low: 0, pendingReviews: 0 };
+    
+    // Review fällig wenn > 90 Tage her (ca. Quartal)
+    const reviewThreshold = 90 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     return {
       high: filteredRisks.filter(r => (r.impact * r.probability) >= 15).length,
       medium: filteredRisks.filter(r => (r.impact * r.probability) >= 8 && (r.impact * r.probability) < 15).length,
       low: filteredRisks.filter(r => (r.impact * r.probability) < 8).length,
-      pendingReviews: filteredRisks.filter(r => !r.lastReviewDate || new Date(r.lastReviewDate).getTime() < Date.now() - 90 * 24 * 60 * 60 * 1000).length
+      pendingReviews: filteredRisks.filter(r => 
+        !r.lastReviewDate || 
+        (now - new Date(r.lastReviewDate).getTime()) > reviewThreshold
+      ).length
     };
   }, [filteredRisks]);
-
-  const filteredBsiCatalog = useMemo(() => {
-    let result: { module: BsiModule; threat: BsiThreat }[] = [];
-    BSI_CATALOG.forEach(mod => {
-      if (selectedBsiModule !== 'all' && mod.id !== selectedBsiModule) return;
-      mod.threats.forEach(thr => {
-        if (bsiSearch && !thr.title.toLowerCase().includes(bsiSearch.toLowerCase()) && !thr.description.toLowerCase().includes(bsiSearch.toLowerCase())) return;
-        result.push({ module: mod, threat: thr });
-      });
-    });
-    return result;
-  }, [bsiSearch, selectedBsiModule]);
 
   if (!mounted) return null;
 
@@ -325,7 +317,9 @@ export default function RiskDashboardPage() {
         <Card className="rounded-none border-l-4 border-l-blue-500 shadow-none bg-white dark:bg-slate-900">
           <CardContent className="p-4">
             <p className="text-[9px] font-bold uppercase text-muted-foreground">Fällige Reviews</p>
-            <h3 className="text-3xl font-bold mt-1">{stats.pendingReviews}</h3>
+            <h3 className={cn("text-3xl font-bold mt-1", stats.pendingReviews > 0 ? "text-blue-600" : "text-slate-400")}>
+              {stats.pendingReviews}
+            </h3>
           </CardContent>
         </Card>
       </div>
@@ -404,7 +398,8 @@ export default function RiskDashboardPage() {
                   <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredRisks.map((risk) => {
                   const score = risk.impact * risk.probability;
-                  const isReviewDue = !risk.lastReviewDate || new Date(risk.lastReviewDate).getTime() < Date.now() - 90 * 24 * 60 * 60 * 1000;
+                  const now = Date.now();
+                  const isReviewDue = !risk.lastReviewDate || (now - new Date(risk.lastReviewDate).getTime()) > (90 * 24 * 60 * 60 * 1000);
                   
                   return (
                     <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
@@ -412,7 +407,8 @@ export default function RiskDashboardPage() {
                         <div className="font-bold text-sm">{risk.title}</div>
                         <div className="flex items-center gap-2 mt-1 text-[9px] font-bold uppercase text-muted-foreground">
                           {risk.category} <span className="text-slate-300">|</span> 
-                          <span className={cn(isReviewDue ? "text-red-600" : "text-muted-foreground")}>
+                          <span className={cn(isReviewDue ? "text-red-600 font-black flex items-center gap-1" : "text-muted-foreground")}>
+                            {isReviewDue && <Clock className="w-2.5 h-2.5" />}
                             Review: {risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'Ausstehend'}
                           </span>
                         </div>
@@ -428,10 +424,13 @@ export default function RiskDashboardPage() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-8 text-[9px] font-bold uppercase gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
+                            className={cn(
+                              "h-8 text-[9px] font-bold uppercase gap-1.5 transition-all",
+                              isReviewDue ? "bg-blue-600 text-white hover:bg-blue-700" : "hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
+                            )}
                             onClick={() => openReview(risk)}
                           >
-                            <CalendarCheck className="w-3.5 h-3.5" /> Review
+                            <CalendarCheck className="w-3.5 h-3.5" /> {isReviewDue ? 'Jetzt Prüfen' : 'Review'}
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>

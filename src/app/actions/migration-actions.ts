@@ -9,8 +9,6 @@ import bcrypt from 'bcryptjs';
 /**
  * Führt eine Datenbank-Migration basierend auf dem definierten App-Schema durch.
  * Diese Funktion ist idempotent und kann sicher mehrfach ausgeführt werden.
- * Sie erstellt Tabellen und fügt Spalten hinzu, löscht aber nichts.
- * Zusätzlich wird ein initialer Admin-Account erstellt, falls keiner existiert.
  */
 export async function runDatabaseMigrationAction(): Promise<{ success: boolean; message: string; details: string[] }> {
   let connection: PoolConnection | undefined;
@@ -70,7 +68,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
-    // SEEDING: Default Admin Account erstellen, falls keiner existiert
+    // SEEDING: Default Admin Account
     details.push('🌱 Prüfe auf initialen Admin-Account...');
     const [userRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `platformUsers`');
     if (userRows[0].count === 0) {
@@ -86,55 +84,13 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
         [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now]
       );
       details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
-    } else {
-      details.push('   ✔️ Admin-Account bereits vorhanden.');
-    }
-
-    // SEEDING: Standard Jobs anlegen
-    details.push('🌱 Initialisiere Synchronisations-Jobs...');
-    const defaultJobs = [
-      { id: 'job-ldap-sync', name: 'LDAP / AD Nutzerabgleich', description: 'Synchronisiert Identitäten und Gruppenmitgliedschaften aus dem Active Directory.', enabled: 1 },
-      { id: 'job-jira-sync', name: 'Jira Ticket Scanner', description: 'Prüft Jira auf genehmigte Onboarding- oder Offboarding-Vorgänge.', enabled: 1 },
-      { id: 'job-assets-sync', name: 'Jira Assets Import', description: 'Importiert IT-Ressourcen und Rollendefinitionen aus Jira Assets (JSM).', enabled: 0 }
-    ];
-
-    for (const job of defaultJobs) {
-      const [jobRows]: any = await connection.execute('SELECT id FROM `syncJobs` WHERE id = ?', [job.id]);
-      if (jobRows.length === 0) {
-        await connection.execute(
-          'INSERT INTO `syncJobs` (id, name, description, enabled) VALUES (?, ?, ?, ?)',
-          [job.id, job.name, job.description, job.enabled]
-        );
-        details.push(`   ✅ Job angelegt: ${job.name}`);
-      }
-    }
-
-    // SEEDING: Risk Management Initial Data
-    details.push('🌱 Erstelle Demo-Risiken...');
-    const [riskRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `risks`');
-    if (riskRows[0].count === 0) {
-      const demoRisks = [
-        { id: 'risk-01', tenantId: 't1', title: 'Unberechtigter Admin-Zugriff', category: 'IT-Sicherheit', impact: 5, probability: 2, owner: 'IT Security', status: 'active', createdAt: new Date().toISOString() },
-        { id: 'risk-02', tenantId: 't1', title: 'Datenverlust durch fehlende MFA', category: 'IT-Sicherheit', impact: 4, probability: 4, owner: 'CISO', status: 'active', createdAt: new Date().toISOString() }
-      ];
-      for (const r of demoRisks) {
-        await connection.execute(
-          'INSERT INTO `risks` (id, tenantId, title, category, impact, probability, owner, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [r.id, r.tenantId, r.title, r.category, r.impact, r.probability, r.owner, r.status, r.createdAt]
-        );
-      }
-      details.push('   ✅ Demo-Risiken angelegt.');
     }
 
     // SEEDING: Initial Help Content
     details.push('🌱 Erstelle Hilfe-Inhalte...');
     const defaultHelp = [
       { id: 'help-01', section: 'Allgemein', title: 'Willkommen beim ComplianceHub', content: 'Der ComplianceHub ist Ihr zentrales Werkzeug zur Verwaltung von IT-Berechtigungen und Identitäten. Hier werden Onboarding-, Offboarding- und Review-Prozesse revisionssicher dokumentiert.', order: 1 },
-      { id: 'help-02', section: 'Identitäten', title: 'Benutzerverwaltung', content: 'Im Benutzerverzeichnis finden Sie alle Mitarbeiter. Diese können manuell angelegt oder automatisch via LDAP (Active Directory) synchronisiert werden.', order: 2 },
-      { id: 'help-03', section: 'Workflows', title: 'Jira Integration', content: 'Der Hub sendet Tickets für Berechtigungsänderungen an Jira. Sobald diese dort erledigt werden, können sie im Hub finalisiert werden, um die Rechte technisch aktiv zu schalten.', order: 3 },
-      { id: 'help-04', section: 'Lifecycle', title: 'Onboarding (Joiner)', content: 'Nutzen Sie Berechtigungspakete (Bundles), um neuen Mitarbeitern mit einem Klick alle notwendigen Basis-Rechte zuzuweisen. Ein Jira-Ticket wird automatisch zur Ausführung erstellt.', order: 4 },
-      { id: 'help-05', section: 'Governance', title: 'Access Reviews', content: 'Führen Sie regelmäßige Rezertifizierungen durch. Der KI-Advisor unterstützt Sie dabei, unnötige oder riskante Berechtigungen zu identifizieren.', order: 5 },
-      { id: 'help-06', section: 'Risiko', title: 'Risikomanagement', content: 'Bewerten Sie Risiken nach Schadenshöhe und Wahrscheinlichkeit. Dokumentieren Sie Kontrollmaßnahmen und führen Sie regelmäßige Reviews durch, um die Risikolage aktuell zu halten.', order: 6 }
+      { id: 'help-06', section: 'Risiko', title: 'Risikomanagement & Review-Zyklen', content: 'Risiko-Reviews dienen der regelmäßigen Neubewertung der Bedrohungslage. \n\nRegelungen: \n- ISO 27001 fordert eine regelmäßige Überprüfung (mind. jährlich).\n- Kritische Risiken (Score > 15) sollten quartalsweise geprüft werden.\n- Das System markiert Risiken nach 90 Tagen automatisch als prüfungsfällig.\n\nReviews können über die Schaltfläche "Jetzt Prüfen" direkt in der Risikoliste durchgeführt werden.', order: 6 }
     ];
 
     for (const h of defaultHelp) {
@@ -145,26 +101,21 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
           [h.id, h.section, h.title, h.content, h.order]
         );
         details.push(`   ✅ Hilfe-Sektion erstellt: ${h.title}`);
+      } else {
+        // Update existing help content during migration if needed
+        await connection.execute(
+          'UPDATE `helpContent` SET content = ? WHERE id = ?',
+          [h.content, h.id]
+        );
       }
     }
 
     connection.release();
-    return { 
-        success: true, 
-        message: 'Datenbank-Migration und Seeding erfolgreich abgeschlossen.',
-        details
-    };
+    return { success: true, message: 'Migration erfolgreich.', details };
 
   } catch (error: any) {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
     console.error("Database migration failed:", error);
-    details.push(`❌ Fehler: ${error.message}`);
-    return { 
-        success: false, 
-        message: `Datenbank-Migration fehlgeschlagen: ${error.message}`,
-        details
-    };
+    return { success: false, message: `Fehler: ${error.message}`, details: [] };
   }
 }
