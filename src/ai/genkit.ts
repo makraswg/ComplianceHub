@@ -1,7 +1,7 @@
 
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
-import {ollama} from 'genkitx-ollama';
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
+import { ollama } from 'genkitx-ollama';
 
 /**
  * Genkit instance configured with both Google AI and Ollama plugins.
@@ -12,6 +12,6 @@ export const ai = genkit({
     googleAI(),
     ollama({
       serverUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    })
+    }),
   ],
 });

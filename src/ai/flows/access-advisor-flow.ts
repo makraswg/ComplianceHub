@@ -11,8 +11,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
-import { ollama } from 'genkitx-ollama';
-import { googleAI } from '@genkit-ai/google-genai';
 import { DataSource } from '@/lib/types';
 
 const AccessAdvisorInputSchema = z.object({
@@ -45,20 +43,22 @@ Identify if there are too many high-risk permissions, if the access matches the 
 
 /**
  * Dynamically selects the model based on database configuration.
+ * Returns the model identifier string for the 'ai' instance.
  */
 async function getAdvisorModel(dataSource: DataSource = 'mysql') {
   const config = await getActiveAiConfig(dataSource);
   
   if (config && config.provider === 'ollama' && config.enabled) {
-    return ollama.model(config.ollamaModel || 'llama3');
+    // Format: pluginName/modelName
+    return `ollama/${config.ollamaModel || 'llama3'}`;
   }
   
-  // Default to Gemini
-  return googleAI.model(config?.geminiModel || 'gemini-2.5-flash');
+  // Default to Gemini via googleai plugin
+  return `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
 }
 
 export async function getAccessAdvice(input: AccessAdvisorInput): Promise<AccessAdvisorOutput> {
-  const model = await getAdvisorModel(input.dataSource as DataSource);
+  const modelIdentifier = await getAdvisorModel(input.dataSource as DataSource);
   
   const assignmentsList = input.assignments
     .map(a => `- Resource: ${a.resourceName}, Entitlement: ${a.entitlementName}, Risk: ${a.riskLevel}`)
@@ -72,7 +72,7 @@ ${assignmentsList}`;
 
   try {
     const { output } = await ai.generate({
-      model,
+      model: modelIdentifier,
       system: SYSTEM_PROMPT,
       prompt,
       output: { schema: AccessAdvisorOutputSchema }
