@@ -128,7 +128,7 @@ function RiskDashboardContent() {
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
   const { data: allMeasures } = usePluggableCollection<any>('hazardMeasures');
   const { data: relations } = usePluggableCollection<any>('hazardMeasureRelations');
-  const { data: riskMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
+  const { data: riskMeasures, refresh: refreshMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
 
   useEffect(() => {
     setMounted(true);
@@ -261,8 +261,11 @@ function RiskDashboardContent() {
       const res = await saveCollectionRecord('riskMeasures', msrId, newMeasure, dataSource);
       if (res.success) {
         toast({ title: "Maßnahme übernommen", description: "Sie wurde dem Risiko als geplante Maßnahme hinzugefügt." });
+        refreshMeasures();
       }
-    } catch (e) {}
+    } catch (e) {
+      toast({ variant: "destructive", title: "Fehler beim Übernehmen" });
+    }
   };
 
   const resetForm = () => {
@@ -469,16 +472,14 @@ function RiskDashboardContent() {
                         ) : (
                           <span className="text-[8px] font-bold text-muted-foreground uppercase">Keine Maßnahmen</span>
                         )}
-                        {risk.hazardId && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-5 text-[8px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1 px-1.5 w-fit"
-                            onClick={() => { setAdvisorRisk(risk); setIsAdvisorOpen(true); }}
-                          >
-                            <Zap className="w-2.5 h-2.5 fill-current" /> BSI Vorschläge
-                          </Button>
-                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-5 text-[8px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1 px-1.5 w-fit"
+                          onClick={() => { setAdvisorRisk(risk); setIsAdvisorOpen(true); }}
+                        >
+                          <Zap className="w-2.5 h-2.5 fill-current" /> BSI Advisor
+                        </Button>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -541,6 +542,16 @@ function RiskDashboardContent() {
                     <SelectContent className="rounded-none">
                       <SelectItem value="none">Global / Kein System</SelectItem>
                       {resources?.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Gefährdungs-Bezug (Katalog)</Label>
+                  <Select value={hazardId || 'none'} onValueChange={(v) => setHazardId(v === 'none' ? undefined : v)}>
+                    <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="none">Kein Katalog-Bezug</SelectItem>
+                      {hazards?.map(h => <SelectItem key={h.id} value={h.id}>{h.code}: {h.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
@@ -780,7 +791,7 @@ function RiskDashboardContent() {
                   SCORE: {(advisorRisk?.impact || 0) * (advisorRisk?.probability || 0)}
                 </Badge>
                 <Badge variant="outline" className="text-[8px] font-bold uppercase rounded-none border-slate-200">
-                  {hazards?.find(h => h.id === advisorRisk?.hazardId)?.code}
+                  {hazards?.find(h => h.id === advisorRisk?.hazardId)?.code || 'Kein Bezug'}
                 </Badge>
               </div>
             </div>
@@ -791,10 +802,35 @@ function RiskDashboardContent() {
                   <ClipboardCheck className="w-3.5 h-3.5" /> Passende Kontrollen aus Kreuztabelle:
                 </p>
                 
-                {suggestedMeasures.length === 0 ? (
-                  <div className="py-20 text-center space-y-3">
+                {!advisorRisk?.hazardId ? (
+                  <div className="py-10 text-center space-y-4 border-2 border-dashed bg-white p-6">
+                    <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold uppercase">Kein Gefährdungs-Bezug</p>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Um BSI-Vorschläge zu erhalten, muss das Risiko mit einer Gefährdung aus dem Katalog verknüpft sein.
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="rounded-none text-[9px] font-black uppercase w-full"
+                      onClick={() => { setIsAdvisorOpen(false); if(advisorRisk) openEdit(advisorRisk); }}
+                    >
+                      Bezug jetzt herstellen
+                    </Button>
+                  </div>
+                ) : suggestedMeasures.length === 0 ? (
+                  <div className="py-16 text-center space-y-4 bg-white border">
                     <Info className="w-10 h-10 text-slate-200 mx-auto" />
-                    <p className="text-xs text-muted-foreground font-medium italic px-10">Keine spezifischen Maßnahmen-Relationen für diesen Gefährdungscode in der Kreuztabelle gefunden.</p>
+                    <p className="text-[10px] text-muted-foreground font-medium italic px-10">Keine spezifischen BSI-Maßnahmen für diesen Code gefunden.</p>
+                    <Button 
+                      variant="ghost" 
+                      className="text-[9px] font-black uppercase text-blue-600 gap-2"
+                      onClick={() => router.push('/risks/measures')}
+                    >
+                      <Plus className="w-3 h-3" /> Manuelle Maßnahme anlegen
+                    </Button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3">
@@ -829,12 +865,24 @@ function RiskDashboardContent() {
             <div className="p-6 border-t bg-white space-y-4">
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-none">
                 <p className="text-[9px] text-blue-800 leading-relaxed font-bold uppercase italic">
-                  Hinweis: Diese Vorschläge basieren auf der offiziellen BSI-Kreuztabelle (2023). Prüfen Sie die fachliche Eignung für Ihr konkretes Szenario.
+                  Tipp: Mit dem "+" Button übernehmen Sie die BSI-Empfehlung direkt als geplante Maßnahme für dieses Risiko.
                 </p>
               </div>
-              <Button variant="outline" className="w-full rounded-none h-10 uppercase font-black text-[10px]" onClick={() => setIsAdvisorOpen(false)}>
-                Advisor Schließen
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 rounded-none h-10 uppercase font-black text-[10px]" 
+                  onClick={() => router.push('/risks/measures')}
+                >
+                  Alle Maßnahmen
+                </Button>
+                <Button 
+                  className="flex-1 rounded-none h-10 uppercase font-black text-[10px]" 
+                  onClick={() => setIsAdvisorOpen(false)}
+                >
+                  Schließen
+                </Button>
+              </div>
             </div>
           </div>
         </SheetContent>
