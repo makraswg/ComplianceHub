@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -142,4 +141,26 @@ export async function deleteCollectionRecord(collectionName: string, id: string,
 
 export async function testMysqlConnectionAction(): Promise<{ success: boolean; message: string; }> {
     return await testMysqlConnection();
+}
+
+/**
+ * Aktualisiert das Passwort eines Plattform-Benutzers in der MySQL Datenbank.
+ */
+export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error: string | null }> {
+  let connection;
+  try {
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(newPassword, salt);
+
+    connection = await getMysqlConnection();
+    await connection.execute(
+      'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
+      [hashedPassword, email]
+    );
+    connection.release();
+    return { success: true, error: null };
+  } catch (error: any) {
+    if (connection) connection.release();
+    return { success: false, error: error.message };
+  }
 }
