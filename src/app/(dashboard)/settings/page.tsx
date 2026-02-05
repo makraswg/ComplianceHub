@@ -32,6 +32,7 @@ import {
   History,
   Terminal,
   Layers,
+  FileUp,
   Settings as SettingsIcon
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -71,7 +72,7 @@ export default function SettingsPage() {
   const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
 
   // Import State
-  const [xmlContent, setXmlContent] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importName, setImportName] = useState('BSI Kompendium');
   const [importVersion, setImportVersion] = useState('2023');
   const [isImporting, setIsImporting] = useState(false);
@@ -174,18 +175,39 @@ export default function SettingsPage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (!file.name.toLowerCase().endsWith('.xml')) {
+        toast({ variant: "destructive", title: "Ungültiges Format", description: "Bitte laden Sie eine XML-Datei hoch." });
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const handleRunXmlImport = async () => {
-    if (!xmlContent) return;
+    if (!selectedFile) return;
     setIsImporting(true);
+    
     try {
+      const reader = new FileReader();
+      
+      const xmlContent = await new Promise<string>((resolve, reject) => {
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = () => reject(new Error("Fehler beim Lesen der Datei"));
+        reader.readAsText(selectedFile);
+      });
+
       const res = await runBsiXmlImportAction({
         catalogName: importName,
         version: importVersion,
         xmlContent
       }, dataSource);
+
       if (res.success) {
         toast({ title: "Import erfolgreich", description: res.message });
-        setXmlContent('');
+        setSelectedFile(null);
         refreshImportRuns();
       } else throw new Error(res.message);
     } catch (e: any) {
@@ -255,17 +277,17 @@ export default function SettingsPage() {
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Plattform-Administratoren</CardTitle>
-                <Button size="sm" className="h-8 rounded-none text-[9px] font-bold uppercase"><Plus className="w-3 h-3 mr-1" /> Neu</Button>
+                <Button size="sm" className="h-8 rounded-none text-[9px] font-bold uppercase"><Plus className="w-3.5 h-3.5 mr-1" /> Neu</Button>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader className="bg-muted/20">
-                    <TableRow><TableHead className="text-[10px] font-bold uppercase py-3">Nutzer</TableHead><TableHead className="text-[10px] font-bold uppercase">Rolle</TableHead><TableHead className="text-[10px] font-bold uppercase text-right pr-6">Aktionen</TableHead></TableRow>
+                    <TableRow><TableHead className="text-[10px] font-bold uppercase py-3 px-6">Nutzer</TableHead><TableHead className="text-[10px] font-bold uppercase">Rolle</TableHead><TableHead className="text-[10px] font-bold uppercase text-right pr-6">Aktionen</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
                     {pUsers?.map(pu => (
                       <TableRow key={pu.id}>
-                        <TableCell className="py-3"><div className="font-bold text-xs">{pu.displayName}</div><div className="text-[9px] text-muted-foreground">{pu.email}</div></TableCell>
+                        <TableCell className="py-3 px-6"><div className="font-bold text-xs">{pu.displayName}</div><div className="text-[9px] text-muted-foreground">{pu.email}</div></TableCell>
                         <TableCell><Badge variant="outline" className="text-[8px] uppercase">{pu.role}</Badge></TableCell>
                         <TableCell className="text-right pr-6"><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-3.5 h-3.5" /></Button></TableCell>
                       </TableRow>
@@ -402,19 +424,47 @@ export default function SettingsPage() {
                   <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Katalog-Name</Label><Input value={importName} onChange={e => setImportName(e.target.value)} className="rounded-none h-10" /></div>
                   <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Version (z.B. 2023)</Label><Input value={importVersion} onChange={e => setImportVersion(e.target.value)} className="rounded-none h-10" /></div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2"><FileCode className="w-3.5 h-3.5" /> XML Inhalt einfügen</Label>
-                  <textarea 
-                    value={xmlContent} 
-                    onChange={e => setXmlContent(e.target.value)} 
-                    placeholder="<kompendium>..." 
-                    className="w-full h-64 p-4 font-mono text-[10px] border-2 bg-slate-50 rounded-none focus:outline-none focus:border-primary"
-                  />
+                
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2"><FileCode className="w-3.5 h-3.5" /> BSI XML-Datei hochladen</Label>
+                  <div 
+                    className={cn(
+                      "border-2 border-dashed rounded-none p-12 text-center flex flex-col items-center gap-4 transition-colors",
+                      selectedFile ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                    )}
+                  >
+                    <div className={cn("w-16 h-16 rounded-full flex items-center justify-center", selectedFile ? "bg-primary/20 text-primary" : "bg-slate-200 text-slate-400")}>
+                      {isImporting ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileUp className="w-8 h-8" />}
+                    </div>
+                    <div className="space-y-1">
+                      {selectedFile ? (
+                        <p className="text-sm font-bold">{selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</p>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold uppercase">Datei hierher ziehen oder klicken</p>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase">Unterstützt nur .xml Formate des BSI</p>
+                        </>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      accept=".xml" 
+                      onChange={handleFileChange} 
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      style={{ position: 'absolute', opacity: 0 }}
+                      disabled={isImporting}
+                    />
+                    {!selectedFile && (
+                      <Button variant="outline" className="rounded-none uppercase font-bold text-[9px] pointer-events-none">Datei auswählen</Button>
+                    )}
+                  </div>
                 </div>
+
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setXmlContent('')} className="rounded-none text-[10px] font-bold uppercase">Leeren</Button>
-                  <Button onClick={handleRunXmlImport} disabled={!xmlContent || isImporting} className="rounded-none font-bold uppercase text-[10px] h-11 px-12 gap-2">
-                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Katalog Importieren
+                  <Button variant="outline" onClick={() => setSelectedFile(null)} className="rounded-none text-[10px] font-bold uppercase" disabled={isImporting}>Leeren</Button>
+                  <Button onClick={handleRunXmlImport} disabled={!selectedFile || isImporting} className="rounded-none font-bold uppercase text-[10px] h-11 px-12 gap-2">
+                    {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} 
+                    {isImporting ? 'Wird verarbeitet...' : 'Katalog Importieren'}
                   </Button>
                 </div>
               </CardContent>
@@ -429,12 +479,12 @@ export default function SettingsPage() {
                 <ScrollArea className="h-64">
                   <Table>
                     <TableHeader className="bg-muted/30">
-                      <TableRow><TableHead className="text-[9px] font-bold uppercase py-2">Zeitpunkt</TableHead><TableHead className="text-[9px] font-bold uppercase">Katalog</TableHead><TableHead className="text-[9px] font-bold uppercase">Status</TableHead><TableHead className="text-right pr-6 text-[9px] font-bold uppercase">Einträge</TableHead></TableRow>
+                      <TableRow><TableHead className="text-[9px] font-bold uppercase py-2 px-6">Zeitpunkt</TableHead><TableHead className="text-[9px] font-bold uppercase">Katalog</TableHead><TableHead className="text-[9px] font-bold uppercase">Status</TableHead><TableHead className="text-right pr-6 text-[9px] font-bold uppercase">Einträge</TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {importRuns?.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(run => (
                         <TableRow key={run.id}>
-                          <TableCell className="text-[10px] font-mono">{new Date(run.timestamp).toLocaleString()}</TableCell>
+                          <TableCell className="text-[10px] font-mono px-6">{new Date(run.timestamp).toLocaleString()}</TableCell>
                           <TableCell className="text-[10px] font-bold uppercase">{run.catalogId?.split('-').slice(1,-1).join(' ') || '---'}</TableCell>
                           <TableCell><Badge variant="outline" className={cn("text-[8px] font-bold border-none px-1.5", run.status === 'success' ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")}>{run.status}</Badge></TableCell>
                           <TableCell className="text-right pr-6 font-bold text-xs">{run.itemCount}</TableCell>
