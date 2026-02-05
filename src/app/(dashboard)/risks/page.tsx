@@ -28,7 +28,8 @@ import {
   BookOpen,
   Library,
   Zap,
-  Save
+  Save,
+  MessageSquare
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -53,6 +54,12 @@ import { Risk } from '@/lib/types';
 import { usePlatformAuth } from '@/context/auth-context';
 import { BSI_CATALOG, BsiModule, BsiThreat } from '@/lib/bsi-catalog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 
 export default function RiskDashboardPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -75,6 +82,11 @@ export default function RiskDashboardPage() {
   const [owner, setOwner] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
+
+  // Review State
+  const [reviewImpact, setReviewImpact] = useState('3');
+  const [reviewProbability, setReviewProbability] = useState('3');
+  const [reviewNotes, setReviewNotes] = useState('');
 
   // BSI Search State
   const [bsiSearch, setBsiSearch] = useState('');
@@ -146,6 +158,57 @@ export default function RiskDashboardPage() {
     }
   };
 
+  const handleRunReview = async () => {
+    if (!selectedRisk) return;
+    setIsSaving(true);
+    
+    const now = new Date().toISOString();
+    const updatedRisk: Risk = {
+      ...selectedRisk,
+      impact: parseInt(reviewImpact),
+      probability: parseInt(reviewProbability),
+      lastReviewDate: now
+    };
+
+    const reviewRecord = {
+      id: `rev-${Math.random().toString(36).substring(2, 9)}`,
+      riskId: selectedRisk.id,
+      date: now,
+      reviewer: authUser?.displayName || authUser?.email || 'system',
+      prevScore: selectedRisk.impact * selectedRisk.probability,
+      newScore: parseInt(reviewImpact) * parseInt(reviewProbability),
+      notes: reviewNotes
+    };
+
+    try {
+      // 1. Update the risk itself
+      await saveCollectionRecord('risks', selectedRisk.id, updatedRisk, dataSource);
+      
+      // 2. Save the review record
+      await saveCollectionRecord('riskReviews', reviewRecord.id, reviewRecord, dataSource);
+
+      // 3. Audit Log
+      await logAuditEventAction(dataSource, {
+        tenantId: selectedRisk.tenantId,
+        actorUid: authUser?.email || 'system',
+        action: `Risiko-Review abgeschlossen: Score von ${reviewRecord.prevScore} auf ${reviewRecord.newScore}`,
+        entityType: 'risk',
+        entityId: selectedRisk.id,
+        after: updatedRisk,
+        before: selectedRisk
+      });
+
+      toast({ title: "Review erfolgreich abgeschlossen" });
+      setIsReviewDialogOpen(false);
+      setReviewNotes('');
+      refresh();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Review fehlgeschlagen", description: e.message });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
@@ -167,6 +230,14 @@ export default function RiskDashboardPage() {
     setDescription(risk.description || '');
     setStatus(risk.status);
     setIsRiskDialogOpen(true);
+  };
+
+  const openReview = (risk: Risk) => {
+    setSelectedRisk(risk);
+    setReviewImpact(risk.impact.toString());
+    setReviewProbability(risk.probability.toString());
+    setReviewNotes('');
+    setIsReviewDialogOpen(true);
   };
 
   const applyBsiThreat = (threat: BsiThreat, module: BsiModule) => {
@@ -354,14 +425,23 @@ export default function RiskDashboardPage() {
                       <TableCell>{getRiskStatusBadge(risk.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 text-[9px] font-bold uppercase gap-1.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600"
+                            onClick={() => openReview(risk)}
+                          >
                             <CalendarCheck className="w-3.5 h-3.5" /> Review
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="rounded-none w-48">
                               <DropdownMenuItem onSelect={() => openEdit(risk)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600"><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600" onSelect={() => {
+                                if (confirm("Dieses Risiko permanent löschen?")) {
+                                  deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh());
+                                }
+                              }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -374,6 +454,68 @@ export default function RiskDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Review Dialog */}
+      <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+        <DialogContent className="max-w-xl rounded-none p-0 overflow-hidden border-2 shadow-2xl flex flex-col">
+          <DialogHeader className="p-6 bg-blue-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <CalendarCheck className="w-5 h-5 text-blue-400" />
+              <div className="flex-1">
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Review durchführen</DialogTitle>
+                <DialogDescription className="text-blue-200 text-[10px] font-bold uppercase mt-1">Statusprüfung: {selectedRisk?.title}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-8 space-y-8 bg-white dark:bg-slate-950 flex-1">
+            <div className="grid grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Aktuelle Eintrittswahrscheinlichkeit (1-5)</Label>
+                  <div className="flex gap-1">
+                    {['1', '2', '3', '4', '5'].map(v => (
+                      <button key={v} onClick={() => setReviewProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", reviewProbability === v ? "bg-orange-600 border-orange-600 text-white" : "bg-muted/30")}>{v}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase">Aktuelle Schadenshöhe (1-5)</Label>
+                  <div className="flex gap-1">
+                    {['1', '2', '3', '4', '5'].map(v => (
+                      <button key={v} onClick={() => setReviewImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", reviewImpact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-50 dark:bg-slate-900 border-2 border-dashed flex flex-col items-center justify-center p-4">
+                <p className="text-[9px] font-bold uppercase text-muted-foreground">Neuer Risiko-Score</p>
+                <div className={cn("text-5xl font-black", parseInt(reviewImpact)*parseInt(reviewProbability) >= 15 ? "text-red-600" : "text-blue-600")}>
+                  {parseInt(reviewImpact) * parseInt(reviewProbability)}
+                </div>
+                <p className="text-[8px] uppercase font-bold mt-2 text-muted-foreground">Vorher: {selectedRisk ? selectedRisk.impact * selectedRisk.probability : '-'}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground flex items-center gap-2">
+                <MessageSquare className="w-3 h-3" /> Review-Notizen / Begründung
+              </Label>
+              <Textarea 
+                value={reviewNotes} 
+                onChange={e => setReviewNotes(e.target.value)} 
+                placeholder="Warum hat sich das Risiko verändert? Welche Maßnahmen greifen aktuell?" 
+                className="rounded-none min-h-[120px] leading-relaxed" 
+              />
+            </div>
+          </div>
+          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
+            <Button variant="outline" onClick={() => setIsReviewDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
+            <Button onClick={handleRunReview} disabled={isSaving || !reviewNotes} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-blue-600 hover:bg-blue-700 text-white border-none">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Review abschließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Risk Edit Dialog */}
       <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
@@ -529,10 +671,3 @@ export default function RiskDashboardPage() {
     </div>
   );
 }
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
