@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -33,6 +32,8 @@ import { runBsiImportAction } from '@/app/actions/bsi-import-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { RiskCategorySetting, Catalog, ImportRun } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 
 export default function SettingsPage() {
   const { dataSource } = useSettings();
