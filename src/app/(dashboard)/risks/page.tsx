@@ -240,7 +240,11 @@ function RiskDashboardContent() {
         setIsRiskDialogOpen(false);
         resetForm();
         refresh();
+      } else {
+        toast({ variant: "destructive", title: "Fehler beim Speichern", description: res.error || "Unbekannter Fehler" });
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
     } finally {
       setIsSaving(false);
     }
@@ -261,7 +265,12 @@ function RiskDashboardContent() {
     if (!reviewRisk) return;
     setIsSaving(true);
     const now = new Date().toISOString();
-    const updatedRisk = {
+    
+    // Bestimme ob sich Werte gegenüber dem aktuellen Zustand geändert haben (Override Logic)
+    const hasBruttoChanged = parseInt(revImpact) !== reviewRisk.impact || parseInt(revProbability) !== reviewRisk.probability;
+    const hasNettoChanged = parseInt(revResImpact) !== (reviewRisk.residualImpact || 0) || parseInt(revResProbability) !== (reviewRisk.residualProbability || 0);
+
+    const updatedRisk: Risk = {
       ...reviewRisk,
       impact: parseInt(revImpact),
       probability: parseInt(revProbability),
@@ -270,6 +279,11 @@ function RiskDashboardContent() {
       bruttoReason: revBruttoReason,
       nettoReason: revNettoReason,
       lastReviewDate: now,
+      // Wenn der Benutzer im Review Werte anpasst, markieren wir dies als Override falls es ein Haupt-Risiko ist
+      isImpactOverridden: reviewRisk.isImpactOverridden || (hasBruttoChanged && !reviewRisk.parentId),
+      isProbabilityOverridden: reviewRisk.isProbabilityOverridden || (hasBruttoChanged && !reviewRisk.parentId),
+      isResidualImpactOverridden: reviewRisk.isResidualImpactOverridden || (hasNettoChanged && !reviewRisk.parentId),
+      isResidualProbabilityOverridden: reviewRisk.isResidualProbabilityOverridden || (hasNettoChanged && !reviewRisk.parentId)
     };
 
     try {
@@ -287,7 +301,11 @@ function RiskDashboardContent() {
         setIsReviewDialogOpen(false);
         setReviewRisk(null);
         refresh();
+      } else {
+        toast({ variant: "destructive", title: "Fehler beim Review", description: res.error || "Unbekannter Fehler" });
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
     } finally {
       setIsSaving(false);
     }
@@ -348,7 +366,11 @@ function RiskDashboardContent() {
         setCustomMeasureTitle('');
         refreshMeasures();
         refresh();
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.error });
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
     } finally {
       setIsAddingCustom(false);
     }
@@ -507,6 +529,7 @@ function RiskDashboardContent() {
             />
           </div>
           <div className="flex border bg-card h-11 p-1 gap-1">
+            <Filter className="w-3.5 h-3.5 ml-3 my-auto text-muted-foreground" />
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="border-none shadow-none h-full rounded-none bg-transparent min-w-[160px] text-[10px] font-bold uppercase">
                 <SelectValue placeholder="Alle" />
