@@ -20,7 +20,10 @@ import {
   ChevronRight,
   Filter,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  ShieldAlert,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -46,6 +49,8 @@ import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { Risk, RiskMeasure } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function RiskMeasuresPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -56,13 +61,14 @@ export default function RiskMeasuresPage() {
   const [selectedMeasure, setSelectedMeasure] = useState<RiskMeasure | null>(null);
 
   // Form State
-  const [riskId, setRiskId] = useState('');
+  const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<RiskMeasure['status']>('planned');
   const [effectiveness, setEffectiveness] = useState('3');
   const [description, setDescription] = useState('');
+  const [riskSearch, setRiskSearch] = useState('');
 
   const { data: measures, isLoading: isMeasuresLoading, refresh } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: risks, isLoading: isRisksLoading } = usePluggableCollection<Risk>('risks');
@@ -72,15 +78,15 @@ export default function RiskMeasuresPage() {
   }, []);
 
   const handleSaveMeasure = async () => {
-    if (!title || !riskId) {
-      toast({ variant: "destructive", title: "Fehler", description: "Risiko und Titel sind erforderlich." });
+    if (!title || selectedRiskIds.length === 0) {
+      toast({ variant: "destructive", title: "Fehler", description: "Mindestens ein Risiko und ein Titel sind erforderlich." });
       return;
     }
     setIsSaving(true);
     const id = selectedMeasure?.id || `msr-${Math.random().toString(36).substring(2, 9)}`;
     const measureData: RiskMeasure = {
       id,
-      riskId,
+      riskIds: selectedRiskIds,
       title,
       owner,
       dueDate,
@@ -106,18 +112,19 @@ export default function RiskMeasuresPage() {
 
   const resetForm = () => {
     setSelectedMeasure(null);
-    setRiskId('');
+    setSelectedRiskIds([]);
     setTitle('');
     setOwner('');
     setDueDate('');
     setStatus('planned');
     setEffectiveness('3');
     setDescription('');
+    setRiskSearch('');
   };
 
   const openEdit = (m: RiskMeasure) => {
     setSelectedMeasure(m);
-    setRiskId(m.riskId);
+    setSelectedRiskIds(m.riskIds || []);
     setTitle(m.title);
     setOwner(m.owner);
     setDueDate(m.dueDate || '');
@@ -140,16 +147,25 @@ export default function RiskMeasuresPage() {
 
   const filteredRisksForSelection = useMemo(() => {
     if (!risks) return [];
-    return risks.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId);
-  }, [risks, activeTenantId]);
+    return risks.filter(r => {
+      const matchesTenant = activeTenantId === 'all' || r.tenantId === activeTenantId;
+      const matchesSearch = r.title.toLowerCase().includes(riskSearch.toLowerCase());
+      return matchesTenant && matchesSearch;
+    });
+  }, [risks, activeTenantId, riskSearch]);
 
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
     return measures.filter(m => {
-      if (!risks) return true;
-      const risk = risks.find(r => r.id === m.riskId);
-      if (activeTenantId !== 'all' && risk && risk.tenantId !== activeTenantId) return false;
-      return m.title.toLowerCase().includes(search.toLowerCase()) || m.owner.toLowerCase().includes(search.toLowerCase());
+      const matchSearch = m.title.toLowerCase().includes(search.toLowerCase()) || m.owner.toLowerCase().includes(search.toLowerCase());
+      if (!matchSearch) return false;
+      
+      if (activeTenantId !== 'all' && risks) {
+        // Prüfe ob mindestens eines der verknüpften Risiken zum aktiven Mandanten gehört
+        const measureRisks = risks.filter(r => m.riskIds?.includes(r.id));
+        return measureRisks.some(r => r.tenantId === activeTenantId);
+      }
+      return true;
     });
   }, [measures, risks, search, activeTenantId]);
 
@@ -164,7 +180,7 @@ export default function RiskMeasuresPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight uppercase font-headline">Maßnahmen & Kontrollen</h1>
-            <p className="text-sm text-muted-foreground mt-1">Überwachung der risikomindernden Aktivitäten und deren Wirksamkeit.</p>
+            <p className="text-sm text-muted-foreground mt-1">Multi-Risk-Monitoring der risikomindernden Aktivitäten.</p>
           </div>
         </div>
         <Button onClick={() => { resetForm(); setIsMeasureDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6">
@@ -203,15 +219,17 @@ export default function RiskMeasuresPage() {
             {isMeasuresLoading ? (
               <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
             ) : filteredMeasures.map((m) => {
-              const risk = risks?.find(r => r.id === m.riskId);
+              const riskCount = m.riskIds?.length || 0;
               const isOverdue = m.dueDate && new Date(m.dueDate) < new Date() && m.status !== 'completed';
               
               return (
                 <TableRow key={m.id} className="hover:bg-muted/5 group border-b last:border-0">
                   <TableCell className="py-4">
                     <div className="font-bold text-sm">{m.title}</div>
-                    <div className="flex items-center gap-2 mt-1 text-[9px] text-muted-foreground font-bold uppercase">
-                      <ArrowRight className="w-2.5 h-2.5" /> Bezug: {risk?.title || 'Unbekanntes Risiko'}
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge className="bg-blue-50 text-blue-700 rounded-none text-[8px] font-black border-none px-1.5 h-4.5">
+                        {riskCount} VERKNÜPFTE RISIKEN
+                      </Badge>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -223,8 +241,8 @@ export default function RiskMeasuresPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <UserIcon className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs font-bold">{m.owner}</span>
+                      <UserIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs font-bold">{m.owner || 'N/A'}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -264,90 +282,130 @@ export default function RiskMeasuresPage() {
 
       {/* Measure Editor Dialog */}
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none p-0 flex flex-col border-2 shadow-2xl bg-card">
+        <DialogContent className="max-w-4xl rounded-none p-0 flex flex-col border-2 shadow-2xl h-[90vh] bg-card overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <ClipboardCheck className="w-5 h-5 text-emerald-500" />
               <DialogTitle className="text-sm font-bold uppercase tracking-wider">
-                {selectedMeasure ? 'Maßnahme bearbeiten' : 'Neue Maßnahme / Kontrolle planen'}
+                {selectedMeasure ? 'Maßnahme bearbeiten' : 'Neue Maßnahme planen'}
               </DialogTitle>
             </div>
           </DialogHeader>
           
-          <div className="p-8 space-y-6 bg-card">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Zugeordnetes Risiko</Label>
-              <Select value={riskId} onValueChange={setRiskId}>
-                <SelectTrigger className="rounded-none h-10 border-2 bg-background">
-                  <SelectValue placeholder={isRisksLoading ? "Lade Risiken..." : "Risiko auswählen..."} />
-                </SelectTrigger>
-                <SelectContent className="rounded-none">
-                  {filteredRisksForSelection.length > 0 ? (
-                    filteredRisksForSelection.map(r => (
-                      <SelectItem key={r.id} value={r.id}>
-                        <span className="text-muted-foreground font-black mr-2">[{r.category}]</span> {r.title}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>Keine Risiken verfügbar</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-1">
+              <div className="p-8 space-y-8 bg-card">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Linke Seite: Details */}
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Titel der Maßnahme</Label>
+                      <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Einführung von MFA" className="rounded-none h-10 font-bold border-2 bg-background" />
+                    </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Titel der Maßnahme</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="z.B. Einführung von 2FA für alle Administrator-Logins" className="rounded-none h-10 font-bold border-2 bg-background" />
-            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher</Label>
+                        <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name oder Team" className="rounded-none h-10 border-2 bg-background" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Deadline</Label>
+                        <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10 border-2 bg-background" />
+                      </div>
+                    </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Verantwortlicher (Implementierung)</Label>
-                <Input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Name oder Team" className="rounded-none h-10 border-2 bg-background" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Frist (Deadline)</Label>
-                <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="rounded-none h-10 border-2 bg-background" />
-              </div>
-            </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
+                        <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                          <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            <SelectItem value="planned">Geplant</SelectItem>
+                            <SelectItem value="active">In Umsetzung</SelectItem>
+                            <SelectItem value="completed">Abgeschlossen</SelectItem>
+                            <SelectItem value="on_hold">Pausiert</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-muted-foreground">Wirksamkeit (1-5)</Label>
+                        <Select value={effectiveness} onValueChange={setEffectiveness}>
+                          <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {[1,2,3,4,5].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
-                <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                  <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="planned">Geplant</SelectItem>
-                    <SelectItem value="active">In Umsetzung</SelectItem>
-                    <SelectItem value="completed">Abgeschlossen (Wirksam)</SelectItem>
-                    <SelectItem value="on_hold">Pausiert</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Geplante Wirksamkeit (1-5)</Label>
-                <Select value={effectiveness} onValueChange={setEffectiveness}>
-                  <SelectTrigger className="rounded-none h-10 border-2 bg-background"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="1">1 - Sehr Gering</SelectItem>
-                    <SelectItem value="2">2 - Gering</SelectItem>
-                    <SelectItem value="3">3 - Mittel</SelectItem>
-                    <SelectItem value="4">4 - Hoch</SelectItem>
-                    <SelectItem value="5">5 - Sehr Hoch (Eliminiert Risiko)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-muted-foreground">Beschreibung</Label>
+                      <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="..." className="rounded-none min-h-[150px] border-2 bg-background" />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Detailbeschreibung / Schritte</Label>
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Welche technischen oder organisatorischen Schritte werden unternommen?" className="rounded-none min-h-[100px] border-2 bg-background" />
-            </div>
+                  {/* Rechte Seite: Multi-Risk Picker */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" /> Verknüpfte Risiken ({selectedRiskIds.length})
+                      </Label>
+                      <div className="relative w-48">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                        <Input 
+                          placeholder="Suchen..." 
+                          value={riskSearch} 
+                          onChange={e => setRiskSearch(e.target.value)} 
+                          className="h-7 pl-7 text-[10px] rounded-none" 
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="border-2 rounded-none h-[400px] overflow-hidden flex flex-col bg-slate-50/50">
+                      <ScrollArea className="flex-1">
+                        <div className="p-2 space-y-1">
+                          {filteredRisksForSelection.map(r => {
+                            const isSelected = selectedRiskIds.includes(r.id);
+                            return (
+                              <div 
+                                key={r.id} 
+                                className={cn(
+                                  "flex items-start gap-3 p-3 cursor-pointer transition-all border border-transparent hover:border-slate-200",
+                                  isSelected ? "bg-white border-primary/30 shadow-sm ring-1 ring-inset ring-primary/10" : "hover:bg-white"
+                                )}
+                                onClick={() => {
+                                  setSelectedRiskIds(prev => isSelected ? prev.filter(id => id !== r.id) : [...prev, r.id]);
+                                }}
+                              >
+                                <Checkbox checked={isSelected} className="mt-0.5 rounded-none" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold leading-tight">{r.title}</p>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <Badge variant="outline" className="text-[8px] font-black uppercase rounded-none h-4 px-1">{r.category}</Badge>
+                                    <span className="text-[8px] font-bold text-red-600">SCORE: {r.impact * r.probability}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {filteredRisksForSelection.length === 0 && (
+                            <div className="py-20 text-center text-[10px] font-bold uppercase text-muted-foreground italic">Keine Risiken gefunden</div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                    <p className="text-[9px] text-muted-foreground italic bg-blue-50 p-2 border border-blue-100 rounded-none">
+                      Wählen Sie alle Risiken aus, die durch diese Maßnahme gemindert werden. Eine Maßnahme kann global wirken.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
           </div>
 
           <DialogFooter className="p-6 bg-muted/30 border-t shrink-0">
-            <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="rounded-none h-10 px-8">Abbrechen</Button>
-            <Button onClick={handleSaveMeasure} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button variant="outline" onClick={() => setIsMeasureDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveMeasure} disabled={isSaving || selectedRiskIds.length === 0} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Maßnahme speichern
             </Button>
           </DialogFooter>

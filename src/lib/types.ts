@@ -215,7 +215,7 @@ export interface RiskCategorySetting {
 
 export interface RiskMeasure {
   id: string;
-  riskId: string;
+  riskIds: string[];
   title: string;
   description?: string;
   owner: string;

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -238,7 +239,7 @@ function RiskDashboardContent() {
     
     const newMeasure: RiskMeasure = {
       id: msrId,
-      riskId: advisorRisk.id,
+      riskIds: [advisorRisk.id], // Updated for multi-risk support
       title: `${measure.code}: ${measure.title}`,
       description: `Vorgeschlagene IT-Grundschutz Maßnahme aus Baustein ${measure.baustein}.`,
       owner: advisorRisk.owner || 'Noch offen',

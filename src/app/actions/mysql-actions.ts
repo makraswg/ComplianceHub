@@ -42,7 +42,8 @@ function normalizeRecord(item: any, tableName: string) {
   const jsonFields: Record<string, string[]> = {
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
-    auditEvents: ['before', 'after']
+    auditEvents: ['before', 'after'],
+    riskMeasures: ['riskIds'] // Added for multi-risk support
   };
 
   if (jsonFields[tableName]) {
@@ -112,7 +113,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const jsonFields: Record<string, string[]> = {
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],
-      auditEvents: ['before', 'after']
+      auditEvents: ['before', 'after'],
+      riskMeasures: ['riskIds'] // Added for multi-risk support
     };
 
     if (jsonFields[tableName]) {

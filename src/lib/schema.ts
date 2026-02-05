@@ -132,7 +132,7 @@ export const appSchema: AppSchema = {
   riskMeasures: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      riskId: 'VARCHAR(255) NOT NULL',
+      riskIds: 'TEXT', // Multi-Risk Support
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       owner: 'VARCHAR(255)',
