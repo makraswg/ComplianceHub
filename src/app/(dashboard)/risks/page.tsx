@@ -33,7 +33,8 @@ import {
   X,
   CalendarCheck,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ExternalLink
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -102,6 +103,10 @@ function RiskDashboardContent() {
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [advisorRisk, setAdvisorRisk] = useState<Risk | null>(null);
 
+  // Linked Measures State
+  const [isMeasuresViewOpen, setIsMeasuresViewOpen] = useState(false);
+  const [viewMeasuresRisk, setViewMeasuresRisk] = useState<Risk | null>(null);
+
   // Form State
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('IT-Sicherheit');
@@ -120,6 +125,7 @@ function RiskDashboardContent() {
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
   const { data: allMeasures } = usePluggableCollection<any>('hazardMeasures');
   const { data: relations } = usePluggableCollection<any>('hazardMeasureRelations');
+  const { data: riskMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
 
   useEffect(() => {
     setMounted(true);
@@ -239,7 +245,7 @@ function RiskDashboardContent() {
     
     const newMeasure: RiskMeasure = {
       id: msrId,
-      riskIds: [advisorRisk.id], // Updated for multi-risk support
+      riskIds: [advisorRisk.id],
       title: `${measure.code}: ${measure.title}`,
       description: `Vorgeschlagene IT-Grundschutz Maßnahme aus Baustein ${measure.baustein}.`,
       owner: advisorRisk.owner || 'Noch offen',
@@ -309,6 +315,11 @@ function RiskDashboardContent() {
       return matchesTenant && matchesCategory && matchesSearch;
     }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
   }, [risks, search, categoryFilter, activeTenantId]);
+
+  const getMeasuresForRisk = (riskId: string) => {
+    if (!riskMeasures) return [];
+    return riskMeasures.filter(m => m.riskIds?.includes(riskId));
+  };
 
   if (!mounted) return null;
 
@@ -380,6 +391,7 @@ function RiskDashboardContent() {
                 const scoreRes = (risk.residualImpact || 0) * (risk.residualProbability || 0);
                 const asset = resources?.find(r => r.id === risk.assetId);
                 const lastReview = risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'N/A';
+                const assignedMeasures = getMeasuresForRisk(risk.id);
                 
                 return (
                   <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
@@ -409,16 +421,28 @@ function RiskDashboardContent() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {risk.hazardId && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-[9px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1.5"
-                          onClick={() => { setAdvisorRisk(risk); setIsAdvisorOpen(true); }}
-                        >
-                          <Zap className="w-3 h-3 fill-current" /> Vorschläge
-                        </Button>
-                      )}
+                      <div className="flex flex-col gap-1.5">
+                        {assignedMeasures.length > 0 ? (
+                          <Badge 
+                            className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer rounded-none text-[8px] font-black border-none px-1.5 h-4.5 w-fit"
+                            onClick={() => { setViewMeasuresRisk(risk); setIsMeasuresViewOpen(true); }}
+                          >
+                            <ClipboardCheck className="w-2.5 h-2.5 mr-1" /> {assignedMeasures.length} GEPLANT
+                          </Badge>
+                        ) : (
+                          <span className="text-[8px] font-bold text-muted-foreground uppercase">Keine Maßnahmen</span>
+                        )}
+                        {risk.hazardId && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-5 text-[8px] font-black uppercase bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-none gap-1 px-1.5 w-fit"
+                            onClick={() => { setAdvisorRisk(risk); setIsAdvisorOpen(true); }}
+                          >
+                            <Zap className="w-2.5 h-2.5 fill-current" /> BSI Vorschläge
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -437,6 +461,10 @@ function RiskDashboardContent() {
                             <DropdownMenuItem onSelect={() => openEdit(risk)}>
                               <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
                             </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => { setViewMeasuresRisk(risk); setIsMeasuresViewOpen(true); }}>
+                              <ClipboardCheck className="w-3.5 h-3.5 mr-2" /> Maßnahmen anzeigen
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600" onSelect={() => { if(confirm("Risiko permanent löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                               <Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen
                             </DropdownMenuItem>
@@ -634,6 +662,59 @@ function RiskDashboardContent() {
             <Button onClick={handleReviewSubmit} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />} Review Bestätigen
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Measures View Dialog */}
+      <Dialog open={isMeasuresViewOpen} onOpenChange={setIsMeasuresViewOpen}>
+        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-3">
+              <ClipboardCheck className="w-5 h-5 text-emerald-500" />
+              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Verknüpfte Maßnahmen</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-4 bg-white">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase">Maßnahmen für Risiko:</p>
+              <h4 className="font-bold text-base leading-tight">{viewMeasuresRisk?.title}</h4>
+            </div>
+            
+            <ScrollArea className="h-64 border rounded-none p-4 bg-slate-50">
+              <div className="space-y-3">
+                {viewMeasuresRisk && getMeasuresForRisk(viewMeasuresRisk.id).map(m => (
+                  <div key={m.id} className="p-3 bg-white border border-slate-200 flex items-center justify-between group">
+                    <div>
+                      <p className="text-xs font-bold">{m.title}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                          <Clock className="w-2.5 h-2.5" /> {m.dueDate ? new Date(m.dueDate).toLocaleDateString() : 'N/A'}
+                        </span>
+                        <Badge variant="outline" className="text-[8px] font-black uppercase rounded-none h-4 px-1.5 bg-slate-50">{m.status}</Badge>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => router.push(`/risks/measures?search=${m.title}`)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                {viewMeasuresRisk && getMeasuresForRisk(viewMeasuresRisk.id).length === 0 && (
+                  <div className="py-10 text-center text-xs text-muted-foreground italic">Keine Maßnahmen direkt verknüpft.</div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex justify-between items-center px-6">
+            <Button variant="ghost" onClick={() => router.push('/risks/measures')} className="text-[10px] font-bold uppercase gap-2">
+              <ClipboardCheck className="w-3.5 h-3.5" /> Alle Maßnahmen verwalten
+            </Button>
+            <Button onClick={() => setIsMeasuresViewOpen(false)} className="rounded-none h-9 px-8 font-bold uppercase text-[10px]">Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
