@@ -80,6 +80,11 @@ export async function runBsiCrossTableImportAction(
 
         if (!mCode) continue;
 
+        // Skip entries named "ENTFALLEN"
+        if (mTitel.toUpperCase().includes('ENTFALLEN')) {
+          continue;
+        }
+
         // Deterministische ID für die Maßnahme: m-{baustein}-{code}
         const measureId = `m-${bausteinCode}-${mCode}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         
