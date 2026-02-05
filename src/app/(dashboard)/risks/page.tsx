@@ -108,6 +108,10 @@ function RiskDashboardContent() {
   const [revResProbability, setRevResProbability] = useState('2');
   const [revBruttoReason, setRevBruttoReason] = useState('');
   const [revNettoReason, setRevNettoReason] = useState('');
+  const [revIsImpactOverridden, setRevIsImpactOverridden] = useState(false);
+  const [revIsProbOverridden, setRevIsProbOverridden] = useState(false);
+  const [revIsResImpactOverridden, setRevIsResImpactOverridden] = useState(false);
+  const [revIsResProbOverridden, setRevIsResProbOverridden] = useState(false);
 
   // Advisor State
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
@@ -160,6 +164,7 @@ function RiskDashboardContent() {
     return Math.max(...subs.map(s => (s[field] as number) || 0));
   };
 
+  // Logic for the Main Risk Dialog
   useEffect(() => {
     if (isRiskDialogOpen && parentId === 'none') {
       const riskId = selectedRisk?.id || '';
@@ -178,6 +183,23 @@ function RiskDashboardContent() {
       if (calcResProb !== null && !isResProbabilityOverridden) setResProbability(calcResProb.toString());
     }
   }, [parentId, isImpactOverridden, isProbabilityOverridden, isResImpactOverridden, isResProbabilityOverridden, selectedRisk, isRiskDialogOpen]);
+
+  // Logic for the Review Dialog
+  useEffect(() => {
+    if (isReviewDialogOpen && reviewRisk && !reviewRisk.parentId) {
+      const calcImpact = getCalculatedValue(reviewRisk.id, 'impact');
+      if (calcImpact !== null && !revIsImpactOverridden) setRevImpact(calcImpact.toString());
+
+      const calcProb = getCalculatedValue(reviewRisk.id, 'probability');
+      if (calcProb !== null && !revIsProbOverridden) setRevProbability(calcProb.toString());
+
+      const calcResImpact = getCalculatedValue(reviewRisk.id, 'residualImpact');
+      if (calcResImpact !== null && !revIsResImpactOverridden) setRevResImpact(calcResImpact.toString());
+
+      const calcResProb = getCalculatedValue(reviewRisk.id, 'residualProbability');
+      if (calcResProb !== null && !revIsResProbOverridden) setRevResProbability(calcResProb.toString());
+    }
+  }, [isReviewDialogOpen, revIsImpactOverridden, revIsProbOverridden, revIsResImpactOverridden, revIsResProbOverridden, reviewRisk]);
 
   // Effekt für die Ableitung aus dem Katalog
   useEffect(() => {
@@ -263,6 +285,10 @@ function RiskDashboardContent() {
     setRevResProbability(risk.residualProbability?.toString() || '2');
     setRevBruttoReason(risk.bruttoReason || '');
     setRevNettoReason(risk.nettoReason || '');
+    setRevIsImpactOverridden(!!risk.isImpactOverridden);
+    setRevIsProbOverridden(!!risk.isProbabilityOverridden);
+    setRevIsResImpactOverridden(!!risk.isResidualImpactOverridden);
+    setRevIsResProbOverridden(!!risk.isResidualProbabilityOverridden);
     setIsReviewDialogOpen(true);
   };
 
@@ -271,9 +297,6 @@ function RiskDashboardContent() {
     setIsSaving(true);
     const now = new Date().toISOString();
     
-    const hasBruttoChanged = parseInt(revImpact) !== reviewRisk.impact || parseInt(revProbability) !== reviewRisk.probability;
-    const hasNettoChanged = parseInt(revResImpact) !== (reviewRisk.residualImpact || 0) || parseInt(revResProbability) !== (reviewRisk.residualProbability || 0);
-
     const updatedRisk: Risk = {
       ...reviewRisk,
       impact: parseInt(revImpact),
@@ -283,10 +306,10 @@ function RiskDashboardContent() {
       bruttoReason: revBruttoReason,
       nettoReason: revNettoReason,
       lastReviewDate: now,
-      isImpactOverridden: reviewRisk.isImpactOverridden || (hasBruttoChanged && !reviewRisk.parentId),
-      isProbabilityOverridden: reviewRisk.isProbabilityOverridden || (hasBruttoChanged && !reviewRisk.parentId),
-      isResidualImpactOverridden: reviewRisk.isResidualImpactOverridden || (hasNettoChanged && !reviewRisk.parentId),
-      isResidualProbabilityOverridden: reviewRisk.isResidualProbabilityOverridden || (hasNettoChanged && !reviewRisk.parentId)
+      isImpactOverridden: revIsImpactOverridden,
+      isProbabilityOverridden: revIsProbOverridden,
+      isResidualImpactOverridden: revIsResImpactOverridden,
+      isResidualProbabilityOverridden: revIsResProbOverridden,
     };
 
     try {
@@ -573,9 +596,9 @@ function RiskDashboardContent() {
                 const hasSubs = subs.length > 0;
                 
                 const showCalcBrutto = hasSubs && !risk.isImpactOverridden && !risk.isProbabilityOverridden;
-                const showOverrideBrutto = (risk.isImpactOverridden || risk.isProbabilityOverridden);
+                const showOverrideBrutto = hasSubs && (risk.isImpactOverridden || risk.isProbabilityOverridden);
                 const showCalcNetto = hasSubs && !risk.isResidualImpactOverridden && !risk.isResidualProbabilityOverridden;
-                const showOverrideNetto = (risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden);
+                const showOverrideNetto = hasSubs && (risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden);
 
                 return (
                   <TableRow key={risk.id} className={cn("hover:bg-muted/5 group border-b last:border-0", isSub && "bg-slate-50/50")}>
@@ -929,7 +952,7 @@ function RiskDashboardContent() {
 
       {/* Review Dialog */}
       <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
+        <DialogContent className="max-w-3xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-emerald-900 text-white shrink-0">
             <div className="flex items-center gap-3">
               <CalendarCheck className="w-5 h-5 text-emerald-400" />
@@ -948,22 +971,45 @@ function RiskDashboardContent() {
                 <AlertCircle className="h-4 w-4 text-orange-600" />
                 <AlertTitle className="text-[10px] font-black uppercase">Haupt-Risiko mit Sub-Risiken</AlertTitle>
                 <AlertDescription className="text-[10px] leading-relaxed">
-                  Dieses Risiko aggregiert Werte aus {getSubRisks(reviewRisk.id).length} Sub-Risiken. Manuelle Änderungen während des Reviews überschreiben die automatische Berechnung (Override).
+                  Dieses Risiko aggregiert Werte aus {getSubRisks(reviewRisk.id).length} Sub-Risiken. Manuelle Änderungen während des Reviews überschreiben die automatische Berechnung (Override). 
+                  Sie können die Berechnung jederzeit über den <strong>"Reset"</strong> Button wieder aktivieren.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="grid grid-cols-2 gap-8 pt-6 border-t">
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-red-600 border-b pb-1">Brutto-Risiko (Review)</h3>
+                <div className="flex items-center justify-between border-b pb-1">
+                  <h3 className="text-[10px] font-black uppercase text-red-600">Brutto-Risiko (Review)</h3>
+                </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit</Label>
-                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revProbability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit</Label>
+                      {reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0 && (
+                        <Button 
+                          variant="ghost" size="sm" className="h-5 px-1 text-[8px] uppercase gap-1"
+                          onClick={() => setRevIsProbOverridden(!revIsProbOverridden)}
+                        >
+                          {revIsProbOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setRevProbability(v); if(reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0) setRevIsProbOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revProbability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-bold uppercase">Auswirkung</Label>
-                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revImpact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[9px] font-bold uppercase">Auswirkung</Label>
+                      {reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0 && (
+                        <Button 
+                          variant="ghost" size="sm" className="h-5 px-1 text-[8px] uppercase gap-1"
+                          onClick={() => setRevIsImpactOverridden(!revIsImpactOverridden)}
+                        >
+                          {revIsImpactOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setRevImpact(v); if(reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0) setRevIsImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revImpact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[9px] font-bold uppercase">Begründung Brutto</Label>
@@ -973,15 +1019,37 @@ function RiskDashboardContent() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-1">Netto-Risiko (Review)</h3>
+                <div className="flex items-center justify-between border-b pb-1">
+                  <h3 className="text-[10px] font-black uppercase text-emerald-600">Netto-Risiko (Review)</h3>
+                </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
-                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevResProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
+                      {reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0 && (
+                        <Button 
+                          variant="ghost" size="sm" className="h-5 px-1 text-[8px] uppercase gap-1"
+                          onClick={() => setRevIsResProbOverridden(!revIsResProbOverridden)}
+                        >
+                          {revIsResProbOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setRevResProbability(v); if(reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0) setRevIsResProbOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
-                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setRevResImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
+                      {reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0 && (
+                        <Button 
+                          variant="ghost" size="sm" className="h-5 px-1 text-[8px] uppercase gap-1"
+                          onClick={() => setRevIsResImpactOverridden(!revIsResImpactOverridden)}
+                        >
+                          {revIsResImpactOverridden ? <><RotateCcw className="w-2.5 h-2.5" /> Reset</> : <><AlertCircle className="w-2.5 h-2.5" /> Override</>}
+                        </Button>
+                      )}
+                    </div>
+                    <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setRevResImpact(v); if(reviewRisk && !reviewRisk.parentId && getSubRisks(reviewRisk.id).length > 0) setRevIsResImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", revResImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-[9px] font-bold uppercase">Begründung Netto</Label>
