@@ -36,7 +36,10 @@ import {
   ChevronUp,
   ExternalLink,
   RefreshCw,
-  GitPullRequest
+  GitPullRequest,
+  Calculator,
+  AlertCircle,
+  ChevronRight as ChevronRightIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -118,10 +121,15 @@ function RiskDashboardContent() {
   const [category, setCategory] = useState('IT-Sicherheit');
   const [assetId, setAssetId] = useState('none');
   const [hazardId, setHazardId] = useState<string | undefined>();
+  const [parentId, setParentId] = useState<string>('none');
   const [impact, setImpact] = useState('3');
   const [probability, setProbability] = useState('3');
   const [resImpact, setResImpact] = useState('2');
   const [resProbability, setResProbability] = useState('2');
+  const [isImpactOverridden, setIsImpactOverridden] = useState(false);
+  const [isProbabilityOverridden, setIsProbabilityOverridden] = useState(false);
+  const [isResImpactOverridden, setIsResImpactOverridden] = useState(false);
+  const [isResProbabilityOverridden, setIsResProbabilityOverridden] = useState(false);
   const [owner, setOwner] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
@@ -136,6 +144,31 @@ function RiskDashboardContent() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Calculation Logic for Parent Risks
+  const getSubRisks = (riskId: string) => risks?.filter(r => r.parentId === riskId) || [];
+
+  const getCalculatedValue = (riskId: string, field: 'impact' | 'probability' | 'residualImpact' | 'residualProbability') => {
+    const subs = getSubRisks(riskId);
+    if (subs.length === 0) return null;
+    return Math.max(...subs.map(s => (s[field] as number) || 0));
+  };
+
+  useEffect(() => {
+    if (isRiskDialogOpen && parentId === 'none') {
+      const calcImpact = getCalculatedValue(selectedRisk?.id || '', 'impact');
+      if (calcImpact !== null && !isImpactOverridden) setImpact(calcImpact.toString());
+
+      const calcProb = getCalculatedValue(selectedRisk?.id || '', 'probability');
+      if (calcProb !== null && !isProbabilityOverridden) setProbability(calcProb.toString());
+
+      const calcResImpact = getCalculatedValue(selectedRisk?.id || '', 'residualImpact');
+      if (calcResImpact !== null && !isResImpactOverridden) setResImpact(calcResImpact.toString());
+
+      const calcResProb = getCalculatedValue(selectedRisk?.id || '', 'residualProbability');
+      if (calcResProb !== null && !isResProbabilityOverridden) setResProbability(calcResProb.toString());
+    }
+  }, [parentId, isImpactOverridden, isProbabilityOverridden, isResImpactOverridden, isResProbabilityOverridden, selectedRisk]);
 
   // Effekt für die Ableitung aus dem Katalog
   useEffect(() => {
@@ -168,12 +201,17 @@ function RiskDashboardContent() {
       tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
       assetId: assetId === 'none' ? undefined : assetId,
       hazardId,
+      parentId: parentId === 'none' ? undefined : parentId,
       title,
       category,
       impact: parseInt(impact),
       probability: parseInt(probability),
       residualImpact: parseInt(resImpact),
       residualProbability: parseInt(resProbability),
+      isImpactOverridden,
+      isProbabilityOverridden,
+      isResidualImpactOverridden,
+      isResidualProbabilityOverridden,
       owner,
       description,
       status,
@@ -266,7 +304,7 @@ function RiskDashboardContent() {
       if (res.success) {
         toast({ title: "Maßnahme übernommen", description: "Sie wurde dem Risiko als geplante Maßnahme hinzugefügt." });
         refreshMeasures();
-        refresh(); // Refresh risks to update the measure count in table
+        refresh();
       } else {
         toast({ variant: "destructive", title: "Fehler beim Speichern", description: res.error || "Unbekannter Fehler" });
       }
@@ -312,10 +350,15 @@ function RiskDashboardContent() {
     setCategory('IT-Sicherheit');
     setAssetId('none');
     setHazardId(undefined);
+    setParentId('none');
     setImpact('3');
     setProbability('3');
     setResImpact('2');
     setResProbability('2');
+    setIsImpactOverridden(false);
+    setIsProbabilityOverridden(false);
+    setIsResImpactOverridden(false);
+    setIsResProbabilityOverridden(false);
     setOwner('');
     setDescription('');
     setStatus('active');
@@ -328,10 +371,15 @@ function RiskDashboardContent() {
     setCategory(risk.category);
     setAssetId(risk.assetId || 'none');
     setHazardId(risk.hazardId);
+    setParentId(risk.parentId || 'none');
     setImpact(risk.impact.toString());
     setProbability(risk.probability.toString());
     setResImpact(risk.residualImpact?.toString() || '2');
     setResProbability(risk.residualProbability?.toString() || '2');
+    setIsImpactOverridden(!!risk.isImpactOverridden);
+    setIsProbabilityOverridden(!!risk.isProbabilityOverridden);
+    setIsResImpactOverridden(!!risk.isResidualImpactOverridden);
+    setIsResProbabilityOverridden(!!risk.isResidualProbabilityOverridden);
     setOwner(risk.owner);
     setDescription(risk.description || '');
     setStatus(risk.status);
@@ -350,14 +398,25 @@ function RiskDashboardContent() {
     return allMeasures.filter((m: any) => matchingRelIds.includes(m.id));
   }, [advisorRisk, hazards, relations, allMeasures]);
 
-  const filteredRisks = useMemo(() => {
+  const hierarchicalRisks = useMemo(() => {
     if (!risks) return [];
-    return risks.filter(r => {
+    const filtered = risks.filter(r => {
       const matchesTenant = activeTenantId === 'all' || r.tenantId === activeTenantId;
       const matchesCategory = categoryFilter === 'all' || r.category === categoryFilter;
       const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase()) || r.owner.toLowerCase().includes(search.toLowerCase());
       return matchesTenant && matchesCategory && matchesSearch;
-    }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
+    });
+
+    const parents = filtered.filter(r => !r.parentId);
+    const result: Risk[] = [];
+
+    parents.sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability)).forEach(parent => {
+      result.push(parent);
+      const children = filtered.filter(r => r.parentId === parent.id);
+      children.forEach(child => result.push(child));
+    });
+
+    return result;
   }, [risks, search, categoryFilter, activeTenantId]);
 
   const getMeasuresForRisk = (riskId: string) => {
@@ -389,7 +448,6 @@ function RiskDashboardContent() {
         </div>
       </div>
 
-      {/* Workflow Guide */}
       {showWorkflowGuide && (
         <Card className="rounded-none border-2 border-primary/10 bg-primary/5 shadow-none relative overflow-hidden animate-in fade-in slide-in-from-top-4">
           <button onClick={() => setShowWorkflowGuide(false)} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
@@ -464,30 +522,57 @@ function RiskDashboardContent() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={5} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
-              ) : filteredRisks.map((risk) => {
+              ) : hierarchicalRisks.map((risk) => {
+                const isSub = !!risk.parentId;
                 const scoreRaw = risk.impact * risk.probability;
                 const scoreRes = (risk.residualImpact || 0) * (risk.residualProbability || 0);
                 const asset = resources?.find(r => r.id === risk.assetId);
                 const lastReview = risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'N/A';
                 const assignedMeasures = getMeasuresForRisk(risk.id);
+                const subs = getSubRisks(risk.id);
+                const hasSubs = subs.length > 0;
                 
                 return (
-                  <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
+                  <TableRow key={risk.id} className={cn("hover:bg-muted/5 group border-b last:border-0", isSub && "bg-slate-50/50")}>
                     <TableCell className="py-4">
-                      <div className="font-bold text-sm">{risk.title}</div>
-                      <div className="flex flex-col gap-1 mt-1">
-                        <div className="flex items-center gap-2 text-[9px] font-bold uppercase text-muted-foreground">
-                          {risk.category} 
-                          {asset && <><span className="text-slate-300">|</span> <Layers className="w-2.5 h-2.5" /> {asset.name}</>}
-                        </div>
-                        <div className="flex items-center gap-1 text-[8px] font-black uppercase text-slate-400">
-                          <Clock className="w-2.5 h-2.5" /> Letzte Prüfung: {lastReview}
+                      <div className={cn("flex items-start gap-2", isSub && "pl-8")}>
+                        {isSub && <ChevronRightIcon className="w-3.5 h-3.5 text-slate-300 mt-1" />}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-sm truncate">{risk.title}</div>
+                          <div className="flex flex-col gap-1 mt-1">
+                            <div className="flex items-center gap-2 text-[9px] font-bold uppercase text-muted-foreground">
+                              {risk.category} 
+                              {asset && <><span className="text-slate-300">|</span> <Layers className="w-2.5 h-2.5" /> {asset.name}</>}
+                              {hasSubs && <Badge className="bg-indigo-50 text-indigo-700 border-none rounded-none text-[8px] h-4 px-1.5">{subs.length} SUB-RISIKEN</Badge>}
+                            </div>
+                            <div className="flex items-center gap-1 text-[8px] font-black uppercase text-slate-400">
+                              <Clock className="w-2.5 h-2.5" /> Letzte Prüfung: {lastReview}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className={cn("inline-flex items-center px-2 py-0.5 border font-black text-xs", scoreRaw >= 15 ? "text-red-600 bg-red-50" : "text-orange-600 bg-orange-50")}>
-                        {scoreRaw}
+                      <div className="flex items-center gap-1.5">
+                        <div className={cn("inline-flex items-center px-2 py-0.5 border font-black text-xs", scoreRaw >= 15 ? "text-red-600 bg-red-50" : "text-orange-600 bg-orange-50")}>
+                          {scoreRaw}
+                        </div>
+                        {hasSubs && !risk.isImpactOverridden && !risk.isProbabilityOverridden && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Calculator className="w-3 h-3 text-indigo-400" /></TooltipTrigger>
+                              <TooltipContent className="text-[10px] uppercase font-bold">Berechnet aus Sub-Risiken</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {(risk.isImpactOverridden || risk.isProbabilityOverridden) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><AlertCircle className="w-3 h-3 text-orange-400" /></TooltipTrigger>
+                              <TooltipContent className="text-[10px] uppercase font-bold">Manuell überschrieben</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -496,6 +581,8 @@ function RiskDashboardContent() {
                         <div className={cn("inline-flex items-center px-2 py-0.5 border font-black text-xs", scoreRes >= 8 ? "text-orange-600 bg-orange-50" : "text-emerald-600 bg-emerald-50")}>
                           {scoreRes || '-'}
                         </div>
+                        {hasSubs && !risk.isResidualImpactOverridden && !risk.isResidualProbabilityOverridden && <Calculator className="w-3 h-3 text-indigo-400" />}
+                        {(risk.isResidualImpactOverridden || risk.isResidualProbabilityOverridden) && <AlertCircle className="w-3 h-3 text-orange-400" />}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -556,7 +643,6 @@ function RiskDashboardContent() {
         </div>
       </div>
 
-      {/* Detail Dialog */}
       <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) { setIsRiskDialogOpen(false); setSelectedRisk(null); } }}>
         <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[85vh] border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -572,6 +658,18 @@ function RiskDashboardContent() {
                 <div className="space-y-2 col-span-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risiko-Bezeichnung</Label>
                   <Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-none h-11 text-base font-bold" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-muted-foreground">Übergeordnetes Risiko (Haupt-Risiko)</Label>
+                  <Select value={parentId} onValueChange={setParentId}>
+                    <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="none">Keines (Dies ist ein Haupt-Risiko)</SelectItem>
+                      {risks?.filter(r => !r.parentId && r.id !== selectedRisk?.id).map(r => (
+                        <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-muted-foreground">Asset-Bezug</Label>
@@ -607,7 +705,6 @@ function RiskDashboardContent() {
                 </div>
               </div>
 
-              {/* Bewertungshilfe Section */}
               <div className="bg-slate-50 border-y py-4 px-6 -mx-8">
                 <Collapsible open={showScoringHelp} onOpenChange={setShowScoringHelp}>
                   <div className="flex items-center justify-between">
@@ -646,29 +743,64 @@ function RiskDashboardContent() {
               
               <div className="grid grid-cols-2 gap-8 border-t pt-6">
                 <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-red-600 border-b pb-1">Brutto-Risiko (Inhärent)</h3>
+                  <div className="flex items-center justify-between border-b pb-1">
+                    <h3 className="text-[10px] font-black uppercase text-red-600">Brutto-Risiko (Inhärent)</h3>
+                    {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
+                      <Badge variant="outline" className="text-[8px] font-black bg-indigo-50 text-indigo-700 border-none rounded-none">AGGREGIERT</Badge>
+                    )}
+                  </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", probability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
+                        {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
+                          <button onClick={() => setIsProbabilityOverridden(!isProbabilityOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isProbabilityOverridden ? "text-orange-600" : "text-slate-400")}>
+                            {isProbabilityOverridden ? "Überschrieben" : "Berechnet"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setProbability(v); if(parentId === 'none') setIsProbabilityOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", probability === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Auswirkung (1-5)</Label>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", impact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[9px] font-bold uppercase">Auswirkung (1-5)</Label>
+                        {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
+                          <button onClick={() => setIsImpactOverridden(!isImpactOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isImpactOverridden ? "text-orange-600" : "text-slate-400")}>
+                            {isImpactOverridden ? "Überschrieben" : "Berechnet"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setImpact(v); if(parentId === 'none') setIsImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", impact === v ? "bg-red-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className="text-[10px] font-black uppercase text-emerald-600 border-b pb-1">Netto-Risiko (Restrisiko)</h3>
+                  <div className="flex items-center justify-between border-b pb-1">
+                    <h3 className="text-[10px] font-black uppercase text-emerald-600">Netto-Risiko (Restrisiko)</h3>
+                  </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setResProbability(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[9px] font-bold uppercase">Wahrscheinlichkeit (Netto)</Label>
+                        {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
+                          <button onClick={() => setIsResProbabilityOverridden(!isResProbabilityOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isResProbabilityOverridden ? "text-orange-600" : "text-slate-400")}>
+                            {isResProbabilityOverridden ? "Überschrieben" : "Berechnet"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setResProbability(v); if(parentId === 'none') setIsResProbabilityOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resProbability === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
-                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => setResImpact(v)} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[9px] font-bold uppercase">Auswirkung (Netto)</Label>
+                        {parentId === 'none' && getSubRisks(selectedRisk?.id || '').length > 0 && (
+                          <button onClick={() => setIsResImpactOverridden(!isResImpactOverridden)} className={cn("text-[8px] font-bold uppercase hover:underline", isResImpactOverridden ? "text-orange-600" : "text-slate-400")}>
+                            {isResImpactOverridden ? "Überschrieben" : "Berechnet"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-1">{['1','2','3','4','5'].map(v => <button key={v} onClick={() => { setResImpact(v); if(parentId === 'none') setIsResImpactOverridden(true); }} className={cn("flex-1 h-8 border text-[10px] font-bold transition-all", resImpact === v ? "bg-emerald-600 text-white" : "bg-muted/30")}>{v}</button>)}</div>
                     </div>
                   </div>
                 </div>

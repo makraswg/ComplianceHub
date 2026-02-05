@@ -43,7 +43,7 @@ function normalizeRecord(item: any, tableName: string) {
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
-    riskMeasures: ['riskIds'] // Added for multi-risk support
+    riskMeasures: ['riskIds']
   };
 
   if (jsonFields[tableName]) {
@@ -58,7 +58,10 @@ function normalizeRecord(item: any, tableName: string) {
     });
   }
 
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets'];
+  const boolFields = [
+    'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
+    'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden'
+  ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
@@ -114,7 +117,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],
       auditEvents: ['before', 'after'],
-      riskMeasures: ['riskIds'] // Added for multi-risk support
+      riskMeasures: ['riskIds']
     };
 
     if (jsonFields[tableName]) {
@@ -125,7 +128,10 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       });
     }
 
-    const boolKeys = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets'];
+    const boolKeys = [
+      'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
+      'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden'
+    ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
     const keys = Object.keys(preparedData);
@@ -171,9 +177,9 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   try {
     connection = await getMysqlConnection();
     
-    // Tabellen die geleert werden sollen (Benutzer, Kataloge, Risiken, Ressourcen, Zuweisungen, Audits)
+    // Tabellen die geleert werden sollen
     const tablesToClear = [
-      'users', // IAM Benutzerverzeichnis
+      'users',
       'auditEvents',
       'catalogs',
       'hazardModules',

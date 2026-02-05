@@ -190,6 +190,7 @@ export interface Risk {
   tenantId: string;
   assetId?: string;
   hazardId?: string;
+  parentId?: string; // Support for Sub-Risks
   title: string;
   category: string;
   description: string;
@@ -197,6 +198,10 @@ export interface Risk {
   probability: number;
   residualImpact?: number;
   residualProbability?: number;
+  isImpactOverridden?: boolean | number;
+  isProbabilityOverridden?: boolean | number;
+  isResidualImpactOverridden?: boolean | number;
+  isResidualProbabilityOverridden?: boolean | number;
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
   acceptanceStatus?: 'pending' | 'accepted' | 'rejected';
