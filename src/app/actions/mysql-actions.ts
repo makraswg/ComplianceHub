@@ -169,8 +169,9 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   try {
     connection = await getMysqlConnection();
     
-    // Tabellen die geleert werden sollen (Kataloge, Risiken, Ressourcen, Zuweisungen, Audits)
+    // Tabellen die geleert werden sollen (Benutzer, Kataloge, Risiken, Ressourcen, Zuweisungen, Audits)
     const tablesToClear = [
+      'users', // IAM Benutzerverzeichnis
       'auditEvents',
       'catalogs',
       'hazardModules',

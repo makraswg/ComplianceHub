@@ -259,8 +259,8 @@ export default function SetupPage() {
               <div className="space-y-1">
                 <p className="text-sm font-bold">Bestandsdaten leeren</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Löscht alle Kataloge, Risiken, Ressourcen und Zuweisungen. <br/>
-                  <span className="font-bold text-red-600 uppercase text-[9px]">Achtung:</span> Benutzer und Systemeinstellungen bleiben erhalten.
+                  Löscht alle operativen Daten der Plattform. <br/>
+                  <span className="font-bold text-red-600 uppercase text-[9px]">Achtung:</span> Einstellungen und Administratoren bleiben erhalten.
                 </p>
               </div>
               
@@ -279,13 +279,14 @@ export default function SetupPage() {
                       <div>
                         Diese Aktion löscht unwiderruflich alle im System erfassten:
                         <ul className="list-disc list-inside mt-2 space-y-1 font-bold">
-                          <li>Importierten Kataloge & Gefährdungen</li>
+                          <li>Benutzerverzeichnis (IAM-Identitäten)</li>
+                          <li>Onboarding-Pakete & Lifecycle-Gruppen</li>
                           <li>Risikoinventare & Maßnahmenpläne</li>
+                          <li>Importierten Kataloge & Gefährdungen</li>
                           <li>Ressourcen & Rollendefinitionen</li>
-                          <li>Aktiven und historischen Zuweisungen</li>
-                          <li>Audit-Logs</li>
+                          <li>Alle Zuweisungen & Audit-Logs</li>
                         </ul>
-                        <div className="mt-4 italic">Hub-Administratoren, IAM-Nutzer und technische Konfigurationen werden NICHT gelöscht.</div>
+                        <div className="mt-4 italic">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden NICHT gelöscht.</div>
                       </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
