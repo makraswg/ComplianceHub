@@ -29,7 +29,9 @@ import {
   Library,
   Zap,
   Save,
-  MessageSquare
+  MessageSquare,
+  Filter,
+  ArrowRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -50,7 +52,7 @@ import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
-import { Risk } from '@/lib/types';
+import { Risk, RiskCategorySetting } from '@/lib/types';
 import { usePlatformAuth } from '@/context/auth-context';
 import { BSI_CATALOG, BsiModule, BsiThreat } from '@/lib/bsi-catalog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,12 +62,31 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+const ASSESSMENT_GUIDE = {
+  impact: [
+    { level: 1, title: 'Vernachlässigbar', desc: 'Keine finanziellen Folgen, Image unbeeinträchtigt.' },
+    { level: 2, title: 'Gering', desc: 'Kleiner finanzieller Verlust (< 10k), interne Aufregung.' },
+    { level: 3, title: 'Mittel', desc: 'Spürbarer Verlust (< 100k), lokale Medienberichterstattung.' },
+    { level: 4, title: 'Hoch', desc: 'Großer Verlust (< 1Mio), massiver Image-Schaden.' },
+    { level: 5, title: 'Existenzbedrohend', desc: 'Insolvenzrisiko, Entzug von Lizenzen.' }
+  ],
+  probability: [
+    { level: 1, title: 'Sehr Selten', desc: 'Einmal in 10 Jahren oder seltener.' },
+    { level: 2, title: 'Selten', desc: 'Einmal in 5 Jahren.' },
+    { level: 3, title: 'Gelegentlich', desc: 'Einmal pro Jahr.' },
+    { level: 4, title: 'Häufig', desc: 'Mehrmals pro Jahr.' },
+    { level: 5, title: 'Sehr Häufig', desc: 'Monatlich oder öfter.' }
+  ]
+};
 
 export default function RiskDashboardPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: authUser } = usePlatformAuth();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   
   // Modals
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
@@ -76,12 +97,13 @@ export default function RiskDashboardPage() {
 
   // Form State Risk
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Allgemein');
+  const [category, setCategory] = useState('IT-Sicherheit');
   const [impact, setImpact] = useState('3');
   const [probability, setProbability] = useState('3');
   const [owner, setOwner] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'active' | 'mitigated' | 'accepted' | 'closed'>('active');
+  const [reviewCycleDays, setReviewCycleDays] = useState<string>('');
 
   // Review State
   const [reviewImpact, setReviewImpact] = useState('3');
@@ -93,6 +115,7 @@ export default function RiskDashboardPage() {
   const [selectedBsiModule, setSelectedBsiModule] = useState<string>('all');
 
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
+  const { data: categorySettings } = usePluggableCollection<RiskCategorySetting>('riskCategorySettings');
 
   useEffect(() => {
     setMounted(true);
@@ -129,6 +152,7 @@ export default function RiskDashboardPage() {
       owner,
       description,
       status,
+      reviewCycleDays: reviewCycleDays ? parseInt(reviewCycleDays) : undefined,
       createdAt: selectedRisk?.createdAt || new Date().toISOString(),
       lastReviewDate: selectedRisk?.lastReviewDate || new Date().toISOString()
     };
@@ -208,12 +232,13 @@ export default function RiskDashboardPage() {
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
-    setCategory('Allgemein');
+    setCategory('IT-Sicherheit');
     setImpact('3');
     setProbability('3');
     setOwner('');
     setDescription('');
     setStatus('active');
+    setReviewCycleDays('');
   };
 
   const openEdit = (risk: Risk) => {
@@ -225,6 +250,7 @@ export default function RiskDashboardPage() {
     setOwner(risk.owner);
     setDescription(risk.description || '');
     setStatus(risk.status);
+    setReviewCycleDays(risk.reviewCycleDays?.toString() || '');
     setIsRiskDialogOpen(true);
   };
 
@@ -248,28 +274,30 @@ export default function RiskDashboardPage() {
     if (!risks) return [];
     return risks.filter(r => {
       const matchesTenant = activeTenantId === 'all' || r.tenantId === activeTenantId;
+      const matchesCategory = categoryFilter === 'all' || r.category === categoryFilter;
       const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase()) || r.owner.toLowerCase().includes(search.toLowerCase());
-      return matchesTenant && matchesSearch;
+      return matchesTenant && matchesCategory && matchesSearch;
     }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
-  }, [risks, search, activeTenantId]);
+  }, [risks, search, categoryFilter, activeTenantId]);
 
   const stats = useMemo(() => {
     if (!filteredRisks) return { high: 0, medium: 0, low: 0, pendingReviews: 0 };
-    
-    // Review fällig wenn > 90 Tage her (ca. Quartal)
-    const reviewThreshold = 90 * 24 * 60 * 60 * 1000;
     const now = Date.now();
+
+    const pending = filteredRisks.filter(r => {
+      const catSetting = categorySettings?.find(s => s.id === r.category);
+      const cycleDays = r.reviewCycleDays || catSetting?.defaultReviewDays || 90;
+      const threshold = cycleDays * 24 * 60 * 60 * 1000;
+      return !r.lastReviewDate || (now - new Date(r.lastReviewDate).getTime()) > threshold;
+    }).length;
 
     return {
       high: filteredRisks.filter(r => (r.impact * r.probability) >= 15).length,
       medium: filteredRisks.filter(r => (r.impact * r.probability) >= 8 && (r.impact * r.probability) < 15).length,
       low: filteredRisks.filter(r => (r.impact * r.probability) < 8).length,
-      pendingReviews: filteredRisks.filter(r => 
-        !r.lastReviewDate || 
-        (now - new Date(r.lastReviewDate).getTime()) > reviewThreshold
-      ).length
+      pendingReviews: pending
     };
-  }, [filteredRisks]);
+  }, [filteredRisks, categorySettings]);
 
   const filteredBsiCatalog = useMemo(() => {
     const flatCatalog: { module: BsiModule; threat: BsiThreat }[] = [];
@@ -390,14 +418,34 @@ export default function RiskDashboardPage() {
         </Card>
 
         <div className="lg:col-span-2 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input 
-              placeholder="Risiken oder Verantwortliche suchen..." 
-              className="pl-10 h-11 border-2 bg-white dark:bg-slate-900 rounded-none shadow-none"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Risiken oder Verantwortliche suchen..." 
+                className="pl-10 h-11 border-2 bg-white dark:bg-slate-900 rounded-none shadow-none"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex border bg-card h-11 p-1 gap-1">
+              <div className="flex items-center px-3 border-r">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground mr-2" />
+                <span className="text-[10px] font-bold uppercase text-muted-foreground mr-2">Bereich:</span>
+              </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="border-none shadow-none h-full rounded-none bg-transparent min-w-[140px] text-[10px] font-bold uppercase">
+                  <SelectValue placeholder="Alle" />
+                </SelectTrigger>
+                <SelectContent className="rounded-none">
+                  <SelectItem value="all">Alle Kategorien</SelectItem>
+                  <SelectItem value="IT-Sicherheit">IT-Sicherheit</SelectItem>
+                  <SelectItem value="Datenschutz">Datenschutz</SelectItem>
+                  <SelectItem value="Rechtlich">Rechtlich</SelectItem>
+                  <SelectItem value="Betrieblich">Betrieblich</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="admin-card overflow-hidden">
@@ -415,8 +463,10 @@ export default function RiskDashboardPage() {
                   <TableRow><TableCell colSpan={4} className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
                 ) : filteredRisks.map((risk) => {
                   const score = risk.impact * risk.probability;
+                  const catSetting = categorySettings?.find(s => s.id === risk.category);
+                  const cycleDays = risk.reviewCycleDays || catSetting?.defaultReviewDays || 90;
                   const now = Date.now();
-                  const isReviewDue = !risk.lastReviewDate || (now - new Date(risk.lastReviewDate).getTime()) > (90 * 24 * 60 * 60 * 1000);
+                  const isReviewDue = !risk.lastReviewDate || (now - new Date(risk.lastReviewDate).getTime()) > (cycleDays * 24 * 60 * 60 * 1000);
                   
                   return (
                     <TableRow key={risk.id} className="hover:bg-muted/5 group border-b last:border-0">
@@ -487,7 +537,10 @@ export default function RiskDashboardPage() {
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Aktuelle Eintrittswahrscheinlichkeit (1-5)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase">Wahrscheinlichkeit (1-5)</Label>
+                    <AssessmentGuide category="probability" />
+                  </div>
                   <div className="flex gap-1">
                     {['1', '2', '3', '4', '5'].map(v => (
                       <button key={v} onClick={() => setReviewProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", reviewProbability === v ? "bg-orange-600 border-orange-600 text-white" : "bg-muted/30")}>{v}</button>
@@ -495,7 +548,10 @@ export default function RiskDashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Aktuelle Schadenshöhe (1-5)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                    <AssessmentGuide category="impact" />
+                  </div>
                   <div className="flex gap-1">
                     {['1', '2', '3', '4', '5'].map(v => (
                       <button key={v} onClick={() => setReviewImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", reviewImpact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
@@ -576,7 +632,10 @@ export default function RiskDashboardPage() {
             <div className="grid grid-cols-2 gap-8 border-t pt-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Eintrittswahrscheinlichkeit (1-5)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase">Eintrittswahrscheinlichkeit (1-5)</Label>
+                    <AssessmentGuide category="probability" />
+                  </div>
                   <div className="flex gap-1">
                     {['1', '2', '3', '4', '5'].map(v => (
                       <button key={v} onClick={() => setProbability(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", probability === v ? "bg-orange-600 border-orange-600 text-white" : "bg-muted/30")}>{v}</button>
@@ -584,7 +643,10 @@ export default function RiskDashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[10px] font-bold uppercase">Schadenshöhe (1-5)</Label>
+                    <AssessmentGuide category="impact" />
+                  </div>
                   <div className="flex gap-1">
                     {['1', '2', '3', '4', '5'].map(v => (
                       <button key={v} onClick={() => setImpact(v)} className={cn("flex-1 h-8 text-[10px] font-bold border", impact === v ? "bg-red-600 border-red-600 text-white" : "bg-muted/30")}>{v}</button>
@@ -597,6 +659,32 @@ export default function RiskDashboardPage() {
                 <div className={cn("text-5xl font-black", parseInt(impact)*parseInt(probability) >= 15 ? "text-red-600" : "text-blue-600")}>
                   {parseInt(impact) * parseInt(probability)}
                 </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 border-t pt-6">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Review-Zyklus (Tage)</Label>
+                <Input 
+                  type="number" 
+                  value={reviewCycleDays} 
+                  onChange={e => setReviewCycleDays(e.target.value)} 
+                  placeholder="Standardwert überschreiben..." 
+                  className="rounded-none h-10" 
+                />
+                <p className="text-[8px] text-muted-foreground uppercase">Leer lassen, um Kategorie-Standard zu nutzen.</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-muted-foreground">Status</Label>
+                <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                  <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent className="rounded-none">
+                    <SelectItem value="active">Aktiv / Kritisch</SelectItem>
+                    <SelectItem value="mitigated">Behandelt (Maßnahmen aktiv)</SelectItem>
+                    <SelectItem value="accepted">Akzeptiert (Restrisiko)</SelectItem>
+                    <SelectItem value="closed">Abgeschlossen</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -679,11 +767,48 @@ export default function RiskDashboardPage() {
             </div>
           </ScrollArea>
           
+          <div className="p-4 bg-muted/20 border-t flex items-center gap-2">
+            <Info className="w-4 h-4 text-primary" />
+            <p className="text-[9px] font-bold uppercase text-muted-foreground">
+              Tipp: Der vollständige BSI Katalog mit über 5000 Einträgen kann über die Import-Schnittstelle (JSON/CSV) im Admin-Bereich geladen werden.
+            </p>
+          </div>
+
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t shrink-0">
             <Button variant="ghost" onClick={() => setIsBsiDialogOpen(false)} className="rounded-none font-bold uppercase text-[10px]">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function AssessmentGuide({ category }: { category: 'impact' | 'probability' }) {
+  const guide = category === 'impact' ? ASSESSMENT_GUIDE.impact : ASSESSMENT_GUIDE.probability;
+  
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className="text-[9px] font-bold text-primary hover:underline flex items-center gap-1">
+          <Info className="w-3 h-3" /> Bewertungshilfe
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 rounded-none p-0 border-2 shadow-2xl z-[150]">
+        <div className="p-3 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest">
+          {category === 'impact' ? 'Schadenshöhe Definition' : 'Eintrittswahrscheinlichkeit Definition'}
+        </div>
+        <div className="p-4 space-y-3">
+          {guide.map((item) => (
+            <div key={item.level} className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 flex items-center justify-center bg-muted font-black text-[10px] border">{item.level}</span>
+                <span className="font-bold text-xs">{item.title}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-relaxed pl-7">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

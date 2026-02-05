@@ -150,8 +150,16 @@ export const appSchema: AppSchema = {
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
       lastReviewDate: 'VARCHAR(50)',
+      reviewCycleDays: 'INT',
       createdAt: 'VARCHAR(50) NOT NULL',
     },
+  },
+  riskCategorySettings: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      defaultReviewDays: 'INT DEFAULT 365'
+    }
   },
   riskMeasures: {
     columns: {

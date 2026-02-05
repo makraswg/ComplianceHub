@@ -40,7 +40,8 @@ import {
   Activity,
   History,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Scale
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -75,7 +76,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlatformUser, Role, SmtpConfig, AiConfig, SyncJob } from '@/lib/types';
+import { PlatformUser, Role, SmtpConfig, AiConfig, SyncJob, RiskCategorySetting } from '@/lib/types';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -92,13 +93,14 @@ export default function SettingsPage() {
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<any>('tenants');
   const { data: servicePartners, refresh: refreshPartners } = usePluggableCollection<any>('servicePartners');
   const { data: platformUsers, refresh: refreshPlatformUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+  const { data: riskCategorySettings, refresh: refreshRiskSettings } = usePluggableCollection<RiskCategorySetting>('riskCategorySettings');
 
   // AI State
   const [aiId, setAiId] = useState('');
   const [aiProvider, setAiProvider] = useState<'gemini' | 'ollama'>('gemini');
   const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3');
-  const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash');
+  const [geminiModel, setGeminiModel] = useState('gemini-1.5-flash');
   const [aiEnabled, setAiEnabled] = useState(true);
   const [isTestingAi, setIsTestingAi] = useState(false);
 
@@ -478,6 +480,22 @@ export default function SettingsPage() {
     setTimeout(() => refreshPlatformUsers(), 200);
   };
 
+  const handleSaveRiskCategoryCycle = async (category: string, days: number) => {
+    const id = category; // We use the category name as ID
+    const data: RiskCategorySetting = {
+      id,
+      tenantId: 'global',
+      defaultReviewDays: days
+    };
+    try {
+      await saveCollectionRecord('riskCategorySettings', id, data, dataSource);
+      toast({ title: "Zyklus aktualisiert", description: `${category}: ${days} Tage` });
+      refreshRiskSettings();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    }
+  };
+
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'all' || id === 'global') return 'Global';
     const tenant = tenants?.find(t => t.id === id);
@@ -500,6 +518,8 @@ export default function SettingsPage() {
     return null;
   }, [jiraTokenExpiresAt]);
 
+  const categories = ['IT-Sicherheit', 'Datenschutz', 'Rechtlich', 'Betrieblich'];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto pb-20">
       <div className="flex items-center justify-between border-b pb-6">
@@ -515,6 +535,7 @@ export default function SettingsPage() {
           <TabsTrigger value="users" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Users className="w-3.5 h-3.5" /> Plattform-Nutzer</TabsTrigger>
           <TabsTrigger value="tenants" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Building2 className="w-3.5 h-3.5" /> Mandanten</TabsTrigger>
           <TabsTrigger value="partners" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Contact className="w-3.5 h-3.5" /> Service Partner</TabsTrigger>
+          <TabsTrigger value="risks" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Scale className="w-3.5 h-3.5" /> Risiko-Konfig</TabsTrigger>
           <TabsTrigger value="jira" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><ExternalLink className="w-3.5 h-3.5" /> JIRA Integration</TabsTrigger>
           <TabsTrigger value="smtp" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><Mail className="w-3.5 h-3.5" /> E-Mail (SMTP)</TabsTrigger>
           <TabsTrigger value="ai" className="rounded-none px-6 gap-2 text-[10px] font-bold uppercase"><BrainCircuit className="w-3.5 h-3.5" /> KI (Ollama)</TabsTrigger>
@@ -541,6 +562,48 @@ export default function SettingsPage() {
             </CardContent>
             <CardFooter className="bg-muted/5 border-t py-3 flex justify-end">
               <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]"><Save className="w-3 h-3 mr-2" /> Speichern</Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="risks">
+          <Card className="rounded-none border shadow-none">
+            <CardHeader className="bg-muted/10 border-b">
+              <CardTitle className="text-[10px] font-bold uppercase tracking-widest">Risiko-Review Zyklen</CardTitle>
+              <CardDescription className="text-[9px] uppercase font-bold">Standardmäßige Zeiträume für regelmäßige Überprüfungen nach Kategorien.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                {categories.map(cat => {
+                  const setting = riskCategorySettings?.find(s => s.id === cat);
+                  return (
+                    <div key={cat} className="flex items-center justify-between p-4 border bg-slate-50/50">
+                      <div>
+                        <p className="font-bold text-sm">{cat}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Empfohlener Standard-Zyklus</p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="relative w-32">
+                          <Input 
+                            type="number" 
+                            defaultValue={setting?.defaultReviewDays || 365} 
+                            className="rounded-none h-10 pr-12 font-bold" 
+                            onBlur={(e) => handleSaveRiskCategoryCycle(cat, parseInt(e.target.value))}
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold text-muted-foreground">TAGE</span>
+                        </div>
+                        <Badge variant="outline" className="rounded-none text-[8px] font-bold uppercase bg-white">
+                          {setting?.defaultReviewDays ? Math.round(setting.defaultReviewDays / 30) : 12} MONATE
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+            <CardFooter className="bg-blue-50 border-t p-4 text-blue-800 text-[10px] font-bold uppercase leading-relaxed flex gap-3 items-start">
+              <Info className="w-4 h-4 shrink-0 text-blue-600" />
+              Diese Werte dienen als Vorschlag beim Anlegen neuer Risiken. Pro Risiko kann die Review-Frist individuell angepasst werden. Das System warnt automatisch, wenn die Frist abläuft.
             </CardFooter>
           </Card>
         </TabsContent>
@@ -1065,7 +1128,7 @@ export default function SettingsPage() {
                 </CardContent>
                 <CardFooter className="bg-muted/5 border-t py-3 flex justify-end gap-2">
                   <Button variant="outline" size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleTestSmtp} disabled={isTestingSmtp}>
-                    {isTestingSmtp ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
+                    {isTestingSmtp ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Send className="w-3 h-3 mr-2" />} Test Mail
                   </Button>
                   <Button size="sm" className="h-8 rounded-none font-bold uppercase text-[10px]" onClick={handleSaveSmtp} disabled={isSaving}>
                     <Save className="w-3 h-3 mr-2" /> Speichern

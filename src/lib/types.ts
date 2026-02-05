@@ -201,7 +201,14 @@ export interface Risk {
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
   lastReviewDate?: string;
+  reviewCycleDays?: number; // Override for default category cycle
   createdAt: string;
+}
+
+export interface RiskCategorySetting {
+  id: string; // Category Name
+  tenantId: string;
+  defaultReviewDays: number;
 }
 
 export interface RiskMeasure {
