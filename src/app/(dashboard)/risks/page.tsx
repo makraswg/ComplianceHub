@@ -61,7 +61,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRouter } from 'next/navigation';
-import { Tooltip, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 
 const ASSESSMENT_GUIDE = {
@@ -185,8 +185,6 @@ function RiskDashboardContent() {
   };
 
   const handleAdoptMeasure = async (measure: any) => {
-    if (!selectedRisk && !hazardId) return;
-    
     const riskId = selectedRisk?.id || `temp-risk-${Math.random().toString(36).substring(2, 5)}`;
     const msrId = `msr-adopt-${Math.random().toString(36).substring(2, 9)}`;
     
@@ -247,7 +245,6 @@ function RiskDashboardContent() {
     const hazard = hazards?.find(h => h.id === hazardId);
     if (!hazard) return [];
     
-    // Wir suchen Relationen für den Hazard-Code (z.B. G 0.1)
     const matchingRelIds = relations
       .filter((r: any) => r.hazardCode === hazard.code)
       .map((r: any) => r.measureId);
@@ -265,6 +262,8 @@ function RiskDashboardContent() {
     }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
   }, [risks, search, categoryFilter, activeTenantId]);
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex items-center justify-between border-b pb-6">
@@ -280,7 +279,7 @@ function RiskDashboardContent() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.push('/risks/catalog')} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50">
             <Library className="w-4 h-4 mr-2" /> Gefährdungskatalog
-          </Library>
+          </Button>
           <Button onClick={() => { resetForm(); setIsRiskDialogOpen(true); }} className="h-10 font-bold uppercase text-[10px] rounded-none px-6 bg-orange-600 hover:bg-orange-700 text-white border-none shadow-lg">
             <Plus className="w-4 h-4 mr-2" /> Risiko anlegen
           </Button>
