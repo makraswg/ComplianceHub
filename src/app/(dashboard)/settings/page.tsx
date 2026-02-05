@@ -251,7 +251,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col lg:flex-row gap-8">
-        <aside className="w-full lg:w-60 shrink-0">
+        <aside className="w-full lg:w-64 shrink-0">
           <TabsList className="flex flex-col h-auto bg-transparent gap-1 p-0">
             {navItems.map((item) => (
               <TabsTrigger 

@@ -88,7 +88,7 @@ export const appSchema: AppSchema = {
       timestamp: 'VARCHAR(50)',
       status: 'VARCHAR(20)',
       itemCount: 'INT',
-      log: 'TEXT',
+      log: 'LONGTEXT',
     }
   },
   importIssues: {
@@ -281,6 +281,15 @@ export const appSchema: AppSchema = {
       reviewedBy: 'VARCHAR(255)',
       tenantId: 'VARCHAR(255)',
       syncSource: 'VARCHAR(50)'
+    }
+  },
+  helpContent: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      section: 'VARCHAR(255)',
+      title: 'VARCHAR(255)',
+      content: 'LONGTEXT',
+      `order`: 'INT DEFAULT 0'
     }
   }
 };
