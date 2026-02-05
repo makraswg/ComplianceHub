@@ -45,10 +45,30 @@ export default function CatalogBrowserPage() {
 
   const filteredHazards = useMemo(() => {
     if (!hazards) return [];
-    return hazards.filter(h => {
+    const filtered = hazards.filter(h => {
       const matchesSearch = h.title.toLowerCase().includes(search.toLowerCase()) || h.code.toLowerCase().includes(search.toLowerCase());
       const matchesModule = selectedModuleId === 'all' || h.moduleId === selectedModuleId;
       return matchesSearch && matchesModule;
+    });
+
+    // Numerische Sortierung für G x.y Codes (verhindert 1, 10, 11, 2...)
+    return filtered.sort((a, b) => {
+      const regex = /G\s+(\d+)\.(\d+)/i;
+      const matchA = a.code.match(regex);
+      const matchB = b.code.match(regex);
+
+      if (matchA && matchB) {
+        const majorA = parseInt(matchA[1], 10);
+        const minorA = parseInt(matchA[2], 10);
+        const majorB = parseInt(matchB[1], 10);
+        const minorB = parseInt(matchB[2], 10);
+
+        if (majorA !== majorB) return majorA - majorB;
+        return minorA - minorB;
+      }
+      
+      // Fallback auf natürliche Sortierung falls Regex nicht greift
+      return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [hazards, search, selectedModuleId]);
 
