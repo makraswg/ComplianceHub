@@ -33,7 +33,8 @@ const collectionToTableMap: { [key: string]: string } = {
   aiConfigs: 'aiConfigs',
   smtpConfigs: 'smtpConfigs',
   syncJobs: 'syncJobs',
-  helpContent: 'helpContent'
+  helpContent: 'helpContent',
+  processingActivities: 'processingActivities'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -43,7 +44,9 @@ function normalizeRecord(item: any, tableName: string) {
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
-    riskMeasures: ['riskIds']
+    riskMeasures: ['riskIds'],
+    resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
+    processingActivities: ['dataCategories', 'subjectCategories']
   };
 
   if (jsonFields[tableName]) {
@@ -60,7 +63,8 @@ function normalizeRecord(item: any, tableName: string) {
 
   const boolFields = [
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
-    'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden'
+    'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
+    'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -117,7 +121,9 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
       bundles: ['entitlementIds'],
       auditEvents: ['before', 'after'],
-      riskMeasures: ['riskIds']
+      riskMeasures: ['riskIds'],
+      resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
+      processingActivities: ['dataCategories', 'subjectCategories']
     };
 
     if (jsonFields[tableName]) {
@@ -130,7 +136,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 
     const boolKeys = [
       'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
-      'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden'
+      'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
+      'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -177,7 +184,6 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   try {
     connection = await getMysqlConnection();
     
-    // Tabellen die geleert werden sollen
     const tablesToClear = [
       'users',
       'auditEvents',
@@ -193,7 +199,8 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'entitlements',
       'assignments',
       'groups',
-      'bundles'
+      'bundles',
+      'processingActivities'
     ];
 
     for (const table of tablesToClear) {

@@ -47,18 +47,64 @@ export interface Resource {
   id: string;
   tenantId: string;
   name: string;
-  category: 'it_tool' | 'business_critical' | 'test' | 'standard_app' | 'infrastructure';
-  type: 'SaaS' | 'OnPrem' | 'Private Cloud' | 'Webshop' | 'IoT' | 'Andere';
-  operatorId: string;
+  // Asset & System
+  assetType: 'Hardware' | 'Software' | 'SaaS' | 'Infrastruktur';
+  category: 'Fachanwendung' | 'Infrastruktur' | 'Sicherheitskomponente' | 'Support-Tool';
+  operatingModel: 'On-Prem' | 'Cloud' | 'Hybrid';
+  criticality: 'low' | 'medium' | 'high';
+  
+  // Compliance & Protection
   dataClassification: 'public' | 'internal' | 'confidential' | 'strictly_confidential';
+  confidentialityReq: 'low' | 'medium' | 'high';
+  integrityReq: 'low' | 'medium' | 'high';
+  availabilityReq: 'low' | 'medium' | 'high';
+  
+  // DSGVO Trigger
+  hasPersonalData: boolean | number;
+  hasSpecialCategoryData: boolean | number;
+  affectedGroups: string[]; // Mitarbeitende, Kunden, etc.
+  processingPurpose: string;
   dataLocation: string;
+  
+  // Risk & Architecture
+  isInternetExposed: boolean | number;
+  isBusinessCritical: boolean | number;
+  isSpof: boolean | number;
+  
+  // Responsibility
+  systemOwner: string;
+  operatorId: string; // Service Partner / Technical Operator
+  riskOwner: string;
+  dataOwner: string;
+  
+  // IAM
   mfaType: 'none' | 'standard_otp' | 'standard_mail' | 'optional_otp' | 'optional_mail';
   authMethod: 'direct' | string;
+  
+  // Links (JSON Arrays)
+  riskIds?: string[];
+  measureIds?: string[];
+  vvtIds?: string[];
+  
   url: string;
   documentationUrl?: string;
-  criticality: 'low' | 'medium' | 'high';
   notes: string;
   createdAt?: string;
+}
+
+export interface ProcessingActivity {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  responsibleDepartment: string;
+  legalBasis: string;
+  dataCategories: string[];
+  subjectCategories: string[];
+  recipientCategories: string;
+  retentionPeriod: string;
+  status: 'draft' | 'active' | 'archived';
+  lastReviewDate: string;
 }
 
 export interface Entitlement {
@@ -104,14 +150,8 @@ export interface JiraConfig {
   issueTypeName?: string;
   approvedStatusName?: string;
   doneStatusName?: string;
-  // Assets Sync Configuration
   workspaceId?: string;
   schemaId?: string;
-  resourceObjectTypeId?: string;
-  entitlementObjectTypeId?: string;
-  resourceLabelAttrId?: string;
-  entitlementLabelAttrId?: string;
-  resourceToEntitlementAttrId?: string;
   autoSyncAssets?: boolean;
 }
 
@@ -143,26 +183,25 @@ export interface SyncJob {
   lastMessage?: string;
 }
 
-// Catalog System
 export interface Catalog {
   id: string;
   name: string;
   version: string;
-  provider: string; // e.g. BSI
+  provider: string;
   importedAt: string;
 }
 
 export interface HazardModule {
   id: string;
   catalogId: string;
-  code: string; // e.g. ORP, APP
+  code: string;
   title: string;
 }
 
 export interface Hazard {
   id: string;
   moduleId: string;
-  code: string; // e.g. APP.1
+  code: string;
   title: string;
   description: string;
   contentHash: string;
@@ -177,20 +216,12 @@ export interface ImportRun {
   log: string;
 }
 
-export interface ImportIssue {
-  id: string;
-  runId: string;
-  severity: 'warning' | 'error';
-  itemRef: string;
-  message: string;
-}
-
 export interface Risk {
   id: string;
   tenantId: string;
   assetId?: string;
   hazardId?: string;
-  parentId?: string; // Support for Sub-Risks
+  parentId?: string;
   title: string;
   category: string;
   description: string;
@@ -207,17 +238,8 @@ export interface Risk {
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
   acceptanceStatus?: 'pending' | 'accepted' | 'rejected';
-  acceptanceReason?: string;
-  acceptedBy?: string;
   lastReviewDate?: string;
-  reviewCycleDays?: number;
   createdAt: string;
-}
-
-export interface RiskCategorySetting {
-  id: string;
-  tenantId: string;
-  defaultReviewDays: number;
 }
 
 export interface RiskMeasure {

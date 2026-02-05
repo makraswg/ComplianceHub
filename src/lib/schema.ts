@@ -128,18 +128,14 @@ export const appSchema: AppSchema = {
       nettoReason: 'TEXT',
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
-      acceptanceStatus: 'VARCHAR(20) DEFAULT "pending"',
-      acceptanceReason: 'TEXT',
-      acceptedBy: 'VARCHAR(255)',
       lastReviewDate: 'VARCHAR(50)',
-      reviewCycleDays: 'INT',
       createdAt: 'VARCHAR(50) NOT NULL',
     },
   },
   riskMeasures: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
-      riskIds: 'TEXT', // Multi-Risk Support
+      riskIds: 'TEXT',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       owner: 'VARCHAR(255)',
@@ -148,6 +144,58 @@ export const appSchema: AppSchema = {
       effectiveness: 'INT DEFAULT 3',
       notes: 'TEXT',
     },
+  },
+  processingActivities: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      responsibleDepartment: 'VARCHAR(255)',
+      legalBasis: 'VARCHAR(255)',
+      dataCategories: 'TEXT',
+      subjectCategories: 'TEXT',
+      recipientCategories: 'TEXT',
+      retentionPeriod: 'VARCHAR(255)',
+      status: 'VARCHAR(50) DEFAULT "active"',
+      lastReviewDate: 'VARCHAR(50)'
+    }
+  },
+  resources: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      assetType: 'VARCHAR(100)',
+      category: 'VARCHAR(100)',
+      operatingModel: 'VARCHAR(100)',
+      criticality: 'VARCHAR(50)',
+      dataClassification: 'VARCHAR(100)',
+      confidentialityReq: 'VARCHAR(50)',
+      integrityReq: 'VARCHAR(50)',
+      availabilityReq: 'VARCHAR(50)',
+      hasPersonalData: 'BOOLEAN DEFAULT FALSE',
+      hasSpecialCategoryData: 'BOOLEAN DEFAULT FALSE',
+      affectedGroups: 'TEXT',
+      processingPurpose: 'TEXT',
+      dataLocation: 'VARCHAR(255)',
+      isInternetExposed: 'BOOLEAN DEFAULT FALSE',
+      isBusinessCritical: 'BOOLEAN DEFAULT FALSE',
+      isSpof: 'BOOLEAN DEFAULT FALSE',
+      systemOwner: 'VARCHAR(255)',
+      operatorId: 'VARCHAR(255)',
+      riskOwner: 'VARCHAR(255)',
+      dataOwner: 'VARCHAR(255)',
+      mfaType: 'VARCHAR(100)',
+      authMethod: 'VARCHAR(255)',
+      riskIds: 'TEXT',
+      measureIds: 'TEXT',
+      vvtIds: 'TEXT',
+      url: 'TEXT',
+      documentationUrl: 'TEXT',
+      notes: 'TEXT',
+      createdAt: 'VARCHAR(50)'
+    }
   },
   auditEvents: {
     columns: {
@@ -239,25 +287,6 @@ export const appSchema: AppSchema = {
       isSharedAccount: 'BOOLEAN DEFAULT FALSE',
       tenantId: 'VARCHAR(255)',
       externalMapping: 'VARCHAR(255)'
-    }
-  },
-  resources: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      category: 'VARCHAR(100)',
-      type: 'VARCHAR(100)',
-      operatorId: 'VARCHAR(255)',
-      dataClassification: 'VARCHAR(100)',
-      dataLocation: 'VARCHAR(255)',
-      mfaType: 'VARCHAR(100)',
-      authMethod: 'VARCHAR(255)',
-      url: 'TEXT',
-      documentationUrl: 'TEXT',
-      criticality: 'VARCHAR(50)',
-      notes: 'TEXT',
-      createdAt: 'VARCHAR(50)'
     }
   },
   assignments: {
