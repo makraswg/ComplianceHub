@@ -24,6 +24,9 @@ const collectionToTableMap: { [key: string]: string } = {
   aiConfigs: 'aiConfigs',
   syncJobs: 'syncJobs',
   helpContent: 'helpContent',
+  risks: 'risks',
+  riskMeasures: 'riskMeasures',
+  riskReviews: 'riskReviews',
 };
 
 /**
@@ -46,7 +49,7 @@ function normalizeRecord(item: any, tableName: string) {
   }
 
   // Booleans für alle Tabellen normalisieren (MySQL TINYINT(1) -> Boolean)
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'ldapEnabled'];
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
