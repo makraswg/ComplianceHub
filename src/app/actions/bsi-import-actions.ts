@@ -1,12 +1,13 @@
 
 'use server';
 
-import { Catalog, HazardModule, Hazard, ImportRun, ImportIssue, DataSource } from '@/lib/types';
+import { Catalog, HazardModule, Hazard, ImportRun, DataSource } from '@/lib/types';
 import { saveCollectionRecord } from './mysql-actions';
+import { XMLParser } from 'fast-xml-parser';
 import { crypto } from 'next/dist/compiled/@edge-runtime/primitives';
 
 /**
- * Erzeugt einen SHA-256 Hash aus einem String.
+ * Erzeugt einen SHA-256 Hash aus einem String zur Dublettenprüfung.
  */
 async function generateHash(content: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(content);
@@ -18,21 +19,34 @@ async function generateHash(content: string): Promise<string> {
 export interface BsiImportInput {
   catalogName: string;
   version: string;
-  data: any; // Der Katalog als JSON Struktur
+  xmlContent: string;
 }
 
 /**
- * Robuster BSI Importer mit Content-Hashing und Governance-Logging.
+ * Verarbeitet BSI IT-Grundschutz XML-Kataloge.
  */
-export async function runBsiImportAction(input: BsiImportInput, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; runId: string; message: string }> {
+export async function runBsiXmlImportAction(input: BsiImportInput, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; runId: string; message: string }> {
   const runId = `run-${Math.random().toString(36).substring(2, 9)}`;
-  const catalogId = `cat-${input.catalogName.toLowerCase().replace(/\s+/g, '-')}-${input.version}`;
+  const catalogId = `cat-${input.catalogName.toLowerCase().replace(/\s+/g, '-')}-${input.version.replace(/\./g, '_')}`;
   const now = new Date().toISOString();
   
   let itemCount = 0;
-  let log = `Import gestartet um ${now}\n`;
+  let log = `XML Import gestartet um ${now}\n`;
 
   try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: "@_"
+    });
+    
+    const jsonObj = parser.parse(input.xmlContent);
+    
+    // Die Struktur von BSI XMLs variiert je nach Version (Kompendium vs. Katalog)
+    // Wir suchen nach Modulen und Gefährdungen
+    const root = jsonObj.grundschutz || jsonObj.kompendium || jsonObj;
+    const modules = root.bausteine?.baustein || root.module?.modul || [];
+    const modulesList = Array.isArray(modules) ? modules : [modules];
+
     // 1. Katalog-Stammsatz anlegen
     const catalog: Catalog = {
       id: catalogId,
@@ -43,31 +57,38 @@ export async function runBsiImportAction(input: BsiImportInput, dataSource: Data
     };
     await saveCollectionRecord('catalogs', catalogId, catalog, dataSource);
 
-    // 2. Iteration über Module (simuliertes Streaming)
-    const modules = input.data.modules || [];
-    for (const modData of modules) {
-      const moduleId = `mod-${catalogId}-${modData.code}`;
+    for (const mod of modulesList) {
+      const modCode = mod['@_code'] || mod.code || 'UNKNOWN';
+      const modTitle = mod.titel || mod.title || modCode;
+      const moduleId = `mod-${catalogId}-${modCode}`;
+
       const moduleRecord: HazardModule = {
         id: moduleId,
         catalogId: catalogId,
-        code: modData.code,
-        title: modData.title
+        code: modCode,
+        title: modTitle
       };
       await saveCollectionRecord('hazardModules', moduleId, moduleRecord, dataSource);
 
-      // 3. Iteration über Gefährdungen
-      const threats = modData.threats || [];
-      for (const threatData of threats) {
-        const threatId = `haz-${moduleId}-${threatData.code}`;
-        const contentForHash = `${threatData.title}|${threatData.description}`;
+      // Gefährdungen extrahieren
+      const threats = mod.gefaehrdungen?.gefaehrdung || mod.threats?.threat || [];
+      const threatsList = Array.isArray(threats) ? threats : [threats];
+
+      for (const threat of threatsList) {
+        const threatCode = threat['@_code'] || threat.code || `G_${Math.random().toString(36).substring(2,5)}`;
+        const threatTitle = threat.titel || threat.title || 'Unbenannt';
+        const threatDesc = threat.beschreibung || threat.description || '';
+        const threatId = `haz-${moduleId}-${threatCode}`;
+
+        const contentForHash = `${threatTitle}|${threatDesc}`;
         const hash = await generateHash(contentForHash);
 
         const hazardRecord: Hazard = {
           id: threatId,
           moduleId: moduleId,
-          code: threatData.code,
-          title: threatData.title,
-          description: threatData.description,
+          code: threatCode,
+          title: threatTitle,
+          description: threatDesc,
           contentHash: hash
         };
 
@@ -76,7 +97,7 @@ export async function runBsiImportAction(input: BsiImportInput, dataSource: Data
       }
     }
 
-    log += `Import erfolgreich abgeschlossen. ${itemCount} Gefährdungen verarbeitet.\n`;
+    log += `Import erfolgreich. ${itemCount} Gefährdungen verarbeitet.\n`;
     
     const run: ImportRun = {
       id: runId,
@@ -88,9 +109,10 @@ export async function runBsiImportAction(input: BsiImportInput, dataSource: Data
     };
     await saveCollectionRecord('importRuns', runId, run, dataSource);
 
-    return { success: true, runId, message: `${itemCount} Einträge erfolgreich importiert.` };
+    return { success: true, runId, message: `${itemCount} Einträge aus XML importiert.` };
 
   } catch (error: any) {
+    console.error("BSI XML Import Error:", error);
     const errorRun: ImportRun = {
       id: runId,
       catalogId,
@@ -100,6 +122,6 @@ export async function runBsiImportAction(input: BsiImportInput, dataSource: Data
       log: log + `FEHLER: ${error.message}`
     };
     await saveCollectionRecord('importRuns', runId, errorRun, dataSource);
-    return { success: false, runId, message: error.message };
+    return { success: false, runId, message: `XML Parser Fehler: ${error.message}` };
   }
 }

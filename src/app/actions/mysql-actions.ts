@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -9,8 +10,6 @@ import bcrypt from 'bcryptjs';
 
 /**
  * Mapping von Frontend-Kollektionsnamen zu echten MySQL-Tabellennamen.
- * CRITICAL: Alle Tabellen, die via saveCollectionRecord gespeichert werden sollen,
- * MÜSSEN hier eingetragen sein.
  */
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
@@ -30,11 +29,11 @@ const collectionToTableMap: { [key: string]: string } = {
   assignments: 'assignments',
   groups: 'groups',
   bundles: 'bundles',
-  // NEU: Konfigurations-Tabellen
   jiraConfigs: 'jiraConfigs',
   aiConfigs: 'aiConfigs',
   smtpConfigs: 'smtpConfigs',
-  syncJobs: 'syncJobs'
+  syncJobs: 'syncJobs',
+  helpContent: 'helpContent'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -118,7 +117,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 
     if (jsonFields[tableName]) {
       jsonFields[tableName].forEach(field => {
-        if (Array.isArray(preparedData[field]) || typeof preparedData[field] === 'object') {
+        if (preparedData[field] !== undefined && (Array.isArray(preparedData[field]) || typeof preparedData[field] === 'object')) {
           preparedData[field] = JSON.stringify(preparedData[field]);
         }
       });
