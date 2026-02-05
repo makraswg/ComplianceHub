@@ -34,7 +34,8 @@ const collectionToTableMap: { [key: string]: string } = {
   smtpConfigs: 'smtpConfigs',
   syncJobs: 'syncJobs',
   helpContent: 'helpContent',
-  processingActivities: 'processingActivities'
+  processingActivities: 'processingActivities',
+  dataSubjectGroups: 'dataSubjectGroups'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -200,7 +201,8 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'assignments',
       'groups',
       'bundles',
-      'processingActivities'
+      'processingActivities',
+      'dataSubjectGroups'
     ];
 
     for (const table of tablesToClear) {

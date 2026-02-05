@@ -38,6 +38,13 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50)',
     },
   },
+  dataSubjectGroups: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+    }
+  },
   users: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

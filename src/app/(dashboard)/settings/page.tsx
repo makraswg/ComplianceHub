@@ -36,7 +36,8 @@ import {
   Settings as SettingsIcon,
   Fingerprint,
   Workflow,
-  Table as TableIcon
+  Table as TableIcon,
+  FileCheck
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ import {
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
 import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig } from '@/lib/types';
+import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig, DataSubjectGroup } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -84,6 +85,9 @@ export default function SettingsPage() {
   const [selectedExcel, setSelectedExcel] = useState<File | null>(null);
   const [isExcelImporting, setIsExcelImporting] = useState(false);
 
+  // GDPR State
+  const [newGroupName, setNewGroupName] = useState('');
+
   // Data Fetching
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: pUsers, refresh: refreshPUsers } = usePluggableCollection<PlatformUser>('platformUsers');
@@ -91,6 +95,7 @@ export default function SettingsPage() {
   const { data: jiraConfigs, refresh: refreshJira } = usePluggableCollection<JiraConfig>('jiraConfigs');
   const { data: aiConfigs, refresh: refreshAi } = usePluggableCollection<AiConfig>('aiConfigs');
   const { data: smtpConfigs, refresh: refreshSmtp } = usePluggableCollection<SmtpConfig>('smtpConfigs');
+  const { data: dataSubjectGroups, refresh: refreshSubjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
 
   // Local Form States (Drafts)
   const [jiraDraft, setJiraDraft] = useState<Partial<JiraConfig>>({});
@@ -143,6 +148,35 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAddSubjectGroup = async () => {
+    if (!newGroupName) return;
+    const id = `dsg-${Math.random().toString(36).substring(2, 9)}`;
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    
+    try {
+      const res = await saveCollectionRecord('dataSubjectGroups', id, { id, tenantId: targetTenantId, name: newGroupName }, dataSource);
+      if (res.success) {
+        setNewGroupName('');
+        refreshSubjectGroups();
+        toast({ title: "Personengruppe hinzugefügt" });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    }
+  };
+
+  const handleDeleteSubjectGroup = async (id: string) => {
+    try {
+      const res = await deleteCollectionRecord('dataSubjectGroups', id, dataSource);
+      if (res.success) {
+        refreshSubjectGroups();
+        toast({ title: "Gruppe entfernt" });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     }
   };
 
@@ -268,6 +302,7 @@ export default function SettingsPage() {
     { id: 'sync', label: 'Identität & Sync', icon: Network },
     { id: 'integrations', label: 'Jira Gateway', icon: RefreshCw },
     { id: 'ai', label: 'KI Access Advisor', icon: BrainCircuit },
+    { id: 'dsgvo', label: 'Datenschutz (DSGVO)', icon: FileCheck },
     { id: 'email', label: 'E-Mail (SMTP)', icon: Mail },
     { id: 'risks', label: 'Risiko-Steuerung', icon: Scale },
     { id: 'data', label: 'Katalog-Import', icon: FileCode },
@@ -323,6 +358,58 @@ export default function SettingsPage() {
                     {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     Mandant Speichern
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DSGVO Section */}
+          <TabsContent value="dsgvo" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2">
+                  <FileCheck className="w-4 h-4" /> Betroffene Personengruppen
+                </CardTitle>
+                <CardDescription className="text-[9px] uppercase font-bold mt-1">Definition der Gruppen, deren Daten in den Systemen verarbeitet werden (z. B. Mitarbeiter, Kunden).</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="flex gap-4">
+                  <Input 
+                    value={newGroupName} 
+                    onChange={e => setNewGroupName(e.target.value)} 
+                    placeholder="z.B. Externe Berater" 
+                    className="rounded-none h-10 flex-1" 
+                  />
+                  <Button onClick={handleAddSubjectGroup} className="h-10 rounded-none uppercase font-bold text-[10px]">
+                    <Plus className="w-3.5 h-3.5 mr-2" /> Hinzufügen
+                  </Button>
+                </div>
+
+                <div className="border rounded-none overflow-hidden">
+                  <Table>
+                    <TableBody>
+                      {dataSubjectGroups?.filter(g => activeTenantId === 'all' || g.tenantId === activeTenantId).map(group => (
+                        <TableRow key={group.id} className="hover:bg-transparent">
+                          <TableCell className="font-bold text-xs">{group.name}</TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-red-600" 
+                              onClick={() => handleDeleteSubjectGroup(group.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {(!dataSubjectGroups || dataSubjectGroups.length === 0) && (
+                        <TableRow>
+                          <TableCell className="text-center py-8 text-xs text-muted-foreground italic">Keine Personengruppen definiert.</TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>

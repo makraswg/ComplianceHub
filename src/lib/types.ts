@@ -43,6 +43,12 @@ export interface PlatformUser {
   createdAt: string;
 }
 
+export interface DataSubjectGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+}
+
 export interface Resource {
   id: string;
   tenantId: string;
