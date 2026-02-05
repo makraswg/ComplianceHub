@@ -6,8 +6,7 @@ import * as XLSX from 'xlsx';
 
 /**
  * Importiert Relationen zwischen Maßnahmen und Gefährdungen aus der BSI Kreuztabelle.
- * Die Logik sucht nun dynamisch nach der Header-Zeile, um auch Dateien mit 
- * Metadaten im Kopfbereich verarbeiten zu können.
+ * Verbessert: Sucht nun aktiv nach dem Blatt "Kreuztabelle" und scannt Zeilen isoliert.
  */
 export async function runBsiCrossTableImportAction(
   base64Content: string, 
@@ -16,96 +15,105 @@ export async function runBsiCrossTableImportAction(
   try {
     const buffer = Buffer.from(base64Content, 'base64');
     const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
     
-    // Wir konvertieren zuerst in ein Array von Arrays (AOA), 
-    // um die Kopfzeile flexibel suchen zu können.
+    // 1. Suche nach dem richtigen Tabellenblatt
+    let sheetName = workbook.SheetNames[0];
+    const preferredNames = ['KREUZTABELLE', 'KRT', 'MATRIX', 'RELATIONEN'];
+    
+    for (const name of workbook.SheetNames) {
+      if (preferredNames.some(p => name.toUpperCase().includes(preferredNames[0]))) {
+        sheetName = name;
+        break;
+      }
+    }
+
+    const sheet = workbook.Sheets[sheetName];
     const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (rows.length === 0) throw new Error("Die Excel-Datei scheint leer zu sein.");
+    if (rows.length === 0) throw new Error(`Das Blatt "${sheetName}" scheint leer zu sein.`);
 
     let headerRowIndex = -1;
-    let colIndices = {
+    let finalColIndices = {
       baustein: -1,
       mCode: -1,
       mTitel: -1,
       hazards: [] as { code: string, index: number }[]
     };
 
-    // 1. Suche nach der Header-Zeile
-    for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    // 2. Suche nach der Header-Zeile (Scan der ersten 50 Zeilen)
+    for (let i = 0; i < Math.min(rows.length, 50); i++) {
       const row = rows[i];
       if (!row || !Array.isArray(row)) continue;
 
-      let foundG = false;
-      let foundM = false;
+      const currentIndices = {
+        baustein: -1,
+        mCode: -1,
+        mTitel: -1,
+        hazards: [] as { code: string, index: number }[]
+      };
 
       row.forEach((cell, idx) => {
         const val = String(cell || '').trim().toUpperCase();
         
-        // Identifiziere Basis-Spalten
-        if (val.includes('BAUSTEIN') || val === 'ELEMENT') colIndices.baustein = idx;
-        if (val.includes('ID') || val.includes('CODE')) colIndices.mCode = idx;
+        // Suche Basis-Spalten
+        if (val.includes('BAUSTEIN') || val === 'ELEMENT') currentIndices.baustein = idx;
+        if (val.includes('ID') || val.includes('CODE') || val === 'NR.') currentIndices.mCode = idx;
         if (val.includes('TITEL') || val.includes('BEZEICHNUNG') || val.includes('MASSNAHME')) {
-          // Wir bevorzugen Spalten, die explizit "Massnahme" oder "Titel" im Namen haben
-          if (val.includes('MASSNAHME') || colIndices.mTitel === -1) colIndices.mTitel = idx;
+          if (val.includes('MASSNAHME') || currentIndices.mTitel === -1) currentIndices.mTitel = idx;
         }
 
-        // Identifiziere Gefährdungs-Spalten (G 0.x)
-        if (/^G\s*0\.[0-9]+$/i.test(val.replace(/\s+/g, ' '))) {
-          colIndices.hazards.push({ 
-            code: val.replace(/\s+/g, ' ').toUpperCase(), 
+        // Suche Gefährdungs-Spalten (G 0.x) - Flexiblere Regex
+        const gMatch = val.replace(/\s+/g, ' ').match(/G\s*0\.([0-9]+)/i);
+        if (gMatch) {
+          currentIndices.hazards.push({ 
+            code: `G 0.${gMatch[1]}`, 
             index: idx 
           });
-          foundG = true;
         }
       });
 
-      // Wenn wir Gefährdungs-Spalten und mindestens eine ID-Spalte gefunden haben, 
-      // ist das unsere Header-Zeile.
-      if (foundG && (colIndices.mCode !== -1 || colIndices.baustein !== -1)) {
+      // Validierung: Eine Header-Zeile muss mindestens Gefährdungen UND (ID oder Baustein) haben
+      if (currentIndices.hazards.length >= 1 && (currentIndices.mCode !== -1 || currentIndices.baustein !== -1)) {
         headerRowIndex = i;
+        finalColIndices = currentIndices;
         break;
       }
     }
 
     if (headerRowIndex === -1) {
-      throw new Error("Kopfzeile konnte nicht identifiziert werden. Bitte prüfen Sie, ob die Spalten 'Baustein', 'ID' und Gefährdungen wie 'G 0.1' vorhanden sind.");
+      throw new Error(`Kopfzeile in Blatt "${sheetName}" nicht gefunden. Erwartet werden Spalten wie "Baustein", "ID" und Gefährdungs-Codes (G 0.1 etc.).`);
     }
-
-    console.log(`Header gefunden in Zeile ${headerRowIndex + 1}. Spalten:`, colIndices);
 
     let measureCount = 0;
     let relationCount = 0;
 
-    // 2. Daten ab der Header-Zeile verarbeiten
+    // 3. Daten ab der Header-Zeile verarbeiten
     for (let i = headerRowIndex + 1; i < rows.length; i++) {
       const row = rows[i];
       if (!row) continue;
 
-      const baustein = String(row[colIndices.baustein] || '').trim();
-      const mCode = String(row[colIndices.mCode] || '').trim();
-      const mTitel = String(row[colIndices.mTitel] || '').trim();
+      const baustein = String(row[finalColIndices.baustein] || '').trim();
+      const mCode = String(row[finalColIndices.mCode] || '').trim();
+      const mTitel = String(row[finalColIndices.mTitel] || '').trim();
 
-      // Eine valide Zeile braucht mindestens einen Code oder Baustein
-      if (!mCode || !baustein) continue;
+      // Zeile überspringen wenn keine Identifikation möglich
+      if (!mCode && !baustein) continue;
 
-      const measureId = `m-${baustein}-${mCode}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const measureId = `m-${baustein || 'global'}-${mCode || i}`.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       
-      // 1. Maßnahme anlegen
+      // Maßnahme anlegen/aktualisieren
       await saveCollectionRecord('hazardMeasures', measureId, {
         id: measureId,
-        code: mCode,
-        title: mTitel || mCode,
-        baustein: baustein
+        code: mCode || 'N/A',
+        title: mTitel || mCode || 'Unbenannte Maßnahme',
+        baustein: baustein || 'Allgemein'
       }, dataSource);
       measureCount++;
 
-      // 2. Relationen prüfen
-      for (const hCol of colIndices.hazards) {
+      // Relationen prüfen
+      for (const hCol of finalColIndices.hazards) {
         const val = row[hCol.index];
-        // Ein Kreuz liegt vor, wenn die Zelle nicht leer ist
+        // Markierung liegt vor, wenn Zelle nicht leer
         if (val !== undefined && val !== null && String(val).trim() !== '') {
           const relId = `rel-${measureId}-${hCol.code.replace(/[^a-z0-9]/gi, '_')}`.toLowerCase();
           
@@ -122,7 +130,7 @@ export async function runBsiCrossTableImportAction(
     return { 
       success: measureCount > 0, 
       message: measureCount > 0 
-        ? `${measureCount} Maßnahmen und ${relationCount} Relationen erfolgreich importiert.`
+        ? `${measureCount} Maßnahmen und ${relationCount} Relationen aus Blatt "${sheetName}" importiert.`
         : `Keine Datenzeilen nach der Kopfzeile gefunden.`,
       count: measureCount
     };
