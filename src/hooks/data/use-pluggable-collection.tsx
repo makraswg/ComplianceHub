@@ -12,33 +12,32 @@ import { Document } from '@/lib/types';
 
 /**
  * Der zentrale, hochperformante Daten-Hook der Anwendung. 
- * Er stellt sicher, dass nur die aktuell aktive Datenquelle Ressourcen verbraucht.
+ * Optimiert für schnelle Seitenwechsel durch integriertes Caching.
  */
 export function usePluggableCollection<T extends Document>(collectionName: string): UseCollectionResult<T> {
   const { dataSource } = useSettings();
   const db = useFirestore();
 
+  const isFirestore = dataSource === 'firestore';
+  const isMysql = dataSource === 'mysql';
+  const isMock = dataSource === 'mock';
+
   // Erstellt eine memoisierte Collection-Referenz für Firestore.
-  // Diese ist nur gesetzt, wenn Firestore die aktive Quelle ist.
   const collectionRef = useMemo(() => {
-    if (dataSource === 'firestore' && db) {
+    if (isFirestore && db) {
       return collection(db, collectionName) as CollectionReference<T, DocumentData>;
     }
     return null;
-  }, [dataSource, db, collectionName]);
+  }, [isFirestore, db, collectionName]);
 
-  // Wir instanziieren die Hooks. Die Hooks selbst prüfen intern auf 'enabled'
-  // und bleiben inert, wenn sie nicht benötigt werden.
   const firestoreResult = useFirestoreCollection<T>(collectionRef);
-  const mysqlResult = useMysqlCollection<T>(collectionName, dataSource === 'mysql');
-  const mockResult = useMockCollection<T>(collectionName, { disabled: dataSource !== 'mock' });
+  const mysqlResult = useMysqlCollection<T>(collectionName, isMysql);
+  const mockResult = useMockCollection<T>(collectionName, { disabled: !isMock });
 
-  // Rückgabe der Daten basierend auf der aktiven Quelle.
-  // Durch useMemo wird das Rückgabeobjekt stabil gehalten.
   return useMemo(() => {
-    if (dataSource === 'firestore') {
+    if (isFirestore) {
       return firestoreResult;
-    } else if (dataSource === 'mysql') {
+    } else if (isMysql) {
       return {
         data: mysqlResult.data ? (mysqlResult.data as any) : null,
         isLoading: mysqlResult.isLoading,
@@ -53,5 +52,5 @@ export function usePluggableCollection<T extends Document>(collectionName: strin
         refresh: mockResult.refresh
       } as UseCollectionResult<T>;
     }
-  }, [dataSource, firestoreResult, mysqlResult, mockResult]);
+  }, [isFirestore, isMysql, isMock, firestoreResult, mysqlResult, mockResult]);
 }
