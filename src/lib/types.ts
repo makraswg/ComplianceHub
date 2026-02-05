@@ -56,7 +56,7 @@ export interface Resource {
   // Asset & System
   assetType: 'Hardware' | 'Software' | 'SaaS' | 'Infrastruktur';
   category: 'Fachanwendung' | 'Infrastruktur' | 'Sicherheitskomponente' | 'Support-Tool';
-  operatingModel: 'On-Prem' | 'Cloud' | 'Hybrid';
+  operatingModel: 'On-Prem' | 'Cloud' | 'Hybrid' | 'Private Cloud';
   criticality: 'low' | 'medium' | 'high';
   
   // Compliance & Protection

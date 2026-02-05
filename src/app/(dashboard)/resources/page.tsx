@@ -483,11 +483,12 @@ export default function ResourcesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-muted-foreground">Betriebsmodell</Label>
-                      <p className="text-[9px] text-muted-foreground italic">Einfluss auf die Verantwortlichkeit und DSGVO-Prüfung.</p>
+                      <p className="text-[9px] text-muted-foreground italic">Betriebsform beeinflusst Risiko & DSGVO.</p>
                       <Select value={operatingModel} onValueChange={(v: any) => setOperatingModel(v)}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           <SelectItem value="On-Prem">On-Prem (Eigenes RZ)</SelectItem>
+                          <SelectItem value="Private Cloud">Private Cloud</SelectItem>
                           <SelectItem value="Cloud">Cloud (Externer Provider)</SelectItem>
                           <SelectItem value="Hybrid">Hybrid</SelectItem>
                         </SelectContent>
@@ -692,8 +693,6 @@ export default function ResourcesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Entitlement Dialogs remain unchanged logic-wise, but would benefit from similar layout if needed */}
     </div>
   );
 }
