@@ -166,6 +166,11 @@ function RiskDashboardContent() {
 
   // Logic for the Main Risk Dialog
   useEffect(() => {
+    if (isRiskDialogOpen && parentId !== 'none') {
+      // If it's a sub-risk, don't aggregate
+      return;
+    }
+    
     if (isRiskDialogOpen && parentId === 'none') {
       const riskId = selectedRisk?.id || '';
       if (!riskId) return;
@@ -471,6 +476,13 @@ function RiskDashboardContent() {
     setIsRiskDialogOpen(true);
   };
 
+  const openCreateSubRisk = (parentRisk: Risk) => {
+    resetForm();
+    setParentId(parentRisk.id);
+    setCategory(parentRisk.category);
+    setIsRiskDialogOpen(true);
+  };
+
   const suggestedMeasures = useMemo(() => {
     if (!advisorRisk?.hazardId || !relations || !allMeasures) return [];
     const hazard = hazards?.find(h => h.id === advisorRisk.hazardId);
@@ -714,6 +726,11 @@ function RiskDashboardContent() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-none w-56">
+                            {!risk.parentId && (
+                              <DropdownMenuItem onSelect={() => openCreateSubRisk(risk)}>
+                                <Plus className="w-3.5 h-3.5 mr-2" /> Sub-Risiko erstellen
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onSelect={() => openEdit(risk)}>
                               <Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten
                             </DropdownMenuItem>
