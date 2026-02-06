@@ -108,7 +108,7 @@ export async function applyProcessOpsAction(
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
-      const uniqueId = ensureUniqueId(originalId, model.nodes);
+      const uniqueId = ensureUniqueId(originalId, model.nodes || []);
       if (uniqueId !== originalId) {
         idMap[originalId] = uniqueId;
       }

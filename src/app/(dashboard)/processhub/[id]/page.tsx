@@ -169,12 +169,14 @@ export default function ProcessDesignerPage() {
         tips: selectedNode.tips || '',
         errors: selectedNode.errors || ''
       });
-    } else if (!selectedNode) {
+    } else if (!selectedNode && localNodeEdits.id !== '') {
       setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
     }
-  }, [selectedNode, selectedNodeId]);
+  }, [selectedNode, localNodeEdits.id]);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true); 
+  }, []);
 
   // Listen for diagrams.net init
   useEffect(() => {
@@ -534,7 +536,7 @@ export default function ProcessDesignerPage() {
                               </div>
                               <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" /> Checkliste
+                                  <CheckCircle className="w-3 h-3" /> Checkliste (Eine Zeile pro Punkt)
                                 </Label>
                                 <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] rounded-none min-h-[80px] border-slate-200 bg-white" placeholder="Ein Punkt pro Zeile..." />
                               </div>
