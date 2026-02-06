@@ -2,14 +2,13 @@
 'use server';
 /**
  * @fileOverview AI IAM Compliance Audit Flow.
- * 
- * Analyzes IAM data against criteria to find security gaps.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
+import OpenAI from 'openai';
 
 const IamAuditInputSchema = z.object({
   users: z.array(z.any()),
@@ -41,14 +40,6 @@ const IamAuditOutputSchema = z.object({
 
 export type IamAuditOutput = z.infer<typeof IamAuditOutputSchema>;
 
-async function getAuditModel(dataSource: DataSource = 'mysql') {
-  const config = await getActiveAiConfig(dataSource);
-  if (config && config.provider === 'ollama' && config.enabled) {
-    return `ollama/${config.ollamaModel || 'llama3'}`;
-  }
-  return `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
-}
-
 const SYSTEM_PROMPT = `You are a specialized IAM Auditor.
 Analyze the provided identity and assignment data against the specified audit criteria.
 
@@ -57,13 +48,8 @@ Criteria to apply:
 - {{{title}}}: {{{description}}} (Severity: {{{severity}}})
 {{/each}}
 
-Identify violations such as:
-- Privilege Creep (too many admin roles)
-- Segregation of Duties (SoD) conflicts
-- Orphaned accounts
-- Expired but active roles
-
-Output a list of specific findings with recommendations.`;
+Identify violations such as Privilege Creep, SoD conflicts, Orphaned accounts, etc.
+Return your response as a valid JSON object matching the requested schema.`;
 
 const iamAuditFlow = ai.defineFlow(
   {
@@ -72,15 +58,42 @@ const iamAuditFlow = ai.defineFlow(
     outputSchema: IamAuditOutputSchema,
   },
   async (input) => {
-    const modelIdentifier = await getAuditModel(input.dataSource as DataSource);
+    const config = await getActiveAiConfig(input.dataSource as DataSource);
+    const prompt = `Audit the following data:
+Users: ${input.users.length}
+Assignments: ${input.assignments.length}
+Resources: ${input.resources.length}`;
+
+    // Direct OpenRouter handling
+    if (config?.provider === 'openrouter') {
+      const client = new OpenAI({
+        apiKey: config.openrouterApiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+      });
+
+      const response = await client.chat.completions.create({
+        model: config.openrouterModel || 'google/gemini-2.0-flash-001',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: prompt }
+        ],
+        response_format: { type: 'json_object' }
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error('AI failed to perform audit via OpenRouter.');
+      return JSON.parse(content) as IamAuditOutput;
+    }
+
+    // Standard Genkit handling
+    const modelIdentifier = config?.provider === 'ollama' 
+      ? `ollama/${config.ollamaModel || 'llama3'}` 
+      : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
     
     const { output } = await ai.generate({
       model: modelIdentifier,
       system: SYSTEM_PROMPT,
-      prompt: `Audit the following data:
-Users: ${input.users.length}
-Assignments: ${input.assignments.length}
-Resources: ${input.resources.length}`,
+      prompt,
       output: { schema: IamAuditOutputSchema }
     });
 

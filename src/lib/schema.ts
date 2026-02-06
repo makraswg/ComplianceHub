@@ -288,6 +288,8 @@ export const appSchema: AppSchema = {
       ollamaUrl: 'TEXT',
       ollamaModel: 'VARCHAR(100)',
       geminiModel: 'VARCHAR(100)',
+      openrouterApiKey: 'TEXT',
+      openrouterModel: 'VARCHAR(100)',
     }
   },
   aiAuditCriteria: {

@@ -187,10 +187,12 @@ export interface SmtpConfig {
 export interface AiConfig {
   id: string;
   enabled: boolean;
-  provider: 'ollama' | 'google';
+  provider: 'ollama' | 'google' | 'openrouter';
   ollamaUrl?: string;
   ollamaModel?: string;
   geminiModel?: string;
+  openrouterApiKey?: string;
+  openrouterModel?: string;
   enabledForAdvisor?: boolean;
 }
 
