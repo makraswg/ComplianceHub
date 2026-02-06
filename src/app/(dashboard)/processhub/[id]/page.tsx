@@ -64,7 +64,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Card } from '@/components/ui/card';
 
 /**
  * Generiert MXGraph XML aus dem semantischen Modell mit verbessertem Layout-Handling.
@@ -77,6 +76,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
+    // Horizontales Fallback-Layout falls keine Position vorhanden
     const defaultX = 50 + (idx * 220);
     const defaultY = 150;
     const pos = positions[node.id] || { x: defaultX, y: defaultY };
@@ -130,9 +130,10 @@ export default function ProcessDesignerPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   
+  // Selection & Form State
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [localNodeEdits, setLocalNodeEdits] = useState<{
-    id: string,
+    id: string, // Zur Validierung, ob der richtige Knoten bearbeitet wird
     title: string, 
     roleId: string, 
     description: string,
@@ -141,6 +142,7 @@ export default function ProcessDesignerPage() {
     errors: string
   }>({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
 
+  // New Edge State
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
@@ -150,6 +152,7 @@ export default function ProcessDesignerPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
+  // Sync Local Form State when selected node changes
   const selectedNode = useMemo(() => 
     currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
     [currentVersion, selectedNodeId]
@@ -173,6 +176,7 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Listen for diagrams.net init
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
     const handleMessage = (evt: MessageEvent) => {
@@ -194,6 +198,7 @@ export default function ProcessDesignerPage() {
       xml: xml,
       autosave: 1
     }), '*');
+    // Zoom to fit
     setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*');
     }, 500);
@@ -213,9 +218,10 @@ export default function ProcessDesignerPage() {
       );
       if (res.success) {
         toast({ title: "Modell aktualisiert" });
+        // Mark as applied in history if applicable
         if (historyIndex !== undefined) {
           const newHistory = [...chatHistory];
-          newHistory[historyIndex].suggestions = [];
+          newHistory[historyIndex].suggestions = []; // Clear to hide buttons, or keep for context
           setChatHistory(newHistory);
         }
         refreshVersion();
@@ -803,7 +809,7 @@ export default function ProcessDesignerPage() {
             </div>
             <div className="flex justify-between mt-3 px-1">
                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Revision Context Ready</span>
-               <span className="text-[8px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-3 h-3" /> GPT-4 Engine Active</span>
+               <span className="text-[8px] font-black text-primary uppercase tracking-widest flex items-center gap-1.5"><Terminal className="w-3 h-3" /> Engine Active</span>
             </div>
           </div>
         </aside>
