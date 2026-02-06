@@ -401,9 +401,9 @@ export default function ProcessDesignerPage() {
                     })}
                   </div>
                 </TabsContent>
-              </ScrollArea>
-            </div>
-          </Tabs>
+              </div>
+            </ScrollArea>
+          </div>
           <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />
         </aside>
 
