@@ -33,7 +33,6 @@ services:
       - compliance-db
     networks:
       - compliance-hub-network
-    # Erlaubt den Zugriff auf Ollama auf dem Host-Rechner
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

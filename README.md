@@ -47,17 +47,13 @@ docker compose up -d --build
 
 ## 🛠 Fehlerbehebung (Troubleshooting)
 
-### ModuleNotFoundError: No module named 'distutils'
-Falls dieser Fehler beim Aufruf von `docker-compose` erscheint, verwenden Sie eine veraltete Python-basierte Version. 
-**Lösung:** Verwenden Sie den modernen Befehl ohne Bindestrich: `docker compose` statt `docker-compose`.
-
-### Error: open sysctl net.ipv4.ip_unprivileged_port_start permission denied
-Dieser Fehler tritt in manchen virtualisierten Umgebungen auf (z.B. LXC oder Cloud Workstations). 
-**Lösung:** Führen Sie auf Ihrem Host-System (nicht im Container) folgenden Befehl als root aus:
+### Fehler: open sysctl net.ipv4.ip_unprivileged_port_start permission denied
+Dieser Fehler tritt in manchen virtualisierten Umgebungen auf (z.B. LXC, Proxmox oder Cloud Workstations). 
+**Lösung:** Führen Sie auf Ihrem **Host-System** (nicht im Container) folgenden Befehl als root aus:
 `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0`
 
 ### Build-Fehler: /app/public not found
-Stellen Sie sicher, dass ein Verzeichnis namens `public` im Stammverzeichnis existiert. Es wurde in der aktuellen Version automatisch angelegt.
+Dieser Fehler wurde in der aktuellen Version behoben. Stellen Sie sicher, dass ein Verzeichnis namens `public` im Stammverzeichnis existiert.
 
 ## 🛠 Technologien
 *   **Frontend/Backend:** Next.js 15 (App Router)

@@ -179,11 +179,6 @@ export default function SettingsPage() {
         }
       }
 
-      if (jiraDraft.workspaceId) {
-        const sRes = await getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId);
-        if (sRes.success) setJiraSchemas(sRes.schemas || []);
-      }
-
       toast({ title: "Jira Optionen geladen" });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Systemfehler", description: e.message });
@@ -331,7 +326,6 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 min-w-0">
-          {/* Organisation */}
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -355,7 +349,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Struktur & Stellen */}
           <TabsContent value="structure" className="mt-0 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card className="rounded-none border shadow-none">
@@ -416,7 +409,6 @@ export default function SettingsPage() {
             </div>
           </TabsContent>
 
-          {/* Plattform Nutzer */}
           <TabsContent value="pusers" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -442,7 +434,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Identität & Sync + Jobs */}
           <TabsContent value="sync" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest">Job-Management & Automatisierung</CardTitle></CardHeader>
@@ -486,7 +477,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Jira Integration */}
           <TabsContent value="integrations" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -617,7 +607,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* KI Access Advisor */}
           <TabsContent value="ai" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><BrainCircuit className="w-4 h-4" /> KI Access Advisor Engine</CardTitle></CardHeader>
@@ -647,7 +636,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* DSGVO Datenschutz */}
           <TabsContent value="dsgvo" className="mt-0 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card className="rounded-none border shadow-none">
@@ -694,7 +682,6 @@ export default function SettingsPage() {
             </div>
           </TabsContent>
 
-          {/* E-Mail SMTP */}
           <TabsContent value="email" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><Mail className="w-4 h-4" /> E-Mail Benachrichtigungen (SMTP)</CardTitle></CardHeader>
@@ -716,7 +703,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Katalog Import */}
           <TabsContent value="data" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -781,4 +767,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-    
