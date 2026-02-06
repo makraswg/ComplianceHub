@@ -3,6 +3,7 @@ services:
     image: mysql:8.0
     container_name: compliance-hub-db
     restart: always
+    privileged: true
     environment:
       MYSQL_DATABASE: compliance_hub
       MYSQL_USER: compliance_user
@@ -14,8 +15,6 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - compliance-hub-network
-    security_opt:
-      - "seccomp:unconfined"
 
   compliance-app:
     build: .
