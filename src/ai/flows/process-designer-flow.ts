@@ -115,9 +115,23 @@ function normalizeOps(rawOps: any[]): any[] {
     if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
       const nodes = op.payload?.nodes || [];
       const edges = op.payload?.edges || [];
+      const isoFields = op.payload?.isoFields || {};
+      
       nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
-      edges.forEach((e: any) => normalized.push({ type: 'ADD_EDGE', payload: { edge: e } }));
-      if (op.payload?.isoFields) normalized.push({ type: 'SET_ISO_FIELD', payload: { isoFields: op.payload.isoFields } });
+      edges.forEach((e: any) => normalized.push({ 
+        type: 'ADD_EDGE', 
+        payload: { 
+          edge: { 
+            id: e.id || `edge-${Math.random().toString(36).substring(2, 7)}`,
+            source: e.source || e.from,
+            target: e.target || e.to,
+            label: e.label || e.condition || ''
+          } 
+        } 
+      }));
+      if (Object.keys(isoFields).length > 0) {
+        normalized.push({ type: 'SET_ISO_FIELD', payload: { isoFields } });
+      }
     } else {
       normalized.push({
         type: type as any,
@@ -203,7 +217,7 @@ Bitte liefere ein valides JSON-Objekt zurück. Analysiere den Chatverlauf genau,
 
 export async function getProcessSuggestions(input: any): Promise<ProcessDesignerOutput> {
   try {
-    // Sanitizing input for schema safety
+    // Sanitizing input for schema safety - ensure openQuestions is NEVER null
     const sanitizedInput = {
       ...input,
       openQuestions: input.openQuestions || ""

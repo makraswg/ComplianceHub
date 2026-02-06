@@ -361,8 +361,8 @@ export default function ProcessDesignerPage() {
                     ))}
                   </div>
                   
-                  <div className="pt-6">
-                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-11 font-black uppercase text-[10px] gap-2 tracking-widest">
+                  <div className="pt-10 border-t">
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-11 font-black uppercase text-[10px] gap-2 tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-xl">
                       {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
                       Stammdaten Speichern
                     </Button>
