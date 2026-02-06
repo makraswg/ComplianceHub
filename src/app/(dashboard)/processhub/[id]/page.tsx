@@ -333,8 +333,8 @@ export default function ProcessDesignerPage() {
             </div>
             <div className="flex-1 min-h-0 flex flex-col select-auto">
               <ScrollArea className="flex-1">
-                <TabsContent value="meta" className="m-0 p-6 space-y-8">
-                  <div className="space-y-4">
+                <TabsContent value="meta" className="m-0 p-6 space-y-10">
+                  <div className="space-y-6">
                     <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Allgemein</h3>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-none font-bold h-10" /></div>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Status</Label><Select value={metaStatus} onValueChange={setMetaStatus}><SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger><SelectContent className="rounded-none"><SelectItem value="draft">Entwurf</SelectItem><SelectItem value="published">Veröffentlicht</SelectItem></SelectContent></Select></div>
@@ -352,9 +352,9 @@ export default function ProcessDesignerPage() {
                       />
                     </div>
 
-                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern</Button>
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Stammblatt Speichern</Button>
                   </div>
-                  <div className="space-y-6 pt-4 border-t">
+                  <div className="space-y-6 pt-10 border-t">
                     <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-black uppercase text-emerald-700">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Inputs', icon: ArrowRight }, { id: 'outputs', label: 'Outputs', icon: Check }, { id: 'risks', label: 'Risiken', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
                       <div key={f.id} className="space-y-2"><Label className="text-[10px] font-bold uppercase flex items-center gap-2"><f.icon className="w-3.5 h-3.5 text-emerald-600" /> {f.label}</Label><Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-xs rounded-none min-h-[80px]" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} /></div>
@@ -459,99 +459,139 @@ export default function ProcessDesignerPage() {
       </div>
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
+        <DialogContent className="max-w-3xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
           <DialogHeader className={cn("p-6 text-white shrink-0", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
-            <DialogTitle className="text-sm font-bold uppercase">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
-            <DialogDescription className="text-[9px] text-white/50 uppercase font-bold">ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/10 rounded-none flex items-center justify-center shrink-0 border border-white/20">
+                {localNodeEdits.type === 'decision' ? <GitBranch className="w-5 h-5" /> : 
+                 localNodeEdits.type === 'end' ? <CircleDot className="w-5 h-5" /> :
+                 <Activity className="w-5 h-5" />}
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-bold uppercase tracking-wide truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
+                <DialogDescription className="text-[9px] text-white/50 uppercase font-black tracking-widest mt-0.5">ID: {selectedNodeId} | Typ: {localNodeEdits.type}</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] p-8 space-y-8">
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-500">Bezeichnung</Label>
-                <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-10 text-sm font-bold" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-500">Rolle</Label>
-                <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-10 text-sm" placeholder="IT-Admin, HR..." />
-              </div>
-            </div>
-
-            {localNodeEdits.type === 'end' && (
-              <div className="p-4 bg-blue-50 border-2 border-blue-100 rounded-none space-y-3">
-                <Label className="text-[10px] font-black uppercase text-blue-700 flex items-center gap-2">
-                  <LinkIcon className="w-3.5 h-3.5" /> Prozess-Verknüpfung (Handover)
-                </Label>
-                <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId'); }}>
-                  <SelectTrigger className="h-10 rounded-none bg-white border-blue-200">
-                    <SelectValue placeholder="Folgeprozess wählen..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-none">
-                    <SelectItem value="none">Keine Verknüpfung</SelectItem>
-                    {processes?.filter(p => p.id !== id).map(p => (
-                      <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-[9px] text-blue-600 italic">
-                  Wenn ein Folgeprozess gewählt wird, kann der Nutzer am Ende dieses Ablaufs direkt zum nächsten Prozess navigieren.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-500">Anweisung</Label>
-              <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[100px]" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2"><CheckCircle className="w-3.5 h-3.5" /> Checkliste</Label>
-              <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-xs min-h-[100px] bg-slate-50/50" placeholder="Ein Punkt pro Zeile..." />
-            </div>
-            
-            <Separator />
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase text-primary flex items-center gap-2"><GitBranch className="w-4 h-4" /> Ablauf-Logik</h4>
-              <div className="grid grid-cols-2 gap-6">
+          
+          <ScrollArea className="max-h-[75vh] p-0">
+            <div className="p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any, eidx: number) => {
-                    const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                    return (
-                      <div key={`${edge.id}-${eidx}`} className="flex items-center justify-between p-3 border bg-white text-[11px] shadow-sm">
-                        <div className="flex items-center gap-2 truncate">
-                          <ArrowRightCircle className="w-4 h-4 text-slate-300" />
-                          <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target} {edge.label && `(${edge.label})`}</span>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-50" onClick={() => handleApplyOps([{ type: 'REMOVE_EDGE', payload: { edgeId: edge.id } }])}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    );
-                  })}
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Schrittbezeichnung</Label>
+                  <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} onBlur={() => saveNodeUpdate('title')} className="h-11 text-sm font-bold rounded-none border-2 focus:border-primary" />
                 </div>
-                <div className="p-4 bg-slate-50 border space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[8px] uppercase font-black">Zielknoten</Label>
-                    <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                      <SelectTrigger className="h-9 rounded-none bg-white shadow-none"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                      <SelectContent className="rounded-none">
-                        {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Verantwortliche Rolle</Label>
+                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-11 text-sm rounded-none border-2" placeholder="z.B. IT-Admin, HR, Einkauf" />
+                </div>
+              </div>
+
+              {localNodeEdits.type === 'end' && (
+                <div className="p-5 bg-blue-50 border-2 border-blue-100 rounded-none space-y-4 animate-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <LinkIcon className="w-4 h-4" />
+                    <Label className="text-[10px] font-black uppercase tracking-widest">Prozess-Verknüpfung (Handover)</Label>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[8px] uppercase font-black">Bedingung / Label</Label>
-                    <Input value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 rounded-none bg-white shadow-none" placeholder="z.B. OK, Ja, Nein" />
+                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId'); }}>
+                    <SelectTrigger className="h-11 rounded-none bg-white border-blue-200 border-2 font-bold text-xs">
+                      <SelectValue placeholder="Folgeprozess wählen..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="none">Keine Verknüpfung</SelectItem>
+                      {processes?.filter(p => p.id !== id).map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-blue-600/70 leading-relaxed italic">
+                    Modellieren Sie Prozessketten: Bei Auswahl eines Folgeprozesses kann der Anwender am Ende dieses Ablaufs direkt zum nächsten Prozess springen.
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Detaillierte Anweisung</Label>
+                  <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-sm min-h-[120px] rounded-none border-2 resize-none" placeholder="Beschreiben Sie hier präzise, was in diesem Schritt zu tun ist..." />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste
+                  </Label>
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-xs min-h-[100px] bg-slate-50/50 rounded-none border-2 font-mono" placeholder="Ein Prüfpunkt pro Zeile..." />
+                </div>
+              </div>
+              
+              <div className="pt-8 border-t space-y-6">
+                <div className="flex items-center gap-2 text-primary">
+                  <GitBranch className="w-4 h-4" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Ablauf-Logik & Verzweigungen</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">Existierende Ausgänge</Label>
+                    <div className="space-y-2">
+                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any, eidx: number) => {
+                        const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                        return (
+                          <div key={`${edge.id}-${eidx}`} className="flex items-center justify-between p-3 border-2 bg-slate-50 hover:bg-white transition-colors text-[11px] shadow-sm group">
+                            <div className="flex items-center gap-3 truncate">
+                              <ArrowRightCircle className="w-4 h-4 text-primary" />
+                              <div className="truncate">
+                                <span className="font-black text-primary uppercase text-[8px] block">{edge.label || 'Direkt'}</span>
+                                <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target}</span>
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleApplyOps([{ type: 'REMOVE_EDGE', payload: { edgeId: edge.id } }])}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).length === 0 && (
+                        <div className="p-4 border-2 border-dashed text-center text-[10px] font-bold text-slate-400 uppercase">
+                          Keine Ausgänge definiert
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <Button onClick={handleAddEdge} disabled={!newEdgeTargetId} className="w-full h-9 text-[10px] font-black bg-blue-600 hover:bg-blue-700 text-white rounded-none uppercase">Verknüpfen</Button>
+
+                  <div className="p-5 bg-slate-100 border-2 border-slate-200 rounded-none space-y-4">
+                    <p className="text-[9px] font-black uppercase text-slate-500 border-b border-slate-200 pb-2">Neuen Pfad erstellen</p>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] uppercase font-black text-slate-600">Zielschritt</Label>
+                        <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                          <SelectTrigger className="h-10 rounded-none bg-white border-2 shadow-none font-bold text-xs">
+                            <SelectValue placeholder="Wählen..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] uppercase font-black text-slate-600">Bedingung (Label)</Label>
+                        <Input value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-10 rounded-none bg-white border-2 shadow-none text-xs" placeholder="z.B. OK, Ja, Nein, Fehler" />
+                      </div>
+                      <Button onClick={handleAddEdge} disabled={!newEdgeTargetId} className="w-full h-10 text-[10px] font-black bg-slate-900 hover:bg-black text-white rounded-none uppercase shadow-lg gap-2">
+                        <Plus className="w-3.5 h-3.5" /> Pfad verknüpfen
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
-            <Button variant="ghost" className="text-red-600 rounded-none h-10 px-8 hover:bg-red-50" onClick={() => { if(confirm("Knoten permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
-              <Trash2 className="w-4 h-4 mr-2" /> Löschen
+
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex items-center justify-between">
+            <Button variant="ghost" className="text-red-600 rounded-none h-11 px-6 hover:bg-red-50 font-bold uppercase text-[10px] gap-2" onClick={() => { if(confirm("Knoten permanent löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+              <Trash2 className="w-4 h-4" /> Schritt löschen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 hover:bg-black text-white">
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-none h-11 px-12 font-black uppercase text-[10px] bg-slate-900 hover:bg-black text-white shadow-xl tracking-widest">
               Schließen
             </Button>
           </DialogFooter>
