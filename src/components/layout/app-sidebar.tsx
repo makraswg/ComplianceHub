@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -61,10 +62,15 @@ export function AppSidebar() {
   const { user } = useUser();
   const { logout } = usePlatformAuth();
 
+  const [mounted, setMounted] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -120,6 +126,20 @@ export function AppSidebar() {
       setIsUpdatingPassword(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="w-64 sidebar-admin flex flex-col h-screen sticky top-0 z-40 bg-card border-r border-border">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-8 h-8 bg-primary/20 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-muted animate-pulse" />
+            <div className="h-2 w-20 bg-muted animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-64 sidebar-admin flex flex-col h-screen sticky top-0 z-40">

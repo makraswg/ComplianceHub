@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from 'react';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { Bell, ChevronDown, Globe, Building2, Loader2, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,12 +20,29 @@ import {
 function HeaderContent() {
   const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
   const { data: tenants, isLoading } = usePluggableCollection<Tenant>('tenants');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getTenantLabel = () => {
     if (activeTenantId === 'all') return 'Alle Firmen';
     const current = tenants?.find(t => t.id === activeTenantId);
     return current ? current.name : 'Unbekannter Mandant';
   };
+
+  if (!mounted) {
+    return (
+      <header className="h-16 border-b bg-card flex items-center justify-between px-8 sticky top-0 z-30">
+        <div className="flex-1 flex items-center" />
+        <div className="flex items-center gap-4">
+          <div className="w-px h-6 bg-border mx-1" />
+          <div className="h-9 w-32 bg-muted animate-pulse rounded-none" />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-8 sticky top-0 z-30">
