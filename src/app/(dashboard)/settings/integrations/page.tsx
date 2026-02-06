@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,8 +75,13 @@ export default function JiraGatewaySettingsPage() {
     if (jiraDraft.projectKey && jiraDraft.url && jiraDraft.apiToken) {
       getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey).then(meta => {
         if (meta.success) {
-          setJiraIssueTypes(meta.issueTypes || []);
-          setJiraStatuses(meta.statuses || []);
+          // Deduplicate issue types by ID
+          const uniqueIssueTypes = Array.from(new Map((meta.issueTypes || []).map((it: any) => [it.id || it.name, it])).values());
+          // Deduplicate statuses by ID
+          const uniqueStatuses = Array.from(new Map((meta.statuses || []).map((s: any) => [s.id || s.name, s])).values());
+          
+          setJiraIssueTypes(uniqueIssueTypes);
+          setJiraStatuses(uniqueStatuses);
         }
       });
     }
@@ -153,7 +158,7 @@ export default function JiraGatewaySettingsPage() {
               <Select value={jiraDraft.projectKey || ''} onValueChange={v => setJiraDraft({...jiraDraft, projectKey: v})}>
                 <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Projekt..." /></SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {jiraProjects.map(p => <SelectItem key={p.key} value={p.key}>{p.name}</SelectItem>)}
+                  {jiraProjects.map(p => <SelectItem key={p.key || p.id} value={p.key}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
