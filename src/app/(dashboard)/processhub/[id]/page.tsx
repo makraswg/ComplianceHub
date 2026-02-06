@@ -44,7 +44,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -163,7 +163,6 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
-  // Fix ReferenceError by defining handlers before they are used in useEffect
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
@@ -303,6 +302,8 @@ export default function ProcessDesignerPage() {
     } finally { setIsAiLoading(false); }
   };
 
+  const getSubRisks = (riskId: string) => processes?.filter((p: any) => (p as any).parentId === riskId) || [];
+
   if (!mounted) return null;
 
   return (
@@ -327,12 +328,10 @@ export default function ProcessDesignerPage() {
       <div className="flex-1 flex overflow-hidden">
         <aside style={{ width: `${leftWidth}px` }} className="border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar">
           <Tabs defaultValue="steps" className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 border-b bg-slate-50 shrink-0">
-              <TabsList className="h-14 bg-transparent gap-2 p-0 w-full justify-start">
-                <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><FilePen className="w-3.5 h-3.5" /> Stammblatt</TabsTrigger>
-                <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
-              </TabsList>
-            </div>
+            <TabsList className="h-14 bg-slate-50 border-b gap-2 p-0 w-full justify-start px-4 shrink-0 rounded-none">
+              <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><FilePen className="w-3.5 h-3.5" /> Stammblatt</TabsTrigger>
+              <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
+            </TabsList>
             
             <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden flex flex-col outline-none">
               <ScrollArea className="flex-1">

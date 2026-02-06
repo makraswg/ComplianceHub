@@ -17,8 +17,8 @@ import {
  * Falls die requestedId leer, 'undefined' oder 'null' ist, wird ein Fallback genutzt.
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
-  let baseId = (requestedId && requestedId !== 'undefined' && requestedId !== 'null') 
-    ? requestedId 
+  let baseId = (requestedId && String(requestedId).toLowerCase() !== 'undefined' && String(requestedId).toLowerCase() !== 'null' && String(requestedId).trim() !== '') 
+    ? String(requestedId) 
     : `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
   
   let finalId = baseId;
@@ -161,16 +161,16 @@ export async function applyProcessOpsAction(
       const originalId = op.payload.node.id;
       const uniqueId = ensureUniqueId(originalId, usedNodeIds, 'node');
       usedNodeIds.add(uniqueId);
-      if (uniqueId !== originalId) {
-        nodeIdMap[originalId] = uniqueId;
+      if (uniqueId !== String(originalId)) {
+        nodeIdMap[String(originalId)] = uniqueId;
       }
     }
     if (op.type === 'ADD_EDGE' && op.payload?.edge) {
       const originalId = op.payload.edge.id;
       const uniqueId = ensureUniqueId(originalId, usedEdgeIds, 'edge');
       usedEdgeIds.add(uniqueId);
-      if (uniqueId !== originalId) {
-        edgeIdMap[originalId] = uniqueId;
+      if (uniqueId !== String(originalId)) {
+        edgeIdMap[String(originalId)] = uniqueId;
       }
     }
   });
@@ -182,19 +182,20 @@ export async function applyProcessOpsAction(
         if (!model.nodes) model.nodes = [];
         if (!op.payload?.node) break;
         
-        const reqId = op.payload.node.id;
+        const reqId = String(op.payload.node.id);
         const finalId = nodeIdMap[reqId] || reqId;
         
         // Finales Sicherheitsnetz: Falls finalId immer noch null/undefined
-        const safeId = (finalId && finalId !== 'undefined' && finalId !== 'null') ? finalId : `node-${Math.random().toString(36).substring(2, 7)}`;
+        const safeId = (finalId && finalId.toLowerCase() !== 'undefined' && finalId.toLowerCase() !== 'null' && finalId.trim() !== '') ? finalId : `node-${Math.random().toString(36).substring(2, 7)}`;
         
         const nodeToAdd = { ...op.payload.node, id: safeId };
         if (!nodeToAdd.checklist) nodeToAdd.checklist = [];
         model.nodes.push(nodeToAdd);
         
         if (!layout.positions[safeId]) {
-          const lastX = model.nodes.length > 1 
-            ? Math.max(...Object.values(layout.positions).map((p: any) => (p as any).x || 0)) 
+          const posValues = Object.values(layout.positions);
+          const lastX = posValues.length > 0 
+            ? Math.max(...posValues.map((p: any) => (p as any).x || 0)) 
             : 50;
           layout.positions[safeId] = { x: lastX + 220, y: 150 };
         }
@@ -202,13 +203,13 @@ export async function applyProcessOpsAction(
 
       case 'UPDATE_NODE':
         if (!op.payload?.nodeId) break;
-        const targetUpdId = nodeIdMap[op.payload.nodeId] || op.payload.nodeId;
+        const targetUpdId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
         model.nodes = model.nodes.map((n: any) => n.id === targetUpdId ? { ...n, ...op.payload.patch } : n);
         break;
 
       case 'REMOVE_NODE':
         if (!op.payload?.nodeId) break;
-        const targetRemId = nodeIdMap[op.payload.nodeId] || op.payload.nodeId;
+        const targetRemId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
         model.nodes = model.nodes.filter((n: any) => n.id !== targetRemId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => e.source !== targetRemId && e.target !== targetRemId);
@@ -222,21 +223,21 @@ export async function applyProcessOpsAction(
         if (!model.edges) model.edges = [];
         if (!op.payload?.edge) break;
         
-        const reqEId = op.payload.edge.id;
+        const reqEId = String(op.payload.edge.id);
         const finalEId = edgeIdMap[reqEId] || reqEId;
-        const safeEId = (finalEId && finalEId !== 'undefined' && finalEId !== 'null') ? finalEId : `edge-${Date.now()}`;
+        const safeEId = (finalEId && finalEId.toLowerCase() !== 'undefined' && finalEId.toLowerCase() !== 'null' && finalEId.trim() !== '') ? finalEId : `edge-${Date.now()}`;
         
         const edge = { ...op.payload.edge, id: safeEId };
         // Referenzen korrigieren, falls Quelle/Ziel umgemappt wurden
-        edge.source = nodeIdMap[edge.source] || edge.source;
-        edge.target = nodeIdMap[edge.target] || edge.target;
+        edge.source = nodeIdMap[String(edge.source)] || String(edge.source);
+        edge.target = nodeIdMap[String(edge.target)] || String(edge.target);
         
         model.edges.push(edge);
         break;
 
       case 'REMOVE_EDGE':
         if (!op.payload?.edgeId) break;
-        const targetRemEId = edgeIdMap[op.payload.edgeId] || op.payload.edgeId;
+        const targetRemEId = edgeIdMap[String(op.payload.edgeId)] || String(op.payload.edgeId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => e.id !== targetRemEId);
         }
@@ -266,7 +267,7 @@ export async function applyProcessOpsAction(
       case 'REORDER_NODES':
         const { orderedNodeIds } = op.payload || {};
         if (Array.isArray(orderedNodeIds)) {
-          const mappedOrderedIds = orderedNodeIds.map((id: string) => nodeIdMap[id] || id);
+          const mappedOrderedIds = orderedNodeIds.map((id: string) => nodeIdMap[String(id)] || String(id));
           const newNodes: ProcessNode[] = [];
           mappedOrderedIds.forEach((id: string) => {
             const node = model.nodes.find((n: any) => n.id === id);
