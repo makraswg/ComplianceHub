@@ -14,10 +14,12 @@ import {
 
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
+ * Verhindert den "Duplicate ID" Fehler.
  */
 function ensureUniqueId(requestedId: string, existingNodes: ProcessNode[]): string {
   let finalId = requestedId;
   let counter = 1;
+  // Wir prüfen, ob die ID bereits existiert
   while (existingNodes.some(n => n.id === finalId)) {
     finalId = `${requestedId}-${counter}`;
     counter++;
@@ -104,10 +106,18 @@ export async function applyProcessOpsAction(
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
-        // DUPLICATE ID FIX: Sicherstellen, dass die ID eindeutig ist
+        // CRITICAL FIX: Immer sicherstellen, dass die neue ID eindeutig ist
         const uniqueId = ensureUniqueId(op.payload.node.id, model.nodes);
         const nodeToAdd = { ...op.payload.node, id: uniqueId };
         model.nodes.push(nodeToAdd);
+        
+        // Falls kein Layout mitgeliefert wurde, am Ende anfügen
+        if (!layout.positions[uniqueId]) {
+          const lastX = model.nodes.length > 1 
+            ? Math.max(...Object.values(layout.positions).map((p: any) => p.x)) 
+            : 50;
+          layout.positions[uniqueId] = { x: lastX + 220, y: 150 };
+        }
         break;
       case 'UPDATE_NODE':
         model.nodes = model.nodes.map((n: any) => n.id === op.payload.nodeId ? { ...n, ...op.payload.patch } : n);

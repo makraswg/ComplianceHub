@@ -133,7 +133,7 @@ export default function ProcessDesignerPage() {
   // Selection & Form State
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [localNodeEdits, setLocalNodeEdits] = useState<{
-    id: string, // Zur Validierung, ob der richtige Knoten bearbeitet wird
+    id: string, 
     title: string, 
     roleId: string, 
     description: string,
@@ -218,12 +218,6 @@ export default function ProcessDesignerPage() {
       );
       if (res.success) {
         toast({ title: "Modell aktualisiert" });
-        // Mark as applied in history if applicable
-        if (historyIndex !== undefined) {
-          const newHistory = [...chatHistory];
-          newHistory[historyIndex].suggestions = []; // Clear to hide buttons, or keep for context
-          setChatHistory(newHistory);
-        }
         refreshVersion();
       }
     } catch (e: any) {
