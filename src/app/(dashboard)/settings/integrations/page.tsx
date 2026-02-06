@@ -143,7 +143,7 @@ export default function JiraGatewaySettingsPage() {
               <Ticket className="w-3.5 h-3.5" /> 1. Workflow & Tickets
             </h3>
             <Button variant="outline" size="sm" onClick={handleFetchJiraOptions} disabled={isJiraFetching} className="h-8 rounded-none text-[9px] font-bold uppercase gap-2">
-              {isJiraFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 
+              {isJiraFetching ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 
               Optionen laden
             </Button>
           </div>
@@ -162,7 +162,7 @@ export default function JiraGatewaySettingsPage() {
               <Select value={jiraDraft.issueTypeName || ''} onValueChange={v => setJiraDraft({...jiraDraft, issueTypeName: v})}>
                 <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Typ..." /></SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {jiraIssueTypes.map(it => <SelectItem key={it.name} value={it.name}>{it.name}</SelectItem>)}
+                  {jiraIssueTypes.map(it => <SelectItem key={it.id || it.name} value={it.name}>{it.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -171,7 +171,7 @@ export default function JiraGatewaySettingsPage() {
               <Select value={jiraDraft.approvedStatusName || ''} onValueChange={v => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
                 <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {jiraStatuses.map(s => <SelectItem key={`app-${s.name}`} value={s.name}>{s.name}</SelectItem>)}
+                  {jiraStatuses.map(s => <SelectItem key={`app-${s.id || s.name}`} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -180,7 +180,7 @@ export default function JiraGatewaySettingsPage() {
               <Select value={jiraDraft.doneStatusName || ''} onValueChange={v => setJiraDraft({...jiraDraft, doneStatusName: v})}>
                 <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent className="rounded-none">
-                  {jiraStatuses.map(s => <SelectItem key={`done-${s.name}`} value={s.name}>{s.name}</SelectItem>)}
+                  {jiraStatuses.map(s => <SelectItem key={`done-${s.id || s.name}`} value={s.name}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
