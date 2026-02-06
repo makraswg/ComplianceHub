@@ -14,7 +14,8 @@ import {
   FileCode,
   Briefcase,
   Settings as SettingsIcon,
-  ChevronRight
+  ChevronRight,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,7 @@ export default function SettingsLayout({
     { id: 'pusers', label: 'Administratoren', icon: Users, href: '/settings/pusers' },
     { id: 'sync', label: 'Identität & Sync', icon: Network, href: '/settings/sync' },
     { id: 'integrations', label: 'Jira Gateway', icon: RefreshCw, href: '/settings/integrations' },
+    { id: 'bookstack', label: 'BookStack Export', icon: BookOpen, href: '/settings/bookstack' },
     { id: 'ai', label: 'KI Access Advisor', icon: BrainCircuit, href: '/settings/ai' },
     { id: 'dsgvo', label: 'Datenschutz', icon: FileCheck, href: '/settings/dsgvo' },
     { id: 'email', label: 'E-Mail (SMTP)', icon: Mail, href: '/settings/email' },

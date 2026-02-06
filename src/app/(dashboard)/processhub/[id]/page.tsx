@@ -23,7 +23,9 @@ import {
   ArrowRight,
   Maximize2,
   Download,
-  Share2
+  Share2,
+  ExternalLink,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,15 +38,45 @@ import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions, ProcessDesignerOutput } from '@/ai/flows/process-designer-flow';
+import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Process, ProcessVersion, ProcessNode } from '@/lib/types';
+import { Process, ProcessVersion, ProcessNode, ProcessModel, ProcessLayout } from '@/lib/types';
+
+/**
+ * Erzeugt MXGraph XML aus dem semantischen Modell.
+ */
+function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
+  let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
+  
+  model.nodes.forEach(node => {
+    const pos = layout.positions[node.id] || { x: 100, y: 100 };
+    const style = node.type === 'start' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;' : 
+                  node.type === 'end' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;' :
+                  node.type === 'decision' ? 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;' :
+                  'whiteSpace=wrap;html=1;rounded=1;fillColor=#f5f5f5;strokeColor=#666666;';
+    
+    xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1">
+      <mxGeometry x="${pos.x}" y="${pos.y}" width="120" height="60" as="geometry"/>
+    </mxCell>`;
+  });
+
+  model.edges.forEach(edge => {
+    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetline=1;html=1;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>`;
+  });
+
+  xml += `</root></mxGraphModel>`;
+  return xml;
+}
 
 export default function ProcessDesignerPage() {
   const { id } = useParams();
   const router = useRouter();
   const { dataSource } = useSettings();
   const { user } = usePlatformAuth();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('design');
@@ -52,6 +84,7 @@ export default function ProcessDesignerPage() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<ProcessDesignerOutput | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
@@ -60,6 +93,45 @@ export default function ProcessDesignerPage() {
   const currentVersion = useMemo(() => versions?.find(v => v.process_id === id), [versions, id]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // diagrams.net Bridge Logic
+  useEffect(() => {
+    if (!mounted || !iframeRef.current || !currentVersion) return;
+
+    const handleMessage = (evt: MessageEvent) => {
+      if (evt.data.length === 0) return;
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.event === 'init') {
+          // Send initial XML
+          const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
+          iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+            action: 'load',
+            xml: xml
+          }), '*');
+        }
+        if (msg.event === 'change') {
+          // Here we could parse diagram changes back to semantic ops
+          // For MVP, we primarily drive from semantic -> diagram
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [mounted, currentVersion]);
+
+  // Update Diagram when model changes
+  useEffect(() => {
+    if (iframeRef.current && currentVersion) {
+      const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
+      iframeRef.current.contentWindow?.postMessage(JSON.stringify({
+        action: 'load',
+        xml: xml,
+        autosave: 1
+      }), '*');
+    }
+  }, [currentVersion?.revision]);
 
   const handleApplyOps = async (ops: any[]) => {
     if (!currentVersion || !user) return;
@@ -101,6 +173,43 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  const handlePublish = async () => {
+    if (!currentProcess || !currentVersion) return;
+    setIsPublishing(true);
+    
+    // diagrams.net export request
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'export', format: 'svg' }), '*');
+    
+    // Listen for the export response once
+    const handleExport = async (evt: MessageEvent) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.event === 'export') {
+          window.removeEventListener('message', handleExport);
+          const svgBase64 = msg.data.split(',')[1] || msg.data;
+          const res = await publishToBookStackAction(currentProcess.id, currentVersion.version, svgBase64, dataSource);
+          if (res.success) {
+            toast({ title: "Veröffentlicht!", description: "Der Prozess ist nun in BookStack verfügbar." });
+            window.open(res.url, '_blank');
+          } else {
+            toast({ variant: "destructive", title: "Export fehlgeschlagen", description: res.error });
+          }
+          setIsPublishing(false);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('message', handleExport);
+    
+    // Timeout backup
+    setTimeout(() => {
+      if (isPublishing) {
+        window.removeEventListener('message', handleExport);
+        setIsPublishing(false);
+        toast({ variant: "destructive", title: "Timeout", description: "Editor hat nicht geantwortet." });
+      }
+    }, 5000);
+  };
+
   if (!mounted || !currentProcess || !currentVersion) {
     return <div className="flex h-screen items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>;
   }
@@ -117,15 +226,16 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase"><Share2 className="w-3 h-3 mr-2" /> Teilen</Button>
-          <Button size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700"><Download className="w-3 h-3 mr-2" /> Export</Button>
+          <Button variant="outline" size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase" onClick={() => setActiveTab('export')}><Share2 className="w-3 h-3 mr-2" /> Export</Button>
+          <Button size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700" onClick={handlePublish} disabled={isPublishing}>
+            {isPublishing ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <BookOpen className="w-3 h-3 mr-2" />}
+            Publish to BookStack
+          </Button>
         </div>
       </div>
 
-      {/* Main 3-Pane Layout */}
       <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left: Steps & Workhelp */}
+        {/* Left: Steps */}
         <aside className="w-[350px] border-r flex flex-col bg-slate-50/50">
           <div className="p-4 border-b bg-white flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Prozessschritte</span>
@@ -147,30 +257,27 @@ export default function ProcessDesignerPage() {
           </ScrollArea>
         </aside>
 
-        {/* Middle: Live Diagram (diagrams.net iFrame) */}
+        {/* Middle: Live Diagram */}
         <main className="flex-1 relative bg-white flex flex-col">
           <div className="h-10 border-b bg-slate-50 flex items-center px-4 gap-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
               <TabsList className="bg-transparent h-full p-0 gap-4">
                 <TabsTrigger value="design" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full text-[10px] font-bold uppercase">Diagramm</TabsTrigger>
                 <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full text-[10px] font-bold uppercase">Compliance (ISO)</TabsTrigger>
+                <TabsTrigger value="export" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full text-[10px] font-bold uppercase">Export</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
           <div className="flex-1 relative">
             <iframe 
+              ref={iframeRef}
               src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json"
               className="absolute inset-0 w-full h-full border-none"
             />
-            {/* Diagram Overlay Controls */}
-            <div className="absolute top-4 right-4 flex flex-col gap-2">
-              <Button size="icon" variant="secondary" className="rounded-none shadow-lg"><Maximize2 className="w-4 h-4" /></Button>
-              <Button size="icon" variant="secondary" className="rounded-none shadow-lg"><Layout className="w-4 h-4" /></Button>
-            </div>
           </div>
         </main>
 
-        {/* Right: AI Co-Pilot Chat */}
+        {/* Right: AI Co-Pilot */}
         <aside className="w-[400px] border-l flex flex-col bg-white">
           <div className="p-4 border-b bg-slate-900 text-white flex items-center gap-3">
             <div className="w-8 h-8 bg-primary/20 flex items-center justify-center rounded-sm">
@@ -193,44 +300,16 @@ export default function ProcessDesignerPage() {
                     </div>
                     <p className="text-[11px] italic text-slate-700 leading-relaxed">"{aiSuggestions.explanation}"</p>
                     
-                    <div className="space-y-1.5">
-                      {aiSuggestions.proposedOps.map((op, i) => (
-                        <div key={i} className="text-[9px] flex items-center gap-2 bg-white/50 p-1 px-2 border border-blue-100">
-                          <span className="font-bold text-blue-600 w-16 shrink-0">{op.type}</span>
-                          <span className="text-slate-500 truncate">{JSON.stringify(op.payload)}</span>
-                        </div>
-                      ))}
-                    </div>
-
                     <div className="flex gap-2 pt-2">
-                      <Button 
-                        onClick={() => handleApplyOps(aiSuggestions.proposedOps)} 
-                        disabled={isApplying}
-                        className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase"
-                      >
+                      <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase">
                         {isApplying ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <Check className="w-3.5 h-3.5 mr-2" />}
-                        Apply Patches
+                        Änderungen Übernehmen
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setAiSuggestions(null)}
-                        className="h-9 rounded-none border-blue-200 text-blue-700 bg-transparent text-[10px] font-black uppercase"
-                      >
+                      <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 rounded-none border-blue-200 text-blue-700 text-[10px] font-black uppercase">
                         <X className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
-                  
-                  {aiSuggestions.openQuestions.length > 0 && (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-[9px] font-black uppercase text-slate-400">KI Rückfragen:</p>
-                      {aiSuggestions.openQuestions.map((q, i) => (
-                        <div key={i} className="p-3 bg-white border text-[10px] italic border-amber-200 text-amber-800">
-                          {q}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="text-center py-20 opacity-20">

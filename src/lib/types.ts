@@ -142,6 +142,15 @@ export interface ProcessOp {
   created_at: string;
 }
 
+export interface BookStackConfig {
+  id: string;
+  enabled: boolean;
+  url: string;
+  token_id: string;
+  token_secret: string;
+  default_book_id?: string;
+}
+
 // Rest of existing types...
 export interface DataSubjectGroup {
   id: string;
