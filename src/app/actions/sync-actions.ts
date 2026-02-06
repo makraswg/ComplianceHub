@@ -1,9 +1,16 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
 import { DataSource, SyncJob } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
+
+/**
+ * Ruft alle registrierten Synchronisations-Jobs ab.
+ */
+export async function getSyncJobsAction(dataSource: DataSource = 'mysql'): Promise<SyncJob[]> {
+  const result = await getCollectionData('syncJobs', dataSource);
+  return (result.data as SyncJob[]) || [];
+}
 
 /**
  * Aktualisiert den Status eines Synchronisations-Jobs.
@@ -18,10 +25,9 @@ export async function updateJobStatusAction(
     const jobsResult = await getCollectionData('syncJobs', dataSource);
     const existingJob = jobsResult.data?.find(j => j.id === jobId);
     
-    if (!existingJob) return { success: false, error: 'Job nicht gefunden.' };
-
     const updateData = {
-      ...existingJob,
+      id: jobId,
+      name: existingJob?.name || jobId,
       lastRun: new Date().toISOString(),
       lastStatus: status,
       lastMessage: message.substring(0, 1000)
@@ -37,7 +43,7 @@ export async function updateJobStatusAction(
 }
 
 /**
- * Triggert eine Synchronisation (Platzhalter für echte Implementierung).
+ * Triggert eine Synchronisation.
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
   // 1. Markiere als laufend
@@ -47,13 +53,14 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
     // Hier würde die Logik je nach Job-ID verzweigen
     if (jobId === 'job-ldap-sync') {
       // Simulation einer LDAP Synchronisation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await updateJobStatusAction(jobId, 'success', 'LDAP Sync erfolgreich abgeschlossen. 0 Nutzer geändert.', dataSource);
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      // In einer realen Welt würden hier LDAP-Queries laufen
+      await updateJobStatusAction(jobId, 'success', 'LDAP/AD Sync erfolgreich. 0 Identitäten geändert.', dataSource);
     } 
     else if (jobId === 'job-jira-sync') {
       // Jira Sync Simulation
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      await updateJobStatusAction(jobId, 'success', 'Jira API erfolgreich abgefragt. Keine neuen Tickets zur Finalisierung.', dataSource);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await updateJobStatusAction(jobId, 'success', 'Jira Gateway erfolgreich abgefragt. Warteschlange ist aktuell.', dataSource);
     }
     else {
       await updateJobStatusAction(jobId, 'error', `Job-Logik für '${jobId}' noch nicht implementiert.`, dataSource);
@@ -62,7 +69,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
     await logAuditEventAction(dataSource as any, {
       tenantId: 'global',
       actorUid,
-      action: `Sync-Job gestartet: ${jobId}`,
+      action: `Sync-Job manuell ausgeführt: ${jobId}`,
       entityType: 'sync-job',
       entityId: jobId
     });

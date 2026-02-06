@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -43,7 +42,10 @@ import {
   Key,
   Globe,
   Zap,
-  Ticket
+  Ticket,
+  Clock,
+  Activity,
+  Play
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -57,8 +59,9 @@ import {
 } from '@/app/actions/jira-actions';
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
 import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
+import { triggerSyncJobAction } from '@/app/actions/sync-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig, DataSubjectGroup, Department, JobTitle, DataCategory } from '@/lib/types';
+import { Tenant, JiraConfig, AiConfig, PlatformUser, ImportRun, Catalog, SmtpConfig, DataSubjectGroup, Department, JobTitle, DataCategory, SyncJob } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -73,6 +76,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState<string | null>(null);
+  const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
 
   // Import State XML
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -104,6 +108,7 @@ export default function SettingsPage() {
   const { data: dataCategories, refresh: refreshDataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   const { data: departments, refresh: refreshDepartments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles, refresh: refreshJobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: syncJobs, refresh: refreshJobs } = usePluggableCollection<SyncJob>('syncJobs');
 
   // Local Form States (Drafts)
   const [jiraDraft, setJiraDraft] = useState<Partial<JiraConfig>>({});
@@ -167,6 +172,23 @@ export default function SettingsPage() {
       toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRunJob = async (jobId: string) => {
+    setIsJobRunning(jobId);
+    try {
+      const res = await triggerSyncJobAction(jobId, dataSource, authUser?.email || 'system');
+      if (res.success) {
+        toast({ title: "Job abgeschlossen" });
+        refreshJobs();
+      } else {
+        throw new Error(res.error || "Fehler bei Job-Ausführung");
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Job Fehler", description: e.message });
+    } finally {
+      setIsJobRunning(null);
     }
   };
 
@@ -385,7 +407,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex justify-end pt-4">
                   <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-10 h-11">
-                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Mandant Speichern
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Save className="w-3.5 h-3.5 mr-2" />} Mandant Speichern
                   </Button>
                 </div>
               </CardContent>
@@ -490,7 +512,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="sync" className="mt-0 space-y-6">
+          <TabsContent value="sync" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
                 <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Sync</CardTitle>
@@ -509,8 +531,83 @@ export default function SettingsPage() {
                   <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">Base DN</Label><Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="dc=example,dc=com" className="rounded-none h-10" /></div>
                 </div>
                 <div className="flex justify-end pt-4">
-                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">Sync Einstellungen Speichern</Button>
+                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] h-11 px-8">Sync Einstellungen Speichern</Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                  <Activity className="w-4 h-4" /> System-Wartung & Jobverarbeitung
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-muted/20">
+                    <TableRow>
+                      <TableHead className="text-[10px] font-bold uppercase py-3 px-6">Aufgabe / Job</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase">Letzter Lauf</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase">Status</TableHead>
+                      <TableHead className="text-[10px] font-bold uppercase text-right pr-6">Aktion</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[
+                      { id: 'job-ldap-sync', name: 'LDAP/AD Identitäten-Abgleich', icon: Users },
+                      { id: 'job-jira-sync', name: 'Jira Gateway Ticket-Sync', icon: RefreshCw }
+                    ].map(jobBase => {
+                      const dbJob = syncJobs?.find(j => j.id === jobBase.id);
+                      const isRunning = isJobRunning === jobBase.id;
+                      
+                      return (
+                        <TableRow key={jobBase.id}>
+                          <TableCell className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <div className="p-2 bg-slate-100 rounded-none border"><jobBase.icon className="w-3.5 h-3.5 text-slate-600" /></div>
+                              <div>
+                                <div className="font-bold text-xs">{jobBase.name}</div>
+                                <div className="text-[9px] text-muted-foreground uppercase font-mono max-w-xs truncate">{dbJob?.lastMessage || 'Kein Verlauf vorhanden'}</div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                              <Clock className="w-3 h-3" />
+                              {dbJob?.lastRun ? new Date(dbJob.lastRun).toLocaleString() : 'Nie ausgeführt'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {dbJob?.lastStatus ? (
+                              <Badge className={cn(
+                                "rounded-none text-[8px] font-black uppercase px-2 h-5",
+                                dbJob.lastStatus === 'success' ? "bg-emerald-50 text-emerald-700" : 
+                                dbJob.lastStatus === 'running' ? "bg-blue-50 text-blue-700 animate-pulse" : 
+                                "bg-red-50 text-red-700"
+                              )}>
+                                {dbJob.lastStatus}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="rounded-none text-[8px] font-black uppercase px-2 h-5">Bereit</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 rounded-none text-[9px] font-black uppercase gap-2 hover:bg-primary hover:text-white transition-all"
+                              onClick={() => handleRunJob(jobBase.id)}
+                              disabled={isRunning}
+                            >
+                              {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                              Starten
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
@@ -523,7 +620,6 @@ export default function SettingsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-10">
-                {/* Connection Section */}
                 <div className="space-y-6">
                   <div className="flex items-center justify-between p-4 border bg-blue-50/20 rounded-none">
                     <div className="space-y-0.5">
@@ -551,12 +647,10 @@ export default function SettingsPage() {
 
                 <Separator />
 
-                {/* Workflow Section */}
                 <div className="space-y-6">
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <Ticket className="w-3.5 h-3.5" /> Ticket- & Workflow Steuerung
                   </h3>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
@@ -577,36 +671,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <Separator />
-
-                {/* Assets Discovery Section */}
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                      <Layers className="w-3.5 h-3.5" /> JSM Assets Discovery
-                    </h3>
-                    <div className="flex items-center gap-2 px-3 py-1 border bg-slate-50">
-                      <Label className="text-[9px] font-bold uppercase cursor-pointer">Auto-Sync Assets</Label>
-                      <Switch checked={!!jiraDraft.autoSyncAssets} onCheckedChange={(v) => setJiraDraft({...jiraDraft, autoSyncAssets: v})} className="scale-75" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
-                      <Input value={jiraDraft.workspaceId || ''} onChange={e => setJiraDraft({...jiraDraft, workspaceId: e.target.value})} placeholder="Asset Workspace UUID" className="rounded-none h-10 font-mono text-xs" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Object Schema ID</Label>
-                      <Input value={jiraDraft.schemaId || ''} onChange={e => setJiraDraft({...jiraDraft, schemaId: e.target.value})} placeholder="z.B. 1" className="rounded-none h-10" />
-                    </div>
-                  </div>
-                </div>
-
                 <div className="flex justify-between items-center pt-6 border-t">
                   <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase px-8 h-11 gap-2">
-                    {isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 
-                    Verbindung Validieren
+                    {isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Verbindung Validieren
                   </Button>
                   <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11 bg-slate-900 text-white gap-2">
                     <Save className="w-3.5 h-3.5" /> Jira Konfiguration Speichern
@@ -644,8 +711,8 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-4">
-                  <Button variant="outline" onClick={handleTestAi} disabled={isTesting === 'ai'} className="rounded-none text-[10px] font-bold uppercase">Modell-Status prüfen</Button>
-                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">KI Einstellungen Speichern</Button>
+                  <Button variant="outline" onClick={handleTestAi} disabled={isTesting === 'ai'} className="rounded-none text-[10px] font-bold uppercase h-11 px-8">Modell-Status prüfen</Button>
+                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] h-11 px-10">KI Einstellungen Speichern</Button>
                 </div>
               </CardContent>
             </Card>
@@ -698,8 +765,8 @@ export default function SettingsPage() {
                   <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Passwort</Label><Input type="password" value={smtpDraft.password || ''} onChange={e => setSmtpDraft({...smtpDraft, password: e.target.value})} className="rounded-none h-10" /></div>
                 </div>
                 <div className="flex justify-between items-center pt-4">
-                  <Button variant="outline" onClick={handleTestSmtp} disabled={isTesting === 'smtp'} className="rounded-none text-[10px] font-bold uppercase">Testmail Senden</Button>
-                  <Button onClick={() => handleSaveConfig('smtpConfigs', smtpDraft.id!, smtpDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">SMTP Speichern</Button>
+                  <Button variant="outline" onClick={handleTestSmtp} disabled={isTesting === 'smtp'} className="rounded-none text-[10px] font-bold uppercase h-11 px-8">Testmail Senden</Button>
+                  <Button onClick={() => handleSaveConfig('smtpConfigs', smtpDraft.id!, smtpDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] h-11 px-10">SMTP Speichern</Button>
                 </div>
               </CardContent>
             </Card>
@@ -720,7 +787,7 @@ export default function SettingsPage() {
                   <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Review Zyklus (Monate)</Label><Input type="number" defaultValue="12" className="rounded-none h-10" /></div>
                 </div>
                 <div className="flex justify-end pt-4">
-                  <Button className="rounded-none font-bold uppercase text-[10px]">Parameter Speichern</Button>
+                  <Button className="rounded-none font-bold uppercase text-[10px] h-11 px-10">Parameter Speichern</Button>
                 </div>
               </CardContent>
             </Card>
