@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   Workflow, 
@@ -44,7 +44,8 @@ import {
   UserCircle,
   CheckCircle,
   FilePen,
-  ArrowRightCircle
+  ArrowRightCircle,
+  GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +67,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 /**
  * Generiert MXGraph XML aus dem semantischen Modell.
@@ -125,6 +127,13 @@ export default function ProcessDesignerPage() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
+  
+  // Resizable state
+  const [leftWidth, setLeftWidth] = useState(400);
+  const [rightWidth, setRightWidth] = useState(380);
+  const isResizingLeft = useRef(false);
+  const isResizingRight = useRef(false);
+
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string, questions?: string[], suggestions?: any, timestamp: number}[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -133,6 +142,7 @@ export default function ProcessDesignerPage() {
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [localNodeEdits, setLocalNodeEdits] = useState({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
 
   // Metadata Form State
@@ -162,7 +172,6 @@ export default function ProcessDesignerPage() {
     }
   }, [currentProcess?.id]);
 
-  // Stabilisiertes Hook-Management: Nur Sync wenn ID sich ändert
   useEffect(() => {
     if (selectedNode && localNodeEdits.id !== selectedNode.id) {
       setLocalNodeEdits({
@@ -178,6 +187,40 @@ export default function ProcessDesignerPage() {
   }, [selectedNode?.id]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Resize Handlers
+  const startResizeLeft = useCallback((e: React.MouseEvent) => {
+    isResizingLeft.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'col-resize';
+  }, []);
+
+  const startResizeRight = useCallback((e: React.MouseEvent) => {
+    isResizingRight.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'col-resize';
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizingLeft.current = false;
+    isResizingRight.current = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', stopResizing);
+    document.body.style.cursor = 'default';
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isResizingLeft.current) {
+      const newWidth = Math.max(250, Math.min(600, e.clientX));
+      setLeftWidth(newWidth);
+    }
+    if (isResizingRight.current) {
+      const newWidth = Math.max(300, Math.min(600, window.innerWidth - e.clientX));
+      setRightWidth(newWidth);
+    }
+  }, []);
 
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
@@ -282,6 +325,7 @@ export default function ProcessDesignerPage() {
     ];
     handleApplyOps(ops);
     setSelectedNodeId(newId);
+    setIsStepDialogOpen(true);
   };
 
   const handleMoveNode = async (nodeId: string, direction: 'up' | 'down') => {
@@ -392,7 +436,7 @@ export default function ProcessDesignerPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body">
+    <div className="h-[calc(100vh-120px)] flex flex-col -m-8 overflow-hidden bg-slate-50 font-body select-none">
       <header className="h-16 border-b bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-6">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-none">
@@ -433,7 +477,11 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-[450px] border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm">
+        {/* LEFT SIDEBAR: Structure */}
+        <aside 
+          style={{ width: `${leftWidth}px` }}
+          className="border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm relative group/sidebar"
+        >
           <Tabs defaultValue="steps" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
               <TabsList className="h-14 bg-transparent gap-2 p-0 w-full justify-start">
@@ -449,7 +497,7 @@ export default function ProcessDesignerPage() {
               </TabsList>
             </div>
 
-            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col select-auto">
               <ScrollArea className="flex-1">
                 <TabsContent value="meta" className="m-0 p-6 space-y-6">
                   <div className="space-y-4">
@@ -490,125 +538,41 @@ export default function ProcessDesignerPage() {
                     </div>
                     <div className="space-y-1.5">
                       {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => (
-                        <div key={`${node.id}-${idx}`} className="space-y-1">
-                          <div 
-                            className={cn(
-                              "group flex items-center gap-3 p-3 border transition-all cursor-pointer",
-                              selectedNodeId === node.id ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300 bg-white"
-                            )}
-                            onClick={() => setSelectedNodeId(node.id)}
-                          >
-                            <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
-                                <ChevronUp className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-5 w-5 rounded-none" disabled={idx === (currentVersion?.model_json?.nodes || []).length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
-                                <ChevronDown className="w-3 h-3" />
-                              </Button>
+                        <div 
+                          key={`${node.id}-${idx}`}
+                          className={cn(
+                            "group flex items-center gap-3 p-2.5 border transition-all cursor-pointer",
+                            selectedNodeId === node.id ? "border-primary bg-primary/5 ring-1 ring-primary/10" : "border-slate-100 hover:border-slate-300 bg-white"
+                          )}
+                          onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}
+                        >
+                          <div className={cn(
+                            "w-7 h-7 rounded-none flex items-center justify-center shrink-0 border shadow-sm",
+                            node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : 
+                            node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                            node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
+                            "bg-blue-50 text-blue-600 border-blue-100"
+                          )}>
+                            {node.type === 'decision' ? <GitBranch className="w-3.5 h-3.5" /> : 
+                             node.type === 'start' ? <Zap className="w-3.5 h-3.5" /> :
+                             node.type === 'end' ? <X className="w-3.5 h-3.5" /> :
+                             <Activity className="w-3.5 h-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[7px] font-bold uppercase text-slate-400">{node.type}</span>
+                              {node.roleId && <Badge variant="outline" className="text-[6px] h-3 px-1 rounded-none border-slate-200">{node.roleId}</Badge>}
                             </div>
-                            
-                            <div className={cn(
-                              "w-8 h-8 rounded-none flex items-center justify-center shrink-0 border shadow-sm",
-                              node.type === 'decision' ? "bg-orange-50 text-orange-600 border-orange-100" : 
-                              node.type === 'start' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                              node.type === 'end' ? "bg-red-50 text-red-600 border-red-100" :
-                              "bg-blue-50 text-blue-600 border-blue-100"
-                            )}>
-                              {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
-                               node.type === 'start' ? <Zap className="w-4 h-4" /> :
-                               node.type === 'end' ? <X className="w-4 h-4" /> :
-                               <Activity className="w-4 h-4" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{node.title}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[8px] font-bold uppercase text-slate-400">{node.type}</span>
-                                {node.roleId && <Badge variant="outline" className="text-[7px] h-3.5 px-1.5 rounded-none border-slate-200">{node.roleId}</Badge>}
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-500 rounded-none hover:bg-red-50" onClick={(e) => { e.stopPropagation(); if(confirm("Schritt entfernen?")) handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: node.id } }]); }}>
-                              <Trash2 className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-none" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}>
+                              <ChevronUp className="w-3 h-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-none" disabled={idx === (currentVersion?.model_json?.nodes || []).length - 1} onClick={(e) => { e.stopPropagation(); handleMoveNode(node.id, 'down'); }}>
+                              <ChevronDown className="w-3 h-3" />
                             </Button>
                           </div>
-
-                          {selectedNodeId === node.id && (
-                            <div className="p-5 bg-slate-50 border-x border-b border-primary/20 space-y-5 animate-in slide-in-from-top-2 duration-300">
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-slate-500">Titel</Label>
-                                <Input 
-                                  value={localNodeEdits.title} 
-                                  onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
-                                  onBlur={() => saveNodeUpdate('title')}
-                                  className="h-9 text-xs rounded-none border-slate-200 font-bold" 
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                  <Label className="text-[9px] font-bold uppercase text-slate-500">Zuständigkeit</Label>
-                                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-8 text-[10px] rounded-none border-slate-200" placeholder="Admin, HR..." />
-                                </div>
-                                <div className="space-y-1.5">
-                                  <Label className="text-[9px] font-bold uppercase text-slate-500">Dauer</Label>
-                                  <Input placeholder="z.B. 10 Min" className="h-8 text-[10px] rounded-none border-slate-200" />
-                                </div>
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-slate-500">Anweisung</Label>
-                                <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} onBlur={() => saveNodeUpdate('description')} className="text-[10px] rounded-none min-h-[60px] border-slate-200" placeholder="Beschreibung..." />
-                              </div>
-                              <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-slate-500 flex items-center gap-1">
-                                  <CheckCircle className="w-3 h-3" /> Checkliste
-                                </Label>
-                                <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[10px] rounded-none min-h-[60px] border-slate-200 bg-white" placeholder="Ein Punkt pro Zeile..." />
-                              </div>
-
-                              {/* Integrierter Flow-Bereich */}
-                              <div className="pt-4 border-t border-slate-200 space-y-4">
-                                <div className="flex items-center gap-2 text-primary">
-                                  <GitBranch className="w-3.5 h-3.5" />
-                                  <h4 className="text-[9px] font-black uppercase tracking-widest">Nächste Schritte / Logik</h4>
-                                </div>
-                                
-                                <div className="space-y-2">
-                                  {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === node.id).map((edge: any) => {
-                                    const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                                    return (
-                                      <div key={edge.id} className="flex items-center justify-between p-2 bg-white border border-slate-100 text-[10px] rounded-none">
-                                        <div className="flex items-center gap-2 truncate">
-                                          <ArrowRightCircle className="w-3 h-3 text-slate-300" />
-                                          <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target}</span>
-                                          {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-blue-50 text-blue-600 border-none px-1.5 uppercase font-black">{edge.label}</Badge>}
-                                        </div>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-50 rounded-none" onClick={() => handleRemoveEdge(edge.id)}>
-                                          <Trash2 className="w-3 h-3" />
-                                        </Button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-none space-y-3">
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[8px] font-black uppercase text-slate-500">Neues Ziel</Label>
-                                    <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
-                                      <SelectTrigger className="h-8 text-[10px] rounded-none bg-white border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                                      <SelectContent className="rounded-none">
-                                        {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== node.id).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs font-bold">{n.title}</SelectItem>)}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[8px] font-black uppercase text-slate-500">Bedingung (optional)</Label>
-                                    <Input placeholder="z.B. OK / Fehler" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-8 text-[10px] rounded-none border-slate-200 bg-white" />
-                                  </div>
-                                  <Button onClick={handleAddEdge} disabled={!newEdgeTargetId} className="w-full h-8 text-[9px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm">
-                                    <Plus className="w-3 h-3" /> Verknüpfen
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>
@@ -623,7 +587,6 @@ export default function ProcessDesignerPage() {
                     </div>
                     <p className="text-[9px] leading-relaxed text-emerald-600 italic">Erfassen Sie die audit-relevanten Merkmale gemäß Normvorgaben.</p>
                   </div>
-                  
                   <div className="grid grid-cols-1 gap-6">
                     {[
                       { id: 'inputs', label: 'Prozess-Eingaben (Inputs)', icon: ArrowRight },
@@ -647,8 +610,16 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </div>
           </Tabs>
+          {/* Resize Handle Left */}
+          <div 
+            onMouseDown={startResizeLeft}
+            className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 transition-colors z-30 flex items-center justify-center group-hover/sidebar:opacity-100 opacity-0"
+          >
+            <div className="w-px h-8 bg-slate-200" />
+          </div>
         </aside>
 
+        {/* CENTER: Canvas */}
         <main className="flex-1 relative bg-slate-100 flex flex-col p-6 overflow-hidden">
           <div className="absolute top-10 right-10 z-10 flex flex-col gap-2">
              <div className="bg-white/95 backdrop-blur shadow-2xl border border-slate-200 p-1.5 rounded-none flex flex-col gap-1.5">
@@ -678,7 +649,19 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
 
-        <aside className="w-[380px] border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30">
+        {/* RIGHT SIDEBAR: AI Advisor */}
+        <aside 
+          style={{ width: `${rightWidth}px` }}
+          className="border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30 relative group/right"
+        >
+          {/* Resize Handle Right */}
+          <div 
+            onMouseDown={startResizeRight}
+            className="absolute top-0 left-0 w-1 h-full cursor-col-resize hover:bg-primary/30 transition-colors z-30 flex items-center justify-center group-hover/right:opacity-100 opacity-0"
+          >
+            <div className="w-px h-8 bg-slate-200" />
+          </div>
+
           <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-primary rounded-none flex items-center justify-center shadow-lg">
@@ -692,7 +675,7 @@ export default function ProcessDesignerPage() {
             <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-bold h-5 uppercase px-2">Online</Badge>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50">
+          <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50 select-auto">
             <ScrollArea className="flex-1 p-5">
               <div className="space-y-6">
                 {chatHistory.length === 0 && (
@@ -790,7 +773,7 @@ export default function ProcessDesignerPage() {
             </ScrollArea>
           </div>
 
-          <div className="p-5 border-t bg-white shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.03)]">
+          <div className="p-5 border-t bg-white shrink-0 shadow-[0_-10px_30px_rgba(0,0,0,0.03)] select-auto">
             <div className="relative group">
               <Input 
                 placeholder="Wie soll der Prozess aussehen?" 
@@ -816,6 +799,142 @@ export default function ProcessDesignerPage() {
           </div>
         </aside>
       </div>
+
+      {/* STEP EDITOR DIALOG (Popup) */}
+      <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
+        <DialogContent className="max-w-2xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "w-10 h-10 rounded-none flex items-center justify-center shrink-0 border border-white/10",
+                selectedNode?.type === 'decision' ? "bg-orange-500" : "bg-blue-600"
+              )}>
+                {selectedNode?.type === 'decision' ? <GitBranch className="w-5 h-5 text-white" /> : <Activity className="w-5 h-5 text-white" />}
+              </div>
+              <div>
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
+                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">ID: {selectedNodeId}</p>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="max-h-[70vh]">
+            <div className="p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Bezeichnung</Label>
+                  <Input 
+                    value={localNodeEdits.title} 
+                    onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})}
+                    onBlur={() => saveNodeUpdate('title')}
+                    className="h-10 text-sm rounded-none border-slate-200 font-bold" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-500">Zuständigkeit (Rolle)</Label>
+                  <Input 
+                    value={localNodeEdits.roleId} 
+                    onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} 
+                    onBlur={() => saveNodeUpdate('roleId')} 
+                    className="h-10 text-sm rounded-none border-slate-200" 
+                    placeholder="z.B. IT-Admin, HR..." 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-500">Detaillierte Anweisung</Label>
+                <Textarea 
+                  value={localNodeEdits.description} 
+                  onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} 
+                  onBlur={() => saveNodeUpdate('description')} 
+                  className="text-sm rounded-none min-h-[100px] border-slate-200 leading-relaxed" 
+                  placeholder="Beschreiben Sie hier genau, was in diesem Schritt zu tun ist..." 
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
+                  <CheckCircle className="w-3.5 h-3.5" /> Checkliste für den Mitarbeiter
+                </Label>
+                <Textarea 
+                  value={localNodeEdits.checklist} 
+                  onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} 
+                  onBlur={() => saveNodeUpdate('checklist')} 
+                  className="text-xs rounded-none min-h-[100px] border-slate-200 bg-slate-50/50" 
+                  placeholder="Ein Punkt pro Zeile..." 
+                />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-primary">
+                  <GitBranch className="w-4 h-4" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Ablauf-Logik (Verknüpfungen)</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label className="text-[9px] font-bold uppercase text-slate-400">Bestehende Wege</Label>
+                    <div className="space-y-2">
+                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).map((edge: any) => {
+                        const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                        return (
+                          <div key={edge.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 text-[11px] rounded-none shadow-sm">
+                            <div className="flex items-center gap-3 truncate">
+                              <ArrowRightCircle className="w-4 h-4 text-slate-300" />
+                              <span className="font-bold text-slate-700 truncate">{targetNode?.title || edge.target}</span>
+                              {edge.label && <Badge className="h-4 rounded-none text-[8px] bg-blue-50 text-blue-600 border-none px-2 uppercase font-black">{edge.label}</Badge>}
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:bg-red-50 rounded-none" onClick={() => handleRemoveEdge(edge.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).length === 0 && (
+                        <p className="text-[10px] text-slate-400 italic">Keine ausgehenden Verbindungen definiert.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-none space-y-4">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">Neuen Weg hinzufügen</Label>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] font-black uppercase text-slate-400">Zielknoten</Label>
+                        <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                          <SelectTrigger className="h-9 text-xs rounded-none bg-white border-slate-200"><SelectValue placeholder="Ziel wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-none">
+                            {(currentVersion?.model_json?.nodes || []).filter((n: any) => n.id !== selectedNodeId).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs font-bold">{n.title}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[8px] font-black uppercase text-slate-400">Bedingung (z.B. "Ja", "OK")</Label>
+                        <Input placeholder="Label..." value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-9 text-xs rounded-none border-slate-200 bg-white" />
+                      </div>
+                      <Button onClick={handleAddEdge} disabled={!newEdgeTargetId} className="w-full h-9 text-[10px] font-black uppercase rounded-none bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-md">
+                        <Plus className="w-3.5 h-3.5" /> Verknüpfen
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0">
+            <Button variant="ghost" className="rounded-none h-10 px-8 text-red-600 hover:bg-red-50" onClick={() => { if(confirm("Diesen Schritt unwiderruflich löschen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+              <Trash2 className="w-4 h-4 mr-2" /> Löschen
+            </Button>
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] tracking-widest bg-slate-900 hover:bg-black text-white">
+              Schließen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
