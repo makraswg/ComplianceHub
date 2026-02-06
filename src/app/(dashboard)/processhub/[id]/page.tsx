@@ -293,7 +293,7 @@ export default function ProcessDesignerPage() {
       const suggestions = await getProcessSuggestions({ 
         userMessage: msg, 
         currentModel: currentVersion.model_json, 
-        openQuestions: currentProcess?.openQuestions,
+        openQuestions: currentProcess?.openQuestions || "",
         chatHistory: newHistory, 
         dataSource 
       });

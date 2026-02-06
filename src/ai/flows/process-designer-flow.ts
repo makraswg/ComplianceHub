@@ -18,7 +18,7 @@ import OpenAI from 'openai';
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
-  openQuestions: z.string().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
+  openQuestions: z.string().nullable().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'ai']),
     text: z.string()
