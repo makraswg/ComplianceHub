@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -18,16 +17,8 @@ import {
   Workflow, 
   Loader2, 
   ChevronRight, 
-  Calendar, 
-  User as UserIcon,
-  Tag,
   Clock,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  FileCode,
-  Globe,
-  Archive,
+  Tag,
   RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -39,12 +30,6 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
 import { Process } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
 
 export default function ProcessHubOverview() {
   const router = useRouter();
@@ -60,7 +45,7 @@ export default function ProcessHubOverview() {
 
   const handleCreate = async () => {
     if (!user || activeTenantId === 'all') {
-      toast({ variant: "destructive", title: "Fehler", description: "Wählen Sie einen Mandanten aus." });
+      toast({ variant: "destructive", title: "Fehler", description: "Wählen Sie einen Mandanten aus (oben rechts)." });
       return;
     }
     setIsCreating(true);
@@ -70,6 +55,8 @@ export default function ProcessHubOverview() {
         toast({ title: "Prozess angelegt" });
         router.push(`/processhub/${res.processId}`);
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     } finally {
       setIsCreating(false);
     }
@@ -107,7 +94,7 @@ export default function ProcessHubOverview() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input 
-          placeholder="Nach Prozessen, Tags oder Owner suchen..." 
+          placeholder="Nach Prozessen suchen..." 
           className="pl-10 h-11 border-2 bg-white rounded-none shadow-none"
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -148,16 +135,16 @@ export default function ProcessHubOverview() {
                   <TableCell className="text-xs font-bold">V{p.currentVersion}</TableCell>
                   <TableCell>
                     <div className="flex flex-col text-[10px] font-bold text-slate-500">
-                      <div className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(p.updatedAt).toLocaleDateString()}</div>
+                      <div className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '—'}</div>
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); }}><ChevronRight className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon"><ChevronRight className="w-4 h-4" /></Button>
                   </TableCell>
                 </TableRow>
               ))}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="py-20 text-center text-xs text-muted-foreground italic">Keine Prozesse gefunden.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="py-20 text-center text-xs text-muted-foreground italic">Keine Prozesse gefunden. Legen Sie einen neuen Prozess an oder initialisieren Sie die Datenbank.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

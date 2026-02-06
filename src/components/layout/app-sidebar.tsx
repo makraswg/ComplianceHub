@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -16,11 +15,8 @@ import {
   ShieldCheck,
   Workflow,
   Settings2,
-  RefreshCw,
   UserPlus,
   Lock,
-  Loader2,
-  HelpCircle,
   AlertTriangle,
   ClipboardCheck,
   BarChart3,
@@ -53,7 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from '@/hooks/use-toast';
 import { updatePlatformUserPasswordAction } from '@/app/actions/mysql-actions';
@@ -171,7 +166,7 @@ export function AppSidebar() {
           </p>
           <nav className="space-y-1">
             {riskItems.map((item) => (
-              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href ? "bg-orange-600 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+              <Link key={item.name} href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === item.href || (item.href !== '/risks' && pathname.startsWith(item.href)) ? "bg-orange-600 text-white" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
                 <item.icon className="w-3.5 h-3.5" />
                 <span>{item.name}</span>
               </Link>
