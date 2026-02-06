@@ -42,7 +42,8 @@ import {
   Database as DbIcon,
   Key,
   Globe,
-  Zap
+  Zap,
+  Ticket
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -114,7 +115,18 @@ export default function SettingsPage() {
     if (jiraConfigs && jiraConfigs.length > 0) {
       setJiraDraft(jiraConfigs[0]);
     } else {
-      setJiraDraft({ id: 'jira-default', enabled: false });
+      setJiraDraft({ 
+        id: 'jira-default', 
+        enabled: false, 
+        projectKey: '', 
+        url: '', 
+        email: '', 
+        apiToken: '',
+        issueTypeName: 'Task',
+        approvedStatusName: 'Approved',
+        doneStatusName: 'Done',
+        autoSyncAssets: false
+      });
     }
   }, [jiraConfigs]);
 
@@ -503,26 +515,102 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="integrations" className="mt-0 space-y-6">
+          <TabsContent value="integrations" className="mt-0 space-y-8">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Jira Service Management Integration</CardTitle>
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4" /> Jira Service Management Gateway
+                </CardTitle>
               </CardHeader>
-              <CardContent className="p-8 space-y-6">
-                <div className="flex items-center justify-between p-4 border bg-blue-50/20">
-                  <div className="space-y-0.5"><Label className="text-sm font-bold">Jira Ticket-Gateway aktiv</Label><p className="text-xs text-muted-foreground">Automatisches Erstellen von Onboarding/Audit Tickets.</p></div>
-                  <Switch checked={!!jiraDraft.enabled} onCheckedChange={(v) => setJiraDraft({...jiraDraft, enabled: v})} />
+              <CardContent className="p-8 space-y-10">
+                {/* Connection Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between p-4 border bg-blue-50/20 rounded-none">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold">Jira Ticket-Gateway aktiv</Label>
+                      <p className="text-xs text-muted-foreground">Automatisches Erstellen von Onboarding/Audit Tickets.</p>
+                    </div>
+                    <Switch checked={!!jiraDraft.enabled} onCheckedChange={(v) => setJiraDraft({...jiraDraft, enabled: v})} />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label>
+                      <Input value={jiraDraft.url || ''} onChange={e => setJiraDraft({...jiraDraft, url: e.target.value})} placeholder="https://company.atlassian.net" className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Admin Email</Label>
+                      <Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-bold uppercase">API Token</Label>
+                      <Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" />
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label><Input value={jiraDraft.url || ''} onChange={e => setJiraDraft({...jiraDraft, url: e.target.value})} placeholder="https://company.atlassian.net" className="rounded-none h-10" /></div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Admin Email</Label><Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" /></div>
-                  <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">API Token</Label><Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" /></div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Projekt Key</Label><Input value={jiraDraft.projectKey || ''} onChange={e => setJiraDraft({...jiraDraft, projectKey: e.target.value})} placeholder="IT" className="rounded-none h-10" /></div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Status für "Erledigt"</Label><Input value={jiraDraft.doneStatusName || 'Done'} onChange={e => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none h-10" /></div>
+
+                <Separator />
+
+                {/* Workflow Section */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Ticket className="w-3.5 h-3.5" /> Ticket- & Workflow Steuerung
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Projekt Key</Label>
+                      <Input value={jiraDraft.projectKey || ''} onChange={e => setJiraDraft({...jiraDraft, projectKey: e.target.value})} placeholder="z.B. IT" className="rounded-none h-10 font-bold uppercase" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Vorgangstyp (Name)</Label>
+                      <Input value={jiraDraft.issueTypeName || 'Task'} onChange={e => setJiraDraft({...jiraDraft, issueTypeName: e.target.value})} className="rounded-none h-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-emerald-600">Status für "Genehmigt"</Label>
+                      <Input value={jiraDraft.approvedStatusName || 'Approved'} onChange={e => setJiraDraft({...jiraDraft, approvedStatusName: e.target.value})} className="rounded-none h-10 border-emerald-200" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-blue-600">Status für "Erledigt"</Label>
+                      <Input value={jiraDraft.doneStatusName || 'Done'} onChange={e => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none h-10 border-blue-200" />
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center pt-4">
-                  <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase">{isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Verbindung Testen</Button>
-                  <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">Jira Konfiguration Speichern</Button>
+
+                <Separator />
+
+                {/* Assets Discovery Section */}
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5" /> JSM Assets Discovery
+                    </h3>
+                    <div className="flex items-center gap-2 px-3 py-1 border bg-slate-50">
+                      <Label className="text-[9px] font-bold uppercase cursor-pointer">Auto-Sync Assets</Label>
+                      <Switch checked={!!jiraDraft.autoSyncAssets} onCheckedChange={(v) => setJiraDraft({...jiraDraft, autoSyncAssets: v})} className="scale-75" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Workspace ID</Label>
+                      <Input value={jiraDraft.workspaceId || ''} onChange={e => setJiraDraft({...jiraDraft, workspaceId: e.target.value})} placeholder="Asset Workspace UUID" className="rounded-none h-10 font-mono text-xs" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Object Schema ID</Label>
+                      <Input value={jiraDraft.schemaId || ''} onChange={e => setJiraDraft({...jiraDraft, schemaId: e.target.value})} placeholder="z.B. 1" className="rounded-none h-10" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center pt-6 border-t">
+                  <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase px-8 h-11 gap-2">
+                    {isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} 
+                    Verbindung Validieren
+                  </Button>
+                  <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] px-12 h-11 bg-slate-900 text-white gap-2">
+                    <Save className="w-3.5 h-3.5" /> Jira Konfiguration Speichern
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -671,4 +759,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-    
