@@ -7,12 +7,13 @@ Der ComplianceHub ist eine mandantenfähige Plattform zur Verwaltung von IT-Bere
 Die Plattform ist für den Betrieb in einer Docker-Umgebung optimiert und nutzt standardmäßig eine MySQL-Datenbank.
 
 ### 1. Erstinstallation
-Stellen Sie sicher, dass `docker` und `docker-compose` installiert sind.
+Stellen Sie sicher, dass `docker` und das `docker-compose-plugin` installiert sind. 
+
+**Hinweis:** Verwenden Sie den modernen Befehl `docker compose` (V2), um Fehler mit veralteten Python-Versionen zu vermeiden.
 
 ```bash
-# Repository klonen oder Dateien kopieren
-# Container bauen und starten
-docker-compose up -d --build
+# Container bauen und im Hintergrund starten
+docker compose up -d --build
 ```
 
 Die Anwendung ist anschließend unter `http://localhost:9002` erreichbar.
@@ -38,13 +39,20 @@ Wenn neue Funktionen implementiert wurden, führen Sie folgende Schritte aus, um
 
 ```bash
 # Container stoppen und neue Version bauen
-docker-compose down
-docker-compose up -d --build
+docker compose down
+docker compose up -d --build
 
 # WICHTIG: Nach jedem Update
 # Gehen Sie in der App auf 'Setup' -> 'Initialisieren'
 # Dies fügt neue Spalten oder Tabellen hinzu, ohne bestehende Daten zu löschen.
 ```
+
+## 🛠 Fehlerbehebung (Troubleshooting)
+
+### ModuleNotFoundError: No module named 'distutils'
+Falls dieser Fehler beim Aufruf von `docker-compose` erscheint, verwenden Sie eine veraltete Python-basierte Version. 
+**Lösung:** Installieren Sie das Docker Compose Plugin (`apt install docker-compose-v2`) und nutzen Sie den Befehl ohne Bindestrich:
+`docker compose up` statt `docker-compose up`.
 
 ## 🛠 Technologien
 *   **Frontend/Backend:** Next.js 15 (App Router)
