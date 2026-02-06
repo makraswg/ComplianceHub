@@ -68,7 +68,6 @@ import { Card } from '@/components/ui/card';
 
 /**
  * Generiert MXGraph XML aus dem semantischen Modell.
- * Optimiert für die Mitarbeiter-Visualisierung.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -125,12 +124,12 @@ export default function ProcessDesignerPage() {
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string, questions?: string[], suggestions?: any}[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<ProcessDesignerOutput | null>(null);
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [localNodeEdits, setLocalNodeEdits] = useState<{
+    id: string,
     title: string, 
     roleId: string, 
     description: string,
@@ -138,6 +137,7 @@ export default function ProcessDesignerPage() {
     tips: string,
     errors: string
   }>({ 
+    id: '',
     title: '', 
     roleId: '', 
     description: '',
@@ -159,18 +159,27 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
+  // Focus-safe initial load of node data
   useEffect(() => {
     if (selectedNode) {
-      setLocalNodeEdits({
-        title: selectedNode.title || '',
-        roleId: selectedNode.roleId || '',
-        description: selectedNode.description || '',
-        checklist: (selectedNode.checklist || []).join('\n'),
-        tips: selectedNode.tips || '',
-        errors: selectedNode.errors || ''
+      setLocalNodeEdits(prev => {
+        // If we are already editing this node, don't overwrite from background refresh
+        if (prev.id === selectedNode.id) return prev;
+        
+        return {
+          id: selectedNode.id,
+          title: selectedNode.title || '',
+          roleId: selectedNode.roleId || '',
+          description: selectedNode.description || '',
+          checklist: (selectedNode.checklist || []).join('\n'),
+          tips: selectedNode.tips || '',
+          errors: selectedNode.errors || ''
+        };
       });
+    } else {
+      setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
     }
-  }, [selectedNodeId, selectedNode]);
+  }, [selectedNodeId]); // Only trigger when the selection changes, not on content changes
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -190,7 +199,7 @@ export default function ProcessDesignerPage() {
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [mounted, currentVersion]);
+  }, [mounted, currentVersion?.id]); // Use ID to prevent unnecessary re-binds
 
   const syncDiagramToModel = () => {
     if (!iframeRef.current || !currentVersion) return;
@@ -216,7 +225,6 @@ export default function ProcessDesignerPage() {
       );
       if (res.success) {
         toast({ title: "Modell aktualisiert" });
-        setAiSuggestions(null);
         refreshVersion();
       }
     } catch (e: any) {
@@ -230,6 +238,10 @@ export default function ProcessDesignerPage() {
     if (!selectedNodeId) return;
     const value = localNodeEdits[field as keyof typeof localNodeEdits];
     
+    // Check if anything actually changed compared to the underlying model
+    const serverVal = selectedNode ? (field === 'checklist' ? (selectedNode.checklist || []).join('\n') : (selectedNode as any)[field] || '') : '';
+    if (value === serverVal) return;
+
     let processedValue: any = value;
     if (field === 'checklist') {
       processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
@@ -310,7 +322,6 @@ export default function ProcessDesignerPage() {
     const msg = chatMessage;
     setChatMessage('');
     setIsAiLoading(true);
-    setAiSuggestions(null);
     
     const newHistory = [...chatHistory, { role: 'user', text: msg } as const];
     setChatHistory(newHistory);
@@ -322,7 +333,6 @@ export default function ProcessDesignerPage() {
         chatHistory: newHistory,
         dataSource
       });
-      setAiSuggestions(suggestions);
       setChatHistory([...newHistory, { 
         role: 'ai', 
         text: suggestions.explanation, 
@@ -432,7 +442,7 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Work Instructions (Mitarbeiter Fokus) */}
+        {/* LEFT PANE: Work Instructions */}
         <aside className="w-[500px] border-r flex flex-col bg-white shadow-xl z-10 overflow-hidden">
           <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
@@ -540,7 +550,7 @@ export default function ProcessDesignerPage() {
                             value={localNodeEdits.description} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})}
                             onBlur={() => saveNodeUpdate('description')}
-                            placeholder="Was genau ist zu tun? (Inhaltliche Beschreibung für Mitarbeiter)"
+                            placeholder="Was genau ist zu tun?"
                             className="text-xs rounded-none min-h-[100px] border-2 leading-relaxed" 
                           />
                         </div>
@@ -553,7 +563,7 @@ export default function ProcessDesignerPage() {
                             value={localNodeEdits.checklist} 
                             onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})}
                             onBlur={() => saveNodeUpdate('checklist')}
-                            placeholder="Erforderliche Teil-Aufgaben..."
+                            placeholder="Teilschritte..."
                             className="text-xs rounded-none min-h-[100px] border-2 border-slate-200 bg-slate-50/30" 
                           />
                         </div>
@@ -587,7 +597,7 @@ export default function ProcessDesignerPage() {
                   ) : (
                     <div className="p-12 text-center space-y-4 opacity-40">
                       <Info className="w-12 h-12 mx-auto text-slate-300" />
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Wählen Sie einen Schritt,<br/>um die Arbeitshilfe zu pflegen.</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Wählen Sie einen Schritt,<br/>um Details zu pflegen.</p>
                     </div>
                   )}
                 </TabsContent>
@@ -598,27 +608,24 @@ export default function ProcessDesignerPage() {
                       <ShieldCheck className="w-4 h-4" />
                       <h4 className="text-[10px] font-black uppercase tracking-widest">ISO 9001 Konformität</h4>
                     </div>
-                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium">Definition von Wechselwirkungen, Ressourcen und Risiken gemäß prozessorientiertem Ansatz.</p>
+                    <p className="text-[9px] leading-relaxed text-emerald-600 font-medium">Definition von Ressourcen und Ergebnissen.</p>
                   </div>
                   
                   <div className="grid grid-cols-1 gap-6">
                     {[
-                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Welche Informationen/Daten werden benötigt?' },
-                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Was ist das Ergebnis des Prozesses?' },
-                      { id: 'risks', label: 'Risiken & Ausnahmen', icon: AlertTriangle, desc: 'Was kann schiefgehen?' },
-                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Wo wird die Ausführung dokumentiert?' }
+                      { id: 'inputs', label: 'Eingaben (Inputs)', icon: ArrowRight, desc: 'Informationen, Artefakte oder Trigger für den Prozess' },
+                      { id: 'outputs', label: 'Ergebnisse (Outputs)', icon: Check, desc: 'Produkte, Dienstleistungen oder Daten am Prozessende' },
+                      { id: 'risks', label: 'Risiken & Chancen', icon: AlertTriangle, desc: 'Was kann den Prozesserfolg gefährden?' },
+                      { id: 'evidence', label: 'Nachweise (Evidence)', icon: FileCode, desc: 'Dokumente zur Verifizierung der Ausführung' }
                     ].map(field => (
                       <div key={field.id} className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-700 flex items-center gap-2">
                           <field.icon className="w-3 h-3 text-emerald-600" /> {field.label}
                         </Label>
                         <Textarea 
-                          value={currentVersion.model_json.isoFields?.[field.id] || ''}
+                          defaultValue={currentVersion.model_json.isoFields?.[field.id] || ''}
                           placeholder={field.desc}
                           className="text-xs rounded-none min-h-[100px] bg-white border-2 border-slate-100 focus:border-emerald-500 leading-relaxed p-3"
-                          onChange={e => {
-                            // Local change handling could be added if needed
-                          }}
                           onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: field.id, value: e.target.value } }])}
                         />
                       </div>
@@ -718,7 +725,7 @@ export default function ProcessDesignerPage() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] block text-blue-400">Process Advisor</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">ISO 9001 Consultant</span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">AI Specialist</span>
               </div>
             </div>
             <Badge className="bg-slate-800 text-slate-400 border-slate-700 rounded-none text-[8px] font-black h-5 uppercase px-2">Gemini 2.0</Badge>
@@ -730,9 +737,9 @@ export default function ProcessDesignerPage() {
                 {chatHistory.length === 0 && (
                   <div className="text-center py-12 space-y-4 opacity-40">
                     <MessageSquare className="w-12 h-12 mx-auto text-slate-300" />
-                    <p className="text-[10px] font-black uppercase text-slate-900">Hallo! Ich bin dein Berater.</p>
+                    <p className="text-[10px] font-black uppercase text-slate-900">Bereit zur Analyse.</p>
                     <p className="text-[9px] text-slate-500 italic px-4">
-                      "Wie starte ich am besten?" oder "Hilf mir, einen Workflow für die Rechnungsprüfung zu erstellen."
+                      Fragen Sie mich nach Prozessoptimierungen oder ISO 9001 Feldern.
                     </p>
                   </div>
                 )}
@@ -765,7 +772,7 @@ export default function ProcessDesignerPage() {
                         <div className="bg-blue-50 border-2 border-blue-600 p-4 space-y-4 shadow-xl">
                           <div className="flex items-center gap-2 text-blue-700">
                             <Sparkles className="w-4 h-4" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Modell-Update Vorschlag</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Vorschlag</span>
                           </div>
                           
                           <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
@@ -781,26 +788,25 @@ export default function ProcessDesignerPage() {
                           </div>
 
                           <div className="flex gap-2 pt-2">
-                            <Button 
+                            <button 
                               onClick={() => handleApplyOps(msg.suggestions)} 
                               disabled={isApplying} 
-                              className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group"
+                              className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group disabled:opacity-50"
                             >
                               {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                               Anwenden
-                            </Button>
-                            <Button 
+                            </button>
+                            <button 
                               variant="outline" 
                               onClick={() => {
-                                // Clear suggestions from history visually
                                 const newHistory = [...chatHistory];
                                 newHistory[i].suggestions = [];
                                 setChatHistory(newHistory);
                               }} 
-                              className="h-10 rounded-none border-blue-200 text-blue-700 text-[10px] font-black uppercase"
+                              className="flex-1 h-10 rounded-none border-2 border-blue-200 bg-white text-blue-700 text-[10px] font-black uppercase"
                             >
                               Ablehnen
-                            </Button>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -840,8 +846,8 @@ export default function ProcessDesignerPage() {
               </Button>
             </div>
             <div className="flex justify-between mt-3 px-1">
-               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">History Enabled</span>
-               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> Context Active</span>
+               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Context Ready</span>
+               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1"><Terminal className="w-2.5 h-2.5" /> ISO Consultant Active</span>
             </div>
           </div>
         </aside>
