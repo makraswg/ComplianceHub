@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -68,6 +69,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { exportGdprExcel } from '@/lib/export-utils';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 export default function GdprPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -191,6 +193,15 @@ export default function GdprPage() {
       .sort((a, b) => parseFloat(b.version) - parseFloat(a.version));
   }, [activities, historyBaseId]);
 
+  const applyAiSuggestions = (s: any) => {
+    if (s.name) setName(s.name);
+    if (s.description) setDescription(s.description);
+    if (s.responsibleDepartment) setResponsibleDepartment(s.responsibleDepartment);
+    if (s.legalBasis) setLegalBasis(s.legalBasis);
+    if (s.retentionPeriod) setRetentionPeriod(s.retentionPeriod);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -301,7 +312,11 @@ export default function GdprPage() {
                 <FileCheck className="w-5 h-5 text-emerald-500" />
                 <DialogTitle className="text-sm font-bold uppercase tracking-wider">Verarbeitungstätigkeit bearbeiten</DialogTitle>
               </div>
-              <Badge className="bg-emerald-600 border-none rounded-none text-[10px] font-black h-6">Version {version}</Badge>
+              <AiFormAssistant 
+                formType="gdpr" 
+                currentData={{ name, description, responsibleDepartment, legalBasis, retentionPeriod, status }} 
+                onApply={applyAiSuggestions} 
+              />
             </div>
           </DialogHeader>
           

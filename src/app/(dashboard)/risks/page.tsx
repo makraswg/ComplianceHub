@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -82,6 +83,7 @@ import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { exportRisksExcel } from '@/lib/export-utils';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -522,6 +524,17 @@ function RiskDashboardContent() {
     return riskMeasures.filter(m => m.riskIds?.includes(riskId));
   };
 
+  const applyAiSuggestions = (s: any) => {
+    if (s.title) setTitle(s.title);
+    if (s.category) setCategory(s.category);
+    if (s.description) setDescription(s.description);
+    if (s.impact) setImpact(String(s.impact));
+    if (s.probability) setProbability(String(s.probability));
+    if (s.bruttoReason) setBruttoReason(s.bruttoReason);
+    if (s.nettoReason) setNettoReason(s.nettoReason);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -768,9 +781,16 @@ function RiskDashboardContent() {
       <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) { setIsRiskDialogOpen(false); setSelectedRisk(null); } }}>
         <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col h-[85vh] border-2 shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <ShieldAlert className="w-5 h-5 text-orange-500" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Erfassung</DialogTitle>
+            <div className="flex items-center justify-between w-full pr-8">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 text-orange-500" />
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">Risiko-Erfassung</DialogTitle>
+              </div>
+              <AiFormAssistant 
+                formType="risk" 
+                currentData={{ title, category, assetId, description, impact, probability }} 
+                onApply={applyAiSuggestions} 
+              />
             </div>
           </DialogHeader>
           

@@ -62,6 +62,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 export default function RiskMeasuresPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -237,6 +238,15 @@ export default function RiskMeasuresPage() {
     });
   }, [measures, risks, search, activeTenantId]);
 
+  const applyAiSuggestions = (s: any) => {
+    if (s.title) setTitle(s.title);
+    if (s.owner) setOwner(s.owner);
+    if (s.description) setDescription(s.description);
+    if (s.effectiveness) setEffectiveness(String(s.effectiveness));
+    if (s.tomCategory) setTomCategory(s.tomCategory);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   if (!mounted) return null;
 
   return (
@@ -359,11 +369,18 @@ export default function RiskMeasuresPage() {
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
         <DialogContent className="max-w-6xl rounded-none p-0 flex flex-col border-2 shadow-2xl h-[90vh] bg-card overflow-hidden">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <ClipboardCheck className="w-5 h-5 text-emerald-500" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">
-                {selectedMeasure ? 'Maßnahme bearbeiten / Audit' : 'Neue Maßnahme planen'}
-              </DialogTitle>
+            <div className="flex items-center justify-between w-full pr-8">
+              <div className="flex items-center gap-3">
+                <ClipboardCheck className="w-5 h-5 text-emerald-500" />
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">
+                  {selectedMeasure ? 'Maßnahme bearbeiten / Audit' : 'Neue Maßnahme planen'}
+                </DialogTitle>
+              </div>
+              <AiFormAssistant 
+                formType="measure" 
+                currentData={{ title, description, owner, status, effectiveness, isTom, tomCategory }} 
+                onApply={applyAiSuggestions} 
+              />
             </div>
           </DialogHeader>
           
