@@ -72,6 +72,7 @@ export interface ProcessNode {
   tips?: string;
   errors?: string;
   links?: { title: string; url: string }[];
+  targetProcessId?: string; // New: Link to another process
 }
 
 export interface ProcessEdge {
