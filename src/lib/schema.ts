@@ -379,6 +379,7 @@ export const appSchema: AppSchema = {
       geminiModel: 'VARCHAR(100)',
       openrouterApiKey: 'TEXT',
       openrouterModel: 'VARCHAR(100)',
+      systemPrompt: 'TEXT',
     }
   },
   aiAuditCriteria: {

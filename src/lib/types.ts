@@ -271,6 +271,7 @@ export interface AiConfig {
   openrouterApiKey?: string;
   openrouterModel?: string;
   enabledForAdvisor?: boolean;
+  systemPrompt?: string;
 }
 
 export interface SyncJob {

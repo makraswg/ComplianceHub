@@ -39,6 +39,9 @@ export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 const SYSTEM_PROMPT = `Du bist ein Senior Prozess-Consultant und ISO 9001:2015 Lead Auditor.
 Deine Aufgabe ist es, den Nutzer beim Design von Geschäftsprozessen zu begleiten und zu beraten.
 
+UNTERNEHMENS-KONTEXT:
+{{{companyContext}}}
+
 VERHALTENSREGELN:
 1. ASSISTENTEN-MODUS: Sei ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig, um den Nutzer nicht zu überfordern.
 2. KONTEXT: Beachte den bisherigen Chat-Verlauf. Wenn Informationen noch fehlen (z.B. Verantwortlichkeiten), frage danach, bevor du den Prozess abschließt.
@@ -51,7 +54,7 @@ ANTWORT-STRUKTUR:
 - proposedOps: Die technischen Änderungen am Modell.
 - openQuestions: Deine nächste Frage an den Nutzer, um den Prozess weiter zu verfeinern.
 
-WICHTIG: Antworte IMMER im validen JSON-Format.`;
+WICHTIG: Antworte IMMER im validen JSON-Format. Nutze explizit die JSON-Ausgabe.`;
 
 /**
  * The main Flow definition for Process Designer.
@@ -68,6 +71,10 @@ const processDesignerFlow = ai.defineFlow(
     const historyString = (input.chatHistory || [])
       .map(h => `${h.role === 'user' ? 'Nutzer' : 'KI'}: ${h.text}`)
       .join('\n');
+
+    const companyContext = config?.systemPrompt || "Keine spezifischen Unternehmensinformationen hinterlegt.";
+    
+    const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{companyContext}}}', companyContext);
 
     const prompt = `CHAT-VERLAUF:
 ${historyString}
@@ -90,7 +97,7 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       const response = await client.chat.completions.create({
         model: config.openrouterModel || 'google/gemini-2.0-flash-001',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPromptPopulated },
           { role: 'user', content: prompt }
         ],
         response_format: { type: 'json_object' }
@@ -108,7 +115,7 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
 
     const { output } = await ai.generate({
       model: modelIdentifier,
-      system: SYSTEM_PROMPT,
+      system: systemPromptPopulated,
       prompt,
       output: { schema: ProcessDesignerOutputSchema }
     });

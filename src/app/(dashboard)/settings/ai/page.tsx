@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BrainCircuit, Loader2, Save, Sparkles, Server, Cloud } from 'lucide-react';
+import { BrainCircuit, Loader2, Save, Sparkles, Server, Cloud, Building2, Info } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -16,6 +16,7 @@ import { AiConfig } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function AiSettingsPage() {
   const { dataSource } = useSettings();
@@ -60,7 +61,29 @@ export default function AiSettingsPage() {
             <Switch checked={!!aiDraft.enabled} onCheckedChange={v => setAiDraft({...aiDraft, enabled: v})} />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6 pt-4 border-t">
+            <div className="flex items-center gap-2 mb-2">
+              <Building2 className="w-4 h-4 text-slate-500" />
+              <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Unternehmens-Kontext (System-Prompt)</h3>
+            </div>
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-none space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1"><Info className="w-4 h-4 text-blue-600" /></div>
+                <p className="text-[10px] text-slate-600 italic leading-relaxed">
+                  Beschreiben Sie hier Ihr Unternehmen, Ihre Abteilungsstruktur oder spezifische Governance-Vorgaben. 
+                  Dieser Text wird dem KI-Berater als Hintergrundwissen mitgegeben, um präzisere Vorschläge zu generieren.
+                </p>
+              </div>
+              <Textarea 
+                placeholder="Beispiel: Wir sind ein mittelständisches Logistikunternehmen mit 500 Mitarbeitern. Unsere IT-Abteilung ist nach ITIL strukturiert. Alle Software-Einführungen müssen vom Datenschutzbeauftragten geprüft werden..."
+                value={aiDraft.systemPrompt || ''}
+                onChange={e => setAiDraft({...aiDraft, systemPrompt: e.target.value})}
+                className="min-h-[120px] text-xs rounded-none bg-white font-body"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-6 border-t">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">Aktiver Provider</Label>
             <Tabs value={aiDraft.provider} onValueChange={(v: any) => setAiDraft({...aiDraft, provider: v})} className="w-full">
               <TabsList className="grid grid-cols-3 h-12 bg-muted/50 rounded-none p-1 border">
