@@ -79,6 +79,7 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
  * Ruft alle Projekte aus Jira ab.
  */
 export async function getJiraProjectsAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; projects?: any[]; error?: string }> {
+  if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
   const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
@@ -102,6 +103,7 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
   statuses?: any[];
   error?: string 
 }> {
+  if (!configData.url || !configData.apiToken || !projectKey) return { success: false, error: 'Keine Projektdaten' };
   const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
@@ -120,7 +122,7 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
       cache: 'no-store'
     });
     const statusGroups = await stRes.json();
-    const allStatuses = statusGroups.flatMap((g: any) => g.statuses);
+    const allStatuses = statusGroups.flatMap((g: any) => g.statuses || []);
 
     return { success: true, issueTypes, statuses: allStatuses };
   } catch (e: any) { return { success: false, error: e.message }; }
@@ -130,6 +132,7 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
  * Assets Discovery: Ruft Workspaces ab.
  */
 export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; workspaces?: any[]; error?: string }> {
+  if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
   const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
@@ -148,6 +151,7 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
  * Assets Discovery: Ruft Schemas für einen Workspace ab.
  */
 export async function getJiraSchemasAction(configData: Partial<JiraConfig>, workspaceId: string): Promise<{ success: boolean; schemas?: any[]; error?: string }> {
+  if (!configData.url || !configData.apiToken || !workspaceId) return { success: false, error: 'Keine Workspace-Daten' };
   const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
   
@@ -166,6 +170,7 @@ export async function getJiraSchemasAction(configData: Partial<JiraConfig>, work
  * Assets Discovery: Ruft Objekttypen für ein Schema ab.
  */
 export async function getJiraObjectTypesAction(configData: Partial<JiraConfig>, workspaceId: string, schemaId: string): Promise<{ success: boolean; objectTypes?: any[]; error?: string }> {
+  if (!configData.url || !configData.apiToken || !workspaceId || !schemaId) return { success: false, error: 'Keine Schema-Daten' };
   const url = cleanJiraUrl(configData.url!);
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
@@ -259,7 +264,7 @@ export async function fetchJiraSyncItems(
     const response = await fetch(`${url}/rest/api/3/search/jql`, {
       method: 'POST',
       headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jql, maxResults: 100, fields: ["summary", "status", "reporter", "created"] }),
+      body: JSON.stringify({ jql, maxResults: 100, fields: ["summary", "status", "reporter", "created", "description"] }),
       cache: 'no-store'
     });
 
@@ -272,7 +277,7 @@ export async function fetchJiraSyncItems(
       status: issue.fields.status.name,
       reporter: issue.fields.reporter?.displayName || 'Unbekannt',
       created: issue.fields.created,
-      requestedUserEmail: issue.fields.description?.content?.[0]?.content?.find((c:any) => c.text?.includes('@'))?.text?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
+      requestedUserEmail: JSON.stringify(issue.fields.description)?.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)?.[0]
     }));
 
     return { success: true, items };

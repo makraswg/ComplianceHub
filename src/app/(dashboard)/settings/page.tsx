@@ -181,12 +181,15 @@ export default function SettingsPage() {
     }
     setIsJiraFetching(true);
     try {
+      // 1. Projects
       const pRes = await getJiraProjectsAction(jiraDraft);
       if (pRes.success) setJiraProjects(pRes.projects || []);
       
+      // 2. Workspaces (Assets)
       const wRes = await getJiraWorkspacesAction(jiraDraft);
       if (wRes.success) setJiraWorkspaces(wRes.workspaces || []);
 
+      // 3. Project Specific Data
       if (jiraDraft.projectKey) {
         const meta = await getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey);
         if (meta.success) {
@@ -195,11 +198,15 @@ export default function SettingsPage() {
         }
       }
 
-      if (jiraDraft.workspaceId && jiraDraft.schemaId) {
+      // 4. Asset Schema Data
+      if (jiraDraft.workspaceId) {
         const sRes = await getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId);
         if (sRes.success) setJiraSchemas(sRes.schemas || []);
-        const otRes = await getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId);
-        if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+        
+        if (jiraDraft.schemaId) {
+          const otRes = await getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId);
+          if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+        }
       }
 
       toast({ title: "Jira Optionen geladen" });
@@ -209,6 +216,36 @@ export default function SettingsPage() {
       setIsJiraFetching(false);
     }
   };
+
+  // Re-fetch project metadata when project key changes
+  useEffect(() => {
+    if (jiraDraft.projectKey && jiraDraft.url && jiraDraft.apiToken && isJiraFetching === false) {
+      getJiraProjectMetadataAction(jiraDraft, jiraDraft.projectKey).then(meta => {
+        if (meta.success) {
+          setJiraIssueTypes(meta.issueTypes || []);
+          setJiraStatuses(meta.statuses || []);
+        }
+      });
+    }
+  }, [jiraDraft.projectKey]);
+
+  // Re-fetch asset schemas when workspace changes
+  useEffect(() => {
+    if (jiraDraft.workspaceId && jiraDraft.url && jiraDraft.apiToken) {
+      getJiraSchemasAction(jiraDraft, jiraDraft.workspaceId).then(sRes => {
+        if (sRes.success) setJiraSchemas(sRes.schemas || []);
+      });
+    }
+  }, [jiraDraft.workspaceId]);
+
+  // Re-fetch object types when schema changes
+  useEffect(() => {
+    if (jiraDraft.workspaceId && jiraDraft.schemaId && jiraDraft.url && jiraDraft.apiToken) {
+      getJiraObjectTypesAction(jiraDraft, jiraDraft.workspaceId, jiraDraft.schemaId).then(otRes => {
+        if (otRes.success) setJiraObjectTypes(otRes.objectTypes || []);
+      });
+    }
+  }, [jiraDraft.schemaId]);
 
   const handleSaveConfig = async (collection: string, id: string, data: any) => {
     setIsSaving(true);
@@ -725,14 +762,14 @@ export default function SettingsPage() {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Projekt</Label>
                       <Select value={jiraDraft.projectKey || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, projectKey: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraProjects.map(p => <SelectItem key={p.key} value={p.key}>{p.name} ({p.key})</SelectItem>)}
-                          {jiraProjects.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                          {jiraProjects.length === 0 && <SelectItem value="none" disabled>Keine Projekte geladen</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
@@ -741,18 +778,28 @@ export default function SettingsPage() {
                       <Select value={jiraDraft.issueTypeName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, issueTypeName: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraIssueTypes.map(it => <SelectItem key={it.id} value={it.name}>{it.name}</SelectItem>)}
-                          {jiraIssueTypes.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                          {jiraIssueTypes.map(it => <SelectItem key={it.id || it.name} value={it.name}>{it.name}</SelectItem>)}
+                          {jiraIssueTypes.length === 0 && <SelectItem value="none" disabled>Keine Typen geladen</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Genehmigungs-Status</Label>
+                      <Label className="text-[10px] font-bold uppercase text-emerald-600">Genehmigungs-Status</Label>
                       <Select value={jiraDraft.approvedStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraStatuses.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Bitte erst Optionen laden</SelectItem>}
+                          {jiraStatuses.map((s, idx) => <SelectItem key={`${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
+                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-blue-600">Erledigt-Status</Label>
+                      <Select value={jiraDraft.doneStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, doneStatusName: v})}>
+                        <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraStatuses.map((s, idx) => <SelectItem key={`${s.id}-${idx}-done`} value={s.name}>{s.name}</SelectItem>)}
+                          {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
                         </SelectContent>
                       </Select>
                     </div>
@@ -768,7 +815,7 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Workspace</Label>
-                      <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v})}>
+                      <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v, schemaId: '', objectTypeId: ''})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
@@ -777,7 +824,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Assets Schema</Label>
-                      <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v})}>
+                      <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v, objectTypeId: ''})}>
                         <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
                           {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
