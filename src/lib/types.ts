@@ -100,9 +100,10 @@ export interface Resource {
 
 export interface ProcessingActivity {
   id: string;
+  originalId?: string; // Neu: Verknüpfung der Versionen
   tenantId: string;
   name: string;
-  version: string; // Neu: Versionierung
+  version: string;
   description: string;
   responsibleDepartment: string;
   legalBasis: string;
@@ -112,6 +113,7 @@ export interface ProcessingActivity {
   retentionPeriod: string;
   status: 'draft' | 'active' | 'archived';
   lastReviewDate: string;
+  resourceIds?: string[]; // Neu: Direkte Zuordnung von Systemen
 }
 
 export interface Entitlement {

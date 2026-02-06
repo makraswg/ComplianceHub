@@ -155,6 +155,7 @@ export const appSchema: AppSchema = {
   processingActivities: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
+      originalId: 'VARCHAR(255)',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
       version: 'VARCHAR(50) DEFAULT "1.0"',
@@ -166,7 +167,8 @@ export const appSchema: AppSchema = {
       recipientCategories: 'TEXT',
       retentionPeriod: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
-      lastReviewDate: 'VARCHAR(50)'
+      lastReviewDate: 'VARCHAR(50)',
+      resourceIds: 'TEXT'
     }
   },
   resources: {
