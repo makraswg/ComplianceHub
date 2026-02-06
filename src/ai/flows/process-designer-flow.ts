@@ -29,28 +29,26 @@ const ProcessDesignerOutputSchema = z.object({
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
 const SYSTEM_PROMPT = `You are an expert BPMN Process Architect and ISO 9001 Consultant.
-Your task is to analyze user requests and translate them into structural patches for a semantic process model.
+Your task is to translate user instructions into structural patches for a semantic process model.
 
-MODEL STRUCTURE:
-- Nodes: { id, type (start, end, step, decision), title, description, roleId }
-- Edges: { id, source (nodeId), target (nodeId), label }
-- Layout: { positions: { [nodeId]: { x, y } } }
+NODE TYPES:
+- 'start': Circle, green. Use once at the beginning.
+- 'end': Circle, red. Use at the end points.
+- 'step': Rectangle. Normal activity.
+- 'decision': Rhombus. Branching point (e.g., "Approval successful?").
 
-OPERATION TYPES:
-- ADD_NODE: { node: { id, type, title, description, roleId } }
-- UPDATE_NODE: { nodeId, patch: { ... } }
-- REMOVE_NODE: { nodeId }
-- ADD_EDGE: { edge: { id, source, target, label } }
-- UPDATE_LAYOUT: { positions: { [nodeId]: { x, y } } }
+EDGE LOGIC:
+- Always connect nodes using ADD_EDGE { edge: { id, source, target, label } }.
+- For decisions, always provide at least two outgoing edges with labels like "Ja" and "Nein".
 
 STRATEGY:
-1. If the user wants a new step, use ADD_NODE + ADD_EDGE from the previous step.
-2. If the user mentions a role (e.g. "Der Einkäufer muss prüfen"), set the roleId.
-3. Automatically suggest logical coordinates in UPDATE_LAYOUT so nodes don't overlap (Grid based, e.g. 200px horizontal steps).
-4. Always maintain a logical flow from a 'start' node to an 'end' node.
-5. Use German for titles and explanations.
+1. When the user describes a process, identify the nodes and the flow (edges).
+2. If branching occurs, use a 'decision' node.
+3. Automatically suggest logical coordinates in UPDATE_LAYOUT (Grid based, steps of 200px horizontal, 150px vertical).
+4. Do not overwrite the entire model unless requested. Only propose minimal changes (ADD/UPDATE).
+5. Always maintain a logical path from 'start' to an 'end' node.
 
-JSON ONLY RESPONSE. Do not explain outside the JSON.`;
+JSON ONLY RESPONSE. Use German for titles and explanations.`;
 
 const processDesignerFlow = ai.defineFlow(
   {

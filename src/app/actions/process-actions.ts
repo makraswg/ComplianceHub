@@ -1,7 +1,7 @@
 
 'use server';
 
-import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
+import { saveCollectionRecord, getCollectionData } from './mysql-actions';
 import { 
   Process, 
   ProcessVersion, 
@@ -10,7 +10,6 @@ import {
   ProcessLayout, 
   DataSource 
 } from '@/lib/types';
-import { logAuditEventAction } from './audit-actions';
 
 /**
  * Erstellt einen neuen Prozess.
@@ -39,7 +38,8 @@ export async function createProcessAction(
   const initialModel: ProcessModel = {
     nodes: [{ id: 'start', type: 'start', title: 'Start' }],
     edges: [],
-    roles: []
+    roles: [],
+    isoFields: {}
   };
 
   const initialLayout: ProcessLayout = {
@@ -82,11 +82,6 @@ export async function applyProcessOpsAction(
 
   if (!currentVersion) throw new Error("Prozessversion nicht gefunden.");
   
-  // Im MVP lassen wir die Revision-Prüfung etwas lockerer für bessere UX
-  // if (currentVersion.revision !== expectedRevision) {
-  //   return { success: false, conflict: true, currentRevision: currentVersion.revision };
-  // }
-
   let model = { ...currentVersion.model_json };
   let layout = { ...currentVersion.layout_json };
 
@@ -113,6 +108,11 @@ export async function applyProcessOpsAction(
         if (!model.edges) model.edges = [];
         model.edges.push(op.payload.edge);
         break;
+      case 'REMOVE_EDGE':
+        if (model.edges) {
+          model.edges = model.edges.filter(e => e.id !== op.payload.edgeId);
+        }
+        break;
       case 'UPDATE_LAYOUT':
         if (!layout.positions) layout.positions = {};
         layout.positions = { ...layout.positions, ...op.payload.positions };
@@ -132,22 +132,8 @@ export async function applyProcessOpsAction(
     revision: nextRevision
   };
 
-  const opRecord = {
-    id: `op-${Math.random().toString(36).substring(2, 9)}`,
-    process_id: processId,
-    version,
-    revision_before: currentVersion.revision || 0,
-    revision_after: nextRevision,
-    actor_type: 'user',
-    actor_user_id: userId,
-    ops_json: ops,
-    created_at: new Date().toISOString()
-  };
-
-  const res1 = await saveCollectionRecord('process_versions', currentVersion.id, updatedVersion, dataSource);
-  if (!res1.success) throw new Error("Update der Version fehlgeschlagen.");
-
-  await saveCollectionRecord('process_ops', opRecord.id, opRecord, dataSource);
+  const res = await saveCollectionRecord('process_versions', currentVersion.id, updatedVersion, dataSource);
+  if (!res.success) throw new Error("Update der Version fehlgeschlagen.");
 
   return { success: true, revision: nextRevision };
 }

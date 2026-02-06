@@ -13,11 +13,8 @@ import {
   X, 
   Zap, 
   Plus, 
-  Share2,
   BookOpen,
   AlertCircle,
-  Settings2,
-  ClipboardList,
   ShieldCheck,
   History,
   Save,
@@ -26,7 +23,9 @@ import {
   Layers,
   ArrowRight,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  GitBranch,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -42,7 +42,7 @@ import { applyProcessOpsAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions, ProcessDesignerOutput } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion, ProcessNode, ProcessModel, ProcessLayout } from '@/lib/types';
+import { Process, ProcessVersion, ProcessNode, ProcessEdge, ProcessModel, ProcessLayout } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -56,18 +56,33 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   nodes.forEach(node => {
     const pos = positions[node.id] || { x: 100, y: 100 };
-    const style = node.type === 'start' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;' : 
-                  node.type === 'end' ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;' :
-                  node.type === 'decision' ? 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;' :
-                  'whiteSpace=wrap;html=1;rounded=1;fillColor=#f5f5f5;strokeColor=#666666;';
+    let style = '';
+    let w = 120, h = 60;
+
+    switch (node.type) {
+      case 'start':
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;';
+        w = 60; h = 60;
+        break;
+      case 'end':
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;strokeWidth=2;';
+        w = 60; h = 60;
+        break;
+      case 'decision':
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;';
+        w = 80; h = 80;
+        break;
+      default:
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#f5f5f5;strokeColor=#666666;';
+    }
     
     xml += `<mxCell id="${node.id}" value="${node.title}" style="${style}" vertex="1" parent="1">
-      <mxGeometry x="${pos.x}" y="${pos.y}" width="120" height="60" as="geometry"/>
+      <mxGeometry x="${pos.x}" y="${pos.y}" width="${w}" height="${h}" as="geometry"/>
     </mxCell>`;
   });
 
   edges.forEach(edge => {
-    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jetline=1;html=1;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
+    xml += `<mxCell id="${edge.id}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#333333;strokeWidth=1.5;" edge="1" parent="1" source="${edge.source}" target="${edge.target}">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>`;
   });
@@ -90,8 +105,9 @@ export default function ProcessDesignerPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   
-  const [activeTab, setActiveTab] = useState('diagram');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
+  const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
   const { data: processes, isLoading: isProcLoading } = usePluggableCollection<Process>('processes');
   const { data: versions, isLoading: isVerLoading, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
@@ -106,7 +122,6 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Listen for diagrams.net messages
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
 
@@ -116,9 +131,6 @@ export default function ProcessDesignerPage() {
         const msg = JSON.parse(evt.data);
         if (msg.event === 'init') {
           syncDiagramToModel();
-        }
-        if (msg.event === 'change') {
-          // Diagram changed logic would go here
         }
       } catch (e) {}
     };
@@ -166,6 +178,29 @@ export default function ProcessDesignerPage() {
       type: 'UPDATE_NODE',
       payload: { nodeId, patch: { [field]: value } }
     }];
+    await handleApplyOps(ops);
+  };
+
+  const handleAddEdge = async () => {
+    if (!selectedNodeId || !newEdgeTargetId) return;
+    const ops = [{
+      type: 'ADD_EDGE',
+      payload: {
+        edge: {
+          id: `edge-${Date.now()}`,
+          source: selectedNodeId,
+          target: newEdgeTargetId,
+          label: newEdgeLabel
+        }
+      }
+    }];
+    await handleApplyOps(ops);
+    setNewEdgeTargetId('');
+    setNewEdgeLabel('');
+  };
+
+  const handleRemoveEdge = async (edgeId: string) => {
+    const ops = [{ type: 'REMOVE_EDGE', payload: { edgeId } }];
     await handleApplyOps(ops);
   };
 
@@ -219,11 +254,9 @@ export default function ProcessDesignerPage() {
         <Alert variant="destructive" className="rounded-none border-2">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle className="text-sm font-bold uppercase">Prozess nicht gefunden</AlertTitle>
-          <AlertDescription className="text-xs">
-            Der angeforderte Prozess existiert nicht oder die Daten konnten nicht geladen werden.
-          </AlertDescription>
+          <AlertDescription className="text-xs">Der angeforderte Prozess existiert nicht.</AlertDescription>
         </Alert>
-        <Button onClick={() => router.push('/processhub')} className="mt-4 rounded-none uppercase text-[10px] font-bold">Zurück zur Übersicht</Button>
+        <Button onClick={() => router.push('/processhub')} className="mt-4 rounded-none uppercase text-[10px] font-bold">Zurück</Button>
       </div>
     );
   }
@@ -242,8 +275,6 @@ export default function ProcessDesignerPage() {
             <div className="flex items-center gap-2 text-[9px] text-muted-foreground uppercase font-black">
               <Badge variant="outline" className="rounded-none text-[8px] h-4 bg-muted/30">V{currentVersion.version}</Badge>
               <span>Revision {currentVersion.revision}</span>
-              <span className="text-slate-300">|</span>
-              <span>ID: {currentProcess.id}</span>
             </div>
           </div>
         </div>
@@ -253,33 +284,28 @@ export default function ProcessDesignerPage() {
           </Button>
           <Button size="sm" className="rounded-none h-8 text-[9px] font-bold uppercase bg-emerald-600 hover:bg-emerald-700" onClick={handlePublish} disabled={isPublishing}>
             {isPublishing ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : <BookOpen className="w-3 h-3 mr-2" />}
-            Publish to BookStack
+            Publish
           </Button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LEFT PANE: Steps & Properties */}
-        <aside className="w-[350px] border-r flex flex-col bg-slate-50/50">
-          <Tabs defaultValue="steps" className="flex-1 flex flex-col">
+        {/* LEFT PANE: Steps & Connections */}
+        <aside className="w-[380px] border-r flex flex-col bg-slate-50/50">
+          <Tabs defaultValue="nodes" className="flex-1 flex flex-col">
             <div className="px-4 border-b bg-white shrink-0">
               <TabsList className="h-12 bg-transparent gap-4 p-0">
-                <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">
-                  <ClipboardList className="w-3.5 h-3.5 mr-2" /> Schritte
-                </TabsTrigger>
-                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">
-                  <ShieldCheck className="w-3.5 h-3.5 mr-2" /> ISO 9001
-                </TabsTrigger>
+                <TabsTrigger value="nodes" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">Schritte</TabsTrigger>
+                <TabsTrigger value="edges" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">Verbindungen</TabsTrigger>
+                <TabsTrigger value="compliance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase">ISO 9001</TabsTrigger>
               </TabsList>
             </div>
 
             <ScrollArea className="flex-1">
-              <TabsContent value="steps" className="m-0 p-4 space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[9px] font-black uppercase text-slate-400">Arbeitshilfe</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+              <TabsContent value="nodes" className="m-0 p-4 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `step-${Date.now()}`, type: 'step', title: 'Neuer Schritt' } } }])}>+ Schritt</Button>
+                  <Button variant="outline" size="sm" className="flex-1 text-[8px] font-bold uppercase h-7 rounded-none" onClick={() => handleApplyOps([{ type: 'ADD_NODE', payload: { node: { id: `dec-${Date.now()}`, type: 'decision', title: 'Entscheidung?' } } }])}>+ Verzweigung</Button>
                 </div>
 
                 <div className="space-y-2">
@@ -288,7 +314,7 @@ export default function ProcessDesignerPage() {
                       key={node.id} 
                       className={cn(
                         "p-3 bg-white border transition-all cursor-pointer group relative",
-                        selectedNodeId === node.id ? "border-primary ring-1 ring-primary/20 shadow-md" : "border-slate-200 hover:border-slate-300"
+                        selectedNodeId === node.id ? "border-primary ring-1 ring-primary/20" : "border-slate-200 hover:border-slate-300"
                       )}
                       onClick={() => setSelectedNodeId(node.id)}
                     >
@@ -299,44 +325,71 @@ export default function ProcessDesignerPage() {
                         </Button>
                       </div>
                       <div className="font-bold text-xs">{node.title}</div>
-                      {node.roleId && <div className="text-[8px] font-black uppercase text-primary mt-1">{node.roleId}</div>}
                     </div>
                   ))}
                 </div>
 
                 {selectedNode && (
-                  <div className="mt-8 pt-6 border-t space-y-4 animate-in slide-in-from-left-2 duration-300">
-                    <div className="flex items-center gap-2 text-primary">
-                      <Edit3 className="w-4 h-4" />
-                      <h3 className="text-[10px] font-black uppercase tracking-widest">Schritt editieren</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
-                        <Input value={selectedNode.title} onChange={e => updateNodeField(selectedNode.id, 'title', e.target.value)} className="h-8 text-xs rounded-none" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold uppercase">Verantwortliche Rolle</Label>
-                        <Input value={selectedNode.roleId || ''} onChange={e => updateNodeField(selectedNode.id, 'roleId', e.target.value)} placeholder="z.B. IT-Admin" className="h-8 text-xs rounded-none" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
-                        <Textarea value={selectedNode.description || ''} onChange={e => updateNodeField(selectedNode.id, 'description', e.target.value)} className="text-xs rounded-none min-h-[100px]" />
-                      </div>
+                  <div className="mt-6 pt-6 border-t space-y-4 animate-in slide-in-from-left-2">
+                    <h3 className="text-[10px] font-black uppercase text-primary">Schritt Details</h3>
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-bold uppercase">Bezeichnung</Label>
+                      <Input value={selectedNode.title} onChange={e => updateNodeField(selectedNode.id, 'title', e.target.value)} className="h-8 text-xs rounded-none" />
+                      <Label className="text-[9px] font-bold uppercase">Rolle</Label>
+                      <Input value={selectedNode.roleId || ''} onChange={e => updateNodeField(selectedNode.id, 'roleId', e.target.value)} placeholder="Verantwortlich..." className="h-8 text-xs rounded-none" />
+                      <Label className="text-[9px] font-bold uppercase">Beschreibung</Label>
+                      <Textarea value={selectedNode.description || ''} onChange={e => updateNodeField(selectedNode.id, 'description', e.target.value)} className="text-xs rounded-none min-h-[80px]" />
                     </div>
                   </div>
                 )}
               </TabsContent>
 
+              <TabsContent value="edges" className="m-0 p-4 space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-4">
+                  <h4 className="text-[10px] font-black uppercase text-blue-700">Neue Verbindung</h4>
+                  <div className="space-y-2">
+                    <Label className="text-[9px] font-bold uppercase">Von: {selectedNode?.title || 'Bitte Schritt wählen'}</Label>
+                    <Select value={newEdgeTargetId} onValueChange={setNewEdgeTargetId}>
+                      <SelectTrigger className="h-8 text-[10px] rounded-none"><SelectValue placeholder="Ziel wählen..." /></SelectTrigger>
+                      <SelectContent className="rounded-none">
+                        {currentVersion.model_json.nodes.filter(n => n.id !== selectedNodeId).map(n => (
+                          <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Label (z.B. Ja / Nein)" value={newEdgeLabel} onChange={e => setNewEdgeLabel(e.target.value)} className="h-8 text-xs rounded-none" />
+                    <Button onClick={handleAddEdge} disabled={!selectedNodeId || !newEdgeTargetId} className="w-full h-8 text-[9px] font-bold uppercase rounded-none">Verknüpfen</Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400">Aktive Verbindungen</h4>
+                  {(currentVersion.model_json.edges || []).map((edge: ProcessEdge) => {
+                    const source = currentVersion.model_json.nodes.find(n => n.id === edge.source);
+                    const target = currentVersion.model_json.nodes.find(n => n.id === edge.target);
+                    return (
+                      <div key={edge.id} className="p-2 border bg-white flex items-center justify-between group">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold truncate">{source?.title} → {target?.title}</p>
+                          {edge.label && <Badge variant="outline" className="text-[7px] h-3.5 rounded-none">{edge.label}</Badge>}
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+
               <TabsContent value="compliance" className="m-0 p-4 space-y-6">
-                <div className="p-4 bg-blue-50 border border-blue-100 rounded-none space-y-2">
-                  <h4 className="text-[10px] font-black uppercase text-blue-700">ISO 9001:2015 Konformität</h4>
-                  <p className="text-[9px] leading-relaxed text-blue-900">Definieren Sie Inputs, Outputs und Risiken für den Gesamtprozess.</p>
+                <div className="p-4 bg-slate-100 border rounded-none space-y-2">
+                  <h4 className="text-[10px] font-black uppercase text-slate-700">ISO 9001:2015 Konformität</h4>
+                  <p className="text-[9px] leading-relaxed text-slate-500">Definieren Sie Inputs, Outputs und Risiken für den Gesamtprozess.</p>
                 </div>
                 {['inputs', 'outputs', 'risks', 'evidence'].map(field => (
                   <div key={field} className="space-y-1.5">
                     <Label className="text-[10px] font-bold uppercase text-slate-500">{field}</Label>
                     <Textarea 
+                      defaultValue={currentVersion.model_json.isoFields?.[field] || ''}
                       placeholder={`Ermittelte ${field}...`}
                       className="text-xs rounded-none min-h-[80px]"
                       onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field, value: e.target.value } }])}
@@ -361,57 +414,37 @@ export default function ProcessDesignerPage() {
         <aside className="w-[350px] border-l flex flex-col bg-white">
           <div className="p-4 border-b bg-slate-900 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-primary/20 flex items-center justify-center rounded-sm">
-                <Zap className="w-4 h-4 text-primary fill-current" />
-              </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest block">AI Co-Pilot</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Vibecoding Enabled</span>
-              </div>
+              <Zap className="w-4 h-4 text-primary fill-current" />
+              <span className="text-[10px] font-black uppercase tracking-widest block">AI Co-Pilot</span>
             </div>
-            <Badge className="bg-blue-600 rounded-none text-[8px] font-black border-none h-4">REALTIME</Badge>
+            <Badge className="bg-blue-600 rounded-none text-[8px] font-black h-4">VIBECODING</Badge>
           </div>
 
           <ScrollArea className="flex-1 p-4 bg-slate-50/30">
             <div className="space-y-6">
               {aiSuggestions ? (
-                <div className="animate-in slide-in-from-bottom-2 duration-300">
+                <div className="animate-in slide-in-from-bottom-2">
                   <div className="p-4 bg-white border-2 border-blue-600 rounded-none shadow-xl space-y-4">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <Sparkles className="w-4 h-4" />
-                      <span className="text-[10px] font-black uppercase">Vorschlag der KI</span>
-                    </div>
-                    <Separator />
                     <p className="text-[11px] italic text-slate-700 leading-relaxed">"{aiSuggestions.explanation}"</p>
-                    
-                    <div className="space-y-2">
-                      <p className="text-[8px] font-black uppercase text-slate-400">Änderungen ({aiSuggestions.proposedOps.length})</p>
-                      <div className="max-h-32 overflow-y-auto space-y-1">
-                        {aiSuggestions.proposedOps.map((op, i) => (
-                          <div key={i} className="text-[9px] p-1 bg-slate-50 border flex items-center gap-2">
-                            <ArrowRight className="w-2.5 h-2.5 text-blue-500" />
-                            <span className="font-bold text-slate-600">{op.type}:</span>
-                            <span className="truncate">{op.payload.node?.title || op.payload.nodeId || 'Layout Update'}</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {aiSuggestions.proposedOps.map((op, i) => (
+                        <div key={i} className="text-[9px] p-1 bg-slate-50 border flex items-center gap-2">
+                          <ArrowRight className="w-2.5 h-2.5 text-blue-500" />
+                          <span className="font-bold text-slate-600">{op.type}:</span>
+                          <span className="truncate">{op.payload.node?.title || op.payload.edge?.label || op.payload.nodeId || 'Layout Update'}</span>
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase shadow-lg">
-                        Übernehmen
-                      </Button>
-                      <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 w-9 p-0 rounded-none">
-                        <X className="w-4 h-4" />
-                      </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={() => handleApplyOps(aiSuggestions.proposedOps)} disabled={isApplying} className="flex-1 h-9 rounded-none bg-blue-600 hover:bg-blue-700 text-[10px] font-black uppercase">Übernehmen</Button>
+                      <Button variant="outline" onClick={() => setAiSuggestions(null)} className="h-9 w-9 p-0 rounded-none"><X className="w-4 h-4" /></Button>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="text-center py-20 opacity-20">
                   <MessageSquare className="w-12 h-12 mx-auto mb-4" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Starten Sie das Modellieren...</p>
-                  <p className="text-[8px] mt-2 px-8">"Erstelle einen Prozess für die Passwort-Rücksetzung"</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest px-8">Beschreiben Sie Prozess-Änderungen oder Verzweigungen...</p>
                 </div>
               )}
             </div>
@@ -420,14 +453,14 @@ export default function ProcessDesignerPage() {
           <div className="p-4 border-t bg-white">
             <div className="flex gap-2">
               <Input 
-                placeholder="Anweisung an die KI..." 
+                placeholder="Anweisung..." 
                 value={chatMessage}
                 onChange={e => setChatMessage(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAiChat()}
                 className="h-11 rounded-none border-2 text-xs focus:border-slate-900 transition-all"
                 disabled={isAiLoading}
               />
-              <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900 shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+              <Button size="icon" className="h-11 w-11 shrink-0 rounded-none bg-slate-900" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
                 {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
             </div>

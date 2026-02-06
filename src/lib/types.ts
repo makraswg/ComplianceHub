@@ -92,6 +92,7 @@ export interface ProcessModel {
   nodes: ProcessNode[];
   edges: ProcessEdge[];
   roles: { id: string; name: string }[];
+  isoFields?: Record<string, string>;
 }
 
 export interface ProcessLayout {
@@ -151,7 +152,6 @@ export interface BookStackConfig {
   default_book_id?: string;
 }
 
-// Rest of existing types...
 export interface DataSubjectGroup {
   id: string;
   tenantId: string;
