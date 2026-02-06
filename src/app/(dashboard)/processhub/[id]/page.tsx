@@ -149,7 +149,7 @@ export default function ProcessDesignerPage() {
   }, [currentProcess?.id]);
 
   useEffect(() => {
-    if (selectedNode && localNodeEdits.id !== selectedNode.id) {
+    if (selectedNode) {
       setLocalNodeEdits({
         id: selectedNode.id,
         title: selectedNode.title || '',
@@ -333,9 +333,9 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
               </TabsList>
             </div>
-            <div className="flex-1 min-h-0 flex flex-col select-auto">
+            <div className="flex-1 min-h-0 flex flex-col select-auto overflow-hidden">
               <ScrollArea className="flex-1">
-                <TabsContent value="meta" className="m-0 p-6 space-y-10">
+                <TabsContent value="meta" className="m-0 p-6 space-y-10 pb-20">
                   <div className="space-y-6">
                     <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-1">Allgemein</h3>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase">Name</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="rounded-none font-bold h-10" /></div>

@@ -60,7 +60,37 @@ WICHTIGE REGELN:
 3. Nutze für Knoten-IDs ein 250px Raster.
 
 ANTWORT-FORMAT:
-Liefere IMMER ein valides JSON-Objekt zurück.`;
+Du MUSST ein valides JSON-Objekt zurückgeben. Antworte NIEMALS mit normalem Text außerhalb des JSON.`;
+
+/**
+ * Extrahiert JSON aus einem String, auch wenn dieser Markdown-Wrapper enthält.
+ */
+function extractJson(text: string): any {
+  try {
+    // 1. Direkter Parse
+    return JSON.parse(text);
+  } catch (e) {
+    // 2. Suche nach ```json ... ``` oder ``` ... ```
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match && match[1]) {
+      try {
+        return JSON.parse(match[1]);
+      } catch (e2) {
+        // 3. Suche nach der ersten { und letzten }
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          try {
+            return JSON.parse(text.substring(start, end + 1));
+          } catch (e3) {
+            throw new Error("JSON parsing failed even after extraction attempts.");
+          }
+        }
+      }
+    }
+    throw e;
+  }
+}
 
 function normalizeOps(rawOps: any[]): any[] {
   if (!Array.isArray(rawOps)) return [];
@@ -101,7 +131,6 @@ const processDesignerFlow = ai.defineFlow(
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     const historyString = (input.chatHistory || []).map(h => `${h.role}: ${h.text}`).join('\n');
     
-    // Zähle Nutzer-Nachrichten, um Phase 1 zu erzwingen
     const userMessageCount = (input.chatHistory || []).filter(h => h.role === 'user').length;
     const patienceInstruction = userMessageCount < 5 
       ? "HINWEIS: Du bist in Phase 1. Stelle nur Fragen. Schlage noch KEINE ADD_NODE/UPDATE_NODE Operationen vor, außer UPDATE_PROCESS_META für die Fragenliste."
@@ -122,22 +151,28 @@ AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
 
 Bitte antworte im JSON-Format. Pflege die 'openQuestions' im Stammblatt mit UPDATE_PROCESS_META.`;
 
-    if (config?.provider === 'openrouter') {
-      const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });
-      const response = await client.chat.completions.create({
-        model: config.openrouterModel || 'google/gemini-2.0-flash-001',
-        messages: [{ role: 'system', content: systemPromptPopulated }, { role: 'user', content: prompt }],
-        response_format: { type: 'json_object' }
-      });
-      return normalizeOutput(JSON.parse(response.choices[0].message.content || '{}'));
+    try {
+      if (config?.provider === 'openrouter') {
+        const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });
+        const response = await client.chat.completions.create({
+          model: config.openrouterModel || 'google/gemini-2.0-flash-001',
+          messages: [{ role: 'system', content: systemPromptPopulated }, { role: 'user', content: prompt }],
+          response_format: { type: 'json_object' }
+        });
+        const content = response.choices[0].message.content || '{}';
+        return normalizeOutput(extractJson(content));
+      }
+
+      const modelIdentifier = config?.provider === 'ollama' 
+        ? `ollama/${config.ollamaModel || 'llama3'}` 
+        : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
+
+      const { output } = await ai.generate({ model: modelIdentifier, system: systemPromptPopulated, prompt, output: { schema: ProcessDesignerOutputSchema } });
+      return normalizeOutput(output || {});
+    } catch (e: any) {
+      console.error("AI Flow Execution Error:", e);
+      throw e;
     }
-
-    const modelIdentifier = config?.provider === 'ollama' 
-      ? `ollama/${config.ollamaModel || 'llama3'}` 
-      : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
-
-    const { output } = await ai.generate({ model: modelIdentifier, system: systemPromptPopulated, prompt, output: { schema: ProcessDesignerOutputSchema } });
-    return normalizeOutput(output || {});
   }
 );
 
@@ -145,6 +180,7 @@ export async function getProcessSuggestions(input: any): Promise<ProcessDesigner
   try {
     return await processDesignerFlow(input);
   } catch (error: any) {
-    return { proposedOps: [], explanation: "Entschuldigung, ich hatte ein technisches Problem. Können wir den letzten Punkt nochmal besprechen?", openQuestions: ["Was genau passiert in diesem Schritt?"] };
+    console.error("Public Wrapper Error:", error);
+    return { proposedOps: [], explanation: "Entschuldigung, ich hatte ein technisches Problem bei der Analyse. Können wir den letzten Punkt nochmal besprechen?", openQuestions: ["Was genau passiert in diesem Schritt?"] };
   }
 }
