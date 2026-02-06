@@ -76,7 +76,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    // Horizontales Fallback-Layout falls keine Position vorhanden
     const defaultX = 50 + (idx * 220);
     const defaultY = 150;
     const pos = positions[node.id] || { x: defaultX, y: defaultY };
@@ -130,19 +129,9 @@ export default function ProcessDesignerPage() {
   const [isApplying, setIsApplying] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   
-  // Selection & Form State
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [localNodeEdits, setLocalNodeEdits] = useState<{
-    id: string, 
-    title: string, 
-    roleId: string, 
-    description: string,
-    checklist: string,
-    tips: string,
-    errors: string
-  }>({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
+  const [localNodeEdits, setLocalNodeEdits] = useState({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
 
-  // New Edge State
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
 
@@ -152,14 +141,21 @@ export default function ProcessDesignerPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
-  // Sync Local Form State when selected node changes
   const selectedNode = useMemo(() => 
     currentVersion?.model_json?.nodes?.find((n: any) => n.id === selectedNodeId), 
     [currentVersion, selectedNodeId]
   );
 
+  // Stabilisierter Sync für lokale Formularfelder
   useEffect(() => {
-    if (selectedNode && localNodeEdits.id !== selectedNode.id) {
+    if (!selectedNode) {
+      if (localNodeEdits.id !== '') {
+        setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
+      }
+      return;
+    }
+
+    if (localNodeEdits.id !== selectedNode.id) {
       setLocalNodeEdits({
         id: selectedNode.id,
         title: selectedNode.title || '',
@@ -169,16 +165,13 @@ export default function ProcessDesignerPage() {
         tips: selectedNode.tips || '',
         errors: selectedNode.errors || ''
       });
-    } else if (!selectedNode && localNodeEdits.id !== '') {
-      setLocalNodeEdits({ id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '' });
     }
-  }, [selectedNode, localNodeEdits.id]);
+  }, [selectedNode?.id]); // Minimale Abhängigkeiten verhindern useEffect-Fehler
 
   useEffect(() => { 
     setMounted(true); 
   }, []);
 
-  // Listen for diagrams.net init
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
     const handleMessage = (evt: MessageEvent) => {
@@ -200,13 +193,12 @@ export default function ProcessDesignerPage() {
       xml: xml,
       autosave: 1
     }), '*');
-    // Zoom to fit
     setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*');
     }, 500);
   };
 
-  const handleApplyOps = async (ops: any[], historyIndex?: number) => {
+  const handleApplyOps = async (ops: any[]) => {
     if (!currentVersion || !user || !ops.length) return;
     setIsApplying(true);
     try {
@@ -231,7 +223,7 @@ export default function ProcessDesignerPage() {
 
   const saveNodeUpdate = async (field: string) => {
     if (!selectedNodeId) return;
-    const value = localNodeEdits[field as keyof typeof localNodeEdits];
+    const value = (localNodeEdits as any)[field];
     const serverVal = selectedNode ? (field === 'checklist' ? (selectedNode.checklist || []).join('\n') : (selectedNode as any)[field] || '') : '';
     if (value === serverVal) return;
 
@@ -247,9 +239,6 @@ export default function ProcessDesignerPage() {
 
   const handleQuickAdd = (type: 'step' | 'decision') => {
     const newId = `${type}-${Date.now()}`;
-    const currentNodesCount = currentVersion?.model_json?.nodes?.length || 0;
-    const newX = 50 + (currentNodesCount * 220);
-
     const ops = [
       {
         type: 'ADD_NODE',
@@ -264,10 +253,6 @@ export default function ProcessDesignerPage() {
             errors: ''
           } 
         }
-      },
-      {
-        type: 'UPDATE_LAYOUT',
-        payload: { positions: { [newId]: { x: newX, y: 150 } } }
       }
     ];
     handleApplyOps(ops);
@@ -437,7 +422,6 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* LINKS: PROZESS-STRUKTUR */}
         <aside className="w-[450px] border-r flex flex-col bg-white shrink-0 overflow-hidden shadow-sm">
           <Tabs defaultValue="instructions" className="flex-1 flex flex-col min-h-0">
             <div className="px-4 border-b bg-slate-50 shrink-0">
@@ -508,7 +492,6 @@ export default function ProcessDesignerPage() {
                             </Button>
                           </div>
 
-                          {/* INLINE EDITOR BEI SELEKTION */}
                           {selectedNodeId === node.id && (
                             <div className="p-5 bg-slate-50 border-x border-b border-primary/20 space-y-6 animate-in slide-in-from-top-2 duration-300">
                               <div className="space-y-1.5">
@@ -641,7 +624,6 @@ export default function ProcessDesignerPage() {
           </Tabs>
         </aside>
 
-        {/* MITTE: GRAFISCHER DESIGNER */}
         <main className="flex-1 relative bg-slate-100 flex flex-col p-6 overflow-hidden">
           <div className="absolute top-10 right-10 z-10 flex flex-col gap-2">
              <div className="bg-white/95 backdrop-blur shadow-2xl border border-slate-200 p-1.5 rounded-none flex flex-col gap-1.5">
@@ -671,7 +653,6 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
 
-        {/* RECHTS: KI ASSISTENT */}
         <aside className="w-[400px] border-l flex flex-col bg-white shrink-0 overflow-hidden shadow-2xl z-30">
           <div className="p-5 border-b bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
@@ -747,7 +728,7 @@ export default function ProcessDesignerPage() {
 
                           <div className="flex gap-2 pt-2">
                             <Button 
-                              onClick={() => handleApplyOps(msg.suggestions, i)} 
+                              onClick={() => handleApplyOps(msg.suggestions)} 
                               disabled={isApplying} 
                               className="flex-1 h-11 rounded-none bg-primary hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg gap-2"
                             >

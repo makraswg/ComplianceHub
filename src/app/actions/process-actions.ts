@@ -16,11 +16,10 @@ import {
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler.
  */
-function ensureUniqueId(requestedId: string, existingNodes: ProcessNode[]): string {
+function ensureUniqueId(requestedId: string, usedIds: Set<string>): string {
   let finalId = requestedId;
   let counter = 1;
-  // Wir prüfen, ob die ID bereits existiert
-  while (existingNodes.some(n => n.id === finalId)) {
+  while (usedIds.has(finalId)) {
     finalId = `${requestedId}-${counter}`;
     counter++;
   }
@@ -101,14 +100,16 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
 
-  // Wir tracken ID-Änderungen innerhalb dieses Batches, um Referenzen zu korrigieren
+  // Wir tracken IDs, um auch Duplikate INNERHALB eines Batches zu verhindern
+  const usedIds = new Set((model.nodes || []).map((n: any) => n.id));
   const idMap: Record<string, string> = {};
 
-  // 1. Pass: IDs korrigieren und Mappen
+  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
-      const uniqueId = ensureUniqueId(originalId, model.nodes || []);
+      const uniqueId = ensureUniqueId(originalId, usedIds);
+      usedIds.add(uniqueId); // Sofort als benutzt markieren
       if (uniqueId !== originalId) {
         idMap[originalId] = uniqueId;
       }
@@ -177,7 +178,6 @@ export async function applyProcessOpsAction(
         if (!layout.positions) layout.positions = {};
         if (!op.payload?.positions) break;
         
-        // Auch hier IDs mappen
         const newPos: Record<string, any> = {};
         Object.entries(op.payload.positions).forEach(([id, pos]) => {
           newPos[idMap[id] || id] = pos;
@@ -196,7 +196,7 @@ export async function applyProcessOpsAction(
       case 'REORDER_NODES':
         const { orderedNodeIds } = op.payload || {};
         if (Array.isArray(orderedNodeIds)) {
-          const mappedOrderedIds = orderedNodeIds.map(id => idMap[id] || id);
+          const mappedOrderedIds = orderedNodeIds.map((id: string) => idMap[id] || id);
           const newNodes: ProcessNode[] = [];
           mappedOrderedIds.forEach((id: string) => {
             const node = model.nodes.find((n: any) => n.id === id);
