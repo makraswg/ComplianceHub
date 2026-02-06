@@ -67,7 +67,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Card } from '@/components/ui/card';
 
 /**
- * Generiert MXGraph XML aus dem semantischen Modell.
+ * Generiert MXGraph XML aus dem semantischen Modell mit verbessertem Layout-Handling.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -76,8 +76,14 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const edges = model.edges || [];
   const positions = layout.positions || {};
 
-  nodes.forEach(node => {
-    const pos = positions[node.id] || { x: 100, y: 100 };
+  nodes.forEach((node, idx) => {
+    // Robustes Fallback-Layout: Wenn keine Position da ist, ordnen wir horizontal an.
+    // 50px Start + (Index * 220px Abstand). 220px = 160px Breite + 60px Lücke.
+    const defaultX = 50 + (idx * 220);
+    const defaultY = 150;
+    
+    const pos = positions[node.id] || { x: defaultX, y: defaultY };
+    
     let style = '';
     let w = 160, h = 80;
 
@@ -205,6 +211,11 @@ export default function ProcessDesignerPage() {
       xml: xml,
       autosave: 1
     }), '*');
+    
+    // Nach dem Laden Zoom anpassen
+    setTimeout(() => {
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*');
+    }, 500);
   };
 
   const handleApplyOps = async (ops: any[]) => {
@@ -251,6 +262,10 @@ export default function ProcessDesignerPage() {
 
   const handleQuickAdd = (type: 'step' | 'decision') => {
     const newId = `${type}-${Date.now()}`;
+    // Wir berechnen eine Position basierend auf der aktuellen Knotenanzahl
+    const currentNodesCount = currentVersion?.model_json?.nodes?.length || 0;
+    const newX = 50 + (currentNodesCount * 220);
+
     const ops = [
       {
         type: 'ADD_NODE',
@@ -268,7 +283,7 @@ export default function ProcessDesignerPage() {
       },
       {
         type: 'UPDATE_LAYOUT',
-        payload: { positions: { [newId]: { x: 300, y: 100 } } }
+        payload: { positions: { [newId]: { x: newX, y: 150 } } }
       }
     ];
     handleApplyOps(ops);
