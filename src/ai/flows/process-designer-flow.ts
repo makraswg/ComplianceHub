@@ -1,16 +1,15 @@
 'use server';
 /**
- * @fileOverview AI Flow for Process Content Engineering (Expert BPMN Architect).
+ * @fileOverview AI Flow for Pragmatic Process Engineering.
  * 
- * Geduldiger Business-Analyst Flow:
- * - Stellt mindestens 5 gezielte Fragen, bevor strukturelle Änderungen vorgeschlagen werden.
- * - Nutzt einfache Sprache im Chat, aber professionelle Sprache für das Modell.
- * - Berücksichtigt das Feld 'openQuestions' im Stammblatt als Gedächtnis.
- * - Nutzt die Chathistorie aktiv zur Vermeidung von Wiederholungen.
+ * Pragmatischer Business-Analyst Flow:
+ * - Liefert sofort Entwürfe, sobald eine Beschreibung vorliegt.
+ * - Nutzt 'openQuestions' im Stammblatt als To-Do Liste für Unklarheiten.
+ * - Mappt Halluzinationen (wie EXTENDMODEL) automatisch auf valide Ops.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'kit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
@@ -18,7 +17,7 @@ import OpenAI from 'openai';
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
-  openQuestions: z.string().nullable().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
+  openQuestions: z.string().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'ai']),
     text: z.string()
@@ -40,29 +39,22 @@ const ProcessDesignerOutputSchema = z.object({
 
 export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 
-const SYSTEM_PROMPT = `Du bist ein erfahrener Prozess-Analyst und ISO 9001:2015 Experte.
-Deine Aufgabe ist es, einen realen Geschäftsprozess zu verstehen und professionell zu modellieren.
+const SYSTEM_PROMPT = `Du bist ein pragmatischer Prozess-Analyst und ISO 9001:2015 Experte.
+Deine Aufgabe ist es, einen Geschäftsprozess schnell zu erfassen und professionell zu modellieren.
 
-DEIN GEDÄCHTNIS (EXTREM WICHTIG):
-1. Prüfe UNBEDINGT den bisherigen CHAT-VERLAUF.
-2. Beachte die Liste der bereits OFFENEN FRAGEN im Stammblatt: {{{openQuestions}}}.
-3. Wiederhole NIEMALS Fragen, die bereits im Stammblatt stehen oder im Chat beantwortet wurden.
-4. Falls der Nutzer eine Frage beantwortet hat, entferne sie aus der Liste der offenen Fragen via UPDATE_PROCESS_META.
+PRAGMATISMUS-REGELN:
+1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen ersten Entwurf (ADD_NODE, ADD_EDGE).
+2. Sei nicht pedantisch. Fehlende Informationen hinder dich nicht am Modellieren.
+3. Alles, was unklar ist, formulierst du als Frage und schlägst ein UPDATE_PROCESS_META { openQuestions: "..." } vor.
+4. Nutze einfache Sprache im Chat, aber Fachsprache im Modell.
 
-PHASE 1: VERSTEHEN (DIE ERSTEN 5-7 NACHRICHTEN)
-- Sei geduldig. Schlage KEINE Änderungen am Diagramm vor (proposedOps leer lassen).
-- Stelle immer nur 1-2 gezielte Fragen zum IST-Zustand.
-- Nutze einfache, klare Sprache im Chat (kein Fachchinesisch).
-- Aktualisiere die 'openQuestions' im Stammblatt via UPDATE_PROCESS_META { openQuestions: "..." }, um den Fortschritt festzuhalten. Join die Fragen mit Zeilenumbrüchen.
+RECHTSCHREIBUNG FÜR OPS:
+- Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL'.
+- Nutze atomare Befehle: ADD_NODE für jeden Schritt, ADD_EDGE für jede Verbindung.
 
-PHASE 2: MODELLIEREN (ERST WENN DER PROZESS KLAR IST)
-- Erzeuge hochprofessionelle Inhalte für das Modell (Titel, Anweisungen, ISO-Felder).
-- Nutze atomare 'proposedOps' (ADD_NODE, ADD_EDGE, etc.).
-- Erfinde KEINE eigenen Typen wie 'EXTENDMODEL'. Nutze ADD_NODE für jeden neuen Schritt einzeln.
-
-WICHTIGE REGELN:
-1. Antworte IMMER im JSON-Format.
-2. Wenn du Fragen stellst, schlage IMMER ein UPDATE_PROCESS_META vor, damit die Fragen im Stammblatt erscheinen.
+DEIN GEDÄCHTNIS:
+- Prüfe den CHAT-VERLAUF und die OFFENEN FRAGEN: {{{openQuestions}}}.
+- Wiederhole niemals bereits beantwortete Fragen.
 
 ANTWORT-FORMAT (STRENGES JSON):
 {
@@ -72,83 +64,56 @@ ANTWORT-FORMAT (STRENGES JSON):
 }`;
 
 /**
- * Robuste JSON-Extraktion für KI-Antworten.
+ * Hilfsfunktion zum Bereinigen und Normalisieren der KI-Antwort.
  */
-function extractJson(text: string): any {
-  if (!text) throw new Error("Keine Antwort von der KI erhalten.");
+function normalizeAiResponse(text: string): any {
+  if (!text) return { proposedOps: [], explanation: "Keine Antwort erhalten.", openQuestions: [] };
   
-  try {
-    return JSON.parse(text.trim());
-  } catch (e) {
-    const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (markdownMatch && markdownMatch[1]) {
-      try {
-        return JSON.parse(markdownMatch[1].trim());
-      } catch (e2) {}
-    }
-
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      const candidate = text.substring(firstBrace, lastBrace + 1);
-      try {
-        return JSON.parse(candidate);
-      } catch (e3) {
-        throw new Error("Die KI-Antwort konnte nicht als JSON verarbeitet werden.");
-      }
-    }
-    throw new Error("Die KI hat kein gültiges Ergebnis geliefert.");
+  let jsonText = text.trim();
+  const firstBrace = jsonText.indexOf('{');
+  const lastBrace = jsonText.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    jsonText = jsonText.substring(firstBrace, lastBrace + 1);
   }
-}
 
-/**
- * Mappt halluzinierte Operationen auf valide Typen um.
- */
-function normalizeOps(rawOps: any[]): any[] {
-  if (!Array.isArray(rawOps)) return [];
-  const normalized: any[] = [];
+  try {
+    const raw = JSON.parse(jsonText);
+    const normalized: ProcessDesignerOutput = {
+      proposedOps: [],
+      explanation: raw.explanation || raw.message || "Entwurf erstellt.",
+      openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : (Array.isArray(raw.questions) ? raw.questions : [])
+    };
 
-  rawOps.forEach(op => {
-    const type = String(op.type || op.action || '').toUpperCase();
-    
-    // Fix für häufige Halluzinationen
-    if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
-      const nodes = op.payload?.nodes || [];
-      const edges = op.payload?.edges || [];
-      const isoFields = op.payload?.isoFields || {};
+    // Mapping von Halluzinationen (z.B. EXTENDMODEL)
+    const rawOps = raw.proposedOps || raw.ops || [];
+    rawOps.forEach((op: any) => {
+      const type = String(op.type || op.action || '').toUpperCase();
       
-      nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
-      edges.forEach((e: any) => normalized.push({ 
-        type: 'ADD_EDGE', 
-        payload: { 
-          edge: { 
-            id: e.id || `edge-${Math.random().toString(36).substring(2, 7)}`,
-            source: e.source || e.from,
-            target: e.target || e.to,
-            label: e.label || e.condition || ''
-          } 
-        } 
-      }));
-      if (Object.keys(isoFields).length > 0) {
-        normalized.push({ type: 'SET_ISO_FIELD', payload: { isoFields } });
+      if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
+        const payload = op.payload || {};
+        if (Array.isArray(payload.nodes)) {
+          payload.nodes.forEach((n: any) => normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } }));
+        }
+        if (Array.isArray(payload.edges)) {
+          payload.edges.forEach((e: any) => normalized.proposedOps.push({ 
+            type: 'ADD_EDGE', 
+            payload: { edge: { id: e.id || `e-${Math.random().toString(36).substring(2,7)}`, source: e.source || e.from, target: e.target || e.to, label: e.label || '' } } 
+          }));
+        }
+        if (payload.isoFields) {
+          normalized.proposedOps.push({ type: 'SET_ISO_FIELD', payload: { isoFields: payload.isoFields } });
+        }
+      } else {
+        normalized.proposedOps.push({ type: type as any, payload: op.payload || op });
       }
-    } else {
-      normalized.push({
-        type: type as any,
-        payload: op.payload || op
-      });
-    }
-  });
+    });
 
-  return normalized.filter(op => !!op.type);
-}
-
-function normalizeOutput(raw: any): ProcessDesignerOutput {
-  return {
-    proposedOps: normalizeOps(raw.proposedOps || raw.ops || []),
-    explanation: raw.explanation || raw.message || "Ich benötige noch weitere Informationen, um den Prozess präzise abzubilden.",
-    openQuestions: Array.isArray(raw.openQuestions) ? raw.openQuestions : (Array.isArray(raw.questions) ? raw.questions : [])
-  };
+    return normalized;
+  } catch (e) {
+    console.error("JSON Parse Error in AI Response:", e, text);
+    throw new Error("Ungültiges Format von der KI erhalten.");
+  }
 }
 
 const processDesignerFlow = ai.defineFlow(
@@ -160,71 +125,56 @@ const processDesignerFlow = ai.defineFlow(
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     const historyString = (input.chatHistory || []).map(h => `${h.role === 'user' ? 'Nutzer' : 'Assistent'}: ${h.text}`).join('\n');
-    
-    const userMessageCount = (input.chatHistory || []).filter(h => h.role === 'user').length;
-    const patienceInstruction = userMessageCount < 5 
-      ? "HINWEIS: Du bist in Phase 1 (Verstehen). Stelle nur Fragen. Nutze UPDATE_PROCESS_META nur für die Fragenliste im Stammblatt. Noch keine ADD_NODE Operationen."
-      : "HINWEIS: Du bist in Phase 2 (Modellieren). Du kannst nun strukturelle Änderungen vorschlagen (atomare ADD_NODE Befehle).";
-
     const openQuestionsStr = input.openQuestions || "Keine offenen Fragen dokumentiert.";
     const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{openQuestions}}}', openQuestionsStr);
 
-    const prompt = `${patienceInstruction}
-
-AKTUELLER MODELL-ZUSTAND: 
+    const prompt = `AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
 
-OFFENE FRAGEN IM STAMMBLATT (GEDÄCHTNIS):
+OFFENE FRAGEN IM STAMMBLATT:
 ${openQuestionsStr}
 
-BISHERIGER CHAT-VERLAUF (ZUM KONTEXT-VERSTÄNDNIS):
+CHAT-VERLAUF:
 ${historyString}
 
-AKTUELLE NACHRICHT VOM NUTZER: "${input.userMessage}"
+NUTZER-NACHRICHT: "${input.userMessage}"
 
-Bitte liefere ein valides JSON-Objekt zurück. Analysiere den Chatverlauf genau, um Wiederholungen zu vermeiden.`;
+Liefere ein valides JSON-Objekt. Falls der Nutzer einen Prozess beschreibt, liefere direkt die ADD_NODE Befehle.`;
 
-    try {
-      if (config?.provider === 'openrouter') {
-        const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });
-        const response = await client.chat.completions.create({
-          model: config.openrouterModel || 'google/gemini-2.0-flash-001',
-          messages: [{ role: 'system', content: systemPromptPopulated }, { role: 'user', content: prompt }],
-          response_format: { type: 'json_object' }
-        });
-        const content = response.choices[0].message.content || '{}';
-        return normalizeOutput(extractJson(content));
-      }
-
-      const modelIdentifier = config?.provider === 'ollama' 
-        ? `ollama/${config.ollamaModel || 'llama3'}` 
-        : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
-
-      const { output } = await ai.generate({ 
-        model: modelIdentifier, 
-        system: systemPromptPopulated, 
-        prompt, 
-        output: { schema: ProcessDesignerOutputSchema } 
+    if (config?.provider === 'openrouter') {
+      const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });
+      const response = await client.chat.completions.create({
+        model: config.openrouterModel || 'google/gemini-2.0-flash-001',
+        messages: [{ role: 'system', content: systemPromptPopulated }, { role: 'user', content: prompt }],
+        response_format: { type: 'json_object' }
       });
-      
-      return normalizeOutput(output || {});
-    } catch (e: any) {
-      console.error("AI Flow Execution Error:", e);
-      throw e;
+      return normalizeAiResponse(response.choices[0].message.content || '{}');
     }
+
+    const modelIdentifier = config?.provider === 'ollama' 
+      ? `ollama/${config.ollamaModel || 'llama3'}` 
+      : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
+
+    const { output } = await ai.generate({ 
+      model: modelIdentifier, 
+      system: systemPromptPopulated, 
+      prompt, 
+      output: { schema: ProcessDesignerOutputSchema } 
+    });
+    
+    return normalizeAiResponse(JSON.stringify(output));
   }
 );
 
 export async function getProcessSuggestions(input: any): Promise<ProcessDesignerOutput> {
   try {
-    // Sanitizing input for schema safety - ensure openQuestions is NEVER null
     const sanitizedInput = {
       ...input,
-      openQuestions: input.openQuestions || ""
+      openQuestions: typeof input.openQuestions === 'string' ? input.openQuestions : ""
     };
     return await processDesignerFlow(sanitizedInput);
   } catch (error: any) {
-    console.error("Public Wrapper Error:", error);
+    console.error("Process Advisor Flow Error:", error);
     return { 
       proposedOps: [], 
       explanation: `Entschuldigung, ich hatte ein technisches Problem bei der Analyse (${error.message || 'Verbindungsfehler'}). Können wir den letzten Punkt nochmal besprechen?`, 

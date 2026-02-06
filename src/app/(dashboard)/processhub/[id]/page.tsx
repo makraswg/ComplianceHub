@@ -169,20 +169,20 @@ export default function ProcessDesignerPage() {
     isResizingLeft.current = true;
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', stopResizing);
-  }, []);
+  }, [handleMouseMove]);
 
   const startResizeRight = useCallback((e: React.MouseEvent) => {
     isResizingRight.current = true;
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', stopResizing);
-  }, []);
+  }, [handleMouseMove]);
 
   const stopResizing = useCallback(() => {
     isResizingLeft.current = false;
     isResizingRight.current = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', stopResizing);
-  }, []);
+  }, [handleMouseMove]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
