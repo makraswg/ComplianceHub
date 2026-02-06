@@ -159,13 +159,10 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
-  // Focus-safe initial load of node data
   useEffect(() => {
     if (selectedNode) {
       setLocalNodeEdits(prev => {
-        // If we are already editing this node, don't overwrite from background refresh
         if (prev.id === selectedNode.id) return prev;
-        
         return {
           id: selectedNode.id,
           title: selectedNode.title || '',
@@ -183,7 +180,6 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // diagrams.net Bridge Init
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion) return;
 
@@ -255,20 +251,26 @@ export default function ProcessDesignerPage() {
 
   const handleQuickAdd = (type: 'step' | 'decision') => {
     const newId = `${type}-${Date.now()}`;
-    const ops = [{
-      type: 'ADD_NODE',
-      payload: { 
-        node: { 
-          id: newId, 
-          type, 
-          title: type === 'decision' ? 'Entscheidung?' : 'Neuer Arbeitsschritt',
-          description: '',
-          checklist: [],
-          tips: '',
-          errors: ''
-        } 
+    const ops = [
+      {
+        type: 'ADD_NODE',
+        payload: { 
+          node: { 
+            id: newId, 
+            type, 
+            title: type === 'decision' ? 'Entscheidung?' : 'Neuer Arbeitsschritt',
+            description: '',
+            checklist: [],
+            tips: '',
+            errors: ''
+          } 
+        }
+      },
+      {
+        type: 'UPDATE_LAYOUT',
+        payload: { positions: { [newId]: { x: 300, y: 100 } } }
       }
-    }];
+    ];
     handleApplyOps(ops);
     setSelectedNodeId(newId);
   };
@@ -451,7 +453,7 @@ export default function ProcessDesignerPage() {
                   <ShieldCheck className="w-3.5 h-3.5" /> ISO 9001
                 </TabsTrigger>
                 <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-2 text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                  <GitBranch className="w-3.5 h-3.5" /> Flow
+                  <GitBranch className="w-3.5 h-3.5" /> Flows
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -666,21 +668,28 @@ export default function ProcessDesignerPage() {
 
                   <div className="space-y-2">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Aktive Verbindungen</h4>
-                    {(currentVersion.model_json?.edges || []).map((edge: any) => {
-                      const source = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.source);
-                      const target = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                      return (
-                        <div key={edge.id} className="flex items-center justify-between p-2 bg-white border text-[10px] font-bold group">
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="text-slate-400">{source?.title}</span>
-                            <ArrowRight className="w-3 h-3 text-primary" />
-                            <span>{target?.title}</span>
-                            {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-slate-100 text-slate-600 border-none uppercase">{edge.label}</Badge>}
+                    <div className="grid grid-cols-1 gap-1">
+                      {(currentVersion.model_json?.edges || []).map((edge: any) => {
+                        const source = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.source);
+                        const target = currentVersion.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                        return (
+                          <div key={edge.id} className="flex items-center justify-between p-2.5 bg-white border-2 border-slate-50 text-[10px] font-bold group hover:border-blue-200 transition-colors">
+                            <div className="flex items-center gap-2 truncate flex-1">
+                              <span className="text-slate-400 truncate max-w-[80px]">{source?.title || edge.source}</span>
+                              <ArrowRight className="w-3 h-3 text-blue-500 shrink-0" />
+                              <span className="truncate max-w-[80px]">{target?.title || edge.target}</span>
+                              {edge.label && <Badge className="h-4 rounded-none text-[7px] bg-blue-100 text-blue-700 border-none uppercase px-1">{edge.label}</Badge>}
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100 rounded-none" onClick={() => handleRemoveEdge(edge.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3 h-3" /></Button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                      {(currentVersion.model_json?.edges || []).length === 0 && (
+                        <p className="text-[10px] text-muted-foreground italic text-center py-4">Keine Verbindungen definiert.</p>
+                      )}
+                    </div>
                   </div>
                 </TabsContent>
               </ScrollArea>
@@ -691,16 +700,21 @@ export default function ProcessDesignerPage() {
         <main className="flex-1 relative bg-slate-200 flex flex-col p-4 overflow-hidden">
           <div className="absolute top-8 right-8 z-10 flex flex-col gap-2">
              <div className="bg-white/90 backdrop-blur shadow-xl border p-1 rounded-none flex flex-col gap-1">
-                <TooltipProvider>
-                  {[
-                    { icon: RefreshCw, label: 'Diagramm aktualisieren', action: syncDiagramToModel },
-                    { icon: Box, label: 'Ganzseitig anzeigen', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
-                  ].map((btn, i) => (
-                    <Button key={i} variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-100" onClick={btn.action}>
-                      <btn.icon className="w-4 h-4 text-slate-600" />
-                    </Button>
-                  ))}
-                </TooltipProvider>
+                {[
+                  { icon: RefreshCw, label: 'Diagramm aktualisieren', action: syncDiagramToModel },
+                  { icon: Box, label: 'Ganzseitig anzeigen', action: () => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({action: 'zoom', type: 'fit'}), '*') }
+                ].map((btn, i) => (
+                  <TooltipProvider key={i}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none hover:bg-slate-100" onClick={btn.action}>
+                          <btn.icon className="w-4 h-4 text-slate-600" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="text-[10px] font-bold uppercase">{btn.label}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
              </div>
           </div>
           <div className="flex-1 bg-white shadow-2xl border-2 border-slate-300 relative group overflow-hidden">

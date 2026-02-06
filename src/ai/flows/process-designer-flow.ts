@@ -44,17 +44,18 @@ UNTERNEHMENS-KONTEXT:
 
 VERHALTENSREGELN:
 1. ASSISTENTEN-MODUS: Sei ein Partner. Verstehe den Prozess, indem du gezielte Fragen stellst. Stelle IMMER NUR EINE ODER ZWEI Fragen gleichzeitig.
-2. KONTEXT: Beachte den bisherigen Chat-Verlauf.
+2. KONTEXT: Beachte den bisherigen Chat-Verlauf und den aktuellen MODELL-ZUSTAND.
 3. ISO 9001 ANALYSE: Extrahiere Inputs, Outputs, Verantwortlichkeiten und Risiken. Schlage SET_ISO_FIELD Operationen vor.
 4. STRUKTUR: Erstelle BPMN-ähnliche Strukturen mit 'start', 'end', 'step' und 'decision'.
-5. OPERATIONEN: Du MUSST das exakte Schema für 'proposedOps' einhalten. 
+5. LAYOUT & LOGIK: Wenn du neue Knoten hinzufügst, musst du zwingend auch die Verbindungen (ADD_EDGE) und Positionen (UPDATE_LAYOUT) vorschlagen.
+6. POSITIONIERUNG: Nutze ein 200px Raster für das Layout (x: 100, 300, 500, 700...; y: 100). 
 
 WICHTIGE SYNTAX-REGELN:
 - Jede Operation benötigt die Felder 'type' (String) und 'payload' (Object).
 - Benutze NIEMALS 'action' anstelle von 'type'.
-- Erstelle für JEDEN neuen Knoten eine eigene 'ADD_NODE' Operation. KEINE Batch-Arrays wie 'nodes: [...]'.
-- 'payload' für 'ADD_NODE': { "node": { "id": string, "type": "step"|"decision"|"start"|"end", "title": string } }
-- 'payload' für 'SET_ISO_FIELD': { "field": "inputs"|"outputs"|"risks"|"evidence", "value": string }
+- Erstelle für JEDEN neuen Knoten eine eigene 'ADD_NODE' Operation.
+- Erstelle für JEDE Verbindung eine eigene 'ADD_EDGE' Operation (payload: { "edge": { "id": string, "source": string, "target": string, "label": string } }).
+- Erstelle eine 'UPDATE_LAYOUT' Operation für neue Knoten (payload: { "positions": { "KnotenID": { "x": number, "y": number } } }).
 
 ANTWORT-FORMAT:
 Du MUSST eine valide JSON-Antwort liefern mit exakt diesen Keys: "proposedOps", "explanation", "openQuestions".`;
@@ -72,21 +73,28 @@ function normalizeOps(rawOps: any[]): any[] {
     
     type = String(type).toUpperCase();
     
-    // Batch-Handling für 'add_nodes' oder 'nodes' Arrays
+    // Batch-Handling für 'ADD_NODES'
     if ((type === 'ADD_NODES' || type === 'ADD_NODE') && Array.isArray(op.nodes)) {
       op.nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
     } 
     else if ((type === 'ADD_NODES' || type === 'ADD_NODE') && op.payload?.nodes && Array.isArray(op.payload.nodes)) {
       op.payload.nodes.forEach((n: any) => normalized.push({ type: 'ADD_NODE', payload: { node: n } }));
     }
-    // Batch-Handling für 'add_edges' oder 'edges' Arrays
+    // Batch-Handling für 'ADD_EDGES'
     else if ((type === 'ADD_EDGES' || type === 'ADD_EDGE') && Array.isArray(op.edges)) {
       op.edges.forEach((e: any) => normalized.push({ 
         type: 'ADD_EDGE', 
         payload: { edge: { id: e.id || `e-${Math.random().toString(36).substr(2,5)}`, source: e.source || e.from, target: e.target || e.to, label: e.label || '' } } 
       }));
     }
-    // Handling für 'set_iso_fields' mit Objekt-Payload
+    else if (type === 'ADD_EDGE' && (op.from || op.payload?.from)) {
+      const e = op.payload || op;
+      normalized.push({ 
+        type: 'ADD_EDGE', 
+        payload: { edge: { id: e.id || `e-${Math.random().toString(36).substr(2,5)}`, source: e.from || e.source, target: e.to || e.target, label: e.label || '' } } 
+      });
+    }
+    // Handling für 'SET_ISO_FIELDS'
     else if ((type === 'SET_ISO_FIELDS' || type === 'SET_ISO_FIELD') && op.fields && typeof op.fields === 'object') {
       Object.entries(op.fields).forEach(([f, v]) => {
         normalized.push({ type: 'SET_ISO_FIELD', payload: { field: f, value: Array.isArray(v) ? v.join(', ') : String(v) } });
@@ -95,7 +103,7 @@ function normalizeOps(rawOps: any[]): any[] {
     // Standard-Fall
     else {
       normalized.push({
-        type: type === 'ADD_NODES' ? 'ADD_NODE' : type,
+        type: type === 'ADD_NODES' ? 'ADD_NODE' : (type === 'ADD_EDGES' ? 'ADD_EDGE' : type),
         payload: op.payload || op
       });
     }
@@ -114,14 +122,12 @@ function normalizeOutput(raw: any): ProcessDesignerOutput {
     openQuestions: []
   };
 
-  // Normalisiere Operations
   if (Array.isArray(raw.proposedOps)) {
     normalized.proposedOps = normalizeOps(raw.proposedOps);
   } else if (Array.isArray(raw.ops)) {
     normalized.proposedOps = normalizeOps(raw.ops);
   }
 
-  // Normalisiere Questions (manche Modelle nutzen 'question' oder 'questions')
   if (Array.isArray(raw.openQuestions)) {
     normalized.openQuestions = raw.openQuestions;
   } else if (raw.question && typeof raw.question === 'string') {
@@ -152,14 +158,16 @@ const processDesignerFlow = ai.defineFlow(
     const companyContext = config?.systemPrompt || "Keine spezifischen Unternehmensinformationen hinterlegt.";
     const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{companyContext}}}', companyContext);
 
-    const prompt = `CHAT-VERLAUF:
+    const prompt = `AKTUELLER MODELL-ZUSTAND (JSON): 
+${JSON.stringify(input.currentModel, null, 2)}
+
+CHAT-VERLAUF:
 ${historyString}
 
 AKTUELLE ANWEISUNG VOM NUTZER: "${input.userMessage}"
 
-MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
+Bitte antworte IMMER im validen JSON-Format. Erkläre kurz deine Änderungen und stelle eine gezielte Rückfrage zur Verfeinerung des Prozesses oder der ISO 9001 Compliance.`;
 
-    // Handling OpenRouter
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
         apiKey: config.openrouterApiKey || '',
@@ -186,7 +194,6 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
       return normalizeOutput(parsed);
     }
 
-    // Standard Genkit handling
     const modelIdentifier = config?.provider === 'ollama' 
       ? `ollama/${config.ollamaModel || 'llama3'}` 
       : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
@@ -200,7 +207,6 @@ MODELL-ZUSTAND (JSON): ${JSON.stringify(input.currentModel)}`;
 
     if (!output) throw new Error('AI lieferte keine strukturierte Antwort.');
     
-    // Auch bei Standard-Modellen normalisieren wir zur Sicherheit
     return normalizeOutput(output);
   }
 );
