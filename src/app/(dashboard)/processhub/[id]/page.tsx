@@ -351,14 +351,19 @@ export default function ProcessDesignerPage() {
                         className="rounded-none min-h-[120px] text-xs border-indigo-100 bg-indigo-50/10 focus:border-indigo-300" 
                       />
                     </div>
-
-                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-10 font-bold uppercase text-[10px] gap-2">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Stammblatt Speichern</Button>
                   </div>
                   <div className="space-y-6 pt-10 border-t">
                     <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" /><h3 className="text-[10px] font-black uppercase text-emerald-700">ISO 9001 Compliance</h3></div>
                     {[{ id: 'inputs', label: 'Inputs', icon: ArrowRight }, { id: 'outputs', label: 'Outputs', icon: Check }, { id: 'risks', label: 'Risiken', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
                       <div key={f.id} className="space-y-2"><Label className="text-[10px] font-bold uppercase flex items-center gap-2"><f.icon className="w-3.5 h-3.5 text-emerald-600" /> {f.label}</Label><Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-xs rounded-none min-h-[80px]" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} /></div>
                     ))}
+                  </div>
+                  
+                  <div className="pt-6">
+                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-none h-11 font-black uppercase text-[10px] gap-2 tracking-widest">
+                      {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
+                      Stammdaten Speichern
+                    </Button>
                   </div>
                 </TabsContent>
                 <TabsContent value="steps" className="m-0 p-5 space-y-4">
@@ -401,9 +406,9 @@ export default function ProcessDesignerPage() {
                     })}
                   </div>
                 </TabsContent>
-              </div>
-            </ScrollArea>
-          </div>
+              </ScrollArea>
+            </div>
+          </Tabs>
           <div onMouseDown={startResizeLeft} className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/30 z-30 transition-all opacity-0 group-hover/sidebar:opacity-100" />
         </aside>
 
