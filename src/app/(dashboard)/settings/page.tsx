@@ -39,7 +39,10 @@ import {
   Table as TableIcon,
   FileCheck,
   Briefcase,
-  Database as DbIcon
+  Database as DbIcon,
+  Key,
+  Globe,
+  Zap
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -49,9 +52,6 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { 
   testJiraConnectionAction, 
-  getJiraWorkspacesAction, 
-  getJiraSchemasAction,
-  getJiraObjectTypesAction,
   getJiraConfigs
 } from '@/app/actions/jira-actions';
 import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
@@ -63,6 +63,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
+import { testOllamaConnectionAction } from '@/app/actions/ai-actions';
 
 export default function SettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -70,12 +72,6 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState<string | null>(null);
-
-  // Discovery States for Jira
-  const [jiraWorkspaces, setJiraWorkspaces] = useState<any[]>([]);
-  const [jiraSchemas, setJiraSchemas] = useState<any[]>([]);
-  const [jiraObjectTypes, setJiraObjectTypes] = useState<any[]>([]);
-  const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
 
   // Import State XML
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -126,7 +122,7 @@ export default function SettingsPage() {
     if (aiConfigs && aiConfigs.length > 0) {
       setAiDraft(aiConfigs[0]);
     } else {
-      setAiDraft({ id: 'ai-default', enabled: false, provider: 'ollama' });
+      setAiDraft({ id: 'ai-default', enabled: false, provider: 'ollama', ollamaUrl: 'http://localhost:11434' });
     }
   }, [aiConfigs]);
 
@@ -166,7 +162,6 @@ export default function SettingsPage() {
     if (!newGroupName) return;
     const id = `dsg-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
-    
     try {
       const res = await saveCollectionRecord('dataSubjectGroups', id, { id, tenantId: targetTenantId, name: newGroupName }, dataSource);
       if (res.success) {
@@ -174,16 +169,13 @@ export default function SettingsPage() {
         refreshSubjectGroups();
         toast({ title: "Personengruppe hinzugefügt" });
       }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
   const handleAddDataCategory = async () => {
     if (!newDataCategoryName) return;
     const id = `dcat-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
-    
     try {
       const res = await saveCollectionRecord('dataCategories', id, { id, tenantId: targetTenantId, name: newDataCategoryName }, dataSource);
       if (res.success) {
@@ -191,47 +183,30 @@ export default function SettingsPage() {
         refreshDataCategories();
         toast({ title: "Datenkategorie hinzugefügt" });
       }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
   const handleDeleteSubjectGroup = async (id: string) => {
     try {
       const res = await deleteCollectionRecord('dataSubjectGroups', id, dataSource);
-      if (res.success) {
-        refreshSubjectGroups();
-        toast({ title: "Gruppe entfernt" });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
+      if (res.success) { refreshSubjectGroups(); toast({ title: "Gruppe entfernt" }); }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
   const handleDeleteDataCategory = async (id: string) => {
     try {
       const res = await deleteCollectionRecord('dataCategories', id, dataSource);
-      if (res.success) {
-        refreshDataCategories();
-        toast({ title: "Datenkategorie entfernt" });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler", description: e.message });
-    }
+      if (res.success) { refreshDataCategories(); toast({ title: "Datenkategorie entfernt" }); }
+    } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
-  // Dept & Jobs Handlers
   const handleAddDepartment = async () => {
     if (!newDepartmentName) return;
     const id = `dept-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     try {
       const res = await saveCollectionRecord('departments', id, { id, tenantId: targetTenantId, name: newDepartmentName }, dataSource);
-      if (res.success) {
-        setNewDepartmentName('');
-        refreshDepartments();
-        toast({ title: "Abteilung hinzugefügt" });
-      }
+      if (res.success) { setNewDepartmentName(''); refreshDepartments(); toast({ title: "Abteilung hinzugefügt" }); }
     } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
@@ -241,11 +216,7 @@ export default function SettingsPage() {
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     try {
       const res = await saveCollectionRecord('jobTitles', id, { id, tenantId: targetTenantId, departmentId: selectedDeptIdForJob, name: newJobTitleName }, dataSource);
-      if (res.success) {
-        setNewJobTitleName('');
-        refreshJobTitles();
-        toast({ title: "Stellenbezeichnung hinzugefügt" });
-      }
+      if (res.success) { setNewJobTitleName(''); refreshJobTitles(); toast({ title: "Stellenbezeichnung hinzugefügt" }); }
     } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
@@ -257,43 +228,21 @@ export default function SettingsPage() {
     setIsTesting(null);
   };
 
-  const handleDiscoverWorkspaces = async () => {
-    if (!jiraDraft.url || !jiraDraft.apiToken) return;
-    setIsDiscoveryLoading(true);
-    try {
-      const res = await getJiraWorkspacesAction({ 
-        url: jiraDraft.url, email: jiraDraft.email || '', apiToken: jiraDraft.apiToken 
-      });
-      if (res.success && res.workspaces) setJiraWorkspaces(res.workspaces);
-    } catch (e) {} finally {
-      setIsDiscoveryLoading(false);
-    }
+  const handleTestSmtp = async () => {
+    setIsTesting('smtp');
+    const res = await testSmtpConnectionAction(smtpDraft);
+    if (res.success) toast({ title: "SMTP Test erfolgreich", description: res.message });
+    else toast({ variant: "destructive", title: "SMTP Fehler", description: res.message });
+    setIsTesting(null);
   };
 
-  const handleDiscoverSchemas = async (workspaceId: string) => {
-    if (!jiraDraft.url || !jiraDraft.apiToken) return;
-    setIsDiscoveryLoading(true);
-    try {
-      const res = await getJiraSchemasAction({ 
-        url: jiraDraft.url, email: jiraDraft.email || '', apiToken: jiraDraft.apiToken, workspaceId 
-      });
-      if (res.success) setJiraSchemas(res.schemas || []);
-    } catch (e) {} finally {
-      setIsDiscoveryLoading(false);
-    }
-  };
-
-  const handleDiscoverObjectTypes = async (schemaId: string) => {
-    if (!jiraDraft.url || !jiraDraft.workspaceId) return;
-    setIsDiscoveryLoading(true);
-    try {
-      const res = await getJiraObjectTypesAction({
-        url: jiraDraft.url, email: jiraDraft.email || '', apiToken: jiraDraft.apiToken!, workspaceId: jiraDraft.workspaceId, schemaId
-      });
-      if (res.success) setJiraObjectTypes(res.objectTypes || []);
-    } catch (e) {} finally {
-      setIsDiscoveryLoading(false);
-    }
+  const handleTestAi = async () => {
+    if (!aiDraft.ollamaUrl) return;
+    setIsTesting('ai');
+    const res = await testOllamaConnectionAction(aiDraft.ollamaUrl);
+    if (res.success) toast({ title: "Ollama Verbindung OK", description: res.message });
+    else toast({ variant: "destructive", title: "Ollama Fehler", description: res.message });
+    setIsTesting(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,7 +355,6 @@ export default function SettingsPage() {
         </aside>
 
         <div className="flex-1 min-w-0">
-          {/* General Section */}
           <TabsContent value="general" className="mt-0 space-y-6">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4">
@@ -425,33 +373,23 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex justify-end pt-4">
                   <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px] gap-2 px-10 h-11">
-                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    Mandant Speichern
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Mandant Speichern
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Org Structure Section */}
           <TabsContent value="structure" className="mt-0 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Abteilungen */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b py-4">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Abteilungen</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="flex gap-2">
-                    <Input 
-                      placeholder="Neue Abteilung..." 
-                      value={newDepartmentName} 
-                      onChange={e => setNewDepartmentName(e.target.value)} 
-                      className="rounded-none h-9 text-xs"
-                    />
-                    <Button size="sm" onClick={handleAddDepartment} className="rounded-none font-bold uppercase text-[9px]">
-                      <Plus className="w-3 h-3 mr-1" /> Hinzufügen
-                    </Button>
+                    <Input placeholder="Neue Abteilung..." value={newDepartmentName} onChange={e => setNewDepartmentName(e.target.value)} className="rounded-none h-9 text-xs" />
+                    <Button size="sm" onClick={handleAddDepartment} className="rounded-none font-bold uppercase text-[9px]">Hinzufügen</Button>
                   </div>
                   <div className="border rounded-none overflow-hidden max-h-[400px]">
                     <ScrollArea className="h-full">
@@ -461,14 +399,7 @@ export default function SettingsPage() {
                             <TableRow key={dept.id} className="hover:bg-muted/5">
                               <TableCell className="font-bold text-xs">{dept.name}</TableCell>
                               <TableCell className="text-right">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-red-600"
-                                  onClick={() => { if(confirm("Abteilung löschen?")) deleteCollectionRecord('departments', dept.id, dataSource).then(() => refreshDepartments()); }}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => { if(confirm("Abteilung löschen?")) deleteCollectionRecord('departments', dept.id, dataSource).then(() => refreshDepartments()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -478,39 +409,19 @@ export default function SettingsPage() {
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Stellenbezeichnungen */}
               <Card className="rounded-none border shadow-none">
                 <CardHeader className="bg-muted/10 border-b py-4">
                   <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Stellenbezeichnungen</CardTitle>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="space-y-3 p-3 bg-slate-50 border rounded-none">
-                    <div className="space-y-1.5">
-                      <Label className="text-[9px] font-black uppercase text-slate-400">1. Abteilung wählen</Label>
-                      <Select value={selectedDeptIdForJob} onValueChange={setSelectedDeptIdForJob}>
-                        <SelectTrigger className="h-9 rounded-none text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-none">
-                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(dept => (
-                            <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[9px] font-black uppercase text-slate-400">2. Bezeichnung</Label>
-                      <Input 
-                        placeholder="z.B. IT-Administrator" 
-                        value={newJobTitleName} 
-                        onChange={e => setNewJobTitleName(e.target.value)} 
-                        className="rounded-none h-9 text-xs bg-white"
-                      />
-                    </div>
-                    <Button className="w-full h-9 rounded-none font-bold uppercase text-[9px] gap-2" onClick={handleAddJobTitle} disabled={!newJobTitleName || !selectedDeptIdForJob}>
-                      <Plus className="w-3.5 h-3.5" /> Stelle Hinzufügen
-                    </Button>
+                    <Select value={selectedDeptIdForJob} onValueChange={setSelectedDeptIdForJob}>
+                      <SelectTrigger className="h-9 rounded-none text-xs bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
+                      <SelectContent className="rounded-none">{departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(dept => <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input placeholder="Stellenbezeichnung..." value={newJobTitleName} onChange={e => setNewJobTitleName(e.target.value)} className="rounded-none h-9 text-xs bg-white" />
+                    <Button className="w-full h-9 rounded-none font-bold uppercase text-[9px]" onClick={handleAddJobTitle} disabled={!newJobTitleName || !selectedDeptIdForJob}>Hinzufügen</Button>
                   </div>
-
                   <div className="border rounded-none overflow-hidden max-h-[300px]">
                     <ScrollArea className="h-full">
                       <Table>
@@ -519,19 +430,10 @@ export default function SettingsPage() {
                             <TableRow key={job.id} className="hover:bg-muted/5">
                               <TableCell>
                                 <div className="font-bold text-xs">{job.name}</div>
-                                <div className="text-[9px] text-muted-foreground uppercase font-black">
-                                  {departments?.find(d => d.id === job.departmentId)?.name || '---'}
-                                </div>
+                                <div className="text-[9px] text-muted-foreground uppercase font-black">{departments?.find(d => d.id === job.departmentId)?.name || '---'}</div>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-7 w-7 text-red-600"
-                                  onClick={() => { if(confirm("Stelle löschen?")) deleteCollectionRecord('jobTitles', job.id, dataSource).then(() => refreshJobTitles()); }}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-600" onClick={() => { if(confirm("Stelle löschen?")) deleteCollectionRecord('jobTitles', job.id, dataSource).then(() => refreshJobTitles()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -544,66 +446,6 @@ export default function SettingsPage() {
             </div>
           </TabsContent>
 
-          {/* DSGVO Section */}
-          <TabsContent value="dsgvo" className="mt-0 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Personengruppen */}
-              <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-muted/10 border-b py-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2">
-                    <FileCheck className="w-4 h-4" /> Betroffene Personengruppen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="flex gap-2">
-                    <Input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="z.B. Kunden" className="rounded-none h-9 text-xs" />
-                    <Button size="sm" onClick={handleAddSubjectGroup} className="rounded-none font-bold uppercase text-[9px]"><Plus className="w-3 h-3 mr-1" /> Hinzufügen</Button>
-                  </div>
-                  <div className="border rounded-none max-h-64 overflow-y-auto">
-                    <Table>
-                      <TableBody>
-                        {dataSubjectGroups?.filter(g => activeTenantId === 'all' || g.tenantId === activeTenantId).map(g => (
-                          <TableRow key={g.id}>
-                            <TableCell className="text-xs font-bold">{g.name}</TableCell>
-                            <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleDeleteSubjectGroup(g.id)}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Datenkategorien */}
-              <Card className="rounded-none border shadow-none">
-                <CardHeader className="bg-muted/10 border-b py-4">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2">
-                    <Database className="w-4 h-4" /> Datenkategorien
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="flex gap-2">
-                    <Input value={newDataCategoryName} onChange={e => setNewDataCategoryName(e.target.value)} placeholder="z.B. Gesundheitsdaten" className="rounded-none h-9 text-xs" />
-                    <Button size="sm" onClick={handleAddDataCategory} className="rounded-none font-bold uppercase text-[9px]"><Plus className="w-3 h-3 mr-1" /> Hinzufügen</Button>
-                  </div>
-                  <div className="border rounded-none max-h-64 overflow-y-auto">
-                    <Table>
-                      <TableBody>
-                        {dataCategories?.filter(c => activeTenantId === 'all' || c.tenantId === activeTenantId).map(c => (
-                          <TableRow key={c.id}>
-                            <TableCell className="text-xs font-bold">{c.name}</TableCell>
-                            <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleDeleteDataCategory(c.id)}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Other Sections OMITTED for brevity but kept in final content... */}
           <TabsContent value="pusers" className="mt-0">
             <Card className="rounded-none border shadow-none">
               <CardHeader className="bg-muted/10 border-b py-4 flex flex-row items-center justify-between">
@@ -627,9 +469,7 @@ export default function SettingsPage() {
                           <div className="text-[9px] text-muted-foreground">{pu.email}</div>
                         </TableCell>
                         <TableCell><Badge variant="outline" className="text-[8px] uppercase font-bold rounded-none">{pu.role}</Badge></TableCell>
-                        <TableCell className="text-right pr-6">
-                          <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-3.5 h-3.5" /></Button>
-                        </TableCell>
+                        <TableCell className="text-right pr-6"><Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="w-3.5 h-3.5" /></Button></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -637,9 +477,198 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </TabsContent>
-          {/* ... */}
+
+          <TabsContent value="sync" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">LDAP / Active Directory Sync</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="flex items-center justify-between p-4 border bg-muted/5">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-bold">Verzeichnis-Synchronisation aktiv</Label>
+                    <p className="text-xs text-muted-foreground">Benutzer automatisch aus dem LDAP/AD importieren.</p>
+                  </div>
+                  <Switch checked={!!tenantDraft.ldapEnabled} onCheckedChange={(v) => setTenantDraft({...tenantDraft, ldapEnabled: v})} />
+                </div>
+                <div className="grid grid-cols-2 gap-6 opacity-80">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">LDAP URL</Label><Input value={tenantDraft.ldapUrl || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} placeholder="ldap://domain.local" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">LDAP Port</Label><Input value={tenantDraft.ldapPort || '389'} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} className="rounded-none h-10" /></div>
+                  <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">Base DN</Label><Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="dc=example,dc=com" className="rounded-none h-10" /></div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button onClick={() => handleSaveConfig('tenants', tenantDraft.id!, tenantDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">Sync Einstellungen Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Jira Service Management Integration</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="flex items-center justify-between p-4 border bg-blue-50/20">
+                  <div className="space-y-0.5"><Label className="text-sm font-bold">Jira Ticket-Gateway aktiv</Label><p className="text-xs text-muted-foreground">Automatisches Erstellen von Onboarding/Audit Tickets.</p></div>
+                  <Switch checked={!!jiraDraft.enabled} onCheckedChange={(v) => setJiraDraft({...jiraDraft, enabled: v})} />
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Jira Cloud URL</Label><Input value={jiraDraft.url || ''} onChange={e => setJiraDraft({...jiraDraft, url: e.target.value})} placeholder="https://company.atlassian.net" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Admin Email</Label><Input value={jiraDraft.email || ''} onChange={e => setJiraDraft({...jiraDraft, email: e.target.value})} className="rounded-none h-10" /></div>
+                  <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">API Token</Label><Input type="password" value={jiraDraft.apiToken || ''} onChange={e => setJiraDraft({...jiraDraft, apiToken: e.target.value})} className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Projekt Key</Label><Input value={jiraDraft.projectKey || ''} onChange={e => setJiraDraft({...jiraDraft, projectKey: e.target.value})} placeholder="IT" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Status für "Erledigt"</Label><Input value={jiraDraft.doneStatusName || 'Done'} onChange={e => setJiraDraft({...jiraDraft, doneStatusName: e.target.value})} className="rounded-none h-10" /></div>
+                </div>
+                <div className="flex justify-between items-center pt-4">
+                  <Button variant="outline" onClick={handleTestJira} disabled={isTesting === 'jira'} className="rounded-none text-[10px] font-bold uppercase">{isTesting === 'jira' ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} Verbindung Testen</Button>
+                  <Button onClick={() => handleSaveConfig('jiraConfigs', jiraDraft.id!, jiraDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">Jira Konfiguration Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ai" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">KI-Modell & Provider</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-bold uppercase">KI-Anbieter wählen</Label>
+                  <Select value={aiDraft.provider} onValueChange={(v: any) => setAiDraft({...aiDraft, provider: v})}>
+                    <SelectTrigger className="rounded-none h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="ollama">Ollama (Lokal / On-Premise)</SelectItem>
+                      <SelectItem value="google">Google Gemini (Cloud)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {aiDraft.provider === 'ollama' && (
+                  <div className="space-y-4 animate-in fade-in">
+                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Ollama Server URL</Label><Input value={aiDraft.ollamaUrl || ''} onChange={e => setAiDraft({...aiDraft, ollamaUrl: e.target.value})} className="rounded-none h-10" /></div>
+                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Modell-Name</Label><Input value={aiDraft.ollamaModel || 'llama3'} onChange={e => setAiDraft({...aiDraft, ollamaModel: e.target.value})} className="rounded-none h-10" /></div>
+                  </div>
+                )}
+                {aiDraft.provider === 'google' && (
+                  <div className="space-y-4 animate-in fade-in">
+                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Gemini Modell</Label><Input value={aiDraft.geminiModel || 'gemini-1.5-flash'} onChange={e => setAiDraft({...aiDraft, geminiModel: e.target.value})} className="rounded-none h-10" /></div>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-4">
+                  <Button variant="outline" onClick={handleTestAi} disabled={isTesting === 'ai'} className="rounded-none text-[10px] font-bold uppercase">Modell-Status prüfen</Button>
+                  <Button onClick={() => handleSaveConfig('aiConfigs', aiDraft.id!, aiDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">KI Einstellungen Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="dsgvo" className="mt-0 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2"><FileCheck className="w-4 h-4" /> Betroffene Personengruppen</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex gap-2">
+                    <Input value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="z.B. Kunden" className="rounded-none h-9 text-xs" />
+                    <Button size="sm" onClick={handleAddSubjectGroup} className="rounded-none font-bold uppercase text-[9px]">Hinzufügen</Button>
+                  </div>
+                  <div className="border rounded-none max-h-64 overflow-y-auto">
+                    <Table><TableBody>{dataSubjectGroups?.filter(g => activeTenantId === 'all' || g.tenantId === activeTenantId).map(g => (
+                      <TableRow key={g.id}><TableCell className="text-xs font-bold">{g.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleDeleteSubjectGroup(g.id)}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></TableCell></TableRow>
+                    ))}</TableBody></Table>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="rounded-none border shadow-none">
+                <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-2"><Database className="w-4 h-4" /> Datenkategorien</CardTitle></CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex gap-2">
+                    <Input value={newDataCategoryName} onChange={e => setNewDataCategoryName(e.target.value)} placeholder="z.B. Gesundheitsdaten" className="rounded-none h-9 text-xs" />
+                    <Button size="sm" onClick={handleAddDataCategory} className="rounded-none font-bold uppercase text-[9px]">Hinzufügen</Button>
+                  </div>
+                  <div className="border rounded-none max-h-64 overflow-y-auto">
+                    <Table><TableBody>{dataCategories?.filter(c => activeTenantId === 'all' || c.tenantId === activeTenantId).map(c => (
+                      <TableRow key={c.id}><TableCell className="text-xs font-bold">{c.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleDeleteDataCategory(c.id)}><Trash2 className="w-3.5 h-3.5 text-red-600" /></Button></TableCell></TableRow>
+                    ))}</TableBody></Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="email" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">E-Mail Versand (SMTP)</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2 col-span-2"><Label className="text-[10px] font-bold uppercase">SMTP Host</Label><Input value={smtpDraft.host || ''} onChange={e => setSmtpDraft({...smtpDraft, host: e.target.value})} placeholder="smtp.office365.com" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Port</Label><Input value={smtpDraft.port || '587'} onChange={e => setSmtpDraft({...smtpDraft, port: e.target.value})} className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Absender Adresse</Label><Input value={smtpDraft.fromEmail || ''} onChange={e => setSmtpDraft({...smtpDraft, fromEmail: e.target.value})} placeholder="no-reply@firma.de" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">SMTP Benutzer</Label><Input value={smtpDraft.user || ''} onChange={e => setSmtpDraft({...smtpDraft, user: e.target.value})} className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Passwort</Label><Input type="password" value={smtpDraft.password || ''} onChange={e => setSmtpDraft({...smtpDraft, password: e.target.value})} className="rounded-none h-10" /></div>
+                </div>
+                <div className="flex justify-between items-center pt-4">
+                  <Button variant="outline" onClick={handleTestSmtp} disabled={isTesting === 'smtp'} className="rounded-none text-[10px] font-bold uppercase">Testmail Senden</Button>
+                  <Button onClick={() => handleSaveConfig('smtpConfigs', smtpDraft.id!, smtpDraft)} disabled={isSaving} className="rounded-none font-bold uppercase text-[10px]">SMTP Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="risks" className="mt-0 space-y-6">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary">Risiko-Grenzwerte & Steuerung</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="p-4 border bg-orange-50/20 text-[10px] font-bold uppercase text-orange-800 flex items-start gap-3">
+                  <Info className="w-4 h-4 shrink-0" />
+                  Hier können Sie globale Parameter für die Risiko-Bewertung festlegen. (Standard: BSI 1-5 Matrix).
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Akzeptanz-Grenzwert</Label><Input type="number" defaultValue="8" className="rounded-none h-10" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Review Zyklus (Monate)</Label><Input type="number" defaultValue="12" className="rounded-none h-10" /></div>
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button className="rounded-none font-bold uppercase text-[10px]">Parameter Speichern</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="data" className="mt-0 space-y-8">
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><Upload className="w-4 h-4" /> DocBook XML Import (BSI Katalog)</CardTitle></CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Katalog Name</Label><Input value={importName} onChange={e => setImportName(e.target.value)} className="rounded-none" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Version</Label><Input value={importVersion} onChange={e => setImportVersion(e.target.value)} className="rounded-none" /></div>
+                </div>
+                <div className="border-2 border-dashed p-10 flex flex-col items-center justify-center gap-4 bg-muted/5">
+                  <FileUp className="w-10 h-10 text-muted-foreground" />
+                  <div className="text-center"><p className="text-xs font-bold uppercase">{selectedFile ? selectedFile.name : 'Keine Datei ausgewählt'}</p><p className="text-[10px] text-muted-foreground mt-1">Nur .xml Dateien (BSI DocBook Format)</p></div>
+                  <Input type="file" accept=".xml" onChange={handleFileChange} className="hidden" id="xml-upload" /><Button variant="outline" size="sm" className="rounded-none uppercase font-bold text-[10px]" asChild><label htmlFor="xml-upload" className="cursor-pointer">Datei wählen</label></Button>
+                </div>
+                <div className="flex justify-end pt-4"><Button onClick={handleRunXmlImport} disabled={!selectedFile || isImporting} className="rounded-none font-bold uppercase text-[10px] gap-2 px-10 h-11">{isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5 fill-current" />} Import Starten</Button></div>
+              </CardContent>
+            </Card>
+            <Card className="rounded-none border shadow-none">
+              <CardHeader className="bg-muted/10 border-b py-4"><CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2"><TableIcon className="w-4 h-4" /> BSI Kreuztabelle Import (Excel)</CardTitle></CardHeader>
+              <CardContent className="p-8 space-y-6">
+                <div className="border-2 border-dashed p-10 flex flex-col items-center justify-center gap-4 bg-muted/5">
+                  <FileCode className="w-10 h-10 text-muted-foreground" />
+                  <div className="text-center"><p className="text-xs font-bold uppercase">{selectedExcel ? selectedExcel.name : 'Keine Excel-Datei gewählt'}</p><p className="text-[10px] text-muted-foreground mt-1">Nur .xlsx Dateien (BSI Kreuztabelle)</p></div>
+                  <Input type="file" accept=".xlsx" onChange={handleExcelChange} className="hidden" id="excel-upload" /><Button variant="outline" size="sm" className="rounded-none uppercase font-bold text-[10px]" asChild><label htmlFor="excel-upload" className="cursor-pointer">Datei wählen</label></Button>
+                </div>
+                <div className="flex justify-end pt-4"><Button onClick={handleRunExcelImport} disabled={!selectedExcel || isExcelImporting} className="rounded-none font-bold uppercase text-[10px] gap-2 px-10 h-11">{isExcelImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />} Excel Importieren</Button></div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </div>
       </Tabs>
     </div>
   );
 }
+    
