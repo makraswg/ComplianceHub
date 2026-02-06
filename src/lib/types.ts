@@ -7,6 +7,7 @@ export interface Tenant {
   name: string;
   slug: string;
   createdAt: string;
+  status: 'active' | 'archived';
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;
@@ -20,6 +21,7 @@ export interface Department {
   id: string;
   tenantId: string;
   name: string;
+  status: 'active' | 'archived';
 }
 
 export interface JobTitle {
@@ -27,6 +29,7 @@ export interface JobTitle {
   tenantId: string;
   departmentId: string;
   name: string;
+  status: 'active' | 'archived';
 }
 
 export interface User {
@@ -60,12 +63,14 @@ export interface DataSubjectGroup {
   id: string;
   tenantId: string;
   name: string;
+  status: 'active' | 'archived';
 }
 
 export interface DataCategory {
   id: string;
   tenantId: string;
   name: string;
+  status: 'active' | 'archived';
 }
 
 export interface Resource {

@@ -1,3 +1,4 @@
+
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;
@@ -15,6 +16,7 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       slug: 'VARCHAR(100) UNIQUE NOT NULL',
       createdAt: 'VARCHAR(50) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
       ldapEnabled: 'BOOLEAN DEFAULT FALSE',
       ldapUrl: 'TEXT',
       ldapPort: 'VARCHAR(10)',
@@ -29,6 +31,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
   jobTitles: {
@@ -37,6 +40,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       departmentId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
   platformUsers: {
@@ -57,6 +61,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
   dataCategories: {
@@ -64,6 +69,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
   users: {
