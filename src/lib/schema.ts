@@ -54,6 +54,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) DEFAULT "all"',
       enabled: 'BOOLEAN DEFAULT TRUE',
       createdAt: 'VARCHAR(50)',
+      authSource: 'VARCHAR(20) DEFAULT "local"',
     },
   },
   dataSubjectGroups: {

@@ -5,7 +5,7 @@ import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
-import { DataSource } from '@/lib/types';
+import { DataSource, User, PlatformUser } from '@/lib/types';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -242,5 +242,34 @@ export async function updatePlatformUserPasswordAction(email: string, newPasswor
   } catch (error: any) {
     if (connection) connection.release();
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Befördert einen EAM-Benutzer zum Plattform-Administrator mit LDAP-Auth.
+ */
+export async function promoteUserToAdminAction(userId: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error?: string }> {
+  try {
+    const userRes = await getCollectionData('users', dataSource);
+    const user = userRes.data?.find((u: User) => u.id === userId);
+    
+    if (!user) return { success: false, error: 'Benutzer nicht gefunden.' };
+
+    const pUserId = `puser-ldap-${user.id}`;
+    const pUserData: PlatformUser = {
+      id: pUserId,
+      email: user.email,
+      displayName: user.displayName,
+      role: 'admin',
+      tenantId: user.tenantId,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      authSource: 'ldap'
+    };
+
+    const res = await saveCollectionRecord('platformUsers', pUserId, pUserData, dataSource);
+    return res;
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
 }

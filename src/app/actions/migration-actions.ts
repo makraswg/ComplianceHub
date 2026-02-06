@@ -80,8 +80,8 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       const now = new Date().toISOString();
 
       await connection.execute(
-        'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now]
+        'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [adminId, adminEmail, hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, now, 'local']
       );
       details.push(`   ✅ Initialer Admin erstellt: ${adminEmail} (Passwort: ${adminPassword})`);
     }

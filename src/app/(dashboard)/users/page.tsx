@@ -28,7 +28,8 @@ import {
   ShieldAlert,
   Clock,
   UserPlus,
-  Layers
+  Layers,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -70,7 +71,7 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord, promoteUserToAdminAction } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -84,6 +85,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -214,6 +216,22 @@ export default function UsersPage() {
       toast({ variant: "destructive", title: "Fehler beim Speichern", description: e.message });
     } finally {
       setIsSavingAssignment(false);
+    }
+  };
+
+  const handlePromoteToAdmin = async (userId: string) => {
+    setIsPromoting(true);
+    try {
+      const res = await promoteUserToAdminAction(userId, dataSource);
+      if (res.success) {
+        toast({ title: "Zum Administrator befördert", description: "Der Login ist nun via LDAP möglich." });
+      } else {
+        throw new Error(res.error || "Beförderung fehlgeschlagen");
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsPromoting(false);
     }
   };
 
@@ -446,6 +464,15 @@ export default function UsersPage() {
                           <DropdownMenuContent align="end" className="w-56 rounded-none">
                             <DropdownMenuItem onSelect={() => { setSelectedUser(user); setIsDetailOpen(true); }}><Info className="w-3.5 h-3.5 mr-2" /> Details & Historie</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(user)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
+                            {isAd && (
+                              <DropdownMenuItem 
+                                className="text-blue-600 font-bold"
+                                onSelect={() => handlePromoteToAdmin(user.id)}
+                                disabled={isPromoting}
+                              >
+                                <Shield className="w-3.5 h-3.5 mr-2" /> Zum Administrator befördern (LDAP)
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onSelect={() => router.push(`/assignments?search=${user.displayName}`)}><ShieldCheck className="w-3.5 h-3.5 mr-2" /> Alle Zugriffe</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-red-600" onSelect={() => { setSelectedUser(user); setIsDeleteAlertOpen(true); }}><Trash2 className="w-3.5 h-3.5 mr-2" /> Löschen</DropdownMenuItem>

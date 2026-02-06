@@ -1,3 +1,4 @@
+
 'use server';
 
 import { DataSource } from '@/context/settings-context';
@@ -5,8 +6,39 @@ import { getMysqlConnection } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
-import { PlatformUser } from '@/lib/types';
+import { PlatformUser, Tenant } from '@/lib/types';
 import bcrypt from 'bcryptjs';
+
+/**
+ * Simuliert eine LDAP-Authentifizierung basierend auf Mandanteneinstellungen.
+ */
+async function authenticateViaLdap(email: string, password: string, tenantId: string): Promise<{ success: boolean; error?: string }> {
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    const [rows]: any = await connection.execute('SELECT * FROM `tenants` WHERE `id` = ?', [tenantId]);
+    connection.release();
+
+    const tenant = rows[0] as Tenant;
+    if (!tenant || !tenant.ldapEnabled) {
+      return { success: false, error: 'LDAP ist für diesen Mandanten nicht konfiguriert oder deaktiviert.' };
+    }
+
+    console.log(`[LDAP SIMULATION] Authentifiziere ${email} gegen ${tenant.ldapUrl}:${tenant.ldapPort}...`);
+    // Hier würde die echte LDAP-Logik stehen.
+    // Wir simulieren den Erfolg, wenn das Passwort nicht 'wrong' ist.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (password === 'wrong') {
+      return { success: false, error: 'LDAP-Authentifizierung fehlgeschlagen: Ungültiges Passwort.' };
+    }
+
+    return { success: true };
+  } catch (e: any) {
+    if (connection) connection.release();
+    return { success: false, error: `LDAP-Verbindungsfehler: ${e.message}` };
+  }
+}
 
 /**
  * Authentifiziert einen Benutzer gegen die ausgewählte Datenquelle.
@@ -52,14 +84,24 @@ async function authenticateViaMysql(email: string, password: string) {
     }
 
     const user = rows[0];
+
+    // Prüfe authSource: Falls LDAP, nutze LDAP-Logik
+    if (user.authSource === 'ldap') {
+      const ldapResult = await authenticateViaLdap(email, password, user.tenantId);
+      if (!ldapResult.success) return ldapResult;
+      
+      const { password: _, ...userWithoutPassword } = user;
+      return { success: true, user: { ...userWithoutPassword, enabled: true } as PlatformUser };
+    }
+
+    // Standard-Passwort Prüfung (BCrypt)
     if (!user.password) {
-      return { success: false, error: 'Kein Passwort für diesen Benutzer hinterlegt.' };
+      return { success: false, error: 'Kein Passwort für diesen lokalen Benutzer hinterlegt.' };
     }
 
     const isMatch = bcrypt.compareSync(password, user.password);
     if (isMatch) {
       const { password: _, ...userWithoutPassword } = user;
-      // Konvertiere numerische Booleans aus MySQL sicher
       const platformUser = {
         ...userWithoutPassword,
         enabled: userWithoutPassword.enabled === 1 || userWithoutPassword.enabled === true

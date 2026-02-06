@@ -58,6 +58,7 @@ export interface PlatformUser {
   tenantId: string;
   enabled: boolean | number;
   createdAt: string;
+  authSource?: 'local' | 'ldap';
 }
 
 export interface DataSubjectGroup {
