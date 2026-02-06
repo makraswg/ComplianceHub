@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -165,17 +166,11 @@ export default function ProcessDesignerPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  const startResizeLeft = useCallback((e: React.MouseEvent) => {
-    isResizingLeft.current = true;
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-  }, [handleMouseMove]);
-
-  const startResizeRight = useCallback((e: React.MouseEvent) => {
-    isResizingRight.current = true;
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', stopResizing);
-  }, [handleMouseMove]);
+  // --- Resize Handler Functions (Moved UP to avoid ReferenceError) ---
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
+    if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
+  }, []);
 
   const stopResizing = useCallback(() => {
     isResizingLeft.current = false;
@@ -184,10 +179,17 @@ export default function ProcessDesignerPage() {
     document.removeEventListener('mouseup', stopResizing);
   }, [handleMouseMove]);
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
-    if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
-  }, []);
+  const startResizeLeft = useCallback((e: React.MouseEvent) => {
+    isResizingLeft.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+  }, [handleMouseMove, stopResizing]);
+
+  const startResizeRight = useCallback((e: React.MouseEvent) => {
+    isResizingRight.current = true;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', stopResizing);
+  }, [handleMouseMove, stopResizing]);
 
   const syncDiagramToModel = useCallback(() => {
     if (!iframeRef.current || !currentVersion) return;
