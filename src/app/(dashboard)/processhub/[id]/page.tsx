@@ -123,7 +123,7 @@ export default function ProcessDesignerPage() {
   
   const [mounted, setMounted] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string}[]>([]);
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'ai', text: string, questions?: string[], suggestions?: any}[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<ProcessDesignerOutput | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -323,7 +323,12 @@ export default function ProcessDesignerPage() {
         dataSource
       });
       setAiSuggestions(suggestions);
-      setChatHistory([...newHistory, { role: 'ai', text: suggestions.explanation } as const]);
+      setChatHistory([...newHistory, { 
+        role: 'ai', 
+        text: suggestions.explanation, 
+        questions: suggestions.openQuestions,
+        suggestions: suggestions.proposedOps
+      } as const]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "KI-Fehler", description: e.message });
     } finally {
@@ -344,6 +349,20 @@ export default function ProcessDesignerPage() {
     } finally {
       setIsPublishing(false);
     }
+  };
+
+  const getOpTitle = (op: any) => {
+    const type = op.type;
+    const p = op.payload;
+    if (type === 'ADD_NODE') return `Neu: ${p.node?.title || 'Schritt'}`;
+    if (type === 'UPDATE_NODE') {
+      const node = currentVersion?.model_json.nodes.find(n => n.id === p.nodeId);
+      return `Update: ${node?.title || p.nodeId}`;
+    }
+    if (type === 'SET_ISO_FIELD') return `ISO Feld: ${p.field}`;
+    if (type === 'ADD_EDGE') return `Verbindung: ${p.edge?.label || 'Pfeil'}`;
+    if (type === 'UPDATE_LAYOUT') return "Anordnung optimiert";
+    return type.replace('_', ' ');
   };
 
   if (!mounted) return null;
@@ -729,58 +748,65 @@ export default function ProcessDesignerPage() {
                     )}>
                       {msg.text}
                     </div>
-                  </div>
-                ))}
-
-                {aiSuggestions && (
-                  <div className="animate-in slide-in-from-bottom-4 duration-500">
-                    <div className="bg-blue-50 border-2 border-blue-600 p-5 space-y-4 shadow-xl">
-                      <div className="flex items-center gap-2 text-blue-700">
-                        <Sparkles className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-widest">Update-Vorschlag</span>
-                      </div>
-                      
-                      <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
-                        {aiSuggestions.proposedOps.map((op, i) => (
-                          <div key={i} className="text-[9px] p-1.5 bg-white border border-blue-100 flex items-center gap-2">
-                            <div className="w-1 h-1 rounded-full bg-blue-500" />
-                            <span className="font-black text-slate-400 uppercase shrink-0">{op.type.replace('_', ' ')}:</span>
-                            <span className="truncate font-bold text-slate-700">
-                              {op.payload.node?.title || op.payload.field || op.payload.nodeId || 'Layout'}
-                            </span>
+                    
+                    {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
+                      <div className="w-full mt-2 space-y-2">
+                        {msg.questions.map((q, qIdx) => (
+                          <div key={qIdx} className="p-3 bg-indigo-50 border-l-4 border-indigo-600 text-[11px] font-bold text-indigo-900 italic">
+                            <span className="text-[8px] uppercase block text-indigo-400 font-black mb-1">Berater-Rückfrage</span>
+                            {q}
                           </div>
                         ))}
                       </div>
+                    )}
 
-                      {aiSuggestions.openQuestions.length > 0 && (
-                        <div className="space-y-2 border-t border-blue-200 pt-3">
-                          <p className="text-[9px] font-black text-blue-800 uppercase">Meine Fragen:</p>
-                          {aiSuggestions.openQuestions.map((q, i) => (
-                            <p key={i} className="text-[10px] italic text-blue-900 leading-relaxed">• {q}</p>
-                          ))}
+                    {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
+                      <div className="animate-in slide-in-from-bottom-4 duration-500 mt-2 w-full">
+                        <div className="bg-blue-50 border-2 border-blue-600 p-4 space-y-4 shadow-xl">
+                          <div className="flex items-center gap-2 text-blue-700">
+                            <Sparkles className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Modell-Update Vorschlag</span>
+                          </div>
+                          
+                          <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                            {msg.suggestions.map((op: any, opIdx: number) => (
+                              <div key={opIdx} className="text-[9px] p-1.5 bg-white border border-blue-100 flex items-center gap-2">
+                                <div className="w-1 h-1 rounded-full bg-blue-500" />
+                                <span className="font-black text-slate-400 uppercase shrink-0">{op.type.replace('_', ' ')}:</span>
+                                <span className="truncate font-bold text-slate-700">
+                                  {getOpTitle(op)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            <Button 
+                              onClick={() => handleApplyOps(msg.suggestions)} 
+                              disabled={isApplying} 
+                              className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group"
+                            >
+                              {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                              Anwenden
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              onClick={() => {
+                                // Clear suggestions from history visually
+                                const newHistory = [...chatHistory];
+                                newHistory[i].suggestions = [];
+                                setChatHistory(newHistory);
+                              }} 
+                              className="h-10 rounded-none border-blue-200 text-blue-700 text-[10px] font-black uppercase"
+                            >
+                              Ablehnen
+                            </Button>
+                          </div>
                         </div>
-                      )}
-
-                      <div className="flex gap-2 pt-2">
-                        <Button 
-                          onClick={() => handleApplyOps(aiSuggestions.proposedOps)} 
-                          disabled={isApplying} 
-                          className="flex-1 h-10 rounded-none bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase shadow-lg group"
-                        >
-                          {isApplying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                          Anwenden
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          onClick={() => setAiSuggestions(null)} 
-                          className="h-10 rounded-none border-blue-200 text-blue-700 text-[10px] font-black uppercase"
-                        >
-                          Ablehnen
-                        </Button>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                ))}
 
                 {isAiLoading && (
                   <div className="flex justify-start">
