@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'kit';
+import { z } from 'genkit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
@@ -17,7 +17,7 @@ import OpenAI from 'openai';
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
-  openQuestions: z.string().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
+  openQuestions: z.string().nullable().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'ai']),
     text: z.string()
@@ -44,7 +44,7 @@ Deine Aufgabe ist es, einen Geschäftsprozess schnell zu erfassen und profession
 
 PRAGMATISMUS-REGELN:
 1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen ersten Entwurf (ADD_NODE, ADD_EDGE).
-2. Sei nicht pedantisch. Fehlende Informationen hinder dich nicht am Modellieren.
+2. Sei nicht pedantisch. Fehlende Informationen hindern dich nicht am Modellieren.
 3. Alles, was unklar ist, formulierst du als Frage und schlägst ein UPDATE_PROCESS_META { openQuestions: "..." } vor.
 4. Nutze einfache Sprache im Chat, aber Fachsprache im Modell.
 
