@@ -105,6 +105,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 export default function ResourcesPage() {
   const db = useFirestore();
@@ -306,6 +307,20 @@ export default function ResourcesPage() {
     setNotes('');
   };
 
+  const applyAiSuggestions = (s: any) => {
+    if (s.name) setName(s.name);
+    if (s.assetType) setAssetType(s.assetType);
+    if (s.category) setCategory(s.category);
+    if (s.operatingModel) setOperatingModel(s.operatingModel);
+    if (s.criticality) setCriticality(s.criticality);
+    if (s.confidentialityReq) setConfReq(s.confidentialityReq);
+    if (s.integrityReq) setIntReq(s.integrityReq);
+    if (s.availabilityReq) setAvailReq(s.availabilityReq);
+    if (s.processingPurpose) setProcessingPurpose(s.processingPurpose);
+    if (s.dataClassification) setDataClassification(s.dataClassification);
+    toast({ title: "KI-Vorschläge übernommen" });
+  };
+
   const filteredResources = useMemo(() => {
     if (!resources) return [];
     return resources.filter(res => {
@@ -424,7 +439,7 @@ export default function ResourcesPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56 rounded-none">
                         <DropdownMenuItem onSelect={() => { setSelectedResource(resource); setIsEntitlementListOpen(true); }}><Settings2 className="w-3.5 h-3.5 mr-2" /> Rollen verwalten</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => openResourceEdit(resource)}><Pencil className="w-3.5 h-3.5 mr-2" /> Bearbeiten</DropdownMenuItem>
@@ -453,11 +468,18 @@ export default function ResourcesPage() {
       <Dialog open={isResourceDialogOpen} onOpenChange={(v) => { if(!v) setIsResourceDialogOpen(false); }}>
         <DialogContent className="max-w-5xl rounded-none border shadow-2xl p-0 overflow-hidden flex flex-col h-[90vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center gap-3">
-              <Network className="w-5 h-5 text-primary" />
-              <DialogTitle className="text-sm font-bold uppercase tracking-wider">
-                {selectedResource ? 'System bearbeiten' : 'System registrieren'}
-              </DialogTitle>
+            <div className="flex items-center justify-between w-full pr-8">
+              <div className="flex items-center gap-3">
+                <Network className="w-5 h-5 text-primary" />
+                <DialogTitle className="text-sm font-bold uppercase tracking-wider">
+                  {selectedResource ? 'System bearbeiten' : 'System registrieren'}
+                </DialogTitle>
+              </div>
+              <AiFormAssistant 
+                formType="resource" 
+                currentData={{ name, assetType, category, operatingModel, criticality }} 
+                onApply={applyAiSuggestions} 
+              />
             </div>
           </DialogHeader>
           

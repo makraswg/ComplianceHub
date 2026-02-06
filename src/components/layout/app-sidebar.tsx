@@ -26,7 +26,8 @@ import {
   BarChart3,
   PieChart,
   Library,
-  FileCheck
+  FileCheck,
+  BrainCircuit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -90,6 +91,7 @@ export function AppSidebar() {
 
   const complianceItems = [
     { name: 'Datenschutz (VVT)', href: '/gdpr', icon: FileCheck },
+    { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 
   const integrationItems = [
@@ -187,7 +189,7 @@ export function AppSidebar() {
               <Settings2 className="w-3.5 h-3.5" />
               <span>Setup & Daten</span>
             </Link>
-            <Link href="/settings" className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === '/settings' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
+            <Link href="/settings" className={cn("flex items-center gap-3 px-3 py-2 rounded-none transition-all text-[11px] font-bold uppercase tracking-wider", pathname === '/settings' || pathname.startsWith('/settings/') ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
               <Settings className="w-3.5 h-3.5" />
               <span>Einstellungen</span>
             </Link>

@@ -289,6 +289,16 @@ export const appSchema: AppSchema = {
       geminiModel: 'VARCHAR(100)',
     }
   },
+  aiAuditCriteria: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      title: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      severity: 'VARCHAR(50) DEFAULT "medium"',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      category: 'VARCHAR(100)'
+    }
+  },
   smtpConfigs: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
