@@ -92,8 +92,8 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       let type = String(op.type || op.action || '').toUpperCase();
       const payload = op.payload || op;
 
-      // Inferenz für leere Typen
-      if (!type || type === "") {
+      // Inferenz für leere Typen oder fehlende Definitionen
+      if (!type || type === "" || type === "UNDEFINED") {
         if (payload.node || (payload.id && payload.title)) type = 'ADD_NODE';
         else if (payload.edge || (payload.from && payload.to) || (payload.source && payload.target)) type = 'ADD_EDGE';
         else if (payload.field || payload.isoFields) type = 'SET_ISO_FIELD';
@@ -104,7 +104,7 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
       if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
         if (Array.isArray(payload.nodes)) {
           payload.nodes.forEach((n: any) => {
-            if (!n.id) n.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            if (!n.id || n.id === 'undefined') n.id = `node-${Math.random().toString(36).substring(2, 7)}`;
             if (!n.type) n.type = 'step';
             normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: n } });
           });
@@ -129,7 +129,7 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
         if (validTypes.includes(type)) {
           if (type === 'ADD_NODE') {
             const node = payload.node || payload;
-            if (!node.id) node.id = `node-${Math.random().toString(36).substring(2, 7)}`;
+            if (!node.id || node.id === 'undefined') node.id = `node-${Math.random().toString(36).substring(2, 7)}`;
             if (!node.type) node.type = 'step';
             normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node } });
           } else if (type === 'ADD_EDGE') {

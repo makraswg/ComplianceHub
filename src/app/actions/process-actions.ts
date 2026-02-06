@@ -14,13 +14,12 @@ import {
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
- * Falls die requestedId leer oder 'undefined' ist, wird ein Fallback genutzt.
+ * Falls die requestedId leer, 'undefined' oder 'null' ist, wird ein Fallback genutzt.
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
-  let baseId = requestedId || `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
-  if (baseId === 'undefined' || baseId === 'null') {
-    baseId = `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
-  }
+  let baseId = (requestedId && requestedId !== 'undefined' && requestedId !== 'null') 
+    ? requestedId 
+    : `${prefix}-${Math.random().toString(36).substring(2, 7)}`;
   
   let finalId = baseId;
   let counter = 1;
@@ -57,7 +56,7 @@ export async function createProcessAction(
   };
 
   const initialModel: ProcessModel = {
-    nodes: [{ id: 'start', type: 'start', title: 'Start' }],
+    nodes: [{ id: 'start', type: 'start', title: 'START', checklist: [] }],
     edges: [],
     roles: [],
     isoFields: {}
@@ -186,14 +185,18 @@ export async function applyProcessOpsAction(
         const reqId = op.payload.node.id;
         const finalId = nodeIdMap[reqId] || reqId;
         
-        const nodeToAdd = { ...op.payload.node, id: finalId };
+        // Finales Sicherheitsnetz: Falls finalId immer noch null/undefined
+        const safeId = (finalId && finalId !== 'undefined' && finalId !== 'null') ? finalId : `node-${Math.random().toString(36).substring(2, 7)}`;
+        
+        const nodeToAdd = { ...op.payload.node, id: safeId };
+        if (!nodeToAdd.checklist) nodeToAdd.checklist = [];
         model.nodes.push(nodeToAdd);
         
-        if (!layout.positions[finalId]) {
+        if (!layout.positions[safeId]) {
           const lastX = model.nodes.length > 1 
             ? Math.max(...Object.values(layout.positions).map((p: any) => (p as any).x || 0)) 
             : 50;
-          layout.positions[finalId] = { x: lastX + 220, y: 150 };
+          layout.positions[safeId] = { x: lastX + 220, y: 150 };
         }
         break;
 
@@ -221,8 +224,9 @@ export async function applyProcessOpsAction(
         
         const reqEId = op.payload.edge.id;
         const finalEId = edgeIdMap[reqEId] || reqEId;
+        const safeEId = (finalEId && finalEId !== 'undefined' && finalEId !== 'null') ? finalEId : `edge-${Date.now()}`;
         
-        const edge = { ...op.payload.edge, id: finalEId };
+        const edge = { ...op.payload.edge, id: safeEId };
         // Referenzen korrigieren, falls Quelle/Ziel umgemappt wurden
         edge.source = nodeIdMap[edge.source] || edge.source;
         edge.target = nodeIdMap[edge.target] || edge.target;
@@ -240,14 +244,13 @@ export async function applyProcessOpsAction(
 
       case 'UPDATE_LAYOUT':
         if (!layout.positions) layout.positions = {};
-        if (!op.payload?.positions) break;
-        
-        const newPos: Record<string, any> = {};
-        Object.entries(op.payload.positions).forEach(([id, pos]) => {
-          newPos[nodeIdMap[id] || id] = pos;
-        });
-        
-        layout.positions = { ...layout.positions, ...newPos };
+        if (op.payload?.positions) {
+          const newPos: Record<string, any> = {};
+          Object.entries(op.payload.positions).forEach(([id, pos]) => {
+            newPos[nodeIdMap[id] || id] = pos;
+          });
+          layout.positions = { ...layout.positions, ...newPos };
+        }
         break;
 
       case 'SET_ISO_FIELD':
