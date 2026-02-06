@@ -162,6 +162,7 @@ export interface JiraConfig {
   workspaceId?: string;
   schemaId?: string;
   objectTypeId?: string;
+  entitlementObjectTypeId?: string;
   autoSyncAssets?: boolean;
 }
 

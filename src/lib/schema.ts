@@ -268,6 +268,7 @@ export const appSchema: AppSchema = {
       workspaceId: 'VARCHAR(255)',
       schemaId: 'VARCHAR(255)',
       objectTypeId: 'VARCHAR(255)',
+      entitlementObjectTypeId: 'VARCHAR(255)',
       autoSyncAssets: 'BOOLEAN DEFAULT FALSE',
     }
   },

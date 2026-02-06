@@ -341,7 +341,7 @@ export default function SettingsPage() {
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     try {
       const res = await saveCollectionRecord('jobTitles', id, { id, tenantId: targetTenantId, departmentId: selectedDeptIdForJob, name: newJobTitleName }, dataSource);
-      if (res.success) { setNewJobTitleName(''); refreshJobTitles(); toast({ title: "Stellenbezeichnung hinzugefügt" }); }
+      if (res.success) { setNewJobTitleName(''); refreshJobTitles(); toast({ title: "Stelle hinzugefügt" }); }
     } catch (e: any) { toast({ variant: "destructive", title: "Fehler", description: e.message }); }
   };
 
@@ -768,7 +768,7 @@ export default function SettingsPage() {
                       <Select value={jiraDraft.projectKey || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, projectKey: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraProjects.map(p => <SelectItem key={p.key} value={p.key}>{p.name} ({p.key})</SelectItem>)}
+                          {jiraProjects.map(p => <SelectItem key={`proj-${p.key}`} value={p.key}>{p.name} ({p.key})</SelectItem>)}
                           {jiraProjects.length === 0 && <SelectItem value="none" disabled>Keine Projekte geladen</SelectItem>}
                         </SelectContent>
                       </Select>
@@ -778,7 +778,7 @@ export default function SettingsPage() {
                       <Select value={jiraDraft.issueTypeName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, issueTypeName: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraIssueTypes.map(it => <SelectItem key={it.id || it.name} value={it.name}>{it.name}</SelectItem>)}
+                          {jiraIssueTypes.map(it => <SelectItem key={`type-${it.id || it.name}`} value={it.name}>{it.name}</SelectItem>)}
                           {jiraIssueTypes.length === 0 && <SelectItem value="none" disabled>Keine Typen geladen</SelectItem>}
                         </SelectContent>
                       </Select>
@@ -788,7 +788,7 @@ export default function SettingsPage() {
                       <Select value={jiraDraft.approvedStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, approvedStatusName: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraStatuses.map((s, idx) => <SelectItem key={`${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
+                          {jiraStatuses.map((s, idx) => <SelectItem key={`status-app-${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
                           {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
                         </SelectContent>
                       </Select>
@@ -798,7 +798,7 @@ export default function SettingsPage() {
                       <Select value={jiraDraft.doneStatusName || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, doneStatusName: v})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraStatuses.map((s, idx) => <SelectItem key={`${s.id}-${idx}-done`} value={s.name}>{s.name}</SelectItem>)}
+                          {jiraStatuses.map((s, idx) => <SelectItem key={`status-done-${s.id}-${idx}`} value={s.name}>{s.name}</SelectItem>)}
                           {jiraStatuses.length === 0 && <SelectItem value="none" disabled>Keine Status geladen</SelectItem>}
                         </SelectContent>
                       </Select>
@@ -812,31 +812,40 @@ export default function SettingsPage() {
                   <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <Layers className="w-3.5 h-3.5" /> JSM Assets Discovery (Insight)
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Workspace</Label>
-                      <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v, schemaId: '', objectTypeId: ''})}>
+                      <Select value={jiraDraft.workspaceId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, workspaceId: v, schemaId: '', objectTypeId: '', entitlementObjectTypeId: ''})}>
                         <SelectTrigger className="rounded-none h-10"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraWorkspaces.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                          {jiraWorkspaces.map(w => <SelectItem key={`ws-${w.id}`} value={w.id}>{w.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase">Assets Schema</Label>
-                      <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v, objectTypeId: ''})}>
+                      <Select value={jiraDraft.schemaId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, schemaId: v, objectTypeId: '', entitlementObjectTypeId: ''})}>
                         <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.workspaceId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraSchemas.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          {jiraSchemas.map(s => <SelectItem key={`sch-${s.id}`} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase">Objekttyp für Ressourcen</Label>
+                      <Label className="text-[10px] font-bold uppercase">Objekttyp für IT-Systeme</Label>
                       <Select value={jiraDraft.objectTypeId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, objectTypeId: v})}>
                         <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-none">
-                          {jiraObjectTypes.map(ot => <SelectItem key={ot.id} value={ot.id}>{ot.name}</SelectItem>)}
+                          {jiraObjectTypes.map(ot => <SelectItem key={`ot-res-${ot.id}`} value={ot.id}>{ot.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase">Objekttyp für Rollen</Label>
+                      <Select value={jiraDraft.entitlementObjectTypeId || ''} onValueChange={(v) => setJiraDraft({...jiraDraft, entitlementObjectTypeId: v})}>
+                        <SelectTrigger className="rounded-none h-10" disabled={!jiraDraft.schemaId}><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-none">
+                          {jiraObjectTypes.map(ot => <SelectItem key={`ot-role-${ot.id}`} value={ot.id}>{ot.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
