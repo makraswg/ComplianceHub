@@ -79,9 +79,12 @@ import {
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bundle } from '@/lib/types';
+import { Checkbox } from '@/components/ui/checkbox';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function LifecyclePage() {
   const { dataSource, activeTenantId } = useSettings();
+  const { user } = usePlatformAuth();
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
@@ -106,6 +109,10 @@ export default function LifecyclePage() {
   const [roleSearchTerm, setRoleSearchTerm] = useState('');
   const [adminOnlyFilter, setAdminOnlyFilter] = useState(false);
 
+  // Deletion state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Offboarding State
   const [userToOffboard, setUserToOffboard] = useState<any>(null);
   const [isOffboardConfirmOpen, setIsOffboardConfirmOpen] = useState(false);
@@ -120,6 +127,8 @@ export default function LifecyclePage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'all' || id === 'global') return 'Global';
@@ -179,6 +188,29 @@ export default function LifecyclePage() {
     }
   };
 
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteCollectionRecord('bundles', deleteTarget.id, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: 'global',
+          actorUid: user?.email || 'system',
+          action: `Onboarding-Paket permanent gelöscht: ${deleteTarget.label}`,
+          entityType: 'bundle',
+          entityId: deleteTarget.id
+        });
+
+        toast({ title: "Paket permanent gelöscht" });
+        refreshBundles();
+        setDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const openEditBundle = (bundle: Bundle) => {
     setSelectedBundle(bundle);
     setBundleName(bundle.name);
@@ -230,34 +262,6 @@ export default function LifecyclePage() {
     }
   };
 
-  const executeOffboarding = async () => {
-    if (!userToOffboard) return;
-    setIsActionLoading(true);
-    try {
-      const userAssignments = assignments?.filter((a: any) => a.userId === userToOffboard.id && a.status === 'active') || [];
-      const configs = await getJiraConfigs(dataSource);
-      let jiraKey = 'OFFB-PENDING';
-      
-      if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `OFFBOARDING: ${userToOffboard.displayName}`, `Offboarding eingeleitet.`, dataSource);
-        if (res.success) jiraKey = res.key!;
-      }
-
-      for (const a of userAssignments) {
-        const update = { status: 'pending_removal', jiraIssueKey: jiraKey };
-        await saveCollectionRecord('assignments', a.id, { ...a, ...update }, dataSource);
-      }
-
-      toast({ title: "Offboarding Prozess aktiv" });
-      setIsOffboardConfirmOpen(false); 
-      setTimeout(() => refreshAssignments(), 300);
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Fehler", description: error.message });
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
   if (!mounted) return null;
 
   return (
@@ -267,7 +271,7 @@ export default function LifecyclePage() {
           <h1 className="text-2xl font-bold tracking-tight">Identity Lifecycle Hub</h1>
           <p className="text-sm text-muted-foreground">Automatisierte On- und Offboarding-Prozesse für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
         </div>
-        <Button variant="outline" size="sm" className="h-9 font-bold uppercase text-[10px] rounded-none" onClick={() => { 
+        <Button variant="outline" size="sm" className="h-9 font-bold text-[10px] rounded-none" onClick={() => { 
           setSelectedBundle(null); setBundleName(''); setBundleDesc(''); setSelectedEntitlementIds([]); setIsBundleCreateOpen(true); 
         }}>
           <Package className="w-3.5 h-3.5 mr-2" /> Paket definieren
@@ -338,9 +342,9 @@ export default function LifecyclePage() {
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  <TableHead className="py-3 font-bold uppercase text-[10px]">Paket-Name</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px]">Inhalt</TableHead>
-                  <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+                  <TableHead className="py-3 font-bold text-[10px]">Paket-Name</TableHead>
+                  <TableHead className="font-bold text-[10px]">Inhalt</TableHead>
+                  <TableHead className="text-right font-bold text-[10px]">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -361,6 +365,11 @@ export default function LifecyclePage() {
                             {bundle.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
                             {bundle.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
                           </DropdownMenuItem>
+                          {isSuperAdmin && (
+                            <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => setDeleteTarget({ id: bundle.id, label: bundle.name })}>
+                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -374,7 +383,7 @@ export default function LifecyclePage() {
 
       <Dialog open={isBundleCreateOpen} onOpenChange={setIsBundleCreateOpen}>
         <DialogContent className="max-w-5xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-none flex flex-col p-0 overflow-hidden bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
             <DialogTitle className="text-sm font-bold uppercase">{selectedBundle ? 'Paket bearbeiten' : 'Neues Paket'}</DialogTitle>
           </DialogHeader>
           <ScrollArea className="flex-1">
@@ -402,6 +411,34 @@ export default function LifecyclePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Paket permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie das Onboarding-Paket <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

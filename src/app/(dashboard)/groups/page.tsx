@@ -43,6 +43,16 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -64,10 +74,13 @@ import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { AssignmentGroup, User, Entitlement, Resource, Tenant, GroupMemberConfig } from '@/lib/types';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { usePlatformAuth } from '@/context/auth-context';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 
 export default function GroupsPage() {
   const db = useFirestore();
+  const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -81,6 +94,9 @@ export default function GroupsPage() {
   const [userConfigs, setUserConfigs] = useState<GroupMemberConfig[]>([]);
   const [entitlementConfigs, setEntitlementConfigs] = useState<GroupMemberConfig[]>([]);
 
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { data: groups, isLoading, refresh: refreshGroups } = usePluggableCollection<AssignmentGroup>('groups');
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
@@ -89,6 +105,8 @@ export default function GroupsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   const getTenantSlug = (id?: string | null) => {
     const tenant = tenants?.find(t => t.id === id);
@@ -141,6 +159,29 @@ export default function GroupsPage() {
     }
   };
 
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteCollectionRecord('groups', deleteTarget.id, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: 'global',
+          actorUid: user?.email || 'system',
+          action: `Zuweisungsgruppe permanent gelöscht: ${deleteTarget.label}`,
+          entityType: 'group',
+          entityId: deleteTarget.id
+        });
+
+        toast({ title: "Gruppe permanent gelöscht" });
+        refreshGroups();
+        setDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const openEdit = (group: AssignmentGroup) => {
     setSelectedGroup(group);
     setName(group.name);
@@ -160,11 +201,11 @@ export default function GroupsPage() {
           <p className="text-sm text-muted-foreground">Regelbasierte Berechtigungen für Abteilungen oder Teams.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" className="h-9 font-bold uppercase text-[9px] gap-2" onClick={() => setShowArchived(!showArchived)}>
+          <Button variant="ghost" size="sm" className="h-9 font-bold text-[9px] gap-2" onClick={() => setShowArchived(!showArchived)}>
             {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
             {showArchived ? 'Aktive' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 font-bold uppercase text-[10px]" onClick={() => { setSelectedGroup(null); setName(''); setDescription(''); setIsDialogOpen(true); }}>
+          <Button size="sm" className="h-9 font-bold text-[10px]" onClick={() => { setSelectedGroup(null); setName(''); setDescription(''); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Gruppe erstellen
           </Button>
         </div>
@@ -174,17 +215,17 @@ export default function GroupsPage() {
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead className="py-4 font-bold uppercase text-[10px]">Gruppe</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Mandant</TableHead>
-              <TableHead className="font-bold uppercase text-[10px]">Besetzung</TableHead>
-              <TableHead className="text-right font-bold uppercase text-[10px]">Aktionen</TableHead>
+              <TableHead className="py-4 font-bold text-[10px]">Gruppe</TableHead>
+              <TableHead className="font-bold text-[10px]">Mandant</TableHead>
+              <TableHead className="font-bold text-[10px]">Besetzung</TableHead>
+              <TableHead className="text-right font-bold text-[10px]">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredGroups.map(group => (
               <TableRow key={group.id} className={cn("hover:bg-muted/5 border-b", group.status === 'archived' && "opacity-60")}>
                 <TableCell className="font-bold text-sm">{group.name}</TableCell>
-                <TableCell><Badge variant="outline" className="text-[8px] font-bold uppercase">{getTenantSlug(group.tenantId)}</Badge></TableCell>
+                <TableCell><Badge variant="outline" className="text-[8px] font-bold">{getTenantSlug(group.tenantId)}</Badge></TableCell>
                 <TableCell><span className="text-xs font-bold">{group.userConfigs?.length || 0} Nutzer</span></TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -199,6 +240,11 @@ export default function GroupsPage() {
                         {group.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
                         {group.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
                       </DropdownMenuItem>
+                      {isSuperAdmin && (
+                        <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => setDeleteTarget({ id: group.id, label: group.name })}>
+                          <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -210,18 +256,18 @@ export default function GroupsPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] md:w-full rounded-2xl md:rounded-none h-[90vh] md:h-[80vh] flex flex-col p-0 overflow-hidden bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <DialogTitle className="text-sm font-bold uppercase">{selectedGroup ? 'Gruppe bearbeiten' : 'Neue Gruppe'}</DialogTitle>
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
+            <DialogTitle className="text-sm font-bold">{selectedGroup ? 'Gruppe bearbeiten' : 'Neue Gruppe'}</DialogTitle>
           </DialogHeader>
           <ScrollArea className="flex-1">
             <div className="p-6 md:p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Name</Label>
+                  <Label className="text-[10px] font-bold">Name</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-none h-11" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase">Beschreibung</Label>
+                  <Label className="text-[10px] font-bold">Beschreibung</Label>
                   <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-none h-11" />
                 </div>
               </div>
@@ -229,11 +275,39 @@ export default function GroupsPage() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-6 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleSaveGroup} disabled={isSaving} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white">Speichern</Button>
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-none h-10 px-8 font-bold text-[10px]">Abbrechen</Button>
+            <Button onClick={handleSaveGroup} disabled={isSaving} className="rounded-none h-10 px-12 font-bold text-[10px] bg-slate-900 text-white">Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Gruppe permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie die Zuweisungsgruppe <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle regelbasierten Zuweisungen dieser Gruppe werden entfernt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

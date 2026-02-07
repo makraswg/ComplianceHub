@@ -25,7 +25,8 @@ import {
   Building2,
   Save,
   ChevronRight,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -36,6 +37,16 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,19 +61,24 @@ import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
 import { Entitlement, Resource, Tenant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function RolesManagementPage() {
   const { dataSource, activeTenantId } = useSettings();
+  const { user } = usePlatformAuth();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Entitlement | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -79,6 +95,8 @@ export default function RolesManagementPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   const handleSave = async () => {
     if (!name || !resourceId) {
@@ -105,12 +123,44 @@ export default function RolesManagementPage() {
     try {
       const res = await saveCollectionRecord('entitlements', id, roleData, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: roleData.tenantId || 'global',
+          actorUid: user?.email || 'system',
+          action: selectedRole ? `Rolle aktualisiert: ${name}` : `Rolle definiert: ${name}`,
+          entityType: 'entitlement',
+          entityId: id,
+          after: roleData
+        });
+
         toast({ title: selectedRole ? "Rolle aktualisiert" : "Rolle erstellt" });
         setIsDialogOpen(false);
         refresh();
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteCollectionRecord('entitlements', deleteTarget.id, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: 'global',
+          actorUid: user?.email || 'system',
+          action: `Rolle permanent gelöscht: ${deleteTarget.label}`,
+          entityType: 'entitlement',
+          entityId: deleteTarget.id
+        });
+
+        toast({ title: "Rolle permanent gelöscht" });
+        refresh();
+        setDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -149,7 +199,7 @@ export default function RolesManagementPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary/10 text-primary flex items-center justify-center rounded-lg border shadow-sm">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary flex items-center justify-center rounded-lg border shadow-sm">
             <Shield className="w-6 h-6" />
           </div>
           <div>
@@ -233,9 +283,24 @@ export default function RolesManagementPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-all" onClick={() => openEdit(role)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-red-500 opacity-0 group-hover:opacity-100 transition-all" onClick={() => { if(confirm("Rolle löschen?")) deleteCollectionRecord('entitlements', role.id, dataSource).then(() => refresh()); }}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreHorizontal className="w-4 h-4" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                            <DropdownMenuItem onSelect={() => openEdit(role)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
+                            <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => { 
+                              if (isSuperAdmin) {
+                                setDeleteTarget({ id: role.id, label: role.name });
+                              } else if(confirm("Rolle permanent löschen?")) {
+                                deleteCollectionRecord('entitlements', role.id, dataSource).then(() => refresh());
+                              } 
+                            }}>
+                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -248,8 +313,8 @@ export default function RolesManagementPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center justify-between w-full pr-8">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0 pr-8">
+            <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />
@@ -306,7 +371,7 @@ export default function RolesManagementPage() {
                 <div className="space-y-2 flex flex-col justify-end">
                   <div className="flex items-center justify-between p-3 border rounded-md bg-slate-50 dark:bg-slate-900 h-11">
                     <Label className="text-[10px] font-bold text-slate-500">Admin-Recht</Label>
-                    <Switch checked={isAdmin} onCheckedChange={setAdminOnly} />
+                    <Switch checked={isAdmin} onCheckedChange={setIsAdmin} />
                   </div>
                 </div>
               </div>
@@ -330,6 +395,34 @@ export default function RolesManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Rolle permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie die Rolle <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle bestehenden Zuweisungen dieser Rolle werden ungültig.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

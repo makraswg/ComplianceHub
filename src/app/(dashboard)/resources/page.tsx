@@ -32,7 +32,8 @@ import {
   Archive,
   RotateCcw,
   Download,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -51,6 +52,16 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { 
   Select, 
@@ -91,6 +102,8 @@ export default function ResourcesPage() {
   const [isEntitlementListOpen, setIsEntitlementListOpen] = useState(false);
 
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'resources' | 'entitlements', label: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Resource Form State
   const [name, setName] = useState('');
@@ -129,6 +142,8 @@ export default function ResourcesPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'global' || id === 'all') return 'global';
@@ -242,6 +257,30 @@ export default function ResourcesPage() {
 
       toast({ title: newStatus === 'archived' ? "System archiviert" : "System reaktiviert" });
       refreshResources();
+    }
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: 'global',
+          actorUid: user?.email || 'system',
+          action: `Permanente Löschung: ${deleteTarget.label} (${deleteTarget.type})`,
+          entityType: deleteTarget.type === 'resources' ? 'resource' : 'entitlement',
+          entityId: deleteTarget.id
+        });
+
+        toast({ title: "Eintrag permanent gelöscht" });
+        if (deleteTarget.type === 'resources') refreshResources();
+        if (deleteTarget.type === 'entitlements') refreshEnts();
+        setDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -405,6 +444,11 @@ export default function ResourcesPage() {
                             {resource.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
                             {resource.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
                           </DropdownMenuItem>
+                          {isSuperAdmin && (
+                            <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => setDeleteTarget({ id: resource.id, type: 'resources', label: resource.name })}>
+                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -419,8 +463,8 @@ export default function ResourcesPage() {
       {/* Resource Edit Dialog */}
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center justify-between w-full pr-8">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-8">
+            <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Network className="w-5 h-5" />
@@ -559,8 +603,8 @@ export default function ResourcesPage() {
       {/* Entitlement Management List */}
       <Dialog open={isEntitlementListOpen} onOpenChange={setIsEntitlementListOpen}>
         <DialogContent className="max-w-4xl w-[95vw] rounded-xl h-[85vh] p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center justify-between pr-8">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-8">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-inner">
                   <Shield className="w-5 h-5" />
@@ -590,18 +634,22 @@ export default function ResourcesPage() {
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setSelectedEnt(e); setEntName(e.name); setEntDesc(e.description || ''); setEntRisk(e.riskLevel as any || 'low'); setEntIsAdmin(!!e.isAdmin); setEntMapping(e.externalMapping || ''); setIsEntDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => { if(confirm("Rolle permanent löschen?")) {
-                      deleteCollectionRecord('entitlements', e.id, dataSource).then(() => {
-                        logAuditEventAction(dataSource, {
-                          tenantId: selectedResource?.tenantId || 'global',
-                          actorUid: user?.email || 'system',
-                          action: `Rolle gelöscht: ${e.name} (System: ${selectedResource?.name})`,
-                          entityType: 'entitlement',
-                          entityId: e.id
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => { 
+                      if (isSuperAdmin) {
+                        setDeleteTarget({ id: e.id, type: 'entitlements', label: e.name });
+                      } else if(confirm("Rolle permanent löschen?")) {
+                        deleteCollectionRecord('entitlements', e.id, dataSource).then(() => {
+                          logAuditEventAction(dataSource, {
+                            tenantId: selectedResource?.tenantId || 'global',
+                            actorUid: user?.email || 'system',
+                            action: `Rolle gelöscht: ${e.name} (System: ${selectedResource?.name})`,
+                            entityType: 'entitlement',
+                            entityId: e.id
+                          });
+                          refreshEnts();
                         });
-                        refreshEnts();
-                      });
-                    } }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      } 
+                    }}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 </div>
               ))}
@@ -622,8 +670,8 @@ export default function ResourcesPage() {
       {/* Role Edit Dialog - Unified with Roles Management */}
       <Dialog open={isEntDialogOpen} onOpenChange={setIsEntDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center justify-between w-full pr-8">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0 pr-8">
+            <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />
@@ -697,6 +745,34 @@ export default function ResourcesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle verknüpften Daten werden unwiderruflich entfernt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
