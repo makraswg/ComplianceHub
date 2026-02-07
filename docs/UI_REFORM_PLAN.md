@@ -16,7 +16,7 @@
 
 ---
 
-## Phase 2: Advanced UX & Polish (IN ARBEIT 🚀)
+## Phase 2: Advanced UX & Polish (ABGESCHLOSSEN ✅)
 
 ### 1. Motion & Micro-Interactions
 - [x] **Smooth Transitions**: Weiche Einblend-Effekte für Seitenwechsel (Animate-in).
@@ -36,3 +36,24 @@
 ### 4. User Guidance
 - [x] **Quick Tours**: Geführte Einführung für neue Administratoren.
 - [x] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Header-Leiste.
+- [x] **UX Control**: Zentrale Steuerung der UX-Features in den Einstellungen.
+
+---
+
+## Phase 3: Intelligence & Ecosystem Mastery (IN PLANUNG 🚀)
+
+### 1. AI Proactive Governance
+- [ ] **Smart Alerts**: KI-gestützte Warnungen bei kritischen Rechtekombinationen direkt im Dashboard.
+- [ ] **Prozess-Inferenz**: Automatische Generierung von ISO-Vorschlägen basierend auf dem Firmenkontext.
+
+### 2. Deep Ecosystem Integration
+- [ ] **Bi-directional Jira Sync**: Automatischer Abgleich von Assets zwischen Jira Service Management und Hub.
+- [ ] **Unified Search (Cmd+K)**: Globale Suche über alle Entitäten (Nutzer, Risiken, Dokumente).
+
+### 3. Advanced Collaboration
+- [ ] **Presence & Comments**: Zusammenarbeit im ProcessHub (wer arbeitet gerade an welchem Prozess?).
+- [ ] **Approval Workflows**: Visuelle Freigabeprozesse für Risiko-Bewertungen.
+
+### 4. Internationalization (i18n)
+- [ ] **Multi-Language Support**: Vorbereitung der UI auf Englisch/Deutsch Umschaltung.
+- [ ] **Regional Compliance**: Anpassung der GRC-Logik an länderspezifische Vorgaben.
