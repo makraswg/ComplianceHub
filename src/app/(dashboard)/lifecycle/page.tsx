@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,9 @@ import {
   Plus,
   AlertTriangle,
   Archive,
-  RotateCcw
+  RotateCcw,
+  Save,
+  Check
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -64,7 +66,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -113,10 +116,6 @@ export default function LifecyclePage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Offboarding State
-  const [userToOffboard, setUserToOffboard] = useState<any>(null);
-  const [isOffboardConfirmOpen, setIsOffboardConfirmOpen] = useState(false);
-
   const { data: users, isLoading: isUsersLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: bundles, isLoading: isBundlesLoading, refresh: refreshBundles } = usePluggableCollection<Bundle>('bundles');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
@@ -131,7 +130,7 @@ export default function LifecyclePage() {
   const isSuperAdmin = user?.role === 'superAdmin';
 
   const getTenantSlug = (id?: string | null) => {
-    if (!id || id === 'all' || id === 'global') return 'Global';
+    if (!id || id === 'all' || id === 'global') return 'global';
     const tenant = tenants?.find((t: any) => t.id === id);
     return tenant ? tenant.slug : id;
   };
@@ -151,7 +150,7 @@ export default function LifecyclePage() {
 
   const handleCreateBundle = async () => {
     if (!bundleName || selectedEntitlementIds.length === 0) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name und Rollen erforderlich." });
+      toast({ variant: "destructive", title: "Fehler", description: "Name und Rollen sind erforderlich." });
       return;
     }
     const bundleId = selectedBundle?.id || `bundle-${Math.random().toString(36).substring(2, 9)}`;
@@ -170,6 +169,15 @@ export default function LifecyclePage() {
     try {
       const res = await saveCollectionRecord('bundles', bundleId, bundleData, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: targetTenantId,
+          actorUid: user?.email || 'system',
+          action: selectedBundle ? `Onboarding-Paket aktualisiert: ${bundleName}` : `Onboarding-Paket erstellt: ${bundleName}`,
+          entityType: 'bundle',
+          entityId: bundleId,
+          after: bundleData
+        });
+
         toast({ title: selectedBundle ? "Paket aktualisiert" : "Paket erstellt" });
         setIsBundleCreateOpen(false);
         refreshBundles();
@@ -183,6 +191,14 @@ export default function LifecyclePage() {
     const updated = { ...bundle, status: newStatus };
     const res = await saveCollectionRecord('bundles', bundle.id, updated, dataSource);
     if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: bundle.tenantId || 'global',
+        actorUid: user?.email || 'system',
+        action: `${newStatus === 'archived' ? 'Paket archiviert' : 'Paket reaktiviert'}: ${bundle.name}`,
+        entityType: 'bundle',
+        entityId: bundle.id,
+        after: updated
+      });
       toast({ title: newStatus === 'archived' ? "Paket archiviert" : "Paket reaktiviert" });
       refreshBundles();
     }
@@ -237,10 +253,10 @@ export default function LifecyclePage() {
       await saveCollectionRecord('users', userId, userData, dataSource);
 
       const configs = await getJiraConfigs(dataSource);
-      let jiraKey = 'MANUELL';
+      let jiraKey = 'manuell';
       
       if (configs.length > 0 && configs[0].enabled) {
-        const res = await createJiraTicket(configs[0].id, `ONBOARDING: ${newUserName}`, `Onboarding Bundle: ${bundle.name}`, dataSource);
+        const res = await createJiraTicket(configs[0].id, `onboarding: ${newUserName}`, `Onboarding Paket: ${bundle.name}`, dataSource);
         if (res.success) jiraKey = res.key!;
       }
 
@@ -251,6 +267,15 @@ export default function LifecyclePage() {
         };
         await saveCollectionRecord('assignments', assId, assData, dataSource);
       }
+
+      await logAuditEventAction(dataSource, {
+        tenantId: targetTenantId,
+        actorUid: authUser?.email || 'onboarding-wizard',
+        action: `Onboarding Prozess gestartet: ${newUserName}`,
+        entityType: 'user',
+        entityId: userId,
+        after: userData
+      });
 
       toast({ title: "Onboarding Prozess aktiv" });
       setNewUserName(''); setNewEmail(''); setSelectedBundleId(null);
@@ -265,59 +290,84 @@ export default function LifecyclePage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b pb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Identity Lifecycle Hub</h1>
-          <p className="text-sm text-muted-foreground">Automatisierte On- und Offboarding-Prozesse für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+    <div className="space-y-6 pb-10">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+            <UserPlus className="w-6 h-6" />
+          </div>
+          <div>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Identity Lifecycle</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Lifecycle Hub</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automatisierte On- und Offboarding-Prozesse für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.</p>
+          </div>
         </div>
-        <Button variant="outline" size="sm" className="h-9 font-bold text-[10px] rounded-none" onClick={() => { 
-          setSelectedBundle(null); setBundleName(''); setBundleDesc(''); setSelectedEntitlementIds([]); setIsBundleCreateOpen(true); 
-        }}>
-          <Package className="w-3.5 h-3.5 mr-2" /> Paket definieren
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs gap-2" onClick={() => { 
+            setSelectedBundle(null); setBundleName(''); setBundleDesc(''); setSelectedEntitlementIds([]); setIsBundleCreateOpen(true); 
+          }}>
+            <Package className="w-3.5 h-3.5" /> Paket definieren
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted/50 h-12 rounded-none border w-full justify-start gap-2 p-1 overflow-x-auto no-scrollbar">
-          <TabsTrigger value="joiner" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
+        <TabsList className="bg-slate-100 dark:bg-slate-800 h-11 rounded-lg border w-full justify-start gap-1 p-1 overflow-x-auto no-scrollbar">
+          <TabsTrigger value="joiner" className="px-6 text-[11px] font-bold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm">
             <UserPlus className="w-3.5 h-3.5 mr-2" /> Onboarding
           </TabsTrigger>
-          <TabsTrigger value="leaver" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
+          <TabsTrigger value="leaver" className="px-6 text-[11px] font-bold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm">
             <UserMinus className="w-3.5 h-3.5 mr-2" /> Offboarding
           </TabsTrigger>
-          <TabsTrigger value="bundles" className="px-8 text-[10px] font-bold uppercase rounded-none shrink-0">
-            <Package className="w-3.5 h-3.5 mr-2" /> Pakete
+          <TabsTrigger value="bundles" className="px-6 text-[11px] font-bold rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm">
+            <Package className="w-3.5 h-3.5 mr-2" /> Rollenpakete
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="joiner">
-          <Card className="rounded-none shadow-none border overflow-hidden">
-            <CardHeader className="bg-muted/10 border-b py-4">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                <UserPlus className="w-4 h-4" /> Neuer Eintritt registrieren
-              </CardTitle>
+          <Card className="rounded-xl shadow-sm border overflow-hidden bg-white dark:bg-slate-900">
+            <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100">Neuen Eintritt registrieren</CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="p-6 md:p-8 space-y-8 bg-white">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
+            <CardContent className="p-6 md:p-10 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">Vollständiger Name</Label>
-                    <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Max Mustermann" className="rounded-none h-11" />
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1">Vollständiger Name</Label>
+                    <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Max Mustermann" className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase">E-Mail</Label>
-                    <Input value={newUserEmail} onChange={e => setNewEmail(e.target.value)} placeholder="name@firma.de" className="rounded-none h-11" />
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1">E-Mail</Label>
+                    <Input value={newUserEmail} onChange={e => setNewEmail(e.target.value)} placeholder="name@firma.de" className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1">Startdatum</Label>
+                    <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="rounded-md h-11 border-slate-200 bg-slate-50/50" />
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-bold uppercase text-primary">Rollenpaket</Label>
-                  <ScrollArea className="h-48 md:h-64 border p-2 bg-slate-50/50">
-                    <div className="grid grid-cols-1 gap-1.5">
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1">Rollenpaket auswählen</Label>
+                  <ScrollArea className="h-[280px] rounded-xl border border-slate-100 bg-slate-50/30 p-2 shadow-inner">
+                    <div className="grid grid-cols-1 gap-2">
                       {bundles?.filter(b => b.status !== 'archived' && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
-                        <div key={bundle.id} className={cn("p-2 border cursor-pointer flex items-center justify-between", selectedBundleId === bundle.id ? "border-primary bg-primary/5" : "bg-white")} onClick={() => setSelectedBundleId(bundle.id)}>
-                          <span className="text-[10px] font-bold uppercase">{bundle.name}</span>
-                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-3 h-3 text-primary" />}
+                        <div 
+                          key={bundle.id} 
+                          className={cn(
+                            "p-4 rounded-lg border transition-all cursor-pointer flex items-center justify-between group",
+                            selectedBundleId === bundle.id ? "border-primary bg-primary/5 ring-2 ring-primary/5 shadow-sm" : "bg-white dark:bg-slate-800 border-slate-100 hover:border-slate-200"
+                          )} 
+                          onClick={() => setSelectedBundleId(bundle.id)}
+                        >
+                          <div>
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors">{bundle.name}</span>
+                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">{bundle.entitlementIds?.length || 0} Berechtigungen inkludiert</p>
+                          </div>
+                          {selectedBundleId === bundle.id && <CheckCircle2 className="w-4 h-4 text-primary" />}
                         </div>
                       ))}
                     </div>
@@ -325,53 +375,122 @@ export default function LifecyclePage() {
                 </div>
               </div>
             </CardContent>
-            <div className="p-6 border-t bg-slate-50 flex justify-end">
-              <Button onClick={startOnboarding} disabled={isActionLoading || !selectedBundleId || !newUserName} className="w-full md:w-auto rounded-none font-bold uppercase text-[10px] h-12 px-12">Onboarding starten</Button>
+            <div className="p-6 border-t bg-slate-50/50 dark:bg-slate-800/50 flex justify-end">
+              <Button 
+                onClick={startOnboarding} 
+                disabled={isActionLoading || !selectedBundleId || !newUserName} 
+                className="w-full md:w-auto rounded-md font-bold text-xs h-11 px-12 bg-primary text-white shadow-lg shadow-primary/20 active:scale-95 transition-all"
+              >
+                {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
+                Onboarding starten
+              </Button>
             </div>
           </Card>
         </TabsContent>
 
+        <TabsContent value="leaver">
+          <Card className="rounded-xl shadow-sm border bg-white dark:bg-slate-900">
+            <CardHeader className="bg-slate-50/50 dark:bg-slate-800/50 border-b py-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-600 shadow-inner">
+                  <UserMinus className="w-4 h-4" />
+                </div>
+                <CardTitle className="text-sm font-bold text-slate-800 dark:text-slate-100">Offboarding & Austritt</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-10 text-center space-y-4">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-200">
+                <Search className="w-8 h-8 text-slate-300" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-slate-800">Mitarbeiter suchen</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                  Nutzen Sie das Benutzerverzeichnis, um bei einem Austritt alle Berechtigungen gesammelt zu entziehen und ein Jira-Ticket zur Hardware-Rückgabe zu erstellen.
+                </p>
+              </div>
+              <Button variant="outline" className="rounded-md font-bold text-xs h-10 px-8 border-slate-200 mt-4" onClick={() => router.push('/users')}>
+                Zum Benutzerverzeichnis <ArrowRight className="w-3.5 h-3.5 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="bundles">
-          <div className="flex justify-end mb-4">
-            <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase gap-2" onClick={() => setShowArchived(!showArchived)}>
-              {showArchived ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
-              {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}
+          <div className="flex items-center justify-between mb-4">
+            <div className="relative flex-1 max-w-md group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
+              <Input 
+                placeholder="Pakete suchen..." 
+                className="pl-9 h-9 rounded-md border-slate-200 bg-white"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="ghost" size="sm" className="h-8 text-[10px] font-bold gap-2" onClick={() => setShowArchived(!showArchived)}>
+              {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+              {showArchived ? 'Aktive Pakete' : 'Archiv'}
             </Button>
           </div>
-          <div className="admin-card overflow-hidden">
+
+          <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
             <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow>
-                  <TableHead className="py-3 font-bold text-[10px]">Paket-Name</TableHead>
-                  <TableHead className="font-bold text-[10px]">Inhalt</TableHead>
-                  <TableHead className="text-right font-bold text-[10px]">Aktionen</TableHead>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="hover:bg-transparent border-b">
+                  <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Rollenpaket</TableHead>
+                  <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
+                  <TableHead className="font-bold text-[11px] text-slate-400 text-center">Rollen</TableHead>
+                  <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bundles?.filter(b => (showArchived ? b.status === 'archived' : b.status !== 'archived') && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
-                  <TableRow key={bundle.id} className={cn("hover:bg-muted/5 border-b", bundle.status === 'archived' && "opacity-60")}>
-                    <TableCell className="font-bold text-[11px] uppercase">{bundle.name}</TableCell>
-                    <TableCell><span className="text-[10px] font-bold">{(bundle.entitlementIds || []).length} Rollen</span></TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-none w-48">
-                          <DropdownMenuItem onSelect={() => openEditBundle(bundle)}><Pencil className="w-3.5 h-3.5 mr-2" /> Paket bearbeiten</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className={bundle.status === 'archived' ? "text-emerald-600" : "text-red-600"} 
-                            onSelect={() => handleBundleStatusChange(bundle, bundle.status === 'archived' ? 'active' : 'archived')}
-                          >
-                            {bundle.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
-                            {bundle.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
-                          </DropdownMenuItem>
-                          {isSuperAdmin && (
-                            <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => setDeleteTarget({ id: bundle.id, label: bundle.name })}>
-                              <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                  <TableRow key={bundle.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0", bundle.status === 'archived' && "opacity-60")}>
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
+                          <Package className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-slate-800">{bundle.name}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{bundle.description || 'Keine Beschreibung'}</div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
+                        {getTenantSlug(bundle.tenantId)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="rounded-full bg-slate-50 text-slate-600 border-none font-bold text-[10px] h-5 px-2">
+                        {bundle.entitlementIds?.length || 0}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right px-6">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-all" onClick={() => openEditBundle(bundle)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-slate-100 rounded-md transition-all"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-lg p-1 w-56 shadow-xl border">
+                            <DropdownMenuItem onSelect={() => openEditBundle(bundle)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Paket bearbeiten</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
+                            <DropdownMenuItem 
+                              className={cn("rounded-md py-2 gap-2 text-xs font-bold", bundle.status === 'archived' ? "text-emerald-600" : "text-red-600")} 
+                              onSelect={() => handleBundleStatusChange(bundle, bundle.status === 'archived' ? 'active' : 'archived')}
+                            >
+                              {bundle.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                              {bundle.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
                             </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                            {isSuperAdmin && (
+                              <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => setDeleteTarget({ id: bundle.id, label: bundle.name })}>
+                                <Trash2 className="w-3.5 h-3.5 mr-2" /> Permanent löschen
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -381,33 +500,102 @@ export default function LifecyclePage() {
         </TabsContent>
       </Tabs>
 
+      {/* Bundle Create/Edit Dialog */}
       <Dialog open={isBundleCreateOpen} onOpenChange={setIsBundleCreateOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-none flex flex-col p-0 overflow-hidden bg-white">
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-xl flex flex-col p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-slate-900">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
-            <DialogTitle className="text-sm font-bold uppercase">{selectedBundle ? 'Paket bearbeiten' : 'Neues Paket'}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1">
-            <div className="p-6 md:p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Paket-Name</Label><Input value={bundleName} onChange={e => setBundleName(e.target.value)} className="rounded-none h-11" /></div>
-                <div className="space-y-2"><Label className="text-[10px] font-bold uppercase">Beschreibung</Label><Input value={bundleDesc} onChange={e => setBundleDesc(e.target.value)} className="rounded-none h-11" /></div>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center text-primary shadow-xl border border-white/10">
+                <Package className="w-5 h-5" />
               </div>
-              <div className="space-y-4 pt-6 border-t">
-                <Label className="text-[10px] font-bold uppercase text-primary">Rollen wählen ({selectedEntitlementIds.length})</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {filteredRoles.map((ent: any) => (
-                    <div key={ent.id} className={cn("p-2 border cursor-pointer text-[9px] font-bold uppercase flex items-center gap-2", selectedEntitlementIds.includes(ent.id) ? "bg-emerald-50 border-emerald-500" : "bg-white")} onClick={() => setSelectedEntitlementIds(prev => selectedEntitlementIds.includes(ent.id) ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}>
-                      <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm" />
-                      <span className="truncate">{ent.name}</span>
+              <div>
+                <DialogTitle className="text-lg font-bold">{selectedBundle ? 'Onboarding-Paket bearbeiten' : 'Neues Paket definieren'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Vordefinierte Rollenzuweisungen für neue Mitarbeiter</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            <div className="p-6 md:p-10 space-y-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Paketbezeichnung</Label>
+                  <Input value={bundleName} onChange={e => setBundleName(e.target.value)} placeholder="z.B. Marketing Basis, IT-Entwickler..." className="rounded-md h-11 border-slate-200 font-bold text-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Beschreibung</Label>
+                  <Input value={bundleDesc} onChange={e => setBundleDesc(e.target.value)} placeholder="Zweck des Pakets..." className="rounded-md h-11 border-slate-200 text-sm" />
+                </div>
+              </div>
+
+              <div className="space-y-6 pt-6 border-t border-slate-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
+                      <Layers className="w-4 h-4" /> Rollen auswählen ({selectedEntitlementIds.length} gewählt)
+                    </Label>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Diese Rollen werden bei Aktivierung des Pakets automatisch zugewiesen.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="relative group">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                      <Input 
+                        placeholder="Rollen filtern..." 
+                        value={roleSearchTerm}
+                        onChange={e => setRoleSearchTerm(e.target.value)}
+                        className="h-8 pl-8 text-[10px] rounded-md min-w-[180px]"
+                      />
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2 px-3 h-8 border rounded-md bg-slate-50 text-slate-500">
+                      <ShieldAlert className="w-3 h-3" />
+                      <span className="text-[9px] font-bold">Admin-Only</span>
+                      <Switch checked={adminOnlyFilter} onCheckedChange={setAdminOnlyFilter} className="scale-75" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {filteredRoles.map((ent: any) => {
+                    const res = resources?.find((r: any) => r.id === ent.resourceId);
+                    return (
+                      <div 
+                        key={ent.id} 
+                        className={cn(
+                          "p-3 border rounded-lg cursor-pointer transition-all flex items-center gap-3 group shadow-sm",
+                          selectedEntitlementIds.includes(ent.id) 
+                            ? "border-emerald-500 bg-emerald-50/30 ring-1 ring-emerald-500/20" 
+                            : "bg-white dark:bg-slate-800 border-slate-100 hover:border-slate-200"
+                        )} 
+                        onClick={() => setSelectedEntitlementIds(prev => 
+                          selectedEntitlementIds.includes(ent.id) ? prev.filter(id => id !== ent.id) : [...prev, ent.id]
+                        )}
+                      >
+                        <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm h-4 w-4" />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">{ent.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[8px] font-bold text-slate-400 truncate max-w-[80px]">{res?.name}</span>
+                            {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[7px] font-bold h-3 px-1">Admin</Badge>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-6 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-3">
-            <Button variant="ghost" onClick={() => setIsBundleCreateOpen(false)} className="rounded-none h-10 px-8 font-bold uppercase text-[10px]">Abbrechen</Button>
-            <Button onClick={handleCreateBundle} className="rounded-none h-10 px-12 font-bold uppercase text-[10px] bg-slate-900 text-white">Speichern</Button>
+          
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsBundleCreateOpen(false)} className="rounded-md h-10 px-8 font-bold text-[11px]">Abbrechen</Button>
+            <Button 
+              onClick={handleCreateBundle} 
+              disabled={isActionLoading || !bundleName} 
+              className="rounded-md h-10 px-12 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20 active:scale-95 transition-all"
+            >
+              {isActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Änderungen speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -423,15 +611,15 @@ export default function LifecyclePage() {
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
               Möchten Sie das Onboarding-Paket <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
               <br/><br/>
-              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden.
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Bestehende Mitarbeiter-Accounts bleiben unberührt, aber das Paket kann nicht mehr für neue Eintritte genutzt werden.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
-            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
             <AlertDialogAction 
               onClick={executeDelete} 
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2 shadow-lg"
             >
               {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               Permanent löschen
