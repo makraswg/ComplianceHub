@@ -105,16 +105,20 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 7.1: IT-Asset Management**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: IT-Assets brauchen Kontext zum Business.
     *   **NEUE AUFGABE**: CIA-Wizard: KI-geführte Schutzbedarfsfeststellung für Azubis.
     *   **NEUE AUFGABE**: Usage-Explorer: Zeige alle Prozesse und VVT-Einträge, die dieses System nutzen.
+    *   **NEUE AUFGABE**: Drift-Detection: Warnung, wenn Assets in Jira existieren, aber nicht im Hub (Step 8.2).
 
 ### 8. System-Konfiguration & Administration
 *Technisches Setup.*
 
 *   **Step 8.1: Setup-Wizard**
     *   *Status*: In Prüfung (Audit Phase) 🔍
+    *   *Consultant Audit*: Das Setup ist zu komplex für Nicht-IT-Spezialisten.
     *   **NEUE AUFGABE**: Geführter Onboarding-Wizard für neue Administratoren.
     *   **NEUE AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen (LDAP/Jira) in einfaches Deutsch.
+    *   **NEUE AUFGABE**: Globaler Health-Check: Dashboard-Widget für den Status aller API-Verbindungen.
 
 ---
-*Ende der Master-Liste (Stand: Audit Phase Step 6)*
+*Ende der Master-Liste (Stand: Final Strategic Audit)*
