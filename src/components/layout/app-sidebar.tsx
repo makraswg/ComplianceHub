@@ -34,7 +34,8 @@ import {
   BookOpen,
   Mail,
   FileCode,
-  RefreshCw
+  RefreshCw,
+  Ticket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -91,13 +92,19 @@ export function AppSidebar() {
     setMounted(true);
   }, []);
 
-  const navItems = [
+  const coreItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
-    { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
+    { name: 'Organisation & Struktur', href: '/settings/organization', icon: Building2 },
     { name: 'Ressourcenkatalog', href: '/resources', icon: Layers },
+    { name: 'Audit Log', href: '/audit', icon: Activity },
+  ];
+
+  const accessHubItems = [
+    { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
+    { name: 'Rollenverwaltung', href: '/roles', icon: ShieldCheck },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
+    { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
     { name: 'Access Reviews', href: '/reviews', icon: CheckCircle },
   ];
 
@@ -111,7 +118,6 @@ export function AppSidebar() {
     { name: 'Gefährdungskatalog', href: '/risks/catalog', icon: Library },
     { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
-    { name: 'Audit Log', href: '/audit', icon: Activity },
   ];
 
   const complianceItems = [
@@ -120,7 +126,6 @@ export function AppSidebar() {
   ];
 
   const settingSubItems = [
-    { name: 'Organisation & Struktur', href: '/settings/organization', icon: Building2 },
     { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
@@ -192,7 +197,7 @@ export function AppSidebar() {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">AccessHub</span>
+            <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">ComplianceHub</span>
             <span className="text-[9px] text-primary font-bold block mt-1">Enterprise GRC</span>
           </div>
         </div>
@@ -203,8 +208,13 @@ export function AppSidebar() {
       <ScrollArea className="flex-1 px-3">
         <div className="space-y-8 py-4">
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Platform Core</p>
-            {navItems.map((item) => <NavLink key={item.name} item={item} />)}
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Plattform Core</p>
+            {coreItems.map((item) => <NavLink key={item.name} item={item} />)}
+          </div>
+
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">AccessHub</p>
+            {accessHubItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">

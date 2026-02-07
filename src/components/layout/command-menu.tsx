@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -93,7 +94,7 @@ export function CommandMenu() {
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
               <Search className="w-5 h-5 text-white" />
             </div>
-            <DialogTitle className="text-lg font-headline font-bold">Globale Schnellsuche</DialogTitle>
+            <DialogTitle className="text-lg font-headline font-bold">ComplianceHub Schnellsuche</DialogTitle>
           </div>
         </DialogHeader>
         

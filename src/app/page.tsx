@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -17,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -115,8 +117,8 @@ export default function LoginPage() {
           <Shield className="w-9 h-9 text-white" />
         </div>
         <div className="text-center">
-          <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">ComplianceHub</h1>
-          <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-primary mt-1">Enterprise Governance</p>
+          <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">ComplianceHub</h1>
+          <p className="text-[10px] font-bold tracking-[0.3em] text-primary mt-1">Enterprise Governance</p>
         </div>
       </div>
 
@@ -139,12 +141,12 @@ export default function LoginPage() {
               {authError && (
                 <Alert variant="destructive" className="rounded-xl border-none bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-[11px] font-bold uppercase">{authError}</AlertDescription>
+                  <AlertDescription className="text-[11px] font-bold">{authError}</AlertDescription>
                 </Alert>
               )}
               
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">E-Mail</Label>
+                <Label className="text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500 ml-1">E-Mail</Label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input 
@@ -160,10 +162,10 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between ml-1">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Passwort</Label>
+                  <Label className="text-[10px] font-black tracking-widest text-slate-400 dark:text-slate-500">Passwort</Label>
                   <button 
                     type="button" 
-                    className="text-[9px] font-black uppercase text-primary hover:text-primary/80 transition-colors"
+                    className="text-[9px] font-black text-primary hover:text-primary/80 transition-colors"
                     onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
                   >
                     Vergessen?
@@ -186,7 +188,7 @@ export default function LoginPage() {
             <CardFooter className="pt-4 pb-8 flex flex-col gap-4">
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold uppercase text-xs tracking-[0.2em] shadow-lg shadow-primary/20 active:scale-[0.98] transition-all gap-2" 
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-xs tracking-[0.2em] shadow-lg shadow-primary/20 active:scale-[0.98] transition-all gap-2" 
                 disabled={isActionLoading}
               >
                 {isActionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
@@ -214,21 +216,21 @@ export default function LoginPage() {
                 <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
-                <p className="text-[11px] text-center font-bold uppercase text-slate-600 dark:text-slate-400">Prüfen Sie Ihr Postfach.</p>
+                <p className="text-[11px] text-center font-bold text-slate-600 dark:text-slate-400">Prüfen Sie Ihr Postfach.</p>
                 <Button className="rounded-xl w-full" onClick={() => setIsForgotOpen(false)}>Schließen</Button>
               </div>
             ) : (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-black uppercase text-slate-400">Anmelde-E-Mail</Label>
+                  <Label className="text-[10px] font-black">Anmelde-E-Mail</Label>
                   <Input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} className="rounded-xl h-11" placeholder="max@beispiel.de" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Button className="w-full rounded-xl font-bold uppercase text-[10px] h-11 tracking-wider gap-2 shadow-md shadow-primary/10" onClick={handleForgotSubmit} disabled={isForgotLoading}>
+                  <Button className="w-full rounded-xl font-bold text-[10px] h-11 tracking-wider gap-2 shadow-md shadow-primary/10" onClick={handleForgotSubmit} disabled={isForgotLoading}>
                     {isForgotLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                     Reset-Link senden
                   </Button>
-                  <Button variant="ghost" className="w-full rounded-xl font-bold uppercase text-[10px]" onClick={() => setIsForgotOpen(false)}>
+                  <Button variant="ghost" className="w-full rounded-xl font-bold text-[10px]" onClick={() => setIsForgotOpen(false)}>
                     Abbrechen
                   </Button>
                 </div>
