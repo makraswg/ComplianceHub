@@ -24,7 +24,7 @@
 - [x] **Loading States**: Skeleton-Screens für alle datenlastigen Tabellen (Dashboard, Users, Assignments).
 
 ### 2. Interactive Reporting (Intelligence)
-- [ ] **Matrix-Drilldown**: Klickbare Felder in der Risiko-Heatmap zur Echtzeit-Filterung.
+- [x] **Matrix-Drilldown**: Klickbare Felder in der Risiko-Heatmap zur Echtzeit-Filterung.
 - [ ] **Dynamic Charts**: Animierte Charts in den Risk Reports.
 - [ ] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
 
