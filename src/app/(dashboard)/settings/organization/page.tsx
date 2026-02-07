@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -13,7 +12,6 @@ import {
   Archive, 
   RotateCcw,
   Search,
-  ChevronRight,
   Layers,
   Loader2,
   Trash2,
@@ -29,13 +27,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { Tenant, Department, JobTitle } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function UnifiedOrganizationPage() {
@@ -249,7 +247,7 @@ export default function UnifiedOrganizationPage() {
                       <Settings2 className="w-3.5 h-3.5" /> Konfig
                     </Button>
                     <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
-                      <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abt.
+                      <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
                       <Archive className="w-3.5 h-3.5" />
