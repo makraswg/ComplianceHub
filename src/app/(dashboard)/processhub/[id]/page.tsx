@@ -287,6 +287,10 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  /**
+   * Löscht einen Knoten und schließt den Dialog.
+   * Nutzt einen isolierten isDeleting-State für maximale Reaktivität.
+   */
   const handleDeleteNode = async () => {
     if (!selectedNodeId || !currentVersion || !user) return;
     
@@ -740,16 +744,27 @@ export default function ProcessDesignerPage() {
                     )}
                   </div>
                 </TabsContent>
-                <TabsContent value="details" className="mt-0 space-y-8"><div className="space-y-8"><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-slate-200 p-4 leading-relaxed" placeholder="Was genau wird hier getan?" /></div><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase"><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste</Label><Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Ein Punkt pro Zeile..." /></div></div></TabsContent>
+                <TabsContent value="details" className="mt-0 space-y-8"><div className="space-y-8"><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-slate-200 p-4 leading-relaxed" placeholder="Was genau wird hier getan?" /></div><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase"><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste</Label><Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Ein Punkt pro Zeile..." /></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-2"><Label className="text-[10px] font-bold text-blue-600 ml-1 tracking-widest uppercase">Insider-Tipps</Label><Textarea value={localNodeEdits.tips} onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} className="text-[10px] min-h-[80px] rounded-xl border-slate-200 bg-blue-50/20" placeholder="Best Practices..." /></div><div className="space-y-2"><Label className="text-[10px] font-bold text-red-600 ml-1 tracking-widest uppercase">Fehlerquellen</Label><Textarea value={localNodeEdits.errors} onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} className="text-[10px] min-h-[80px] rounded-xl border-slate-200 bg-red-50/20" placeholder="Was oft schief geht..." /></div></div></div></TabsContent>
               </div>
             </ScrollArea>
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between gap-4">
-            <Button variant="outline" size="sm" onClick={handleDeleteNode} disabled={isDeleting} className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 transition-all gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDeleteNode} 
+              disabled={isDeleting} 
+              className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 transition-all gap-2"
+            >
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               Modul löschen
             </Button>
-            <div className="flex items-center gap-2"><Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>Abbrechen</Button><Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>{isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} Änderungen speichern</Button></div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>Abbrechen</Button>
+              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
+                {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} Änderungen speichern
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

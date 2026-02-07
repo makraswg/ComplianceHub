@@ -25,7 +25,11 @@ import {
   CheckCircle,
   Network,
   Eye,
-  Lock
+  Lock,
+  ListChecks,
+  AlertTriangle,
+  Lightbulb,
+  ArrowDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,7 +97,7 @@ export default function ProcessDetailViewPage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState('summary');
+  const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('diagram');
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -105,14 +109,14 @@ export default function ProcessDetailViewPage() {
   useEffect(() => { setMounted(true); }, []);
 
   const syncDiagram = useCallback(() => {
-    if (!iframeRef.current || !currentVersion) return;
+    if (!iframeRef.current || !currentVersion || viewMode !== 'diagram') return;
     const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 0 }), '*');
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
-  }, [currentVersion]);
+  }, [currentVersion, viewMode]);
 
   useEffect(() => {
-    if (!mounted || !iframeRef.current || !currentVersion?.model_json?.nodes?.length) return;
+    if (!mounted || !iframeRef.current || !currentVersion?.model_json?.nodes?.length || viewMode !== 'diagram') return;
     const handleMessage = (evt: MessageEvent) => {
       if (!evt.data || typeof evt.data !== 'string') return;
       try {
@@ -122,7 +126,7 @@ export default function ProcessDetailViewPage() {
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [mounted, currentVersion?.id, syncDiagram]);
+  }, [mounted, currentVersion?.id, syncDiagram, viewMode]);
 
   if (!mounted) return null;
 
@@ -136,24 +140,43 @@ export default function ProcessDetailViewPage() {
           <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-200 border border-emerald-500/20">
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900">{currentProcess?.title}</h1>
+          <div className="min-w-0">
+            <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Offizielles Prozess-Stammblatt • V{currentVersion?.version}.0</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
+            <Button 
+              variant={viewMode === 'diagram' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-8 rounded-lg text-[10px] font-bold uppercase px-4"
+              onClick={() => setViewMode('diagram')}
+            >
+              <Network className="w-3.5 h-3.5 mr-1.5" /> Visuell
+            </Button>
+            <Button 
+              variant={viewMode === 'guide' ? 'secondary' : 'ghost'} 
+              size="sm" 
+              className="h-8 rounded-lg text-[10px] font-bold uppercase px-4"
+              onClick={() => setViewMode('guide')}
+            >
+              <ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden
+            </Button>
+          </div>
+          <Separator orientation="vertical" className="h-8 mx-1" />
           <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs gap-2 border-slate-200 hover:bg-slate-50">
-            <Download className="w-4 h-4" /> PDF Bericht
+            <Download className="w-4 h-4" /> PDF
           </Button>
           <Button className="rounded-xl h-10 px-8 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg" onClick={() => router.push(`/processhub/${id}`)}>
-            <FilePen className="w-4 h-4 mr-2" /> Designer öffnen
+            <FilePen className="w-4 h-4 mr-2" /> Designer
           </Button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full">
-        <aside className="w-96 border-r bg-white flex flex-col shrink-0">
+        <aside className="w-96 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-8 space-y-10">
               <section className="space-y-4">
@@ -179,25 +202,35 @@ export default function ProcessDetailViewPage() {
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortlichkeiten</h3>
                 <div className="space-y-2">
-                  {currentVersion?.model_json?.nodes?.filter((n: ProcessNode) => n.roleId && n.roleId !== 'none').map((n: ProcessNode, i: number) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
-                      <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
-                        <Briefcase className="w-4 h-4" />
+                  {currentVersion?.model_json?.nodes?.filter((n: ProcessNode) => n.roleId && n.roleId !== 'none' && n.roleId !== 'undefined').map((n: ProcessNode, i: number) => {
+                    const role = jobTitles?.find(j => j.id === n.roleId);
+                    if (!role) return null;
+                    return (
+                      <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+                          <Briefcase className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{role.name}</p>
+                          <p className="text-[9px] text-slate-400 font-bold truncate italic">{n.title}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-slate-800 truncate">{jobTitles?.find(j => j.id === n.roleId)?.name}</p>
-                        <p className="text-[9px] text-slate-400 font-bold truncate italic">{n.title}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prozess-Vernetzung</h3>
-                <div className="p-5 rounded-2xl border-2 border-dashed border-slate-100 flex flex-col items-center justify-center text-center py-10 opacity-40">
-                  <Network className="w-8 h-8 text-slate-300 mb-2" />
-                  <p className="text-[10px] font-bold">Keine systemweiten Abhängigkeiten dokumentiert</p>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Meta-Informationen</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Version</p>
+                    <p className="text-xs font-bold text-slate-700">{currentVersion?.version || 1}.0</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Letzte Änderung</p>
+                    <p className="text-[10px] font-bold text-slate-700">{currentProcess?.updatedAt ? new Date(currentProcess.updatedAt).toLocaleDateString() : '---'}</p>
+                  </div>
                 </div>
               </section>
             </div>
@@ -205,41 +238,162 @@ export default function ProcessDetailViewPage() {
         </aside>
 
         <main className="flex-1 flex flex-col bg-slate-100 relative">
-          <div className="absolute top-6 left-6 z-10">
-            <div className="bg-white/90 backdrop-blur-md border border-slate-200 px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Live Visualisierung</span>
+          {viewMode === 'diagram' ? (
+            <>
+              <div className="absolute top-6 left-6 z-10">
+                <div className="bg-white/90 backdrop-blur-md border border-slate-200 px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Live Visualisierung</span>
+                  </div>
+                  <Separator orientation="vertical" className="h-4" />
+                  <div className="flex items-center gap-1.5 text-slate-400">
+                    <Lock className="w-3 h-3" />
+                    <span className="text-[9px] font-bold uppercase">Schreibgeschützt</span>
+                  </div>
+                </div>
               </div>
-              <Separator orientation="vertical" className="h-4" />
-              <div className="flex items-center gap-1.5 text-slate-400">
-                <Lock className="w-3 h-3" />
-                <span className="text-[9px] font-bold uppercase">Schreibgeschützt</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-2xl p-1.5 flex flex-col gap-1.5">
-            <TooltipProvider>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagram} className="h-9 w-9 rounded-xl hover:bg-slate-100 transition-all"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Refresh</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-xl hover:bg-slate-100 transition-all"><Maximize2 className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Zentrieren</TooltipContent></Tooltip>
-            </TooltipProvider>
-          </div>
-
-          <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
-            {currentVersion?.model_json?.nodes?.length ? (
-              <iframe 
-                ref={iframeRef} 
-                src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" 
-                className="absolute inset-0 w-full h-full border-none" 
-              />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-300">
-                <Workflow className="w-16 h-16 opacity-10 mb-4" />
-                <p className="text-xs font-bold uppercase tracking-widest">Keine Prozessschritte definiert</p>
+              <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-2xl p-1.5 flex flex-col gap-1.5">
+                <TooltipProvider>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagram} className="h-9 w-9 rounded-xl hover:bg-slate-100 transition-all"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Refresh</TooltipContent></Tooltip>
+                  <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-xl hover:bg-slate-100 transition-all"><Maximize2 className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Zentrieren</TooltipContent></Tooltip>
+                </TooltipProvider>
               </div>
-            )}
-          </div>
+
+              <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
+                {currentVersion?.model_json?.nodes?.length ? (
+                  <iframe 
+                    ref={iframeRef} 
+                    src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" 
+                    className="absolute inset-0 w-full h-full border-none" 
+                  />
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                    <Workflow className="w-16 h-16 opacity-10 mb-4" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Keine Prozessschritte definiert</p>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <ScrollArea className="flex-1">
+              <div className="p-8 md:p-12 max-w-4xl mx-auto space-y-12 pb-32">
+                <div className="flex flex-col items-center text-center space-y-4 mb-16">
+                  <div className="w-16 h-16 bg-primary/10 rounded-3xl flex items-center justify-center text-primary shadow-inner mb-2 border border-primary/10">
+                    <ListChecks className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-2xl font-headline font-bold text-slate-900 uppercase tracking-tight">Strukturierter Prozess-Leitfaden</h2>
+                  <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
+                    Dieser Leitfaden dient als operative Arbeitsanweisung. Er beschreibt die logische Abfolge der Schritte sowie die jeweiligen Verantwortlichkeiten und Kontrollen.
+                  </p>
+                </div>
+
+                <div className="space-y-8 relative">
+                  <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-800 z-0" />
+                  
+                  {currentVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
+                    const role = jobTitles?.find(j => j.id === node.roleId);
+                    const isStep = node.type === 'step';
+                    const isDecision = node.type === 'decision';
+                    const isStart = node.type === 'start';
+                    const isEnd = node.type === 'end';
+                    
+                    return (
+                      <div key={node.id} className="relative z-10 pl-16">
+                        <div className={cn(
+                          "absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all",
+                          isStart ? "bg-emerald-500 text-white border-emerald-600 scale-110" : 
+                          isEnd ? "bg-red-500 text-white border-red-600 scale-110" : 
+                          isDecision ? "bg-amber-100 text-amber-700 border-amber-200 rotate-45" : 
+                          "bg-white dark:bg-slate-900 text-slate-600 border-slate-200"
+                        )}>
+                          <div className={cn(isDecision && "-rotate-45")}>
+                            {isStart ? <ArrowDown className="w-6 h-6" /> : 
+                             isEnd ? <CircleDot className="w-6 h-6" /> : 
+                             isDecision ? <GitBranch className="w-5 h-5" /> : 
+                             <span className="font-headline font-bold text-lg">{i + 1}</span>}
+                          </div>
+                        </div>
+
+                        <Card className="rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all group">
+                          <CardHeader className="p-6 bg-white dark:bg-slate-900 border-b flex flex-row items-center justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-1">
+                                <h3 className="font-headline font-bold text-base text-slate-900 dark:text-white uppercase tracking-tight">{node.title}</h3>
+                                {node.type !== 'start' && node.type !== 'end' && (
+                                  <Badge variant="outline" className="text-[8px] font-black uppercase border-slate-200 bg-slate-50 text-slate-500 h-4">{node.type}</Badge>
+                                )}
+                              </div>
+                              {role && (
+                                <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest">
+                                  <Briefcase className="w-3.5 h-3.5" /> {role.name}
+                                </div>
+                              )}
+                            </div>
+                          </CardHeader>
+                          <CardContent className="p-6 space-y-6">
+                            {node.description && (
+                              <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">Tätigkeitsbeschreibung</Label>
+                                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                  {node.description}
+                                </p>
+                              </div>
+                            )}
+
+                            {node.checklist && node.checklist.length > 0 && (
+                              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 space-y-3">
+                                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                                  <Label className="text-[9px] font-black uppercase text-slate-900 dark:text-white tracking-widest flex items-center gap-2">
+                                    <ListChecks className="w-4 h-4 text-emerald-600" /> Prüfschritte / Checkliste
+                                  </Label>
+                                  <Badge className="bg-emerald-600 text-white border-none rounded-full text-[8px] h-4 px-2">Compliance</Badge>
+                                </div>
+                                <div className="space-y-2 pt-1">
+                                  {node.checklist.map((item, idx) => (
+                                    <div key={idx} className="flex items-start gap-3">
+                                      <div className="w-4 h-4 rounded border-2 border-emerald-200 mt-0.5 flex items-center justify-center shrink-0">
+                                        <CheckCircle className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-20 transition-opacity" />
+                                      </div>
+                                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 leading-relaxed">{item}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {(node.tips || node.errors) && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {node.tips && (
+                                  <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
+                                    <Lightbulb className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                      <p className="text-[9px] font-black uppercase text-blue-700 tracking-widest leading-none">Best Practice</p>
+                                      <p className="text-[10px] text-slate-600 dark:text-slate-400 italic leading-relaxed">{node.tips}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {node.errors && (
+                                  <div className="p-4 rounded-xl bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 flex items-start gap-3">
+                                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                                    <div className="space-y-1">
+                                      <p className="text-[9px] font-black uppercase text-red-700 tracking-widest leading-none">Risiko-Prävention</p>
+                                      <p className="text-[10px] text-slate-600 dark:text-slate-400 italic leading-relaxed">{node.errors}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </ScrollArea>
+          )}
 
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 shadow-2xl">
             <div className="flex items-center gap-6">
@@ -256,7 +410,7 @@ export default function ProcessDetailViewPage() {
                 <span className="text-[9px] font-black uppercase tracking-widest opacity-80">Entscheidung</span>
               </div>
             </div>
-            <p className="text-[9px] font-bold text-slate-500 italic uppercase tracking-tighter">ComplianceHub Process Viewer v2.3</p>
+            <p className="text-[9px] font-bold text-slate-500 italic uppercase tracking-tighter">ComplianceHub Process Viewer v2.4</p>
           </div>
         </main>
       </div>
