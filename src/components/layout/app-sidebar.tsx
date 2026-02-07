@@ -93,6 +93,29 @@ export function AppSidebar() {
     setMounted(true);
   }, []);
 
+  const handleLogout = async () => {
+    logout();
+    try { await signOut(auth); } catch(e) {}
+    router.push('/');
+  };
+
+  const handleUpdatePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast({ variant: "destructive", title: "Fehler", description: "Passwörter stimmen nicht überein." });
+      return;
+    }
+    setIsUpdatingPassword(true);
+    try {
+      const res = await updatePlatformUserPasswordAction(platformUser?.email || '', newPassword);
+      if (res.success) {
+        toast({ title: "Passwort aktualisiert" });
+        setIsPasswordDialogOpen(false);
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   const coreItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Organisation & Struktur', href: '/settings/organization', icon: Building2 },
@@ -116,7 +139,7 @@ export function AppSidebar() {
   ];
 
   const riskItems = [
-    { name: 'Risiko Dashboard', href: '/risks', icon: BarChart3 },
+    { name: 'Risikoinventar', href: '/risks', icon: BarChart3 },
     { name: 'Gefährdungskatalog', href: '/risks/catalog', icon: Library },
     { name: 'Maßnahmen & Kontrollen', href: '/risks/measures', icon: ClipboardCheck },
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
@@ -140,29 +163,6 @@ export function AppSidebar() {
     { name: 'E-Mail (SMTP)', href: '/settings/email', icon: Mail },
     { name: 'Katalog-Import', href: '/settings/data', icon: FileCode },
   ];
-
-  const handleLogout = async () => {
-    logout();
-    try { await signOut(auth); } catch(e) {}
-    router.push('/');
-  };
-
-  const handleUpdatePassword = async () => {
-    if (newPassword !== confirmPassword) {
-      toast({ variant: "destructive", title: "Fehler", description: "Passwörter stimmen nicht überein." });
-      return;
-    }
-    setIsUpdatingPassword(true);
-    try {
-      const res = await updatePlatformUserPasswordAction(platformUser?.email || '', newPassword);
-      if (res.success) {
-        toast({ title: "Passwort aktualisiert" });
-        setIsPasswordDialogOpen(false);
-      }
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  };
 
   if (!mounted) return null;
 
