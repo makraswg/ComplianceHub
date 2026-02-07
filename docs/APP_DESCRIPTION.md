@@ -112,5 +112,35 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **KRITIK**: Die Matrix zeigt das Elend, aber nicht den Ausweg.
     *   **NEUE AUFGABE**: "Top-3 Mitigation Focus". Automatische Liste der drei Maßnahmen, die den Gesamt-Risk-Score der Firma am effektivsten senken würden.
 
+### 4. ProcessHub (Workflow-Management)
+*Das prozessuale Gedächtnis des Unternehmens.*
+
+*   **Step 4.1: Prozessübersicht & Management**
+    *   *Code*: `src/app/(dashboard)/processhub/page.tsx`
+    *   *Status*: Liste vorhanden.
+    *   *Consultant Audit*: Nur eine Liste ohne Kontext.
+    *   **KRITIK**: Ein Azubi sieht nicht, welcher Prozess "Compliance-kritisch" ist.
+    *   **NEUE AUFGABE**: "Criticality-Badge". Prozesse müssen automatisch als "Kritisch" markiert werden, wenn sie mit High-Risk-Assets oder persönlichen Daten verknüpft sind.
+
+*   **Step 4.2: AI Process Designer (Visual Editor)**
+    *   *Code*: `src/app/(dashboard)/processhub/[id]/page.tsx`
+    *   *Status*: Iframe-Integration & KI-Chat vorhanden.
+    *   *Consultant Audit*: Datensilos bei der Rollenzuweisung.
+    *   **KRITIK**: Rollen im Prozess sind aktuell Freitext. Das bricht das Audit.
+    *   **NEUE AUFGABE**: "Strict Role Sync". Rollenzuweisungen in Schritten müssen gegen den Stellenplan (Step 6) validiert werden. Die KI muss Rollen vorschlagen, die bereits im IAM existieren.
+
+*   **Step 4.3: Prozesslandkarte (Map)**
+    *   *Code*: `src/app/(dashboard)/processhub/map/page.tsx`
+    *   *Status*: Vernetzte Ansicht vorhanden.
+    *   *Consultant Audit*: Nur visuelles Eye-Candy.
+    *   **KRITIK**: Keine Information über "Risiko-Staus" in der Kette.
+    *   **NEUE AUFGABE**: "Process Health Overlay". In der Landkarte müssen Prozesse rot leuchten, wenn verknüpfte Risiken überfällig sind oder Maßnahmen nicht greifen.
+
+*   **Step 4.4: ISO 9001 Stammdaten**
+    *   *Status*: Formularfelder für Inputs/Outputs vorhanden.
+    *   *Consultant Audit*: Zu passiv für ein Software-Audit.
+    *   **KRITIK**: Felder werden oft nur mit "siehe Handbuch" ausgefüllt.
+    *   **NEUE AUFGABE**: "Compliance Checkpoint". Ein Schritt im Designer muss explizit als "ISO-Kontrollpunkt" markiert werden können, inkl. Verweis auf die Norm-Ziffer.
+
 ---
-*(Fortsetzung folgt mit Step 4: ProcessHub & Dokumentation...)*
+*(Fortsetzung folgt mit Step 5: Datenschutz & VVT...)*
