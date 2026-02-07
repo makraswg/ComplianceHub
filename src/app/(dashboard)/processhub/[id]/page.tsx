@@ -36,7 +36,7 @@ import {
   ArrowRightCircle,
   Link2,
   Share2,
-  ArrowLeftCircle,
+  ArrowRight as ArrowRightIcon,
   Trash2,
   Network,
   Lock,
@@ -688,7 +688,7 @@ export default function ProcessDesignerPage() {
                     )}
                   </div>
                 ))}
-                {isAiLoading && <div className="flex justify-start"><div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200"><Loader2 className="w-4 h-4 animate-spin text-emerald-600" /><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI entwirft Modell...</span></div></div>}
+                {isAiLoading && <div className="flex justify-start"><div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200"><Loader2 className="w-4 h-4 animate-spin text-emerald-600" /><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span></div></div>}
               </div>
             </ScrollArea>
             <div className="p-4 border-t bg-white shrink-0"><div className="relative"><Input placeholder="Prozess beschreiben..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 text-xs font-medium" disabled={isAiLoading} /><Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}><Send className="w-3.5 h-3.5" /></Button></div></div>
