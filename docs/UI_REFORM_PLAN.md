@@ -25,8 +25,8 @@
 
 ### 2. Interactive Reporting (Intelligence)
 - [x] **Matrix-Drilldown**: Klickbare Felder in der Risiko-Heatmap zur Echtzeit-Filterung.
-- [ ] **Dynamic Charts**: Animierte Charts in den Risk Reports.
-- [ ] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
+- [x] **Dynamic Charts**: Animierte Charts in den Risk Reports.
+- [x] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
 
 ### 3. Visual Veredelung
 - [x] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.

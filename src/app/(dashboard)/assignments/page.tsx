@@ -38,7 +38,8 @@ import {
   UserCircle2,
   ArrowRight,
   CalendarDays,
-  MoreVertical
+  MoreVertical,
+  Activity
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -283,8 +284,8 @@ function AssignmentsPageContent() {
 
   return (
     <div className="space-y-10 pb-20">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
+      {/* Header Area with Subtle Gradient */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8 bg-gradient-to-r from-transparent via-slate-50/50 to-transparent">
         <div>
           <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Assignments</Badge>
           <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Einzelzuweisungen</h1>
@@ -293,17 +294,17 @@ function AssignmentsPageContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600 transition-all" onClick={handleBulkExpiredJira} disabled={isJiraActionLoading}>
+          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-600 transition-all active:scale-95" onClick={handleBulkExpiredJira} disabled={isJiraActionLoading}>
             {isJiraActionLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Ticket className="w-4 h-4 mr-2" />} Ablauf-Tickets
           </Button>
-          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 shadow-lg shadow-primary/20" onClick={() => setIsCreateOpen(true)}>
+          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => setIsCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> Zuweisung erstellen
           </Button>
         </div>
       </div>
 
       {/* Filter Section */}
-      <div className="flex flex-col lg:flex-row gap-6 bg-white dark:bg-slate-900/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none">
+      <div className="flex flex-col lg:flex-row gap-6 bg-white dark:bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
@@ -324,7 +325,7 @@ function AssignmentsPageContent() {
               key={id} 
               className={cn(
                 "px-4 h-9 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all",
-                activeTab === id ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+                activeTab === id ? "bg-white dark:bg-slate-800 text-primary shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
               )}
               onClick={() => setActiveTab(id as any)}
             >
@@ -342,61 +343,75 @@ function AssignmentsPageContent() {
         </div>
       ) : (
         <>
-          {/* Mobile Card View */}
-          <div className="grid grid-cols-1 gap-4 md:hidden">
+          {/* Mobile Card View with Enhanced Depth */}
+          <div className="grid grid-cols-1 gap-6 md:hidden">
             {filteredAssignments.map((a) => {
               const user = users?.find(u => u.id === a.userId);
               const ent = entitlements?.find(e => e.id === a.entitlementId);
               const res = resources?.find(r => r.id === ent?.resourceId);
               const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
               const isExpired = a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active';
+              const isGroupManaged = !!a.originGroupId || a.syncSource === 'group' || a.syncSource === 'ldap';
               
               return (
-                <Card key={a.id} className="border-none shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-slate-900">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <UserCircle2 className="w-6 h-6 text-slate-400" />
+                <Card key={a.id} className="border-none shadow-2xl rounded-[2rem] overflow-hidden bg-white dark:bg-slate-900 group transition-all active:scale-[0.98]">
+                  <CardContent className="p-8">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-primary font-bold text-lg shadow-inner group-hover:scale-110 transition-transform">
+                          {user?.displayName?.charAt(0) || '?'}
                         </div>
                         <div>
                           <h3 className="font-bold text-slate-900 dark:text-white leading-tight">{user?.displayName || a.userId}</h3>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{getTenantSlug(a.tenantId)}</p>
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 flex items-center gap-1.5"><Building2 className="w-3 h-3" /> {getTenantSlug(a.tenantId)}</p>
                         </div>
                       </div>
                       <Badge className={cn(
-                        "rounded-full border-none px-3 text-[9px] font-black uppercase",
+                        "rounded-full border-none px-3 text-[9px] font-black uppercase h-6",
                         a.status === 'active' ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
                       )}>{a.status}</Badge>
                     </div>
 
-                    <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl space-y-3 mb-6">
-                      <div className="flex items-center gap-3">
-                        <Layers className={cn("w-4 h-4", isAdmin ? "text-red-600" : "text-primary")} />
+                    <div className="p-6 bg-slate-50 dark:bg-slate-950 rounded-3xl space-y-4 mb-8 border border-slate-100 dark:border-slate-800 relative overflow-hidden">
+                      {isGroupManaged && <div className="absolute top-0 right-0 p-2"><Workflow className="w-3.5 h-3.5 text-indigo-400" /></div>}
+                      <div className="flex items-center gap-4">
+                        <div className={cn("p-2 rounded-xl shrink-0", isAdmin ? "bg-red-50 text-red-600" : "bg-primary/10 text-primary")}>
+                          {isAdmin ? <ShieldAlert className="w-5 h-5" /> : <Layers className="w-5 h-5" />}
+                        </div>
                         <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">{res?.name}</p>
-                          <p className="text-[10px] font-bold text-slate-500 truncate uppercase">{ent?.name}</p>
+                          <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{res?.name}</p>
+                          <p className="text-[10px] font-black text-slate-400 truncate uppercase tracking-widest">{ent?.name}</p>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                        <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> bis {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : '∞'}</span>
-                        {isExpired && <span className="text-red-600 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Abgelaufen</span>}
+                      <Separator className="bg-slate-200/50 dark:bg-slate-800" />
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider">
+                        <div className={cn("flex items-center gap-2", isExpired ? "text-red-600" : "text-slate-400")}>
+                          <CalendarDays className="w-3.5 h-3.5" /> 
+                          {a.validUntil ? new Date(a.validUntil).toLocaleDateString() : 'Unbefristet'}
+                        </div>
+                        {isExpired && <span className="text-red-600 font-black animate-pulse">Abgelaufen</span>}
+                        {isGroupManaged && <span className="text-indigo-600 dark:text-indigo-400 font-black">Gruppen-Regel</span>}
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest border-slate-200 dark:border-slate-800" onClick={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
+                    <div className="flex gap-3">
+                      <Button variant="outline" className="flex-1 h-12 rounded-2xl font-bold uppercase text-[10px] tracking-widest border-slate-200 dark:border-slate-800 active:scale-95 transition-transform" onClick={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}>
                         Details
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-10 h-10 p-0 rounded-xl border-slate-200 dark:border-slate-800"><MoreVertical className="w-4 h-4" /></Button>
+                          <Button variant="outline" className="w-12 h-12 p-0 rounded-2xl border-slate-200 dark:border-slate-800 active:scale-95 transition-transform"><MoreVertical className="w-5 h-5" /></Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-2xl p-2 w-56 shadow-2xl">
-                          <DropdownMenuItem className="rounded-xl py-2.5 gap-3" onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}><Info className="w-4 h-4" /> Details anzeigen</DropdownMenuItem>
-                          {a.status === 'active' && (
-                            <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => handleRevokeAssignment(a)}>
+                        <DropdownMenuContent align="end" className="rounded-[1.5rem] p-2 w-64 shadow-2xl border-slate-100 dark:border-slate-800">
+                          <DropdownMenuItem className="rounded-xl py-3 gap-3 font-bold text-xs" onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}><Info className="w-4 h-4 text-primary" /> Details anzeigen</DropdownMenuItem>
+                          {a.status === 'active' && !isGroupManaged && (
+                            <DropdownMenuItem className="text-red-600 rounded-xl py-3 gap-3 font-bold text-xs" onSelect={() => handleRevokeAssignment(a)}>
                               <Trash2 className="w-4 h-4" /> Zugriff widerrufen
+                            </DropdownMenuItem>
+                          )}
+                          {isGroupManaged && (
+                            <DropdownMenuItem disabled className="text-slate-400 italic rounded-xl py-3 gap-3 text-xs">
+                              <Lock className="w-4 h-4" /> Gruppenverwaltet
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
@@ -409,7 +424,7 @@ function AssignmentsPageContent() {
           </div>
 
           {/* Desktop Table View */}
-          <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/50 overflow-hidden">
+          <div className="hidden md:block bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
             <Table>
               <TableHeader className="bg-slate-50/50 dark:bg-slate-950/50">
                 <TableRow className="hover:bg-transparent border-slate-100 dark:border-slate-800">
@@ -427,13 +442,13 @@ function AssignmentsPageContent() {
                   const res = resources?.find(r => r.id === ent?.resourceId);
                   const isAdmin = !!(ent?.isAdmin === true || ent?.isAdmin === 1 || ent?.isAdmin === "1");
                   const isExpired = a.validUntil && new Date(a.validUntil) < new Date() && a.status === 'active';
-                  const isGroupManaged = !!a.originGroupId || a.syncSource === 'group';
+                  const isGroupManaged = !!a.originGroupId || a.syncSource === 'group' || a.syncSource === 'ldap';
 
                   return (
                     <TableRow key={a.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800 transition-colors">
                       <TableCell className="py-5 px-8">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-inner group-hover:rotate-3 transition-transform">
                             <UserIcon className="w-5 h-5 text-slate-400" />
                           </div>
                           <div>
@@ -460,8 +475,8 @@ function AssignmentsPageContent() {
                             a.status === 'active' ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" : "bg-slate-100 text-slate-500"
                           )}>{a.status}</Badge>
                           {isGroupManaged && (
-                            <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full text-[8px] font-black uppercase px-2 h-5 w-fit">
-                              <Workflow className="w-2.5 h-2.5 mr-1" /> Gruppe
+                            <Badge className="bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 border-none rounded-full text-[8px] font-black uppercase px-2 h-5 w-fit">
+                              <Workflow className="w-2.5 h-2.5 mr-1" /> Automatik
                             </Badge>
                           )}
                         </div>
@@ -478,24 +493,24 @@ function AssignmentsPageContent() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all"
+                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all active:scale-95"
                             onClick={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }}
                           >
                             Details
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-5 h-5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-transform"><MoreHorizontal className="w-5 h-5" /></Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl">
-                              <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }} className="rounded-xl py-2.5 gap-3"><Info className="w-4 h-4 text-primary" /> Vollständige Details</DropdownMenuItem>
+                            <DropdownMenuContent align="end" className="w-64 rounded-[1.5rem] p-2 shadow-2xl border-slate-100 dark:border-slate-800">
+                              <DropdownMenuItem onSelect={() => { setSelectedAssignment(a); setIsDetailsOpen(true); }} className="rounded-xl py-3 gap-3 font-bold text-xs"><Info className="w-4 h-4 text-primary" /> Vollständige Details</DropdownMenuItem>
                               {a.status !== 'removed' && !isGroupManaged && (
-                                <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => handleRevokeAssignment(a)}>
+                                <DropdownMenuItem className="text-red-600 rounded-xl py-3 gap-3 font-bold text-xs" onSelect={() => handleRevokeAssignment(a)}>
                                   <Trash2 className="w-4 h-4" /> Zugriff widerrufen
                                 </DropdownMenuItem>
                               )}
                               {isGroupManaged && (
-                                <DropdownMenuItem disabled className="text-slate-400 italic rounded-xl py-2.5 gap-3">
+                                <DropdownMenuItem disabled className="text-slate-400 italic rounded-xl py-3 gap-3 text-xs">
                                   <Lock className="w-4 h-4" /> Gruppenverwaltet
                                 </DropdownMenuItem>
                               )}
@@ -532,47 +547,47 @@ function AssignmentsPageContent() {
           <ScrollArea className="flex-1">
             <div className="p-10 space-y-10">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                   <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Status</Label>
                   <Badge className={cn("rounded-full px-4 h-7 text-[10px] font-black uppercase border-none", selectedAssignment?.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>{selectedAssignment?.status}</Badge>
                 </div>
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                   <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Mandant</Label>
                   <div className="flex items-center gap-2 font-black text-xs text-primary uppercase">
                     <Building2 className="w-4 h-4" /> {getTenantSlug(selectedAssignment?.tenantId)}
                   </div>
                 </div>
-                <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
+                <div className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                   <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2 block">Quelle</Label>
                   <Badge variant="outline" className="rounded-full text-[10px] font-black uppercase border-slate-200 dark:border-slate-800 px-4 h-7">{selectedAssignment?.syncSource || 'Manuell'}</Badge>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <Separator />
+                <Separator className="bg-slate-100 dark:bg-slate-800" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Identität</Label>
-                    <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center"><UserIcon className="w-5 h-5 text-slate-400" /></div>
-                      <div>
-                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold tracking-wider">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
+                    <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner"><UserIcon className="w-5 h-5 text-slate-400" /></div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.displayName}</p>
+                        <p className="text-[10px] text-slate-400 font-bold tracking-wider truncate">{users?.find(u => u.id === selectedAssignment?.userId)?.email}</p>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Rolle & System</Label>
-                    <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center"><Layers className="w-5 h-5 text-primary" /></div>
+                    <div className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 flex items-center gap-4 shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shadow-inner"><Layers className="w-5 h-5 text-primary" /></div>
                       {(() => {
                         const ent = entitlements?.find(e => e.id === selectedAssignment?.entitlementId);
                         const res = resources?.find(r => r.id === ent?.resourceId);
                         return (
-                          <div>
-                            <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{res?.name}</p>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">{res?.name}</p>
                             <div className="flex items-center gap-2">
-                              <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">{ent?.name}</p>
+                              <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase truncate">{ent?.name}</p>
                               {ent?.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] h-4 font-black px-2">ADMIN</Badge>}
                             </div>
                           </div>
@@ -583,7 +598,7 @@ function AssignmentsPageContent() {
                 </div>
               </div>
 
-              <div className="p-6 rounded-[2rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="p-8 rounded-[2.5rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-8 shadow-inner">
                 <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig ab</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validFrom || 'Sofort'}</p></div>
                 <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Gültig bis</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.validUntil || '∞'}</p></div>
                 <div><p className="text-[9px] font-black uppercase text-slate-400 mb-1">Zertifiziert</p><p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedAssignment?.lastReviewedAt ? new Date(selectedAssignment.lastReviewedAt).toLocaleDateString() : 'Ausstehend'}</p></div>
@@ -593,34 +608,35 @@ function AssignmentsPageContent() {
           </ScrollArea>
           
           <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
-            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl">Schließen</Button>
+            <Button onClick={() => setIsDetailsOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-transform">Schließen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Revoke Dialog remains logic-identical but styled */}
       <Dialog open={isRevokeOpen} onOpenChange={setIsRevokeOpen}>
-        <DialogContent className="max-w-sm rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
-          <DialogHeader className="p-8 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
-            <DialogTitle className="text-xl font-headline font-bold text-red-600 uppercase flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6" /> Zugriff entziehen
-            </DialogTitle>
+        <DialogContent className="max-w-sm rounded-[3rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
+          <DialogHeader className="p-10 bg-red-50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/30">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/40 rounded-3xl flex items-center justify-center mb-4 mx-auto shadow-xl">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <DialogTitle className="text-xl font-headline font-bold text-red-600 uppercase text-center">Zugriff entziehen</DialogTitle>
           </DialogHeader>
-          <div className="p-8 space-y-6">
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+          <div className="p-10 space-y-8">
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner">
               <p className="text-[9px] font-black uppercase text-slate-400 mb-1 tracking-widest">Mitarbeiter</p>
               <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{users?.find(u => u.id === assignmentToRevoke?.userId)?.displayName}</p>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Entzug wirksam bis</Label>
-              <Input type="date" value={revokeValidUntil} onChange={e => setRevokeValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800" />
+              <Input type="date" value={revokeValidUntil} onChange={e => setRevokeValidUntil(e.target.value)} className="rounded-xl h-12 border-slate-200 dark:border-slate-800 shadow-sm" />
             </div>
           </div>
-          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t flex gap-3">
-            <Button variant="ghost" onClick={() => setIsRevokeOpen(false)} className="flex-1 rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
-            <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest h-12 gap-2 shadow-lg shadow-red-200 dark:shadow-none">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Bestätigen
+          <DialogFooter className="p-10 bg-slate-50 dark:bg-slate-900/50 border-t flex flex-col gap-3">
+            <Button onClick={confirmRevokeAssignment} disabled={isSaving} className="w-full rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase text-[10px] tracking-widest h-14 gap-2 shadow-xl shadow-red-200 dark:shadow-none active:scale-95 transition-transform">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Bestätigen & Widerrufen
             </Button>
+            <Button variant="ghost" onClick={() => setIsRevokeOpen(false)} className="w-full h-10 rounded-xl text-[10px] font-black uppercase text-slate-400">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
