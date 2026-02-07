@@ -63,6 +63,51 @@ export default function ResourcesPage() {
 
   if (!mounted) return null;
 
+  let content;
+  if (isLoading) {
+    content = <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>;
+  } else {
+    content = (
+      <Table>
+        <TableHeader className="bg-slate-50/50">
+          <TableRow className="hover:bg-transparent border-b">
+            <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Anwendung / Asset</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Kategorie / CIA</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Besitzer</TableHead>
+            <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredResources?.map((res) => (
+            <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0", res.status === 'archived' && "opacity-60")}>
+              <TableCell className="py-4 px-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
+                    <Server className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-slate-800">{res.name}</div>
+                    <div className="text-[9px] text-slate-400 font-medium">{res.assetType} • {res.operatingModel}</div>
+                  </div>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <Badge variant="outline" className="text-[8px] font-bold h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
+                  <span className="text-[8px] font-bold text-slate-400 mt-1">CIA: {res.confidentialityReq?.charAt(0)}|{res.integrityReq?.charAt(0)}|{res.availabilityReq?.charAt(0)}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-xs font-bold text-slate-700">{res.systemOwner || '---'}</TableCell>
+              <TableCell className="text-right px-6">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -117,47 +162,7 @@ export default function ResourcesPage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Anwendung / Asset</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Kategorie / CIA</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Besitzer</TableHead>
-                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredResources?.map((res) => (
-                <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0", res.status === 'archived' && "opacity-60")}>
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
-                        <Server className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-sm text-slate-800">{res.name}</div>
-                        <div className="text-[9px] text-slate-400 font-medium">{res.assetType} • {res.operatingModel}</div>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <Badge variant="outline" className="text-[8px] font-bold h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
-                      <span className="text-[8px] font-bold text-slate-400 mt-1">CIA: {res.confidentialityReq?.charAt(0)}|{res.integrityReq?.charAt(0)}|{res.availabilityReq?.charAt(0)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs font-bold text-slate-700">{res.systemOwner || '---'}</TableCell>
-                  <TableCell className="text-right px-6">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        {content}
       </div>
     </div>
   );

@@ -86,7 +86,7 @@ export default function UsersPage() {
 
   const getTenantSlug = (id?: string | null) => {
     if (!id || id === 'null' || id === 'undefined') return '—';
-    const tenant = tenants?.find(t => t.id === id);
+    const tenant = tenants?.find((t: any) => t.id === id);
     return tenant ? tenant.slug : id;
   };
 
@@ -163,6 +163,74 @@ export default function UsersPage() {
 
   if (!mounted) return null;
 
+  // Render variables to avoid JSX parsing issues with deep ternary nesting
+  let tableBody;
+  if (isLoading) {
+    tableBody = (
+      <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
+    );
+  } else {
+    tableBody = (
+      <Table>
+        <TableHeader className="bg-slate-50/50">
+          <TableRow className="hover:bg-transparent border-b">
+            <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Abteilung</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
+            <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredUsers?.map((user: any) => {
+            const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
+            return (
+              <TableRow key={user.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                <TableCell className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
+                      {user.displayName?.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm text-slate-800">{user.displayName}</div>
+                      <div className="text-[10px] text-slate-400 font-medium">{user.email}</div>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
+                    {getTenantSlug(user.tenantId)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
+                    {isEnabled ? "Aktiv" : "Inaktiv"}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right px-6">
+                  <div className="flex justify-end items-center gap-1.5">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(user)}>
+                      <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                        <DropdownMenuItem onSelect={() => openEdit(user)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -186,7 +254,6 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Compact Filtering Row */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
@@ -215,67 +282,7 @@ export default function UsersPage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Abteilung</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
-                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers?.map((user: any) => {
-                const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
-                return (
-                  <TableRow key={user.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
-                    <TableCell className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
-                          {user.displayName?.charAt(0)}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm text-slate-800">{user.displayName}</div>
-                          <div className="text-[10px] text-slate-400 font-medium">{user.email}</div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
-                        {getTenantSlug(user.tenantId)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
-                        {isEnabled ? "Aktiv" : "Inaktiv"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right px-6">
-                      <div className="flex justify-end items-center gap-1.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(user)}>
-                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
-                            <DropdownMenuItem onSelect={() => openEdit(user)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
+        {tableBody}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsAddOpen}>
@@ -306,7 +313,7 @@ export default function UsersPage() {
               <Select value={tenantId} onValueChange={setTenantId}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                 <SelectContent>
-                  {tenants?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -50,6 +50,54 @@ function RiskDashboardContent() {
 
   if (!mounted) return null;
 
+  let tableContent;
+  if (isLoading) {
+    tableContent = <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-accent opacity-20" /></div>;
+  } else {
+    tableContent = (
+      <Table>
+        <TableHeader className="bg-slate-50/50">
+          <TableRow className="hover:bg-transparent border-b">
+            <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Risiko / Bezug</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400 text-center">Score</TableHead>
+            <TableHead className="font-bold text-[11px] text-slate-400">Kategorie</TableHead>
+            <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredRisks.map((risk) => {
+            const score = risk.impact * risk.probability;
+            const asset = resources?.find(r => r.id === risk.assetId);
+            return (
+              <TableRow key={risk.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                <TableCell className="py-4 px-6">
+                  <div className="flex items-start gap-3">
+                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>
+                      <AlertTriangle className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs text-slate-800 truncate">{risk.title}</div>
+                      {asset && <p className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-1"><Layers className="w-2.5 h-2.5" /> {asset.name}</p>}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm border-none", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
+                </TableCell>
+                <TableCell className="p-4">
+                  <span className="text-[10px] font-bold text-slate-500">{risk.category}</span>
+                </TableCell>
+                <TableCell className="p-4 px-6 text-right">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -103,50 +151,7 @@ function RiskDashboardContent() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-accent opacity-20" /></div>
-        ) : (
-          <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Risiko / Bezug</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Score</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Kategorie</TableHead>
-                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRisks.map((risk) => {
-                const score = risk.impact * risk.probability;
-                const asset = resources?.find(r => r.id === risk.assetId);
-                return (
-                  <TableRow key={risk.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
-                    <TableCell className="py-4 px-6">
-                      <div className="flex items-start gap-3">
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>
-                          <AlertTriangle className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-xs text-slate-800 truncate">{risk.title}</div>
-                          {asset && <p className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-1"><Layers className="w-2.5 h-2.5" /> {asset.name}</p>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={cn("rounded-md font-bold text-[10px] h-6 w-8 justify-center shadow-sm border-none", score >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>{score}</Badge>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-[10px] font-bold text-slate-500">{risk.category}</span>
-                    </td>
-                    <td className="p-4 px-6 text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
+        {tableContent}
       </div>
     </div>
   );

@@ -78,14 +78,14 @@ export default function AccessReviewsPage() {
     const totalCount = base.filter((a: any) => a.status === 'active').length;
     const completedCount = base.filter((a: any) => !!a.lastReviewedAt && a.status === 'active').length;
     
-    // Vermeidung von Division-Fehlinterpretationen durch den Parser
-    const divisor = totalCount > 0 ? totalCount : 1;
-    const rawPercent = (completedCount * 100) / divisor;
+    // Use Math.floor to avoid slashes in JSX expressions
+    const safeTotal = totalCount > 0 ? totalCount : 1;
+    const percent = Math.floor((completedCount * 100) / safeTotal);
     
     return {
       total: totalCount,
       completed: completedCount,
-      percent: Math.round(rawPercent)
+      percent: percent
     };
   }, [assignments, activeTenantId]);
 
@@ -172,6 +172,87 @@ export default function AccessReviewsPage() {
 
   if (!mounted) return null;
 
+  // Simplified content rendering to avoid deep JSX ternary errors
+  let tableContent;
+  if (isLoading) {
+    tableContent = (
+      <div className="p-20 text-center">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" />
+      </div>
+    );
+  } else {
+    tableContent = (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader className="bg-slate-50/50">
+            <TableRow className="hover:bg-transparent border-b">
+              <TableHead className="py-4 px-6 font-bold text-xs text-slate-400">Identität</TableHead>
+              <TableHead className="font-bold text-xs text-slate-400">System / Rolle</TableHead>
+              <TableHead className="font-bold text-xs text-slate-400 text-center">KI-Advisor</TableHead>
+              <TableHead className="text-right px-6 font-bold text-xs text-slate-400">Entscheidung</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAssignments.map((a) => {
+              const uDoc = users?.find((u: any) => u.id === a.userId);
+              const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
+              const res = resources?.find((r: any) => r.id === ent?.resourceId);
+              return (
+                <TableRow key={a.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                  <TableCell className="py-4 px-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
+                        {uDoc?.displayName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs text-slate-800">{uDoc?.displayName || a.userId}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">{uDoc?.department}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                        <Layers className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-slate-800 truncate">{res?.name}</div>
+                        <div className="text-[10px] text-slate-400 font-bold truncate">{ent?.name}</div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 rounded-md text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 gap-2 border border-transparent hover:border-indigo-100 transition-all"
+                      onClick={() => openQuickAdvisor(a)}
+                    >
+                      <BrainCircuit className="w-3.5 h-3.5" /> Advisor
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-right px-6">
+                    {a.lastReviewedAt ? (
+                      <Badge className={cn(
+                        "rounded-full px-3 h-6 text-[9px] font-bold border-none",
+                        a.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      )}>{a.status === 'active' ? 'Bestätigt' : 'Widerrufen'}</Badge>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" className="h-8 rounded-md text-[10px] font-bold border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleReview(a.id, 'revoke')}><XCircle className="w-3 h-3 mr-1.5" /> Widerrufen</Button>
+                        <Button size="sm" className="h-8 rounded-md text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleReview(a.id, 'certify')}><CheckCircle2 className="w-3 h-3 mr-1.5" /> Bestätigen</Button>
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -231,78 +312,7 @@ export default function AccessReviewsPage() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="py-4 px-6 font-bold text-xs text-slate-400">Identität</TableHead>
-                  <TableHead className="font-bold text-xs text-slate-400">System / Rolle</TableHead>
-                  <TableHead className="font-bold text-xs text-slate-400 text-center">KI-Advisor</TableHead>
-                  <TableHead className="text-right px-6 font-bold text-xs text-slate-400">Entscheidung</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssignments.map((a) => {
-                  const userDoc = users?.find((u: any) => u.id === a.userId);
-                  const ent = entitlements?.find((e: any) => e.id === a.entitlementId);
-                  const res = resources?.find((r: any) => r.id === ent?.resourceId);
-                  return (
-                    <TableRow key={a.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
-                      <TableCell className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
-                            {userDoc?.displayName?.charAt(0) || 'U'}
-                          </div>
-                          <div>
-                            <div className="font-bold text-xs text-slate-800">{userDoc?.displayName || a.userId}</div>
-                            <div className="text-[10px] text-slate-400 font-medium">{userDoc?.department}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-                            <Layers className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-xs text-slate-800 truncate">{res?.name}</div>
-                            <div className="text-[10px] text-slate-400 font-bold truncate">{ent?.name}</div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 rounded-md text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 gap-2 border border-transparent hover:border-indigo-100 transition-all"
-                          onClick={() => openQuickAdvisor(a)}
-                        >
-                          <BrainCircuit className="w-3.5 h-3.5" /> Advisor
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-right px-6">
-                        {a.lastReviewedAt ? (
-                          <Badge className={cn(
-                            "rounded-full px-3 h-6 text-[9px] font-bold border-none",
-                            a.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                          )}>{a.status === 'active' ? 'Bestätigt' : 'Widerrufen'}</Badge>
-                        ) : (
-                          <div className="flex justify-end gap-2">
-                            <Button size="sm" variant="outline" className="h-8 rounded-md text-[10px] font-bold border-red-200 text-red-600 hover:bg-red-50" onClick={() => handleReview(a.id, 'revoke')}><XCircle className="w-3 h-3 mr-1.5" /> Widerrufen</Button>
-                            <Button size="sm" className="h-8 rounded-md text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => handleReview(a.id, 'certify')}><CheckCircle2 className="w-3 h-3 mr-1.5" /> Bestätigen</Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+        {tableContent}
       </div>
 
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
