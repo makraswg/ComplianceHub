@@ -38,7 +38,8 @@ import {
   Clock,
   Download,
   MoreVertical,
-  ChevronRight
+  ChevronRight,
+  BrainCircuit
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -191,33 +192,40 @@ export default function GdprPage() {
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-lg border shadow-sm">
+          <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-xl border border-emerald-500/10 shadow-sm">
             <FileCheck className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-wider">Compliance Hub</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Datenschutz (VVT)</h1>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase tracking-wider">Compliance Registry</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Datenschutz (VVT)</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Verarbeitungsverzeichnis gemäß Art. 30 DSGVO.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-slate-200 hover:bg-slate-50 transition-all" onClick={() => exportGdprExcel(filteredActivities)}>
-            <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold uppercase text-[9px] tracking-wider px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => exportGdprExcel(filteredActivities)}>
+            <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel Export
           </Button>
-          <Button size="sm" onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); setVersion('1.0'); setResourceIds([]); }} className="h-9 rounded-md font-bold uppercase text-[10px] tracking-wider px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all">
+          <Button size="sm" onClick={() => { setSelectedActivity(null); setIsDialogOpen(true); setVersion('1.0'); setResourceIds([]); }} className="h-9 rounded-md font-bold uppercase text-[10px] tracking-widest px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 transition-all active:scale-95">
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Tätigkeit
           </Button>
         </div>
       </div>
 
-      <div className="relative group">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
-        <Input 
-          placeholder="Nach Tätigkeiten oder Abteilungen suchen..." 
-          className="pl-9 h-12 rounded-xl border-slate-200 bg-white shadow-sm"
-          value={search}
-          onChange={e => setSearch(e.target.value)} 
-        />
+      {/* Toolbar Pattern */}
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
+          <Input 
+            placeholder="Nach Tätigkeiten oder Abteilungen suchen..." 
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            value={search}
+            onChange={e => setSearch(e.target.value)} 
+          />
+        </div>
+        <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
+          <Scale className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">VVT Monitor aktiv</span>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -227,123 +235,83 @@ export default function GdprPage() {
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Register wird geladen...</p>
         </div>
       ) : (
-        <>
-          {/* Mobile Card View */}
-          <div className="grid grid-cols-1 gap-4 md:hidden">
-            {filteredActivities.map((act) => (
-              <Card key={act.id} className="border shadow-sm rounded-xl overflow-hidden bg-white">
-                <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="rounded-full text-[7px] font-black uppercase border-emerald-100 bg-emerald-50 text-emerald-700 h-4">V{act.version}</Badge>
-                        <span className="text-[8px] font-black uppercase text-slate-400">{act.responsibleDepartment}</span>
+        <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-50/50">
+              <TableRow className="hover:bg-transparent border-b">
+                <TableHead className="py-4 px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Tätigkeit / Rechtsgrundlage</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Version</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Abteilung</TableHead>
+                <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Status</TableHead>
+                <TableHead className="text-right px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Aktionen</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredActivities.map((act) => (
+                <TableRow key={act.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                  <TableCell className="py-4 px-6">
+                    <div>
+                      <div className="font-bold text-xs text-slate-800 group-hover:text-emerald-600 transition-colors cursor-pointer" onClick={() => openEdit(act)}>{act.name}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 italic flex items-center gap-1.5">
+                        <Scale className="w-2.5 h-2.5 opacity-50" /> {act.legalBasis}
                       </div>
-                      <h3 className="font-bold text-slate-900 leading-tight" onClick={() => openEdit(act)}>{act.name}</h3>
                     </div>
-                    <Badge variant="outline" className="rounded-full uppercase text-[7px] font-bold border-slate-200 text-slate-500 h-4">
-                      {act.status}
-                    </Badge>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-lg mb-4">
-                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">Rechtsgrundlage</p>
-                    <p className="text-xs font-bold text-slate-700 italic">"{act.legalBasis}"</p>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1 h-9 rounded-md font-bold uppercase text-[9px] tracking-wider" onClick={() => openEdit(act)}>
-                      Bearbeiten
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="w-9 h-9 rounded-md border-slate-200"><MoreVertical className="w-4 h-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-lg p-1 w-56 shadow-xl border">
-                        <DropdownMenuItem onSelect={() => openEdit(act)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> Bearbeiten</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => { if(confirm("Eintrag löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }} className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold">
-                          <Trash2 className="w-3.5 h-3.5" /> Löschen
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop Table */}
-          <div className="hidden md:block bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="py-4 px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Tätigkeit / Rechtsgrundlage</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Version</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Abteilung</TableHead>
-                  <TableHead className="font-bold uppercase tracking-widest text-[9px] text-slate-400">Status</TableHead>
-                  <TableHead className="text-right px-6 font-bold uppercase tracking-widest text-[9px] text-slate-400">Aktionen</TableHead>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="rounded-full bg-emerald-50 text-emerald-700 border-none font-black text-[8px] h-5 px-2 shadow-sm">V{act.version}</Badge>
+                  </TableCell>
+                  <TableCell className="text-[10px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2 mt-2">
+                    <Building2 className="w-3 h-3 text-slate-300" /> {act.responsibleDepartment}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn(
+                      "rounded-full uppercase text-[8px] font-black h-5 px-2 border-none shadow-sm",
+                      act.status === 'active' ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+                    )}>{act.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right px-6">
+                    <div className="flex justify-end items-center gap-1.5">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 rounded-md text-[9px] font-black uppercase tracking-wider gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
+                        onClick={() => openEdit(act)}
+                      >
+                        Bearbeiten
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all active:scale-95"><MoreHorizontal className="w-4 h-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-xl p-1 shadow-2xl border">
+                          <DropdownMenuItem onSelect={() => openEdit(act)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-emerald-600" /> Bearbeiten</DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1" />
+                          <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Eintrag löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}>
+                            <Trash2 className="w-3.5 h-3.5" /> Löschen
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredActivities.map((act) => (
-                  <TableRow key={act.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
-                    <TableCell className="py-4 px-6">
-                      <div>
-                        <div className="font-bold text-xs text-slate-800 group-hover:text-emerald-600 transition-colors cursor-pointer" onClick={() => openEdit(act)}>{act.name}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5 italic">{act.legalBasis}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full bg-emerald-50 text-emerald-700 border-none font-black text-[8px] h-5 px-2">V{act.version}</Badge>
-                    </TableCell>
-                    <TableCell className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">{act.responsibleDepartment}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full uppercase text-[8px] font-black h-5 px-2 border-slate-200">{act.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right px-6">
-                      <div className="flex justify-end items-center gap-1.5">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 rounded-md text-[9px] font-black uppercase tracking-wider gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all"
-                          onClick={() => openEdit(act)}
-                        >
-                          Bearbeiten
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreHorizontal className="w-4 h-4" /></Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
-                            <DropdownMenuItem onSelect={() => openEdit(act)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-emerald-600" /> Bearbeiten</DropdownMenuItem>
-                            <DropdownMenuSeparator className="my-1" />
-                            <DropdownMenuItem className="text-red-600 rounded-md py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Eintrag löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}>
-                              <Trash2 className="w-3.5 h-3.5" /> Löschen
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
-      {/* GDPR Dialog */}
+      {/* GDPR Dialog - Enterprise Pattern */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center justify-between w-full pr-8">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-500 shadow-md">
-                  <ShieldCheck className="w-5 h-5" />
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-5">
+                <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-500/10 shadow-sm">
+                  <FileCheck className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight truncate">Verarbeitungstätigkeit</DialogTitle>
-                  <DialogDescription className="text-[8px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Art. 30 DSGVO Dokumentation</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 truncate">Verarbeitungstätigkeit</DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Art. 30 DSGVO Dokumentation • Mandant: {activeTenantId}</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -354,80 +322,119 @@ export default function GdprPage() {
             </div>
           </DialogHeader>
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <div className="px-6 border-b bg-slate-50 shrink-0">
-              <TabsList className="h-10 bg-transparent gap-6 p-0">
-                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
-                  <FileText className="w-3.5 h-3.5" /> Stammdaten
+            <div className="px-6 bg-white border-b shrink-0">
+              <TabsList className="h-12 bg-transparent gap-8 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">
+                  <FileText className="w-4 h-4" /> Stammdaten
                 </TabsTrigger>
-                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
-                  <Layers className="w-3.5 h-3.5" /> IT-Systeme
+                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">
+                  <Layers className="w-4 h-4" /> IT-Infrastruktur
                 </TabsTrigger>
               </TabsList>
             </div>
-            <ScrollArea className="flex-1">
-              <div className="p-6 space-y-8">
-                <TabsContent value="base" className="mt-0 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5 md:col-span-2">
-                      <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Tätigkeit</Label>
-                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 text-sm font-bold border-slate-200" />
+            <ScrollArea className="flex-1 bg-slate-50/30">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung der Tätigkeit</Label>
+                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm focus:border-emerald-500" placeholder="z.B. Lohnabrechnung, Bewerbermanagement..." />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Abteilung</Label>
-                      <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-md h-11 text-xs border-slate-200" />
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher Bereich</Label>
+                      <Input value={responsibleDepartment} onChange={e => setResponsibleDepartment(e.target.value)} className="rounded-xl h-11 text-xs font-bold border-slate-200 bg-white" placeholder="z.B. Personalwesen" />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Rechtsgrundlage</Label>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Rechtsgrundlage</Label>
                       <Select value={legalBasis} onValueChange={setLegalBasis}>
-                        <SelectTrigger className="rounded-md h-11 text-xs border-slate-200"><SelectValue /></SelectTrigger>
-                        <SelectContent className="rounded-md">
-                          <SelectItem value="Art. 6 Abs. 1 lit. a (Einwilligung)" className="text-xs">Einwilligung</SelectItem>
-                          <SelectItem value="Art. 6 Abs. 1 lit. b (Vertrag)" className="text-xs">Vertragserfüllung</SelectItem>
-                          <SelectItem value="Art. 6 Abs. 1 lit. f (Berechtigtes Interesse)" className="text-xs">Berechtigtes Interesse</SelectItem>
+                        <SelectTrigger className="rounded-xl h-11 text-xs font-bold border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="Art. 6 Abs. 1 lit. a (Einwilligung)" className="text-xs font-bold">Einwilligung</SelectItem>
+                          <SelectItem value="Art. 6 Abs. 1 lit. b (Vertrag)" className="text-xs font-bold">Vertragserfüllung</SelectItem>
+                          <SelectItem value="Art. 6 Abs. 1 lit. c (Rechtliche Verpflichtung)" className="text-xs font-bold">Rechtliche Verpflichtung</SelectItem>
+                          <SelectItem value="Art. 6 Abs. 1 lit. f (Berechtigtes Interesse)" className="text-xs font-bold">Berechtigtes Interesse</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Löschfrist</Label>
-                      <Input value={retentionPeriod} onChange={e => setRetentionPeriod(e.target.value)} className="rounded-md h-11 text-xs border-slate-200" />
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Löschfrist / Aufbewahrung</Label>
+                      <Input value={retentionPeriod} onChange={e => setRetentionPeriod(e.target.value)} className="rounded-xl h-11 text-xs font-bold border-slate-200 bg-white" placeholder="z.B. 10 Jahre gemäß Steuerrecht" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Status der Prüfung</Label>
+                      <Select value={status} onValueChange={(v:any) => setStatus(v)}>
+                        <SelectTrigger className="rounded-xl h-11 text-xs font-bold border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="active" className="text-xs font-bold">Freigegeben</SelectItem>
+                          <SelectItem value="draft" className="text-xs font-bold">In Prüfung</SelectItem>
+                          <SelectItem value="archived" className="text-xs font-bold">Archiviert</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Zweck & Beschreibung</Label>
-                    <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-lg min-h-[100px] p-4 border-slate-200 text-xs leading-relaxed" />
+                  <div className="space-y-3">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Zweck & Datenumfang</Label>
+                    <div className="relative">
+                      <Textarea 
+                        value={description} 
+                        onChange={e => setDescription(e.target.value)} 
+                        className="rounded-2xl min-h-[150px] p-5 border-slate-200 text-xs font-medium leading-relaxed bg-white shadow-inner" 
+                        placeholder="Detaillierte Beschreibung des Verarbeitungszwecks und der betroffenen Datenkategorien..."
+                      />
+                    </div>
                   </div>
                 </TabsContent>
+                
                 <TabsContent value="systems" className="mt-0">
-                  <div className="p-5 bg-slate-50 rounded-lg border">
-                    <Label className="text-[9px] font-black uppercase text-emerald-700 tracking-widest mb-4 block ml-1">Involvierte IT-Assets</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                      <Layers className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <h4 className="text-sm font-black uppercase tracking-tight text-slate-900">Zugeordnete IT-Systeme</h4>
+                        <p className="text-[10px] font-bold text-slate-400">Wählen Sie die Anwendungen aus, in denen diese Daten verarbeitet werden.</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {resources?.map(res => (
                         <div 
                           key={res.id} 
                           className={cn(
-                            "flex items-center gap-3 p-3 bg-white border rounded-md cursor-pointer transition-all shadow-sm",
-                            resourceIds.includes(res.id) ? "border-emerald-500 bg-emerald-50/30" : "border-slate-100 hover:border-slate-300"
+                            "flex items-center gap-4 p-4 bg-white border rounded-2xl cursor-pointer transition-all shadow-sm group",
+                            resourceIds.includes(res.id) 
+                              ? "border-emerald-500 bg-emerald-50/20 ring-2 ring-emerald-500/10" 
+                              : "border-slate-100 hover:border-slate-300"
                           )} 
                           onClick={() => setResourceIds(prev => resourceIds.includes(res.id) ? prev.filter(id => id !== res.id) : [...prev, res.id])}
                         >
-                          <Checkbox checked={resourceIds.includes(res.id)} className="rounded-sm h-4 w-4" />
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">{res.assetType}</p>
+                          <Checkbox checked={resourceIds.includes(res.id)} className="rounded-md h-5 w-5 border-2" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-black text-slate-800 truncate group-hover:text-emerald-700 transition-colors">{res.name}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Badge variant="outline" className="text-[7px] font-black uppercase px-1.5 h-4 border-slate-200 bg-slate-50 text-slate-400">{res.assetType}</Badge>
+                              {res.criticality === 'high' && <BadgeAlert className="w-3 h-3 text-red-500" />}
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
+                    {(!resources || resources.length === 0) && (
+                      <div className="py-20 text-center border-2 border-dashed rounded-3xl bg-white/50">
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Keine Ressourcen im Katalog gefunden</p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </div>
             </ScrollArea>
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-md font-black uppercase text-[9px] px-6">Abbrechen</Button>
-            <Button size="sm" onClick={() => handleSave(false)} disabled={isSaving || !name} className="w-full sm:w-auto rounded-md font-black uppercase text-[10px] tracking-widest px-10 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-2">
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
-            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-black uppercase text-[9px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
+            <div className="flex flex-1 sm:flex-none gap-2">
+              <Button size="sm" onClick={() => handleSave(false)} disabled={isSaving || !name} className="flex-1 sm:flex-none rounded-xl font-black uppercase text-[10px] tracking-widest px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 transition-all active:scale-95 gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
