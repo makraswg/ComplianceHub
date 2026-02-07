@@ -30,9 +30,9 @@
 
 ### 3. Visual Veredelung
 - [x] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.
-- [ ] **Empty States**: Liebevoll gestaltete Illustrationen für leere Listen.
-- [ ] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
+- [x] **Empty States**: Liebevoll gestaltete Illustrationen für leere Listen.
+- [x] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
 
 ### 4. User Guidance
 - [ ] **Quick Tours**: Geführte Einführung für neue Administratoren.
-- [ ] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Formular-Assistenten.
+- [x] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Header-Leiste.
