@@ -22,7 +22,8 @@ import {
   X,
   Globe,
   BrainCircuit,
-  Settings2
+  Settings2,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -33,11 +34,23 @@ import { Tenant, Department, JobTitle } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource } = useSettings();
+  const { user } = usePlatformAuth();
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   
@@ -61,9 +74,15 @@ export default function UnifiedOrganizationPage() {
   const [jobDesc, setJobDesc] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
 
+  // Delete State
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const { data: tenants, refresh: refreshTenants, isLoading: tenantsLoading } = usePluggableCollection<Tenant>('tenants');
   const { data: departments, refresh: refreshDepts, isLoading: deptsLoading } = usePluggableCollection<Department>('departments');
   const { data: jobTitles, refresh: refreshJobs, isLoading: jobsLoading } = usePluggableCollection<JobTitle>('jobTitles');
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   const filteredData = useMemo(() => {
     if (!tenants) return [];
@@ -108,7 +127,7 @@ export default function UnifiedOrganizationPage() {
       companyDescription: tenantDescription,
       status: editingTenant?.status || 'active',
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
-    };
+    } as Tenant;
 
     try {
       const res = await saveCollectionRecord('tenants', id, data, dataSource);
@@ -147,6 +166,23 @@ export default function UnifiedOrganizationPage() {
       if (coll === 'departments') refreshDepts();
       if (coll === 'jobTitles') refreshJobs();
       toast({ title: "Status aktualisiert" });
+    }
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
+      if (res.success) {
+        toast({ title: "Eintrag permanent gelöscht" });
+        if (deleteTarget.type === 'tenants') refreshTenants();
+        if (deleteTarget.type === 'departments') refreshDepts();
+        if (deleteTarget.type === 'jobTitles') refreshJobs();
+        setDeleteTarget(null);
+      }
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -244,7 +280,7 @@ export default function UnifiedOrganizationPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => openTenantEdit(tenant)}>
-                      <Settings2 className="w-3.5 h-3.5" /> Konfig
+                      <Settings2 className="w-3.5 h-3.5" /> Details
                     </Button>
                     <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
                       <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
@@ -252,6 +288,11 @@ export default function UnifiedOrganizationPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
                       <Archive className="w-3.5 h-3.5" />
                     </Button>
+                    {isSuperAdmin && (
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget({ id: tenant.id, type: 'tenants', label: tenant.name })}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 
@@ -273,6 +314,11 @@ export default function UnifiedOrganizationPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
                               <Archive className="w-3.5 h-3.5" />
                             </Button>
+                            {isSuperAdmin && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-300 hover:text-red-600" onClick={() => setDeleteTarget({ id: dept.id, type: 'departments', label: dept.name })}>
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </div>
 
@@ -286,7 +332,10 @@ export default function UnifiedOrganizationPage() {
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover/job:opacity-100">
                                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3.5 h-3.5" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3.5 h-3.5" /></Button>
+                                  {isSuperAdmin && (
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-300 hover:text-red-600" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: job.id, type: 'jobTitles', label: job.name }); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -419,6 +468,34 @@ export default function UnifiedOrganizationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              <br/><br/>
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle verknüpften Unterelemente (Abteilungen, Stellen) werden ebenfalls gelöscht.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
