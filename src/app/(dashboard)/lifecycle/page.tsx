@@ -29,7 +29,8 @@ import {
   Archive,
   RotateCcw,
   Save,
-  Check
+  Check,
+  ArrowRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -84,10 +85,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bundle } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 
 export default function LifecyclePage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
+  const router = useRouter();
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
@@ -480,7 +483,7 @@ export default function LifecyclePage() {
                               className={cn("rounded-md py-2 gap-2 text-xs font-bold", bundle.status === 'archived' ? "text-emerald-600" : "text-red-600")} 
                               onSelect={() => handleBundleStatusChange(bundle, bundle.status === 'archived' ? 'active' : 'archived')}
                             >
-                              {bundle.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                              {bundle.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
                               {bundle.status === 'archived' ? 'Reaktivieren' : 'Archivieren'}
                             </DropdownMenuItem>
                             {isSuperAdmin && (
