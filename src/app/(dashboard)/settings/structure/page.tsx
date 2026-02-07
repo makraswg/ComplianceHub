@@ -26,7 +26,8 @@ import {
   FileText,
   ChevronDown,
   Pencil,
-  Info
+  Info,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
