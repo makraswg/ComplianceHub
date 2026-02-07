@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Users, 
@@ -25,14 +25,19 @@ import {
   Sparkles,
   Search,
   BrainCircuit,
-  ArrowRight
+  ArrowRight,
+  TrendingDown,
+  Info,
+  CalendarCheck,
+  ClipboardList,
+  Target
 } from 'lucide-react';
 import { 
   PieChart, 
   Pie, 
   Cell, 
   ResponsiveContainer, 
-  Tooltip 
+  Tooltip as RechartsTooltip 
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -40,14 +45,11 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   exportFullComplianceReportPdf, 
-  exportToExcel,
   exportUsersExcel,
   exportResourcesExcel
 } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import Link from 'next/link';
 import { useSettings } from '@/context/settings-context';
 import {
   Dialog,
@@ -57,13 +59,18 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog';
-import { QuickTour, type TourStep } from '@/components/layout/quick-tour';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useRouter } from 'next/navigation';
 
 const riskData = [
-  { name: 'Niedriges Risiko', value: 65, color: '#29ABE2' },
-  { name: 'Mittleres Risiko', value: 25, color: '#FF9800' },
-  { name: 'Hohes Risiko', value: 10, color: '#ef4444' },
+  { name: 'Niedrig', value: 65, color: '#10b981', key: 'low' },
+  { name: 'Mittel', value: 25, color: '#FF9800', key: 'medium' },
+  { name: 'Hoch', value: 10, color: '#ef4444', key: 'high' },
 ];
 
 export default function DashboardPage() {
@@ -78,6 +85,7 @@ export default function DashboardPage() {
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
   const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
+  const { data: risks } = usePluggableCollection<any>('risks');
   const { data: tenants } = usePluggableCollection<any>('tenants');
 
   useEffect(() => {
@@ -85,295 +93,236 @@ export default function DashboardPage() {
   }, []);
 
   const filteredData = useMemo(() => {
-    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [] };
+    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [] };
     
     const fUsers = activeTenantId === 'all' ? users : users.filter((u: any) => u.tenantId === activeTenantId);
     const fResources = activeTenantId === 'all' ? resources : resources.filter((r: any) => r.tenantId === activeTenantId || r.tenantId === 'global' || !r.tenantId);
+    const fRisks = risks?.filter((r: any) => activeTenantId === 'all' || r.tenantId === activeTenantId) || [];
     const userIds = new Set(fUsers.map((u: any) => u.id));
     const fAssignments = assignments.filter((a: any) => userIds.has(a.userId));
 
-    return { users: fUsers, resources: fResources, assignments: fAssignments };
-  }, [users, resources, assignments, activeTenantId]);
+    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks };
+  }, [users, resources, assignments, risks, activeTenantId]);
 
-  const latestAuditFinding = useMemo(() => {
-    if (!auditLogs) return null;
-    return auditLogs.find((log: any) => log.entityType === 'iam-audit' || log.action.toLowerCase().includes('audit'));
-  }, [auditLogs]);
+  // Action Center Logic (Prioritized Tasks)
+  const prioritizedTasks = useMemo(() => {
+    const tasks = [];
+    
+    // Task 1: Overdue Assignments
+    const overdue = filteredData.assignments.filter(a => a.status === 'active' && a.validUntil && new Date(a.validUntil) < new Date());
+    if (overdue.length > 0) {
+      tasks.push({
+        id: 'task-overdue',
+        title: 'Abgelaufene Zugriffe prüfen',
+        desc: `${overdue.length} Berechtigungen sind zeitlich abgelaufen.`,
+        icon: Clock,
+        color: 'text-red-600',
+        bg: 'bg-red-50',
+        href: '/assignments?search=expired'
+      });
+    }
+
+    // Task 2: High Risks without measures
+    const highRisks = filteredData.risks.filter(r => (r.impact * r.probability) >= 15 && r.status === 'active');
+    if (highRisks.length > 0) {
+      tasks.push({
+        id: 'task-risks',
+        title: 'Kritische Risiken mindern',
+        desc: `${highRisks.length} Hochrisiko-Szenarien benötigen Aufmerksamkeit.`,
+        icon: AlertTriangle,
+        color: 'text-orange-600',
+        bg: 'bg-orange-50',
+        href: '/risks'
+      });
+    }
+
+    // Task 3: Pending Reviews
+    const pendingReviews = filteredData.assignments.filter(a => a.status === 'active' && !a.lastReviewedAt);
+    if (pendingReviews.length > 0) {
+      tasks.push({
+        id: 'task-reviews',
+        title: 'Access Reviews fällig',
+        desc: `${pendingReviews.length} Zuweisungen müssen rezertifiziert werden.`,
+        icon: CalendarCheck,
+        color: 'text-primary',
+        bg: 'bg-primary/5',
+        href: '/reviews'
+      });
+    }
+
+    return tasks.slice(0, 3);
+  }, [filteredData]);
+
+  if (!mounted) return null;
 
   const handleExport = async (format: 'pdf' | 'excel', mode: 'user' | 'resource') => {
     setIsExporting(true);
     try {
-      const { users: fUsers, resources: fResources, assignments: fAssignments } = filteredData;
-      
       if (format === 'pdf') {
-        await exportFullComplianceReportPdf(
-          fUsers,
-          fResources,
-          entitlements || [],
-          fAssignments,
-          mode
-        );
+        await exportFullComplianceReportPdf(filteredData.users, filteredData.resources, entitlements || [], filteredData.assignments, mode);
       } else {
-        if (mode === 'user') {
-          await exportUsersExcel(fUsers, tenants || []);
-        } else {
-          await exportResourcesExcel(fResources);
-        }
+        if (mode === 'user') await exportUsersExcel(filteredData.users, tenants || []);
+        else await exportResourcesExcel(filteredData.resources);
       }
-      
-      toast({ 
-        title: "Bericht erstellt", 
-        description: `Der ${format.toUpperCase()}-Bericht wurde generiert.` 
-      });
+      toast({ title: "Bericht erstellt" });
       setIsReportDialogOpen(false);
     } catch (e: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Export fehlgeschlagen", 
-        description: e.message 
-      });
+      toast({ variant: "destructive", title: "Export fehlgeschlagen", description: e.message });
     } finally {
       setIsExporting(false);
     }
   };
 
-  if (!mounted) return null;
-
-  const stats = [
-    { id: 'stat-users', title: 'Benutzer', value: filteredData.users.length, icon: Users, label: 'Identitäten', color: 'text-blue-500', bg: 'bg-blue-500/10', loading: usersLoading },
-    { id: 'stat-resources', title: 'Systeme', value: filteredData.resources.length, icon: Layers, label: 'Katalog', color: 'text-indigo-500', bg: 'bg-indigo-500/10', loading: resourcesLoading },
-    { id: 'stat-assignments', title: 'Zugriffe', value: filteredData.assignments.filter((a: any) => a.status === 'active').length, icon: ShieldCheck, label: 'Aktiv', color: 'text-emerald-500', bg: 'bg-emerald-500/10', loading: assignmentsLoading },
-    { id: 'stat-audits', title: 'Audits', value: auditLogs?.length || 0, icon: Activity, label: 'Journal', color: 'text-orange-500', bg: 'bg-orange-500/10', loading: auditLoading },
-  ];
-
-  const dashboardTour: TourStep[] = [
-    {
-      target: '#stat-users',
-      title: 'Identitäts-Management',
-      content: 'Hier behalten Sie den Überblick über alle Mitarbeiter und deren digitalen Fingerabdruck im Unternehmen.'
-    },
-    {
-      target: '#campaign-progress',
-      title: 'Compliance Kampagnen',
-      content: 'Überwachen Sie laufende Zertifizierungs-Reviews. 68% der Identitäten wurden diesen Monat bereits geprüft.'
-    },
-    {
-      target: '#risk-profile',
-      title: 'Echtzeit Risiko-Analyse',
-      content: 'Das System bewertet automatisch die Berechtigungs-Struktur und zeigt Ihnen kritische Konzentrationen von Rechten.'
-    },
-    {
-      target: '#report-btn',
-      title: 'Audit-Bereite Berichte',
-      content: 'Exportieren Sie per Klick vollständige PDFs für Revisoren oder den Datenschutzbeauftragten.'
-    }
-  ];
+  const StatCard = ({ id, title, value, icon: Icon, label, color, bg, loading, trend, help }: any) => (
+    <Card id={id} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-all duration-300">
+      <CardContent className="p-6">
+        {loading ? (
+          <div className="flex items-center gap-5">
+            <Skeleton className="w-14 h-14 rounded-2xl" />
+            <div className="flex-1 space-y-2"><Skeleton className="h-3 w-16" /><Skeleton className="h-8 w-12" /></div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-6", bg, color)}>
+                <Icon className="w-7 h-7" />
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-300 hover:text-primary"><Info className="w-4 h-4" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[200px] bg-slate-900 text-white text-[10px] uppercase font-black p-3 border-none rounded-xl shadow-2xl">
+                    {help}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{label}</p>
+              <div className="flex items-baseline justify-between mt-1">
+                <h3 className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100">{value}</h3>
+                {trend && (
+                  <div className={cn("flex items-center gap-1 text-[10px] font-black", trend > 0 ? "text-emerald-500" : "text-red-500")}>
+                    {trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                    {Math.abs(trend)}%
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-10 pb-20 animate-in fade-in duration-700 slide-in-from-bottom-4">
-      <QuickTour tourId="dashboard-main" steps={dashboardTour} />
-
-      {/* Header Section with subtle gradient */}
+      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
         <div>
-          <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Overview</Badge>
-          <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Status der Governance für {activeTenantId === 'all' ? 'die gesamte Organisation' : activeTenantId}.</p>
+          <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Control Center</Badge>
+          <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Governance Cockpit</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Status der Sicherheit & Compliance für {activeTenantId === 'all' ? 'die gesamte Organisation' : activeTenantId}.</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button 
-            variant="outline" 
-            className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95 hidden md:flex"
-            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-          >
-            <Search className="w-4 h-4 mr-2" /> Suche (⌘K)
+          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 transition-all active:scale-95" onClick={() => setIsReportDialogOpen(true)}>
+            <FileDown className="w-4 h-4 mr-2 text-primary" /> Audit Snapshot
           </Button>
-          <Button 
-            id="report-btn"
-            variant="outline" 
-            className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" 
-            onClick={() => setIsReportDialogOpen(true)}
-          >
-            <FileText className="w-4 h-4 mr-2 text-primary" />
-            Berichte
+          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-slate-900 hover:bg-black text-white shadow-lg transition-all active:scale-95" onClick={() => router.push('/iam-audit')}>
+            <BrainCircuit className="w-4 h-4 mr-2" /> KI Audit starten
           </Button>
         </div>
       </div>
 
-      {/* Phase 3: Proactive Smart Insights */}
-      <Card className="border-none shadow-2xl rounded-[3rem] overflow-hidden bg-slate-900 text-white animate-in zoom-in-95 duration-500">
-        <div className="p-1 gap-1 flex flex-col md:flex-row">
-          <div className="flex-1 p-8 md:p-12 space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-xl shadow-black/20">
-                <BrainCircuit className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-headline font-bold uppercase tracking-widest">Smart Governance Insights</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group" onClick={() => router.push('/iam-audit')}>
-                <div className="flex justify-between items-start mb-4">
-                  <Badge className="bg-emerald-500 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">Compliance Status</Badge>
-                  <ArrowUpRight className="w-4 h-4 text-white/30 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                </div>
-                <p className="text-sm font-medium italic text-slate-300 leading-relaxed">
-                  "Die aktuelle Analyse zeigt eine exzellente Trennung von Admin-Rechten im Mandanten {activeTenantId === 'all' ? 'Global' : activeTenantId}."
-                </p>
-              </div>
-              
-              <div className="p-6 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer group" onClick={() => router.push('/risks')}>
-                <div className="flex justify-between items-start mb-4">
-                  <Badge className="bg-amber-500 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">Risiko Warnung</Badge>
-                  <AlertTriangle className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
-                </div>
-                <p className="text-sm font-medium text-amber-200 leading-relaxed">
-                  3 kritische Risiken benötigen einen Review. Die durchschnittliche Reaktionszeit liegt aktuell bei 4.2 Tagen.
-                </p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="md:w-80 bg-primary p-8 md:p-12 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden shrink-0 rounded-[2.8rem]">
-            <Zap className="w-20 h-20 text-white/20 absolute -right-4 -bottom-4 rotate-12" />
-            <div className="relative">
-              <div className="text-6xl font-headline font-black">82%</div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Health Score</p>
-            </div>
-            <Button size="sm" className="mt-4 rounded-xl bg-white text-primary hover:bg-slate-50 font-black uppercase text-[10px] px-6 h-10 shadow-xl active:scale-95 transition-all" onClick={() => router.push('/iam-audit')}>
-              Audit starten <ArrowRight className="w-3.5 h-3.5 ml-2" />
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Stats Grid */}
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <Card key={stat.title} id={stat.id} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-all duration-300 active:scale-95">
-            <CardContent className="p-6">
-              {stat.loading ? (
-                <div className="flex items-center gap-5">
-                  <Skeleton className="w-14 h-14 rounded-2xl" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-3 w-16" />
-                    <Skeleton className="h-8 w-12" />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-5">
-                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-6", stat.bg, stat.color)}>
-                    <stat.icon className="w-7 h-7" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
-                    <div className="flex items-baseline gap-1">
-                      <h3 className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100">{stat.value}</h3>
-                      <TrendingUp className="w-3 h-3 text-emerald-500" />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+        <StatCard id="stat-users" title="Benutzer" value={filteredData.users.length} icon={Users} label="Identitäten" color="text-blue-500" bg="bg-blue-50" loading={usersLoading} trend={2.4} help="Anzahl aller registrierten Mitarbeiter im System." />
+        <StatCard id="stat-resources" title="Systeme" value={filteredData.resources.length} icon={Layers} label="IT-Assets" color="text-indigo-500" bg="bg-indigo-50" loading={resourcesLoading} trend={-1.2} help="Alle Anwendungen und Hardware-Komponenten im Katalog." />
+        <StatCard id="stat-assignments" title="Zugriffe" value={filteredData.assignments.filter(a => a.status === 'active').length} icon={ShieldCheck} label="Aktive Rechte" color="text-emerald-500" bg="bg-emerald-50" loading={assignmentsLoading} trend={5.8} help="Anzahl der aktuell gültigen Berechtigungen." />
+        <StatCard id="stat-risks" title="Risiken" value={filteredData.risks.length} icon={AlertTriangle} label="Gefahrenlage" color="text-orange-500" bg="bg-orange-50" loading={isLoading} trend={-4.5} help="Identifizierte Bedrohungen für das Unternehmen." />
       </div>
 
-      {/* Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Main Chart/Progress Area */}
-        <Card id="campaign-progress" className="xl:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
-            <div>
-              <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Zertifizierungs-Kampagne</CardTitle>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Quartals-Review Q1/2024</p>
+        {/* Action Center - WORKFLOW DRIVEN */}
+        <Card className="xl:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-slate-900 text-white rounded-[2.5rem] overflow-hidden">
+          <CardHeader className="p-8 pb-4 flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-xl">
+                <Target className="w-6 h-6" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-headline font-bold uppercase tracking-widest">Action Center</CardTitle>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Was heute zu tun ist</p>
+              </div>
             </div>
-            <Badge className="rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 border-none px-4 py-1 text-[10px] font-black uppercase">Laufend</Badge>
+            <Badge className="bg-primary text-white border-none rounded-none text-[8px] font-black uppercase h-4 px-1.5">Priority High</Badge>
           </CardHeader>
-          <CardContent className="p-8 md:p-12">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-8">
-              <div className="relative w-32 h-32 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90">
-                  <circle className="text-slate-100 dark:text-slate-800" strokeWidth="8" stroke="currentColor" fill="transparent" r="58" cx="64" cy="64" />
-                  <circle 
-                    className="text-primary transition-all duration-1000 ease-out" 
-                    strokeWidth="8" 
-                    strokeDasharray={364.4} 
-                    strokeDashoffset={364.4 * (1 - 0.68)} 
-                    strokeLinecap="round" 
-                    stroke="currentColor" 
-                    fill="transparent" 
-                    r="58" cx="64" cy="64" 
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-3xl font-headline font-bold">68%</span>
-                  <span className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Progress</span>
-                </div>
+          <CardContent className="p-8 space-y-4">
+            {prioritizedTasks.length === 0 ? (
+              <div className="py-12 text-center space-y-4 opacity-40">
+                <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500" />
+                <p className="text-sm font-bold uppercase tracking-widest">Alle Workflows sind aktuell</p>
               </div>
-              <div className="flex-1 grid grid-cols-2 gap-6">
-                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 transition-all hover:bg-white hover:shadow-lg group">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Offene Prüfungen</p>
-                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors">142</p>
+            ) : prioritizedTasks.map((task) => (
+              <div key={task.id} className="group flex items-center justify-between p-6 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all cursor-pointer" onClick={() => router.push(task.href)}>
+                <div className="flex items-center gap-6">
+                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl", task.bg, task.color)}>
+                    <task.icon className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-white group-hover:text-primary transition-colors">{task.title}</h4>
+                    <p className="text-xs text-slate-400 mt-1">{task.desc}</p>
+                  </div>
                 </div>
-                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 transition-all hover:bg-white hover:shadow-lg group">
-                  <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Abgeschlossen</p>
-                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-500 transition-colors">312</p>
-                </div>
+                <Button variant="ghost" size="icon" className="rounded-xl group-hover:translate-x-1 transition-transform">
+                  <ArrowRight className="w-5 h-5 text-slate-500" />
+                </Button>
               </div>
-            </div>
-            
-            <div className="space-y-4 pt-8 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider">
-                <span className="text-slate-500">Compliance Zielerreichung</span>
-                <span className="text-primary">85% geplant</span>
-              </div>
-              <Progress value={68} className="h-3 rounded-full bg-slate-100 dark:bg-slate-800" />
-            </div>
+            ))}
           </CardContent>
         </Card>
 
-        {/* Risk Profile Card */}
-        <Card id="risk-profile" className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col">
+        {/* RISK PIE with DRILL-DOWN */}
+        <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col">
           <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 bg-slate-50/50 dark:bg-slate-950/50">
-            <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Risiko-Profil</CardTitle>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Identitäts-Risiken</p>
+            <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Risiko-Verteilung</CardTitle>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Klicken für Details</p>
           </CardHeader>
           <CardContent className="p-8 flex-1 flex flex-col items-center justify-center">
             <div className="h-[240px] w-full relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie 
-                    data={riskData} 
-                    cx="50%" 
-                    cy="50%" 
-                    innerRadius={70} 
-                    outerRadius={95} 
-                    paddingAngle={8} 
-                    dataKey="value" 
-                    stroke="none"
+                    data={riskPieData} 
+                    cx="50%" cy="50%" 
+                    innerRadius={70} outerRadius={95} 
+                    paddingAngle={8} dataKey="value" stroke="none"
+                    onClick={(data) => router.push(`/risks?search=${data.name}`)}
                   >
-                    {riskData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} cornerRadius={10} />)}
+                    {riskPieData.map((entry, index) => <Cell key={index} fill={entry.color} cornerRadius={10} className="cursor-pointer hover:opacity-80 transition-opacity" />)}
                   </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                  />
+                  <RechartsTooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontSize: '11px', fontWeight: 'bold' }} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <ShieldAlert className="w-8 h-8 text-slate-200 dark:text-slate-700 mb-1 animate-pulse" />
-                <span className="text-[10px] font-black uppercase text-slate-400">Status</span>
+                <ShieldAlert className="w-8 h-8 text-slate-100 dark:text-slate-800 mb-1" />
+                <span className="text-[10px] font-black uppercase text-slate-400">Scan OK</span>
               </div>
             </div>
-            <div className="w-full space-y-3 mt-8">
-              {riskData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+            <div className="w-full space-y-2 mt-8">
+              {riskPieData.map((item) => (
+                <div 
+                  key={item.name} 
+                  className="flex items-center justify-between p-3 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer group"
+                  onClick={() => router.push(`/risks?search=${item.name}`)}
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400">{item.name}</span>
+                    <span className="text-[11px] font-black uppercase text-slate-500">{item.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-black text-slate-800 dark:text-slate-100">{item.value}%</span>
+                    <span className="text-sm font-black text-slate-800 dark:text-slate-100">{item.value}</span>
                     <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
                 </div>
@@ -383,110 +332,32 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Compliance Report Dialog */}
+      {/* Report Dialog remains logic-identical but fits style */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="rounded-[2.5rem] max-w-2xl bg-white dark:bg-slate-900 p-0 border-none shadow-2xl overflow-hidden">
-          <DialogHeader className="p-8 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
-            <DialogTitle className="text-xl font-headline font-bold uppercase text-slate-800 dark:text-white">Compliance Berichte</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Wählen Sie den Fokus des detaillierten Audit-Berichts.
-            </DialogDescription>
+        <DialogContent className="rounded-[3rem] max-w-2xl bg-white dark:bg-slate-950 p-0 border-none shadow-2xl overflow-hidden">
+          <DialogHeader className="p-10 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-xl">
+                <FileText className="w-8 h-8" />
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-headline font-bold uppercase tracking-tight">Compliance Snapshot</DialogTitle>
+                <DialogDescription className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1.5">Offizieller Bericht für Auditoren</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-8">
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] ml-1">Identitäten (IAM)</h4>
-              <div className="grid gap-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4 active:scale-95"
-                  onClick={() => handleExport('pdf', 'user')}
-                  disabled={isExporting}
-                >
-                  <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5 text-blue-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">Mitarbeiter PDF</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Audit-Ready</p>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4 active:scale-95"
-                  onClick={() => handleExport('excel', 'user')}
-                  disabled={isExporting}
-                >
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
-                    <TableIcon className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">Benutzerliste</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Excel Format</p>
-                  </div>
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500 tracking-[0.2em] ml-1">Systeme (Assets)</h4>
-              <div className="grid gap-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4 active:scale-95"
-                  onClick={() => handleExport('pdf', 'resource')}
-                  disabled={isExporting}
-                >
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
-                    <FileText className="w-5 h-5 text-indigo-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">System Bericht</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">PDF Katalog</p>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4 active:scale-95"
-                  onClick={() => handleExport('excel', 'resource')}
-                  disabled={isExporting}
-                >
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center shrink-0">
-                    <TableIcon className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">Ressourcenkatalog</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Excel Format</p>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="mx-8 mb-8 p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase text-slate-800 dark:text-slate-200">Mandanten-Fokus</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider leading-relaxed">
-                Der Bericht wird exklusiv für <span className="text-primary">{activeTenantId === 'all' ? 'ALLE MANDANTEN' : activeTenantId}</span> generiert.
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800">
-            <Button 
-              variant="ghost" 
-              onClick={() => setIsReportDialogOpen(false)} 
-              className="rounded-xl text-[10px] font-black uppercase h-11 px-8"
-            >
-              Abbrechen
+          <div className="p-10 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <Button variant="outline" className="h-20 rounded-3xl border-slate-100 flex flex-col gap-1 items-start px-6 justify-center hover:bg-primary/5 hover:border-primary/20 transition-all" onClick={() => handleExport('pdf', 'user')}>
+              <span className="font-black uppercase text-[11px]">Identitäten (PDF)</span>
+              <span className="text-[9px] text-slate-400">Detaillierter IAM-Bericht</span>
             </Button>
-            {isExporting && (
-              <div className="flex items-center gap-3 text-[10px] font-black uppercase text-primary animate-pulse pr-4">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Export läuft...
-              </div>
-            )}
+            <Button variant="outline" className="h-20 rounded-3xl border-slate-100 flex flex-col gap-1 items-start px-6 justify-center hover:bg-indigo-50 hover:border-indigo-200 transition-all" onClick={() => handleExport('pdf', 'resource')}>
+              <span className="font-black uppercase text-[11px]">Systeme (PDF)</span>
+              <span className="text-[9px] text-slate-400">Ressourcen- & Assetbericht</span>
+            </Button>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsReportDialogOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
