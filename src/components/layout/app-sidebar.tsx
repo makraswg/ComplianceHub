@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -34,7 +35,8 @@ import {
   Mail,
   FileCode,
   RefreshCw,
-  Ticket
+  Ticket,
+  Scale
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -130,6 +132,7 @@ export function AppSidebar() {
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
+    { name: 'Regulatorik & Normen', href: '/settings/compliance', icon: Scale },
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
     { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },
     { name: 'KI Access Advisor', href: '/settings/ai', icon: BrainCircuit },

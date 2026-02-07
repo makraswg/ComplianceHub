@@ -75,10 +75,11 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
+      responsibleDepartmentId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       openQuestions: 'TEXT',
-      regulatoryFramework: 'TEXT',
+      regulatoryFramework: 'TEXT', // Stored as JSON array or comma-sep
       status: 'VARCHAR(50) DEFAULT "draft"',
       ownerUserId: 'VARCHAR(255)',
       currentVersion: 'INT DEFAULT 1',
@@ -122,6 +123,15 @@ export const appSchema: AppSchema = {
       actor_user_id: 'VARCHAR(255)',
       ops_json: 'LONGTEXT',
       created_at: 'VARCHAR(50)',
+    }
+  },
+  regulatory_options: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255)',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
     }
   },
   ai_sessions: {

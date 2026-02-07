@@ -124,10 +124,11 @@ export interface ProcessOperation {
 export interface Process {
   id: string;
   tenantId: string;
+  responsibleDepartmentId?: string;
   title: string;
   description?: string;
   openQuestions?: string; 
-  regulatoryFramework?: string;
+  regulatoryFramework?: string; // Stored as JSON string or array
   status: 'draft' | 'published' | 'archived';
   ownerUserId: string;
   currentVersion: number;
@@ -156,6 +157,14 @@ export interface ProcessComment {
   user_name: string;
   text: string;
   created_at: string;
+}
+
+export interface RegulatoryOption {
+  id: string;
+  tenantId?: string;
+  name: string;
+  description?: string;
+  enabled: boolean | number;
 }
 
 export interface Document {
