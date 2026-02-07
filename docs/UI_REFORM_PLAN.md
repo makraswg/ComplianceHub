@@ -16,12 +16,12 @@
 
 ---
 
-## Phase 2: Advanced UX & Polish (GEPLANT 🚀)
+## Phase 2: Advanced UX & Polish (IN ARBEIT 🚀)
 
 ### 1. Motion & Micro-Interactions
-- [ ] **Smooth Transitions**: Weiche Einblend-Effekte für Seitenwechsel (Animate-in).
-- [ ] **Button States**: Subtiles Haptik-Feedback beim Klicken/Tippen.
-- [ ] **Loading States**: Skeleton-Screens für alle datenlastigen Tabellen.
+- [x] **Smooth Transitions**: Weiche Einblend-Effekte für Seitenwechsel (Animate-in).
+- [x] **Button States**: Subtiles Haptik-Feedback beim Klicken/Tippen (Active Scale).
+- [x] **Loading States**: Skeleton-Screens für alle datenlastigen Tabellen (Dashboard, Users, Assignments).
 
 ### 2. Interactive Reporting (Intelligence)
 - [ ] **Matrix-Drilldown**: Klickbare Felder in der Risiko-Heatmap zur Echtzeit-Filterung.
@@ -29,7 +29,7 @@
 - [ ] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
 
 ### 3. Visual Veredelung
-- [ ] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.
+- [x] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.
 - [ ] **Empty States**: Liebevoll gestaltete Illustrationen für leere Listen.
 - [ ] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
 

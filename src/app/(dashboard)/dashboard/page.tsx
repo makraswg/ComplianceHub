@@ -25,13 +25,14 @@ import {
 import { 
   PieChart, 
   Pie, 
-  Cell,
-  ResponsiveContainer,
-  Tooltip
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip 
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   exportFullComplianceReportPdf, 
   exportToExcel,
@@ -133,8 +134,8 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-10 pb-20">
-      {/* Header Section */}
+    <div className="space-y-10 pb-20 animate-in fade-in duration-700 slide-in-from-bottom-4">
+      {/* Header Section with subtle gradient */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
         <div>
           <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">Overview</Badge>
@@ -144,7 +145,7 @@ export default function DashboardPage() {
         <div className="flex gap-3">
           <Button 
             variant="outline" 
-            className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all" 
+            className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" 
             onClick={() => setIsReportDialogOpen(true)}
           >
             <FileText className="w-4 h-4 mr-2 text-primary" />
@@ -156,24 +157,30 @@ export default function DashboardPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <Card key={stat.title} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-transform duration-300">
+          <Card key={stat.title} className="group border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden hover:scale-[1.02] transition-all duration-300 active:scale-95">
             <CardContent className="p-6">
-              <div className="flex items-center gap-5">
-                <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-6", stat.bg, stat.color)}>
-                  <stat.icon className="w-7 h-7" />
+              {stat.loading ? (
+                <div className="flex items-center gap-5">
+                  <Skeleton className="w-14 h-14 rounded-2xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-8 w-12" />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
-                  {stat.loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-slate-300 mt-1" />
-                  ) : (
+              ) : (
+                <div className="flex items-center gap-5">
+                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-6", stat.bg, stat.color)}>
+                    <stat.icon className="w-7 h-7" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{stat.label}</p>
                     <div className="flex items-baseline gap-1">
                       <h3 className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100">{stat.value}</h3>
                       <TrendingUp className="w-3 h-3 text-emerald-500" />
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -183,7 +190,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         {/* Main Chart/Progress Area */}
         <Card className="xl:col-span-2 border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 flex flex-row items-center justify-between">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 flex flex-row items-center justify-between bg-slate-50/50 dark:bg-slate-950/50">
             <div>
               <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Zertifizierungs-Kampagne</CardTitle>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Quartals-Review Q1/2024</p>
@@ -212,13 +219,13 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="flex-1 grid grid-cols-2 gap-6">
-                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 transition-all hover:bg-white hover:shadow-lg group">
                   <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Offene Prüfungen</p>
-                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100">142</p>
+                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100 group-hover:text-primary transition-colors">142</p>
                 </div>
-                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 transition-all hover:bg-white hover:shadow-lg group">
                   <p className="text-[10px] font-black uppercase text-slate-400 mb-2">Abgeschlossen</p>
-                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100">312</p>
+                  <p className="text-3xl font-headline font-bold text-slate-800 dark:text-slate-100 group-hover:text-emerald-500 transition-colors">312</p>
                 </div>
               </div>
             </div>
@@ -235,7 +242,7 @@ export default function DashboardPage() {
 
         {/* Risk Profile Card */}
         <Card className="border-none shadow-xl shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden flex flex-col">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800 py-6 px-8 bg-slate-50/50 dark:bg-slate-950/50">
             <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Risiko-Profil</CardTitle>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Identitäts-Risiken</p>
           </CardHeader>
@@ -261,7 +268,7 @@ export default function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <ShieldAlert className="w-8 h-8 text-slate-200 dark:text-slate-700 mb-1" />
+                <ShieldAlert className="w-8 h-8 text-slate-200 dark:text-slate-700 mb-1 animate-pulse" />
                 <span className="text-[10px] font-black uppercase text-slate-400">Status</span>
               </div>
             </div>
@@ -299,7 +306,7 @@ export default function DashboardPage() {
               <div className="grid gap-2">
                 <Button
                   variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4"
+                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4 active:scale-95"
                   onClick={() => handleExport('pdf', 'user')}
                   disabled={isExporting}
                 >
@@ -313,7 +320,7 @@ export default function DashboardPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4"
+                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4 active:scale-95"
                   onClick={() => handleExport('excel', 'user')}
                   disabled={isExporting}
                 >
@@ -333,7 +340,7 @@ export default function DashboardPage() {
               <div className="grid gap-2">
                 <Button
                   variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4"
+                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-primary/20 hover:bg-primary/5 transition-all gap-4 active:scale-95"
                   onClick={() => handleExport('pdf', 'resource')}
                   disabled={isExporting}
                 >
@@ -347,7 +354,7 @@ export default function DashboardPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4"
+                  className="w-full justify-start h-16 rounded-3xl border-slate-100 dark:border-slate-800 hover:border-emerald-500/20 hover:bg-emerald-50/50 transition-all gap-4 active:scale-95"
                   onClick={() => handleExport('excel', 'resource')}
                   disabled={isExporting}
                 >

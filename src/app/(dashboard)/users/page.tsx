@@ -62,6 +62,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { 
   useFirestore, 
@@ -344,9 +345,9 @@ export default function UsersPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-10 pb-20">
+    <div className="space-y-10 pb-20 animate-in fade-in duration-700 slide-in-from-bottom-4">
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 dark:border-slate-800 pb-8 bg-gradient-to-r from-transparent via-slate-50/50 to-transparent">
         <div>
           <Badge className="mb-2 rounded-full px-3 py-0 bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border-none">IAM Directory</Badge>
           <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Benutzerverzeichnis</h1>
@@ -355,13 +356,13 @@ export default function UsersPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
+          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
             <Download className="w-4 h-4 mr-2 text-primary" /> Excel
           </Button>
-          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-blue-600 dark:text-blue-400" onClick={handleLdapSync} disabled={isSyncing}>
+          <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all text-blue-600 dark:text-blue-400 active:scale-95" onClick={handleLdapSync} disabled={isSyncing}>
             {isSyncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />} LDAP Sync
           </Button>
-          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all" onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Button className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-4 h-4 mr-2" /> Benutzer anlegen
           </Button>
         </div>
@@ -419,9 +420,15 @@ export default function UsersPage() {
 
       {/* Main Content Area */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-40 gap-4">
-          <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Synchronisiere Daten...</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:hidden gap-4">
+            {[1,2,3].map(i => <Skeleton key={i} className="h-[200px] w-full rounded-3xl" />)}
+          </div>
+          <div className="hidden md:block">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border overflow-hidden p-8 space-y-4">
+              {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+            </div>
+          </div>
         </div>
       ) : (
         <>
@@ -433,7 +440,7 @@ export default function UsersPage() {
               const userAssignments = assignments?.filter(a => a.userId === user.id && a.status === 'active') || [];
               
               return (
-                <Card key={user.id} className="border-none shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-slate-900 group">
+                <Card key={user.id} className="border-none shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-slate-900 group transition-all hover:shadow-xl hover:scale-[1.01]">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-4">
@@ -466,12 +473,12 @@ export default function UsersPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button className="flex-1 h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest" onClick={() => { setSelectedUser(user); setQaResourceId(''); setQaEntitlementId(''); setIsQuickAssignOpen(true); }}>
+                      <Button className="flex-1 h-10 rounded-xl font-bold uppercase text-[10px] tracking-widest active:scale-95 transition-transform" onClick={() => { setSelectedUser(user); setQaResourceId(''); setQaEntitlementId(''); setIsQuickAssignOpen(true); }}>
                         <UserPlus className="w-3.5 h-3.5 mr-2" /> Zuweisen
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-10 h-10 p-0 rounded-xl border-slate-200 dark:border-slate-800"><MoreVertical className="w-4 h-4" /></Button>
+                          <Button variant="outline" className="w-10 h-10 p-0 rounded-xl border-slate-200 dark:border-slate-800 active:scale-95 transition-transform"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-2xl w-56 p-2 shadow-2xl">
                           <DropdownMenuItem onSelect={() => { setSelectedUser(user); setIsDetailOpen(true); }} className="rounded-xl py-2.5 gap-3"><Info className="w-4 h-4 text-primary" /> Details & Verlauf</DropdownMenuItem>
@@ -547,14 +554,14 @@ export default function UsersPage() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider gap-2 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all"
+                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider gap-2 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all active:scale-95"
                             onClick={() => { setSelectedUser(user); setQaResourceId(''); setQaEntitlementId(''); setIsQuickAssignOpen(true); }}
                           >
                             <UserPlus className="w-4 h-4" /> Zuweisen
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-5 h-5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-transform"><MoreHorizontal className="w-5 h-5" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-slate-100 dark:border-slate-800">
                               <DropdownMenuItem onSelect={() => { setSelectedUser(user); setIsDetailOpen(true); }} className="rounded-xl py-2.5 gap-3"><Info className="w-4 h-4 text-primary" /> Details & Historie</DropdownMenuItem>
@@ -585,8 +592,7 @@ export default function UsersPage() {
         </>
       )}
 
-      {/* Dialogs & Overlays remain logic-identical but styled for rounded-2xl/3xl */}
-      {/* ... Add User Dialog ... */}
+      {/* Dialogs */}
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if (!val) setIsAddOpen(false); }}>
         <DialogContent className="max-w-md rounded-[2rem] border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
           <DialogHeader className="p-8 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
@@ -624,7 +630,7 @@ export default function UsersPage() {
           </div>
           <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t dark:border-slate-800">
             <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl text-[10px] font-black uppercase px-6">Abbrechen</Button>
-            <Button onClick={handleSaveUser} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-10 h-12 shadow-lg shadow-primary/20">
+            <Button onClick={handleSaveUser} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-10 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
               Speichern
             </Button>
           </DialogFooter>
@@ -687,7 +693,7 @@ export default function UsersPage() {
           </div>
           <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-800/50 border-t">
             <Button variant="ghost" onClick={() => setIsQuickAssignOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
-            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-8 h-12 shadow-lg shadow-primary/20">
+            <Button onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="rounded-xl font-black uppercase text-[10px] tracking-widest px-8 h-12 shadow-lg shadow-primary/20 active:scale-95 transition-transform">
               {isSavingAssignment ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Zuweisung erstellen'}
             </Button>
           </DialogFooter>
@@ -730,7 +736,7 @@ export default function UsersPage() {
                     const ent = entitlements?.find(e => e.id === a.entitlementId);
                     const res = resources?.find(r => r.id === ent?.resourceId);
                     return (
-                      <div key={a.id} className="flex items-center justify-between p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 transition-all hover:scale-[1.02]">
+                      <div key={a.id} className="flex items-center justify-between p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 transition-all hover:scale-[1.02] hover:shadow-md">
                         <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", ent?.isAdmin ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600")}>
                             {ent?.isAdmin ? <ShieldAlert className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
@@ -760,7 +766,7 @@ export default function UsersPage() {
             </ScrollArea>
           </Tabs>
           <div className="p-8 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-end shrink-0">
-            <Button onClick={() => setIsDetailOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest">Schließen</Button>
+            <Button onClick={() => setIsDetailOpen(false)} className="rounded-xl h-12 px-12 font-black uppercase text-[10px] tracking-widest active:scale-95 transition-transform">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -774,8 +780,8 @@ export default function UsersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6">
-            <AlertDialogCancel className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-12 px-8">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700 rounded-xl font-black uppercase text-[10px] tracking-widest h-12 px-10">Löschen</AlertDialogAction>
+            <AlertDialogCancel className="rounded-xl font-bold uppercase text-[10px] tracking-widest h-12 px-8 active:scale-95 transition-transform">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700 rounded-xl font-black uppercase text-[10px] tracking-widest h-12 px-10 active:scale-95 transition-transform">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
