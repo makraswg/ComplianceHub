@@ -109,6 +109,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **NEUE AUFGABE**: CIA-Wizard: KI-geführte Schutzbedarfsfeststellung für Azubis.
     *   **NEUE AUFGABE**: Usage-Explorer: Zeige alle Prozesse und VVT-Einträge, die dieses System nutzen.
     *   **NEUE AUFGABE**: Drift-Detection: Warnung, wenn Assets in Jira existieren, aber nicht im Hub (Step 8.2).
+    *   **NEUE AUFGABE**: EOL-Monitor: Warnung bei veralteten Software-Ständen (Security-Risiko Link zu Step 3).
 
 ### 8. System-Konfiguration & Administration
 *Technisches Setup.*
@@ -119,6 +120,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **NEUE AUFGABE**: Geführter Onboarding-Wizard für neue Administratoren.
     *   **NEUE AUFGABE**: KI-Config-Assistent übersetzt technische Fehlermeldungen (LDAP/Jira) in einfaches Deutsch.
     *   **NEUE AUFGABE**: Globaler Health-Check: Dashboard-Widget für den Status aller API-Verbindungen.
+    *   **NEUE AUFGABE**: Dry-Run Preview: Zeige vor jedem Sync (LDAP/Jira) eine Vorschau der betroffenen Nutzer/Rechte.
 
 ---
-*Ende der Master-Liste (Stand: Final Strategic Audit)*
+*Ende der Master-Liste (Stand: Final Strategic Audit - V2.0)*
