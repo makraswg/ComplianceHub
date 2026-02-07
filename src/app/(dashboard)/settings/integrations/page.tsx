@@ -36,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 export default function JiraGatewaySettingsPage() {
   const { dataSource } = useSettings();
@@ -70,11 +71,17 @@ export default function JiraGatewaySettingsPage() {
         getJiraWorkspacesAction(jiraDraft)
       ]);
       if (pRes.success) setJiraProjects(pRes.projects || []);
-      if (wRes.success) setJiraWorkspaces(wRes.workspaces || []);
+      if (wRes.success) setCanWorkspaces(wRes.workspaces || []);
       toast({ title: "Jira Optionen geladen" });
+    } catch (e) {
+      console.error(e);
     } finally {
       setIsJiraFetching(false);
     }
+  };
+
+  const setCanWorkspaces = (ws: any[]) => {
+    setJiraWorkspaces(ws);
   };
 
   useEffect(() => {
