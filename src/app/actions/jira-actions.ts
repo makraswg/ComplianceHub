@@ -1,8 +1,8 @@
 
 'use server';
 
-import { getCollectionData } from './mysql-actions';
-import { JiraConfig, JiraSyncItem, DataSource } from '@/lib/types';
+import { getCollectionData, saveCollectionRecord } from './mysql-actions';
+import { JiraConfig, JiraSyncItem, DataSource, Resource } from '@/lib/types';
 
 /**
  * Hilfsfunktion zum Bereinigen der Jira-URL.
@@ -156,7 +156,6 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
     const data = await response.json();
     const rawValues = data.values || (Array.isArray(data) ? data : []);
     
-    // Normalisierung: workspaceId wird in Jira Assets v3 oft als ID für API-Aufrufe genutzt
     const workspaces = rawValues.map((w: any) => ({
       id: w.workspaceId || w.id,
       name: w.name || 'Standard Workspace'
@@ -204,6 +203,78 @@ export async function getJiraObjectTypesAction(configData: Partial<JiraConfig>, 
     const data = await response.json();
     return { success: true, objectTypes: Array.isArray(data) ? data : (data.values || []) };
   } catch (e: any) { return { success: false, error: e.message }; }
+}
+
+/**
+ * Assets Discovery: Ruft Objekte eines bestimmten Typs ab.
+ */
+export async function getJiraAssetObjectsAction(
+  config: JiraConfig, 
+  objectTypeId: string
+): Promise<{ success: boolean; objects?: any[]; error?: string }> {
+  if (!config.url || !config.apiToken || !config.workspaceId || !objectTypeId) {
+    return { success: false, error: 'Unvollständige Konfiguration' };
+  }
+
+  const url = cleanJiraUrl(config.url);
+  const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
+
+  try {
+    const response = await fetch(`${url}/gateway/api/jsm/assets/workspace/${config.workspaceId}/v1/objecttype/${objectTypeId}/objects`, {
+      headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) return { success: false, error: `Assets API Fehler ${response.status}` };
+    const data = await response.json();
+    return { success: true, objects: data.values || [] };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Assets Discovery: Importiert Jira Objekte in den Hub Ressourcenkatalog.
+ */
+export async function importJiraAssetsAction(
+  jiraObjects: any[], 
+  targetTenantId: string, 
+  dataSource: DataSource = 'mysql'
+): Promise<{ success: boolean; count: number; error?: string }> {
+  let importedCount = 0;
+  try {
+    for (const obj of jiraObjects) {
+      const resourceId = `res-jira-${obj.id}`;
+      const resourceData: Resource = {
+        id: resourceId,
+        tenantId: targetTenantId,
+        name: obj.name,
+        status: 'active',
+        assetType: 'Software', // Default, kann später gemappt werden
+        category: 'Fachanwendung',
+        operatingModel: 'Cloud',
+        criticality: 'medium',
+        dataClassification: 'internal',
+        confidentialityReq: 'medium',
+        integrityReq: 'medium',
+        availabilityReq: 'medium',
+        hasPersonalData: false,
+        hasSpecialCategoryData: false,
+        affectedGroups: [],
+        processingPurpose: 'Importiert aus Jira Assets',
+        dataLocation: 'Jira Cloud',
+        url: '#',
+        notes: `Jira Object Key: ${obj.label || obj.name}`,
+        createdAt: new Date().toISOString()
+      };
+
+      const res = await saveCollectionRecord('resources', resourceId, resourceData, dataSource);
+      if (res.success) importedCount++;
+    }
+    return { success: true, count: importedCount };
+  } catch (e: any) {
+    return { success: false, count: importedCount, error: e.message };
+  }
 }
 
 /**

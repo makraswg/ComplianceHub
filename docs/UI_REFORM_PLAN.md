@@ -1,3 +1,4 @@
+
 # UI/UX Reform Plan - ComplianceHub
 
 ## Phase 1: Fundament & Transformation (ABGESCHLOSSEN ✅)
@@ -47,7 +48,7 @@
 - [ ] **Prozess-Inferenz**: Automatische Generierung von ISO-Vorschlägen basierend auf dem Firmenkontext.
 
 ### 2. Deep Ecosystem Integration
-- [ ] **Bi-directional Jira Sync**: Automatischer Abgleich von Assets zwischen Jira Service Management und Hub.
+- [x] **Bi-directional Jira Sync**: Automatischer Abgleich von Assets zwischen Jira Service Management und Hub.
 - [x] **Unified Search (Cmd+K)**: Globale Suche über alle Entitäten (Nutzer, Risiken, Dokumente).
 
 ### 3. Advanced Collaboration

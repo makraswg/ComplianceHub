@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -34,13 +35,22 @@ import {
   ChevronDown,
   ChevronUp,
   FileCode,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Check,
+  Server
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
-import { fetchJiraSyncItems, resolveJiraTicket, getJiraConfigs } from '@/app/actions/jira-actions';
+import { 
+  fetchJiraSyncItems, 
+  resolveJiraTicket, 
+  getJiraConfigs, 
+  getJiraAssetObjectsAction,
+  importJiraAssetsAction 
+} from '@/app/actions/jira-actions';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { User, Entitlement, Resource, Assignment } from '@/lib/types';
 import { useFirestore, addDocumentNonBlocking, useUser as useAuthUser, updateDocumentNonBlocking } from '@/firebase';
@@ -53,14 +63,15 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function JiraSyncPage() {
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const db = useFirestore();
   const { user: authUser } = useAuthUser();
   const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'completed'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'completed' | 'discovery'>('pending');
   const [showDebug, setShowDebug] = useState(false);
   
   const [pendingTickets, setPendingTickets] = useState<any[]>([]);
@@ -68,6 +79,12 @@ export default function JiraSyncPage() {
   const [doneTickets, setDoneTickets] = useState<any[]>([]);
   const [activeConfig, setActiveConfig] = useState<any>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+
+  // Asset Discovery State
+  const [assetObjects, setAssetObjects] = useState<any[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [isAssetLoading, setIsAssetLoading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   
   // Debug info
   const [debugInfo, setDebugInfo] = useState<{
@@ -82,7 +99,7 @@ export default function JiraSyncPage() {
 
   const { data: users } = usePluggableCollection<User>('users');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
-  const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: resources, refresh: refreshResources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
   useEffect(() => {
@@ -147,6 +164,47 @@ export default function JiraSyncPage() {
       setDebugInfo(prev => ({ ...prev, lastResponse: { error: e.message, timestamp: new Date().toISOString() } }));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadAssetObjects = async () => {
+    if (!activeConfig?.objectTypeId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Kein Objekttyp für IT-Systeme konfiguriert." });
+      return;
+    }
+    setIsAssetLoading(true);
+    try {
+      const res = await getJiraAssetObjectsAction(activeConfig, activeConfig.objectTypeId);
+      if (res.success) {
+        setAssetObjects(res.objects || []);
+        toast({ title: "Assets geladen", description: `${res.objects?.length || 0} Objekte gefunden.` });
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Discovery Fehler", description: e.message });
+    } finally {
+      setIsAssetLoading(false);
+    }
+  };
+
+  const handleImportAssets = async () => {
+    if (selectedAssetIds.length === 0) return;
+    setIsImporting(true);
+    try {
+      const objectsToImport = assetObjects.filter(obj => selectedAssetIds.includes(String(obj.id)));
+      const targetTenant = activeTenantId === 'all' ? 't1' : activeTenantId;
+      
+      const res = await importJiraAssetsAction(objectsToImport, targetTenant, dataSource);
+      if (res.success) {
+        toast({ title: "Import erfolgreich", description: `${res.count} Ressourcen wurden angelegt.` });
+        setSelectedAssetIds([]);
+        refreshResources();
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Import-Fehler", description: e.message });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -306,15 +364,18 @@ export default function JiraSyncPage() {
 
       {activeConfig && (
         <Tabs value={activeTab} onValueChange={setActiveTab as any} className="space-y-6">
-          <TabsList className="bg-muted/50 p-1 h-12 rounded-none border w-full justify-start gap-2">
-            <TabsTrigger value="pending" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+          <TabsList className="bg-muted/50 p-1 h-12 rounded-none border w-full justify-start gap-2 overflow-x-auto no-scrollbar">
+            <TabsTrigger value="pending" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white shrink-0">
               1. Warteschlange ({pendingTickets.length})
             </TabsTrigger>
-            <TabsTrigger value="approved" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+            <TabsTrigger value="approved" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white shrink-0">
               2. Genehmigungen ({approvedTickets.length})
             </TabsTrigger>
-            <TabsTrigger value="completed" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white">
+            <TabsTrigger value="completed" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white shrink-0">
               3. Erledigte Tickets ({doneTickets.length})
+            </TabsTrigger>
+            <TabsTrigger value="discovery" className="rounded-none px-8 gap-2 text-[10px] font-bold uppercase data-[state=active]:bg-white shrink-0">
+              <RefreshCw className="w-3.5 h-3.5 text-indigo-600" /> 4. Assets Discovery
             </TabsTrigger>
           </TabsList>
 
@@ -488,6 +549,87 @@ export default function JiraSyncPage() {
                   })}
                   {doneTickets.length === 0 && !isLoading && (
                     <TableRow><TableCell colSpan={4} className="h-32 text-center text-xs text-muted-foreground italic">Keine abgeschlossenen Tickets zur Finalisierung gefunden.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="discovery" className="space-y-6">
+            <div className="flex items-center justify-between bg-indigo-50/50 p-6 border-2 border-indigo-100 rounded-none">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-indigo-600 rounded-none flex items-center justify-center shadow-lg shadow-indigo-200">
+                  <RefreshCw className={cn("w-6 h-6 text-white", isAssetLoading && "animate-spin")} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm uppercase">JSM Asset Discovery</h3>
+                  <p className="text-[10px] text-indigo-700 font-bold uppercase tracking-widest mt-0.5">
+                    Objekttyp: <span className="underline">{activeConfig?.objectTypeId || 'Nicht konfiguriert'}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="rounded-none font-bold uppercase text-[9px] h-10 px-6 border-indigo-200" onClick={loadAssetObjects} disabled={isAssetLoading}>
+                  {isAssetLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Search className="w-3.5 h-3.5 mr-2" />} Katalog scannen
+                </Button>
+                <Button size="sm" className="rounded-none font-bold uppercase text-[9px] h-10 px-8 bg-indigo-600 shadow-xl" onClick={handleImportAssets} disabled={selectedAssetIds.length === 0 || isImporting}>
+                  {isImporting ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-2" />} 
+                  {selectedAssetIds.length} Assets Importieren
+                </Button>
+              </div>
+            </div>
+
+            <div className="admin-card overflow-hidden">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead className="py-4 font-bold uppercase text-[10px]">Jira Key / Name</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px]">Status im Hub</TableHead>
+                    <TableHead className="text-right font-bold uppercase text-[10px]">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assetObjects.map((obj) => {
+                    const isAlreadyImported = resources?.some(r => r.id === `res-jira-${obj.id}`);
+                    return (
+                      <TableRow key={obj.id} className={cn("hover:bg-muted/5 border-b", isAlreadyImported && "bg-slate-50 opacity-60")}>
+                        <TableCell>
+                          <Checkbox 
+                            disabled={isAlreadyImported} 
+                            checked={selectedAssetIds.includes(String(obj.id))} 
+                            onCheckedChange={(checked) => {
+                              setSelectedAssetIds(prev => checked ? [...prev, String(obj.id)] : prev.filter(id => id !== String(obj.id)));
+                            }}
+                            className="rounded-none"
+                          />
+                        </TableCell>
+                        <TableCell className="py-4">
+                          <div className="font-bold text-sm">{obj.name}</div>
+                          <div className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{obj.label || 'ID: ' + obj.id}</div>
+                        </TableCell>
+                        <TableCell>
+                          {isAlreadyImported ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-none text-[8px] font-black"><Check className="w-2.5 h-2.5 mr-1" /> AKTIV</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[8px] rounded-none uppercase">Neu</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold uppercase text-indigo-600">Vorschau <ArrowRight className="w-3 h-3 ml-1" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {assetObjects.length === 0 && !isAssetLoading && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="h-48 text-center text-xs text-muted-foreground italic">
+                        <div className="flex flex-col items-center gap-3">
+                          <Server className="w-8 h-8 opacity-20" />
+                          <span>Starten Sie den Scan, um Assets aus Jira Service Management abzurufen.</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
