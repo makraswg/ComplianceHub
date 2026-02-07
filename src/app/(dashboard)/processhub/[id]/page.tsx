@@ -60,7 +60,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
 /**
- * Erzeugt das XML für mxGraph. 
+ * Erzeugt das XML für mxGraph mit robustem Fallback für IDs.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -76,7 +76,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     switch (node.type) {
       case 'start': style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;'; w = 60; h = 60; break;
       case 'end': 
-        const hasLink = !!node.targetProcessId;
+        const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
           ? 'ellipse;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;' 
           : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;'; 
@@ -171,6 +171,7 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
+  // --- Resize Handlers ---
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
@@ -284,6 +285,26 @@ export default function ProcessDesignerPage() {
     });
   };
 
+  const handleAddEdge = () => {
+    if (!selectedNodeId || !newEdgeTargetId) return;
+    const ops = [{ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: selectedNodeId, target: newEdgeTargetId, label: newEdgeLabel } } }];
+    handleApplyOps(ops);
+    setNewEdgeTargetId('');
+    setNewEdgeLabel('');
+  };
+
+  const handleMoveNode = (nodeId: string, direction: 'up' | 'down') => {
+    const nodes = currentVersion?.model_json?.nodes || [];
+    const idx = nodes.findIndex((n: any) => n.id === nodeId);
+    if (idx === -1) return;
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= nodes.length) return;
+    const newNodes = [...nodes];
+    const [moved] = newNodes.splice(idx, 1);
+    newNodes.splice(newIdx, 0, moved);
+    handleApplyOps([{ type: 'REORDER_NODES', payload: { orderedNodeIds: newNodes.map((n: any) => n.id) } }]);
+  };
+
   const handleAiChat = async () => {
     if (!chatMessage.trim() || !currentVersion) return;
     const msg = chatMessage;
@@ -334,7 +355,7 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-3 text-[10px] font-bold uppercase tracking-wider flex items-center gap-2"><ClipboardList className="w-3.5 h-3.5" /> Prozessschritte</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
+            <TabsContent value="meta" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none mt-0">
               <ScrollArea className="flex-1">
                 <div className="p-6 space-y-10 pb-24">
                   <div className="space-y-6">

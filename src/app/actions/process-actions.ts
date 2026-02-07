@@ -160,7 +160,7 @@ export async function applyProcessOpsAction(
   const nodeIdMap: Record<string, string> = {};
   const edgeIdMap: Record<string, string> = {};
 
-  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen
+  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen für neue Elemente
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
@@ -168,9 +168,8 @@ export async function applyProcessOpsAction(
       usedIds.add(uniqueId);
       if (originalId && String(originalId).toLowerCase() !== 'undefined') {
         nodeIdMap[String(originalId)] = uniqueId;
-      } else {
-        op.payload.node.id = uniqueId;
       }
+      op.payload.node.id = uniqueId;
     }
     if (op.type === 'ADD_EDGE' && op.payload?.edge) {
       const originalId = op.payload.edge.id;
@@ -178,9 +177,8 @@ export async function applyProcessOpsAction(
       usedIds.add(uniqueId);
       if (originalId && String(originalId).toLowerCase() !== 'undefined') {
         edgeIdMap[String(originalId)] = uniqueId;
-      } else {
-        op.payload.edge.id = uniqueId;
       }
+      op.payload.edge.id = uniqueId;
     }
   });
 
@@ -192,7 +190,6 @@ export async function applyProcessOpsAction(
         if (!op.payload?.node) break;
         
         const nodeToAdd = { ...op.payload.node };
-        if (!nodeToAdd.id) nodeToAdd.id = `node-${Math.random().toString(36).substring(2, 7)}`;
         if (!nodeToAdd.checklist) nodeToAdd.checklist = [];
         model.nodes.push(nodeToAdd);
         
@@ -228,7 +225,6 @@ export async function applyProcessOpsAction(
         if (!op.payload?.edge) break;
         
         const edgeToAdd = { ...op.payload.edge };
-        if (!edgeToAdd.id) edgeToAdd.id = `edge-${Date.now()}`;
         edgeToAdd.source = nodeIdMap[String(edgeToAdd.source)] || String(edgeToAdd.source);
         edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
         

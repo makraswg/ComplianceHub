@@ -22,7 +22,9 @@ import {
   Tag,
   MoreVertical,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Network,
+  Filter
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -124,10 +126,15 @@ export default function ProcessHubOverview() {
             <p className="text-sm text-muted-foreground mt-1">Strukturierte Geschäftsprozesse & Visualisierung.</p>
           </div>
         </div>
-        <Button onClick={handleCreate} disabled={isCreating} className="h-10 font-bold uppercase text-[10px] rounded-none px-6">
-          {isCreating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-          Neuer Prozess
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-10 font-bold uppercase text-[10px] rounded-none px-6 border-blue-200 text-blue-700 bg-blue-50" onClick={() => router.push('/processhub/map')}>
+            <Network className="w-4 h-4 mr-2" /> Landkarte
+          </Button>
+          <Button onClick={handleCreate} disabled={isCreating} className="h-10 font-bold uppercase text-[10px] rounded-none px-6">
+            {isCreating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+            Neuer Prozess
+          </Button>
+        </div>
       </div>
 
       <div className="relative">
