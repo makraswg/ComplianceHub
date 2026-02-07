@@ -6,16 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Loader2, AlertCircle, Mail, Lock, CheckCircle2 } from 'lucide-react';
+import { Shield, Loader2, AlertCircle, Mail, Lock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
 import { authenticateUserAction } from '@/app/actions/auth-actions';
 import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription as ModalDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
+import { cn } from '@/lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,7 +56,6 @@ export default function LoginPage() {
         throw new Error("Bitte E-Mail und Passwort eingeben.");
       }
 
-      // 1. Authentifizierung gegen die gewählte Datenquelle (MySQL oder Cloud)
       const result = await authenticateUserAction(dataSource, email, password);
       
       if (!result.success || !result.user) {
@@ -64,14 +64,11 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. Falls im Cloud-Modus, stellen wir sicher, dass auch der Firebase Auth State aktiv ist
-      // Dies erlaubt den Zugriff auf Sammlungen, die 'isSignedIn()' in den Rules erfordern.
       if (dataSource === 'firestore' && auth) {
         try {
           await signInAnonymously(auth);
         } catch (fbErr) {
           console.error("Firebase Auth Bridge failed", fbErr);
-          // Wir fahren trotzdem fort, da die Hub-Auth erfolgreich war
         }
       }
       
@@ -103,7 +100,7 @@ export default function LoginPage() {
   if (!mounted || isUserLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary/20" />
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
       </div>
     );
   }
@@ -111,120 +108,133 @@ export default function LoginPage() {
   if (user) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 font-body">
-      <div className="absolute top-0 left-0 p-8 flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary flex items-center justify-center">
-          <Shield className="w-6 h-6 text-white" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-500">
+      {/* Logo Area */}
+      <div className="mb-12 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className="w-16 h-16 bg-primary flex items-center justify-center rounded-2xl shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-300">
+          <Shield className="w-9 h-9 text-white" />
         </div>
-        <span className="text-2xl font-headline font-bold tracking-tight text-foreground uppercase">ComplianceHub</span>
+        <div className="text-center">
+          <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">ComplianceHub</h1>
+          <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-primary mt-1">Enterprise Governance</p>
+        </div>
       </div>
 
-      <div className="w-full max-w-md animate-in fade-in zoom-in duration-300">
-        <Card className="border border-border shadow-2xl rounded-none bg-card">
-          <CardHeader className="space-y-1 border-b bg-muted/10 pb-6">
+      <div className="w-full max-w-[400px] animate-in fade-in zoom-in-95 duration-500 delay-150">
+        <Card className="border-none shadow-2xl rounded-3xl bg-white dark:bg-slate-900 overflow-hidden">
+          <CardHeader className="space-y-1 pb-2">
+            <CardTitle className="text-xl font-headline font-bold text-slate-800 dark:text-slate-100">Identity Login</CardTitle>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-headline font-bold uppercase tracking-wider">Identity Login</CardTitle>
-              <div className="px-2 py-0.5 text-[8px] font-bold uppercase border rounded-none border-primary/20 text-primary">
-                {dataSource === 'mysql' ? 'Lokal' : dataSource === 'firestore' ? 'Zentral' : 'Demo'}
-              </div>
+              <CardDescription className="text-xs text-slate-500 dark:text-slate-400">
+                Bitte melden Sie sich an, um fortzufahren.
+              </CardDescription>
+              <Badge variant="outline" className="rounded-full text-[9px] font-black uppercase border-primary/20 text-primary px-2 bg-primary/5">
+                {dataSource}
+              </Badge>
             </div>
-            <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground/60">
-              Governance Plattform Authentifizierung
-            </CardDescription>
           </CardHeader>
           
           <form onSubmit={handleLogin}>
-            <CardContent className="space-y-5 pt-6">
+            <CardContent className="space-y-4 pt-6">
               {authError && (
-                <Alert variant="destructive" className="rounded-none border-2">
+                <Alert variant="destructive" className="rounded-xl border-none bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-[10px] font-bold uppercase">{authError}</AlertDescription>
+                  <AlertDescription className="text-[11px] font-bold uppercase">{authError}</AlertDescription>
                 </Alert>
               )}
               
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Benutzer E-Mail</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 ml-1">E-Mail</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input 
                     type="email" 
-                    placeholder="name@firma.local" 
+                    placeholder="name@firma.de" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
-                    className="rounded-none h-11 pl-10" 
+                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 focus:bg-white transition-all" 
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Passwort</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                <div className="flex items-center justify-between ml-1">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Passwort</Label>
+                  <button 
+                    type="button" 
+                    className="text-[9px] font-black uppercase text-primary hover:text-primary/80 transition-colors"
+                    onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
+                  >
+                    Vergessen?
+                  </button>
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                   <Input 
                     type="password" 
                     placeholder="••••••••"
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
-                    className="rounded-none h-11 pl-10" 
+                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 focus:bg-white transition-all" 
                     required
                   />
-                </div>
-                <div className="flex justify-end pt-1">
-                  <button 
-                    type="button" 
-                    className="text-[9px] font-bold uppercase text-primary hover:underline"
-                    onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
-                  >
-                    Zugangsdaten vergessen?
-                  </button>
                 </div>
               </div>
             </CardContent>
             
-            <CardFooter className="pb-8">
+            <CardFooter className="pt-4 pb-8 flex flex-col gap-4">
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-primary text-primary-foreground rounded-none font-bold uppercase text-xs tracking-widest" 
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold uppercase text-xs tracking-[0.2em] shadow-lg shadow-primary/20 active:scale-[0.98] transition-all gap-2" 
                 disabled={isActionLoading}
               >
-                {isActionLoading ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : null}
+                {isActionLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
                 Anmelden
               </Button>
+              <p className="text-[10px] text-center text-slate-400 font-medium">
+                Sicherheitsgeschützte Enterprise-Verbindung
+              </p>
             </CardFooter>
           </form>
         </Card>
       </div>
 
+      {/* Forgot Password Dialog */}
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
-        <DialogContent className="rounded-none max-w-sm border-2">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold uppercase">Passwort zurücksetzen</DialogTitle>
+        <DialogContent className="rounded-3xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
+            <DialogTitle className="text-lg font-headline font-bold">Passwort zurücksetzen</DialogTitle>
+            <ModalDescription className="text-xs text-slate-500">Wir senden Ihnen eine Anleitung per E-Mail.</ModalDescription>
           </DialogHeader>
           
-          {forgotSuccess ? (
-            <div className="py-8 flex flex-col items-center space-y-4">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-              <p className="text-[10px] text-center font-bold uppercase">E-Mail wurde versendet.</p>
-              <Button className="rounded-none w-full" onClick={() => setIsForgotOpen(false)}>Schließen</Button>
-            </div>
-          ) : (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase">Anmelde-E-Mail</Label>
-                <Input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} className="rounded-none h-10" />
+          <div className="p-6">
+            {forgotSuccess ? (
+              <div className="py-4 flex flex-col items-center space-y-4">
+                <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <p className="text-[11px] text-center font-bold uppercase text-slate-600 dark:text-slate-400">Prüfen Sie Ihr Postfach.</p>
+                <Button className="rounded-xl w-full" onClick={() => setIsForgotOpen(false)}>Schließen</Button>
               </div>
-              <DialogFooter className="flex flex-col gap-2 sm:flex-col">
-                <Button className="w-full rounded-none font-bold uppercase text-[10px] gap-2" onClick={handleForgotSubmit} disabled={isForgotLoading}>
-                  {isForgotLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />}
-                  Reset-Link senden
-                </Button>
-                <Button variant="ghost" className="w-full rounded-none font-bold uppercase text-[10px]" onClick={() => setIsForgotOpen(false)}>
-                  Abbrechen
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400">Anmelde-E-Mail</Label>
+                  <Input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} className="rounded-xl h-11" placeholder="max@beispiel.de" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button className="w-full rounded-xl font-bold uppercase text-[10px] h-11 tracking-wider gap-2 shadow-md shadow-primary/10" onClick={handleForgotSubmit} disabled={isForgotLoading}>
+                    {isForgotLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    Reset-Link senden
+                  </Button>
+                  <Button variant="ghost" className="w-full rounded-xl font-bold uppercase text-[10px]" onClick={() => setIsForgotOpen(false)}>
+                    Abbrechen
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

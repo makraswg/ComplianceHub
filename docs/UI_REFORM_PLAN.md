@@ -1,16 +1,16 @@
 # UI/UX Reform Plan - AccessHub
 
-## Status: Schritt 1 (Fundament) läuft...
+## Status: Schritt 2 abgeschlossen ✅
 
-### 1. Fundament & Design System (AKTUELL)
-- [ ] Farben gemäß PRD in `globals.css` (Vibrant Blue #29ABE2, Accent Orange #FF9800).
-- [ ] Typografie-Fix: Space Grotesk für Headlines, Inter für Body.
-- [ ] Darkmode-Kontrast-Optimierung.
-- [ ] Globales Layout-Shell Refactoring (Sticky Header, Fluid Body).
+### 1. Fundament & Design System (ERLEDIGT ✅)
+- [x] Farben gemäß PRD in `globals.css` (Vibrant Blue #29ABE2, Accent Orange #FF9800).
+- [x] Typografie-Fix: Space Grotesk für Headlines, Inter für Body.
+- [x] Darkmode-Kontrast-Optimierung.
+- [x] Globales Layout-Shell Refactoring (Sticky Header, Fluid Body).
 
-### 2. Authentifizierung & Dashboard
-- [ ] Login-Page Redesign (Clean, Modern, Fokus).
-- [ ] Dashboard Stats-Cards & Chart-Layouts (Mobile-First Grid).
+### 2. Authentifizierung & Dashboard (AKTUELL ✅)
+- [x] Login-Page Redesign (Clean, Modern, Fokus).
+- [x] Dashboard Stats-Cards & Chart-Layouts (Mobile-First Grid).
 
 ### 3. IAM Module (Identitäten & Zuweisungen)
 - [ ] Umstellung von Tabellen auf Responsive Cards für Mobilgeräte.
