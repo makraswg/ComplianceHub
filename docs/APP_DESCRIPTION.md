@@ -142,5 +142,31 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **KRITIK**: Felder werden oft nur mit "siehe Handbuch" ausgefüllt.
     *   **NEUE AUFGABE**: "Compliance Checkpoint". Ein Schritt im Designer muss explizit als "ISO-Kontrollpunkt" markiert werden können, inkl. Verweis auf die Norm-Ziffer.
 
+### 5. Datenschutz & VVT
+*Die Einhaltung der Privatsphäre als Prozess.*
+
+*   **Step 5.1: Verarbeitungsverzeichnis (VVT)**
+    *   *Code*: `src/app/(dashboard)/gdpr/page.tsx`
+    *   *Status*: CRUD für Tätigkeiten implementiert.
+    *   *Consultant Audit*: Dokumentation ohne technische Basis ist wertlos.
+    *   **KRITIK**: Fehlende harte Kopplung zu den IT-Systemen.
+    *   **NEUE AUFGABE**: "System-Dependency-Check". Ein VVT-Eintrag muss zwingend mit Assets aus dem Ressourcenkatalog verknüpft werden. Wenn das System ein hohes Risiko hat, muss das VVT gelb leuchten.
+
+*   **Step 5.2: KI-Formular-Assistent (Datenschutz)**
+    *   *Code*: `src/ai/flows/form-assistant-flow.ts`
+    *   *Status*: Hilfe beim Ausfüllen vorhanden.
+    *   *Consultant Audit*: Fachbegriffe schrecken Azubis ab.
+    *   **NEUE AUFGABE**: "Plain Language Mode". Die KI muss Rechtsgrundlagen (Art. 6 etc.) in einfache Sprache übersetzen ("Vertragserfüllung" statt Paragraphen).
+
+*   **Step 5.3: Löschkonzept-Generator**
+    *   *Status*: Manuelle Eingabe.
+    *   *Consultant Audit*: Das schwierigste Feld für SME.
+    *   **NEUE AUFGABE**: "Smart Retention". Basierend auf der Datenkategorie (z.B. "Bewerberdaten") schlägt das System automatisch die gesetzliche Frist (z.B. 6 Monate) vor.
+
+*   **Step 5.4: Audit-Snapshot (VVT)**
+    *   *Status*: Excel Export vorhanden.
+    *   *Consultant Audit*: Ein Prüfer will die Historie sehen.
+    *   **NEUE AUFGABE**: "Point-in-Time Recovery". Visualisierung, wie das VVT zu einem bestimmten Datum in der Vergangenheit aussah (Revisionierung).
+
 ---
-*(Fortsetzung folgt mit Step 5: Datenschutz & VVT...)*
+*(Fortsetzung folgt mit Step 6: Konzernstruktur & Stellenplan...)*
