@@ -65,7 +65,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 /**
- * Erzeugt MX-XML für draw.io Integration mit Fokus auf sauberem orthogonalem Layout.
+ * Erzeugt MX-XML für draw.io Integration mit orthogonalem Layout.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -132,7 +132,7 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // AI State - Emerald Branding
+  // AI State - Emerald Green
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -307,16 +307,19 @@ export default function ProcessDesignerPage() {
     };
     
     const nodes = currentVersion.model_json.nodes || [];
-    const lastNode = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
+    // Logik für automatischen Vorgänger:
+    // Wenn ein Knoten ausgewählt ist, nimm diesen.
+    // Ansonsten nimm den letzten in der Liste (Element darüber).
+    const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
     
     const ops: ProcessOperation[] = [
       { type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type] } } }
     ];
 
-    if (lastNode && lastNode.id !== newId) {
+    if (predecessor && predecessor.id !== newId) {
       ops.push({
         type: 'ADD_EDGE',
-        payload: { edge: { id: `edge-${Date.now()}`, source: lastNode.id, target: newId } }
+        payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } }
       });
     }
 
@@ -773,46 +776,10 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
                   <div className="space-y-8">
+                    {/* Vorgänger zuerst anzeigen */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2">
-                        <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        {outgoingEdges.map((edge: ProcessEdge) => {
-                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                          return (
-                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                              <div className="flex items-center gap-3">
-                                <Link2 className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          );
-                        })}
-                        <div className="flex items-center gap-2 pt-2">
-                          <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
-                              <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !outgoingEdges.some((e: any) => e.target === n.id)).map((n: any) => (
-                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Separator className="bg-slate-100" />
-                    
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2">
-                        <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte
+                      <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1">
+                        <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte (Vorgänger)
                       </h4>
                       <div className="grid grid-cols-1 gap-2">
                         {incomingEdges.map((edge: ProcessEdge) => {
@@ -837,6 +804,44 @@ export default function ProcessDesignerPage() {
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
                               {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !incomingEdges.some((e: any) => e.source === n.id)).map((n: any) => (
+                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Separator className="bg-slate-100" />
+                    
+                    {/* Nachfolger danach anzeigen */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1">
+                        <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte (Nachfolger)
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {outgoingEdges.map((edge: ProcessEdge) => {
+                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                          return (
+                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                              <div className="flex items-center gap-3">
+                                <Link2 className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        <div className="flex items-center gap-2 pt-2">
+                          <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
+                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
+                              <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !outgoingEdges.some((e: any) => e.target === n.id)).map((n: any) => (
                                 <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
                               ))}
                             </SelectContent>
