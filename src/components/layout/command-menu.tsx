@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,7 +12,7 @@ import {
   UserCircle,
   FileText,
   Clock,
-  Zap,
+  BrainCircuit,
   Building2
 } from 'lucide-react';
 import { 
@@ -112,7 +111,7 @@ export function CommandMenu() {
           <div className="p-4 pb-10 space-y-8">
             {!search && (
               <div className="py-20 text-center space-y-4 opacity-30">
-                <Zap className="w-12 h-12 mx-auto" />
+                <BrainCircuit className="w-12 h-12 mx-auto" />
                 <p className="text-[10px] font-bold">Tippen Sie zum Suchen</p>
               </div>
             )}
@@ -180,7 +179,7 @@ export function CommandMenu() {
             <div className="flex items-center gap-1.5"><Badge className="h-5 px-1 bg-slate-200 text-slate-600 border-none">Esc</Badge> Schließen</div>
           </div>
           <div className="flex items-center gap-2 text-[10px] font-bold text-primary italic">
-            Governance Intelligence Active <Zap className="w-3 h-3 fill-current" />
+            Governance Intelligence Active <BrainCircuit className="w-3 h-3 fill-current" />
           </div>
         </div>
       </DialogContent>

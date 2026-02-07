@@ -10,7 +10,7 @@ import {
   Send, 
   Check, 
   X, 
-  Zap, 
+  BrainCircuit, 
   Plus, 
   BookOpen,
   ShieldCheck,
@@ -539,7 +539,7 @@ export default function ProcessDesignerPage() {
       
       <Tabs value={rightActiveTab} onValueChange={(v: any) => setRightActiveTab(v)} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="h-12 bg-slate-900 border-b border-white/10 gap-0 p-0 w-full justify-start rounded-none shrink-0">
-          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-black uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><Zap className="w-4 h-4 fill-current" /> AI Advisor</TabsTrigger>
+          <TabsTrigger value="ai" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-black uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><BrainCircuit className="w-4 h-4" /> AI Advisor</TabsTrigger>
           <TabsTrigger value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-primary/10 h-full text-[10px] font-black uppercase tracking-widest text-white/50 data-[state=active]:text-primary flex items-center gap-2 transition-all"><MessageCircle className="w-4 h-4" /> Diskussion</TabsTrigger>
         </TabsList>
 
@@ -574,7 +574,7 @@ export default function ProcessDesignerPage() {
                   {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                     <div className="mt-4 w-full bg-white border-2 border-primary p-6 rounded-3xl space-y-5 shadow-2xl animate-in zoom-in-95">
                       <div className="flex items-center gap-2 text-primary">
-                        <Sparkles className="w-5 h-5" />
+                        <BrainCircuit className="w-5 h-5" />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em]">Visueller Vorschlag</span>
                       </div>
                       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
@@ -742,7 +742,7 @@ export default function ProcessDesignerPage() {
             <span className="text-[9px] font-black uppercase tracking-widest">Visual</span>
           </button>
           <button onClick={() => setMobileView('ai')} className={cn("flex flex-col items-center gap-1.5 flex-1 h-full justify-center transition-all", mobileView === 'ai' ? "text-primary scale-110" : "text-slate-400")}>
-            <Sparkles className="w-6 h-6" />
+            <BrainCircuit className="w-6 h-6" />
             <span className="text-[9px] font-black uppercase tracking-widest">Advisor</span>
           </button>
         </div>

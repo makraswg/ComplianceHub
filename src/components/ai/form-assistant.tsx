@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -78,7 +77,7 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
         <div className="fixed bottom-0 md:bottom-20 right-0 md:right-8 w-full md:w-[450px] h-full md:h-[600px] bg-white border-2 shadow-2xl z-[100] flex flex-col animate-in slide-in-from-bottom-4 border-slate-900 md:rounded-[1.5rem] overflow-hidden">
           <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
+              <BrainCircuit className="w-4 h-4 text-primary" />
               <div className="flex flex-col">
                 <span className="text-[10px] font-black uppercase tracking-widest">KI Governance Assistent</span>
                 <span className="text-[8px] font-bold text-slate-400 uppercase">Auto-Fill Support aktiv</span>
