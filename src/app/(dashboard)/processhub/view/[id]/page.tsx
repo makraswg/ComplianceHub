@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -67,6 +66,7 @@ import {
 
 /**
  * Erzeugt BPMN 2.0 MX-XML für draw.io Integration mit fachlichen Standards.
+ * Fokus: Hohe Kontraste, orthogonale Linien, technische Bauplan-Optik.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -80,25 +80,26 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let style = '';
     let w = 140, h = 70;
     
+    // BPMN 2.0 Standard Styles
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;shadow=0;'; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
         w = 40; h = 40; 
         break;
       case 'end': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=0;'; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
         w = 40; h = 40; 
         break;
       case 'decision': 
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;shadow=0;'; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;'; 
         w = 60; h = 60; 
         break;
       case 'subprocess':
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=1;dashed=1;shadow=0;';
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;dashed=1;shadow=0;';
         w = 140; h = 70;
         break;
       default: // Task
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1;shadow=0;';
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;';
         w = 140; h = 70;
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
@@ -108,7 +109,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1;fontSize=10;endArrow=block;endFill=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      // Orthogonale Kanten für BPMN 2.0 Standard
+      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -396,7 +398,7 @@ export default function ProcessDetailViewPage() {
             <>
               <div className="absolute top-6 left-6 z-10">
                 <div className="bg-white/90 backdrop-blur-md border border-slate-200 px-4 py-2 rounded-2xl shadow-xl flex items-center gap-3">
-                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-900">BPMN 2.0 Live</span></div>
+                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-900" /><span className="text-[10px] font-black uppercase tracking-widest text-slate-900">BPMN 2.0 Standard</span></div>
                   <Separator orientation="vertical" className="h-4" /><div className="flex items-center gap-1.5 text-slate-400"><Lock className="w-3 h-3" /><span className="text-[9px] font-bold uppercase">Version {activeVersion?.version}.0</span></div>
                 </div>
               </div>
@@ -425,7 +427,7 @@ export default function ProcessDetailViewPage() {
                     const outgoing = activeVersion?.model_json?.edges?.filter((e: any) => String(e.source) === String(node.id)) || [];
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
-                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all", node.type === 'start' ? "bg-emerald-500 text-white" : node.type === 'end' ? "bg-red-500 text-white" : isDecision ? "bg-amber-100 text-amber-700 rotate-45" : "bg-white text-slate-600 border-slate-200")}>
+                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm transition-all", node.type === 'start' ? "bg-white text-slate-900 border-slate-900" : node.type === 'end' ? "bg-white text-slate-900 border-slate-900 border-4" : isDecision ? "bg-white text-slate-900 border-slate-900 rotate-45" : "bg-white text-slate-600 border-slate-200")}>
                           <div className={cn(isDecision && "-rotate-45")}>{node.type === 'start' ? <ArrowDown className="w-6 h-6" /> : node.type === 'end' ? <CircleDot className="w-6 h-6" /> : isDecision ? <GitBranch className="w-5 h-5" /> : <span className="font-headline font-bold text-lg">{i + 1}</span>}</div>
                         </div>
                         <Card className="rounded-2xl border shadow-sm overflow-hidden hover:shadow-md transition-all group">
