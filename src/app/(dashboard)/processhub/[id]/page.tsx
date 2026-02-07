@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -74,7 +75,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    let nodeSafeId = String(node.id || "node-" + idx);
+    let nodeSafeId = String(node.id || `node-${idx}`);
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 160, h = 80;
@@ -94,7 +95,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   });
 
   edges.forEach((edge, idx) => {
-    let edgeSafeId = String(edge.id || "edge-" + idx);
+    let edgeSafeId = String(edge.id || `edge-${idx}`);
     const sourceExists = nodes.some(n => n.id === edge.source);
     const targetExists = nodes.some(n => n.id === edge.target);
     if (sourceExists && targetExists) {
@@ -155,7 +156,7 @@ export default function ProcessDesignerPage() {
 
   const lastEditors = useMemo(() => {
     if (!auditEvents) return [];
-    const related = auditEvents.filter(e => e.entityId === id || e.entityId?.startsWith("ver-" + id));
+    const related = auditEvents.filter(e => e.entityId === id || e.entityId?.startsWith(`ver-${id}`));
     const unique = new Map();
     related.forEach(e => unique.set(e.actorUid, e));
     return Array.from(unique.values()).slice(0, 3);
@@ -285,7 +286,7 @@ export default function ProcessDesignerPage() {
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'end') => {
-    const newId = type + "-" + Date.now();
+    const newId = `${type}-${Date.now()}`;
     const ops = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: type === 'decision' ? 'Entscheidung?' : type === 'end' ? 'Ende' : 'Neuer Schritt' } } }];
     handleApplyOps(ops).then(() => {
       setSelectedNodeId(newId);
@@ -329,7 +330,7 @@ export default function ProcessDesignerPage() {
   const handleAddComment = async () => {
     if (!commentText.trim() || !user || !id) return;
     setIsCommenting(true);
-    const commentId = "comm-" + Math.random().toString(36).substring(2, 9);
+    const commentId = `comm-${Math.random().toString(36).substring(2, 9)}`;
     const commentData: ProcessComment = {
       id: commentId,
       process_id: id as string,
@@ -355,7 +356,7 @@ export default function ProcessDesignerPage() {
 
   const SidebarLeft = (
     <aside 
-      style={{ width: isMobile ? '100%' : leftWidth + "px" }} 
+      style={{ width: isMobile ? '100%' : `${leftWidth}px` }} 
       className={cn(
         "border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full", 
         isMobile && mobileView !== 'steps' && "hidden"
@@ -495,7 +496,7 @@ export default function ProcessDesignerPage() {
 
   const SidebarRight = (
     <aside 
-      style={{ width: isMobile ? '100%' : rightWidth + "px" }} 
+      style={{ width: isMobile ? '100%' : `${rightWidth}px` }} 
       className={cn(
         "border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right h-full", 
         isMobile && mobileView !== 'ai' && "hidden"
