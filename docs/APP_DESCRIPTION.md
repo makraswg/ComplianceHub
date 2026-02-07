@@ -1,116 +1,147 @@
-# AccessHub - Enterprise Governance & IAM Platform (Technical Description)
+# AccessHub - Master Backlog & Strategisches Manifest
 
-**Rolle**: Diese Dokumentation dient als funktionaler und technischer Leitfaden für die AccessHub-Plattform. Sie verknüpft Geschäftsprozesse direkt mit den implementierten Code-Modulen (Actions, Flows, Pages).
+**Rolle**: Dieses Dokument ist das zentrale Steuerungs-Instrument für Entwickler und Unternehmensberater. Es kombiniert die funktionale Dokumentation mit einer tiefgreifenden GRC-Audit-Logik.
+
+---
+
+## 🎯 Die Vision: "Governance am Frühstückstisch"
+AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt. 
+- **Zielgruppe**: Mittelstand (SME).
+- **Usability-Benchmark**: "Azubi-tauglich" (Intuitiv, geführt, keine Fachbegriffe ohne Erklärung).
+- **Audit-Benchmark**: "Prüfer-fest" (Lückenlose Historie, Revisionssicherheit, klare Verantwortlichkeiten).
 
 ---
 
-## 1. Zentrale Steuerung & Analytik (Dashboard)
-Das Cockpit für das Management und GRC-Beauftragte.
-
-*   **Step 1.1: Unified Metrics**: Echtzeit-Visualisierung der Benutzeranzahl, aktiven Systeme und kritischen Zuweisungen.
-    *   *Code-Referenz*: `src/app/(dashboard)/dashboard/page.tsx`
-*   **Step 1.2: Zertifizierungs-Kampagne**: Überwachung des Fortschritts von Rezertifizierungen (z. B. Quartals-Reviews).
-    *   *Code-Referenz*: `src/app/(dashboard)/dashboard/page.tsx` (Progress Logic)
-*   **Step 1.3: Risiko-Profil**: Grafische Auswertung der Identitäts-Risiken nach Kritikalität (Pie Chart).
-    *   *Code-Referenz*: `src/app/(dashboard)/dashboard/page.tsx`
-*   **Step 1.4: Smart Governance Insights**: KI-gestützte proaktive Warnungen vor Compliance-Lücken direkt auf der Startseite.
-    *   *Code-Referenz*: `src/app/(dashboard)/dashboard/page.tsx`, `src/ai/flows/iam-audit-flow.ts`
-*   **Step 1.5: Global Search (Cmd+K)**: Plattformweite Schnellsuche für Identitäten, Ressourcen und Risiken.
-    *   *Code-Referenz*: `src/components/layout/command-menu.tsx`, `src/app/(dashboard)/layout.tsx`
-
-## 2. Identity & Access Management (IAM)
-Der Kern für die Verwaltung digitaler Identitäten.
-
-*   **Step 2.1: Benutzerverzeichnis**: Zentrale Liste aller Mitarbeiter inklusive Mandanten-Zugehörigkeit und Status.
-    *   *Code-Referenz*: `src/app/(dashboard)/users/page.tsx`, `src/app/actions/mysql-actions.ts`
-*   **Step 2.2: Einzelzuweisungen**: Manuelle Vergabe von Rechten mit Dokumentation von Gültigkeit und Ticket-Referenz.
-    *   *Code-Referenz*: `src/app/(dashboard)/assignments/page.tsx`
-*   **Step 2.3: Access Reviews**: Workflow-gestützte Prüfung ("Zertifizierung") von bestehenden Berechtigungen durch Vorgesetzte.
-    *   *Code-Referenz*: `src/app/(dashboard)/reviews/page.tsx`
-*   **Step 2.4: KI-Access-Advisor**: Intelligente Empfehlungs-Engine, die Risikoscores für Benutzerprofile berechnet.
-    *   *Code-Referenz*: `src/ai/flows/access-advisor-flow.ts`, `src/app/(dashboard)/reviews/page.tsx`
-
-## 3. Lifecycle Hub & Automatisierung
-Effizienzsteigerung durch automatisierte Joiner-Mover-Leaver (JML) Prozesse.
-
-*   **Step 3.1: Onboarding-Wizard**: Schnelle Erfassung neuer Mitarbeiter inklusive Zuweisung vordefinierter Rollenpakete (Bundles).
-    *   *Code-Referenz*: `src/app/(dashboard)/lifecycle/page.tsx`
-*   **Step 3.2: Offboarding-Engine**: Revisionssicherer Entzug aller Berechtigungen bei Austritt eines Mitarbeiters.
-    *   *Code-Referenz*: `src/app/(dashboard)/lifecycle/page.tsx`
-*   **Step 3.3: Berechtigungspakete (Bundles)**: Bündelung mehrerer Systemrollen zu logischen Funktionspaketen.
-    *   *Code-Referenz*: `src/app/(dashboard)/lifecycle/page.tsx`
-*   **Step 3.4: Zuweisungsgruppen**: Regelbasierte Automatisierung von Rechten basierend auf LDAP-Mapping oder Abteilungen.
-    *   *Code-Referenz*: `src/app/(dashboard)/groups/page.tsx`
-
-## 4. Ressourcen- & Assetkatalog
-Inventarisierung der IT-Landschaft nach Sicherheitsaspekten.
-
-*   **Step 4.1: System-Registrierung**: Dokumentation von IT-Assets inklusive Kritikalität und CIA-Schutzbedarf.
-    *   *Code-Referenz*: `src/app/(dashboard)/resources/page.tsx`
-*   **Step 4.2: Rollendefinition (Entitlements)**: Granulare Hinterlegung von Berechtigungsstufen pro System inklusive Risiko-Einstufung.
-    *   *Code-Referenz*: `src/app/(dashboard)/resources/page.tsx`
-*   **Step 4.3: KI Form Assistant**: Unterstützung bei der Erfassung technischer Details durch Domänen-Wissen der KI.
-    *   *Code-Referenz*: `src/components/ai/form-assistant.tsx`, `src/ai/flows/form-assistant-flow.ts`
-
-## 5. Risikomanagement (GRC Core)
-Präventive Bedrohungsabwehr nach BSI IT-Grundschutz.
-
-*   **Step 5.1: Risikoinventar**: Erfassung von Bedrohungsszenarien (Brutto- vs. Netto-Risiko).
-    *   *Code-Referenz*: `src/app/(dashboard)/risks/page.tsx`
-*   **Step 5.2: Interaktive Risiko-Matrix**: Drill-down Heatmap zur Identifikation von Hochrisiko-Clustern.
-    *   *Code-Referenz*: `src/app/(dashboard)/risks/reports/page.tsx`
-*   **Step 5.3: Gefährdungskatalog**: Bibliothek für standardisierte Bedrohungen (z. B. BSI G-Katalog).
-    *   *Code-Referenz*: `src/app/(dashboard)/risks/catalog/page.tsx`
-*   **Step 5.4: Maßnahmen & Kontrollen (TOMs)**: Verknüpfung von Risiken mit technischen und organisatorischen Maßnahmen.
-    *   *Code-Referenz*: `src/app/(dashboard)/risks/measures/page.tsx`
-*   **Step 5.5: Approval Workflows**: Formale Abnahme von Risikobewertungen durch Risk Owner mit Kommentarfunktion.
-    *   *Code-Referenz*: `src/app/(dashboard)/risks/page.tsx` (Approval Dialog)
-
-## 6. ProcessHub (Business Architecture)
-Verknüpfung von Governance mit operativen Prozessen.
-
-*   **Step 6.1: Process Designer**: Visueller Modellierer für Geschäftsprozesse (ISO 9001).
-    *   *Code-Referenz*: `src/app/(dashboard)/processhub/[id]/page.tsx`
-*   **Step 6.2: KI Process Advisor**: Chat-basierter Assistent, der Prozessmodelle generiert und optimiert.
-    *   *Code-Referenz*: `src/ai/flows/process-designer-flow.ts`
-*   **Step 6.3: Prozesslandkarte**: Dynamische Visualisierung der Vernetzung aller Prozesse (Diagramm & Kachel-Ansicht).
-    *   *Code-Referenz*: `src/app/(dashboard)/processhub/map/page.tsx`
-*   **Step 6.4: Collaborative Comments**: Diskussions-Thread für Teams direkt am Prozessmodell oder einzelnen Schritten.
-    *   *Code-Referenz*: `src/app/(dashboard)/processhub/[id]/page.tsx`, `src/app/actions/mysql-actions.ts`
-
-## 7. Integrationen & Ökosystem
-Nahtlose Anbindung an die bestehende IT-Infrastruktur.
-
-*   **Step 7.1: Jira Service Management Sync**: Synchronisation von Tickets und Asset Discovery (Insight).
-    *   *Code-Referenz*: `src/app/(dashboard)/integrations/jira/page.tsx`, `src/app/actions/jira-actions.ts`
-*   **Step 7.2: LDAP/AD Sync**: Automatische Übernahme von Identitäten aus dem Verzeichnisdienst.
-    *   *Code-Referenz*: `src/app/actions/sync-actions.ts`, `src/app/(dashboard)/settings/sync/page.tsx`
-*   **Step 7.3: BookStack Export**: Dokumentations-Export von Prozessen in das externe Wiki.
-    *   *Code-Referenz*: `src/app/actions/bookstack-actions.ts`
-
-## 8. Compliance & Auditierung
-Sicherstellung der regulatorischen Anforderungen.
-
-*   **Step 8.1: KI Identity Audit**: Automatisierte Prüfung auf SoD-Konflikte (Funktionstrennung) und Über-Privilegierung.
-    *   *Code-Referenz*: `src/app/(dashboard)/iam-audit/page.tsx`, `src/ai/flows/iam-audit-flow.ts`
-*   **Step 8.2: Datenschutz-Register (VVT)**: Verzeichnis von Verarbeitungstätigkeiten nach Art. 30 DSGVO.
-    *   *Code-Referenz*: `src/app/(dashboard)/gdpr/page.tsx`
-*   **Step 8.3: Globales Audit Log**: Lückenlose Protokollierung aller administrativen Änderungen (System Ledger).
-    *   *Code-Referenz*: `src/app/(dashboard)/audit/page.tsx`, `src/app/actions/audit-actions.ts`
-
-## 9. Plattform-Administration
-Infrastruktur-Kontrolle und Compliance-Rahmen.
-
-*   **Step 9.1: Multi-Tenancy**: Mandantentrennung und Konfiguration regionaler Compliance-Regeln (Region-Context).
-    *   *Code-Referenz*: `src/app/(dashboard)/settings/general/page.tsx`
-*   **Step 9.2: User Experience Settings**: Zentrale Steuerung von Animationen, Quick-Tours und Design-Effekten.
-    *   *Code-Referenz*: `src/app/(dashboard)/settings/ux/page.tsx`
-*   **Step 9.3: Data Import Engine**: Massen-Import von BSI-Katalogen und Kreuztabellen aus Excel.
-    *   *Code-Referenz*: `src/app/actions/bsi-import-actions.ts`, `src/app/(dashboard)/settings/data/page.tsx`
-*   **Step 9.4: Database Setup**: Initialisierung der MySQL-Tabellen, Migrationen und Datenbereinigung.
-    *   *Code-Referenz*: `src/app/(dashboard)/setup/page.tsx`, `src/app/actions/migration-actions.ts`
-*   **Step 9.5: Help Center**: Kontextsensitive Dokumentation und Anleitungen für Administratoren.
-    *   *Code-Referenz*: `src/app/(dashboard)/help/page.tsx`
+## 📜 Master-Anweisungen (Nicht löschen!)
+1. **Ganzheitlichkeit**: Module dürfen keine Datensilos sein. Daten aus dem Risikomanagement müssen im IAM sichtbar sein und umgekehrt.
+2. **KI-First**: Jedes Formular braucht eine KI-Assistenz für Ausfüllhilfen und Plausibilitätschecks.
+3. **Workflow-Zwang**: Aktionen (wie Löschen oder Zuweisen) sind als geführte Prozesse zu verstehen, nicht nur als Tabelleneinträge.
+4. **Export-Pflicht**: Jede Ansicht muss einen "Audit-Export" (PDF/Excel) besitzen, der Zeitstempel und Akteure enthält.
+5. **Bedien-Einheitlichkeit**: Formulare, Dialoge und Buttons folgen einem strengen Design-System.
 
 ---
-*Dokumentation Stand: Phase 3 Abschluss - Erstellt vom System-Architekten & Unternehmensberater.*
+
+## 🏗️ Modul-Audit & Roadmap (Step-by-Step)
+
+### 1. Zentrale Steuerung & Analytik (Dashboard)
+*Das Nervenzentrum. Hier wird entschieden, was heute wichtig ist.*
+
+*   **Step 1.1: Unified Metrics**
+    *   *Status*: Implementiert (`src/app/(dashboard)/dashboard/page.tsx`).
+    *   *Consultant Audit*: Sind nur Zähler. Ein Azubi weiß nicht, ob "100 Nutzer" gut oder schlecht sind.
+    *   **NEUE AUFGABE**: Einführung von Trend-Indikatoren (+/- % zum Vormonat) und "Health-Ampeln".
+*   **Step 1.2: Zertifizierungs-Kampagne**
+    *   *Status*: Visueller Fortschritt vorhanden.
+    *   *Consultant Audit*: Es fehlt der direkte Workflow-Einstieg.
+    *   **NEUE AUFGABE**: "Jetzt prüfen"-Button, der direkt zu den überfälligen Reviews springt.
+*   **Step 1.3: Risiko-Profil (Pie Chart)**
+    *   *Status*: Statische Darstellung.
+    *   *Consultant Audit*: Keine Drill-Down Funktion.
+    *   **NEUE AUFGABE**: Klick auf "Hohes Risiko" filtert sofort die Risikoliste.
+*   **Step 1.4: Smart Governance Insights (KI)**
+    *   *Status*: KI-Warnungen vorhanden.
+    *   *Consultant Audit*: Zu generisch.
+    *   **NEUE AUFGABE**: Verknüpfung mit Jira-Tickets (z.B. "Warnung: 5 offene Leaver-Tickets seit > 3 Tagen").
+*   **Step 1.5: Global Search (Cmd+K)**
+    *   *Status*: Implementiert (`src/components/layout/command-menu.tsx`).
+    *   *Consultant Audit*: UI ist exzellent.
+    *   **NEUE AUFGABE**: Erweiterung der Suche auf "Aktionen" (z.B. "Neuen Nutzer anlegen" direkt aus der Suche).
+
+### 2. Identity & Access Management (IAM)
+*Der Kern der digitalen Identität.*
+
+*   **Step 2.1: Benutzerverzeichnis**
+    *   *Status*: Tabelle & Cards vorhanden (`src/app/(dashboard)/users/page.tsx`).
+    *   *Consultant Audit*: Woher kommen die Daten? (Cross-Check mit LDAP).
+    *   **NEUE AUFGABE**: "Inkonsistenz-Flag", wenn LDAP-Daten von Hub-Daten abweichen.
+*   **Step 2.2: Einzelzuweisungen**
+    *   *Status*: Manuelle Vergabe möglich (`src/app/(dashboard)/assignments/page.tsx`).
+    *   *Consultant Audit*: Ein Azubi könnte kritische Rechte versehentlich vergeben.
+    *   **NEUE AUFGABE**: "Risk-Check" vor dem Speichern (KI warnt: "Diese Rolle ist hochkritisch für diese Abteilung").
+*   **Step 2.3: Access Reviews (Rezertifizierung)**
+    *   *Status*: Workflow vorhanden (`src/app/(dashboard)/reviews/page.tsx`).
+    *   *Consultant Audit*: Zu trocken. 
+    *   **NEUE AUFGABE**: "Bulk-Zertifizierung" für Standardrechte, um Review-Fatigue zu vermeiden.
+*   **Step 2.4: KI-Access-Advisor**
+    *   *Status*: Flow vorhanden (`src/ai/flows/access-advisor-flow.ts`).
+    *   *Consultant Audit*: Sehr wertvoll.
+    *   **NEUE AUFGABE**: Advisor soll proaktiv "Peer-Analysen" machen ("Andere in der IT haben dieses Recht nicht").
+
+### 3. Lifecycle Hub & Automatisierung
+*Effizienz durch JML-Prozesse (Joiner, Mover, Leaver).*
+
+*   **Step 3.1: Onboarding-Wizard**
+    *   *Status*: Formular vorhanden (`src/app/(dashboard)/lifecycle/page.tsx`).
+    *   *Consultant Audit*: Wirkt wie ein normales Formular, nicht wie ein Wizard.
+    *   **NEUE AUFGABE**: Schritt-für-Schritt UI (1. Person, 2. Paket, 3. Hardware/Jira).
+*   **Step 3.2: Offboarding-Engine**
+    *   *Status*: Ein-Klick Entzug.
+    *   *Consultant Audit*: Revisionsgefahr! Was ist mit physischen Schlüsseln?
+    *   **NEUE AUFGABE**: Erweiterung um "Offboarding-Checkliste" (Hardware-Rückgabe, Schlüssel, Token).
+*   **Step 3.3: Berechtigungspakete (Bundles)**
+    *   *Status*: Definition möglich.
+    *   *Consultant Audit*: Pakete müssten abteilungsspezifisch vorgeschlagen werden.
+    *   **NEUE AUFGABE**: KI schlägt Bundle-Inhalte basierend auf bestehenden Top-Zuweisungen vor.
+
+### 4. Ressourcen- & Assetkatalog
+*Die Inventarisierung der IT-Landschaft.*
+
+*   **Step 4.1: System-Registrierung**
+    *   *Status*: Umfangreiches Formular (`src/app/(dashboard)/resources/page.tsx`).
+    *   *Consultant Audit*: Zu viele Felder für einen Azubi.
+    *   **NEUE AUFGABE**: "Simple Mode" vs. "Expert Mode". KI füllt technische CIA-Werte basierend auf Systemtyp aus.
+*   **Step 4.2: Rollendefinition (Entitlements)**
+    *   *Status*: Granular hinterlegbar.
+    *   *Consultant Audit*: Verknüpfung zum Prozess fehlt.
+    *   **NEUE AUFGABE**: Anzeige, in welchen Geschäftsprozessen (ProcessHub) eine Rolle benötigt wird.
+
+### 5. Risikomanagement (GRC Core)
+*Präventive Abwehr nach BSI.*
+
+*   **Step 5.1: Risikoinventar**
+    *   *Status*: Liste vorhanden (`src/app/(dashboard)/risks/page.tsx`).
+    *   *Consultant Audit*: Brutto/Netto Logik ist schwer zu erklären.
+    *   **NEUE AUFGABE**: Erklär-Tooltips für jeden Risikoschritt. Automatischer Vorschlag der Minderung durch Maßnahmen.
+*   **Step 5.2: Interaktive Risiko-Matrix**
+    *   *Status*: Heatmap implementiert (`src/app/(dashboard)/risks/reports/page.tsx`).
+    *   *Consultant Audit*: UI ist top.
+    *   **NEUE AUFGABE**: Export der Matrix als "Vorstandsvorlage" (Hochwertiges PDF).
+*   **Step 5.3: Gefährdungskatalog (BSI)**
+    *   *Status*: Browser vorhanden.
+    *   *Consultant Audit*: Suche muss auch Beschreibungen durchsuchen.
+    *   **NEUE AUFGABE**: KI-Matching: "Welche Gefährdungen passen zu meiner neuen SaaS-Ressource?".
+
+### 6. ProcessHub (Business Architecture)
+*Governance trifft operative Realität.*
+
+*   **Step 6.1: Process Designer**
+    *   *Status*: mxGraph Integration (`src/app/(dashboard)/processhub/[id]/page.tsx`).
+    *   *Consultant Audit*: Komplexität für Azubis hoch.
+    *   **NEUE AUFGABE**: "Auto-Layout" Button und Vorlagen für Standardprozesse (z.B. Passwort-Reset).
+*   **Step 6.2: KI Process Advisor**
+    *   *Status*: Chat & Ops vorhanden.
+    *   *Consultant Audit*: Beste Funktion der App.
+    *   **NEUE AUFGABE**: Advisor soll aktiv auf fehlende Kontrollen (Maßnahmen) im Prozess hinweisen.
+
+### 7. Integrationen & Ökosystem
+*Das Gateway zur Außenwelt.*
+
+*   **Step 7.1: Jira Sync**
+    *   *Status*: Tickets & Assets (`src/app/actions/jira-actions.ts`).
+    *   *Consultant Audit*: Synchronisations-Fehler sind schwer zu debuggen.
+    *   **NEUE AUFGABE**: Visuelles "Sync-Log" für den Nutzer (Was wurde wann zuletzt abgeglichen?).
+
+### 8. Compliance & Auditierung
+*Der "Wirtschaftsprüfer-Modus".*
+
+*   **Step 8.1: Datenschutz-Register (VVT)**
+    *   *Status*: Art. 30 Dokumentation (`src/app/(dashboard)/gdpr/page.tsx`).
+    *   *Consultant Audit*: Verknüpfung zu Systemen ist manuell.
+    *   **NEUE AUFGABE**: Automatischer Vorschlag von VVT-Einträgen, wenn ein System als "enthält personenbezogene Daten" markiert wird.
+*   **Step 8.2: Globales Audit Log**
+    *   *Status*: Ledger vorhanden (`src/app/(dashboard)/audit/page.tsx`).
+    *   *Consultant Audit*: Filterung nach "kritischen Änderungen" fehlt.
+    *   **NEUE AUFGABE**: "Audit-Alerts" für Administratoren bei unbefugten Zugriffsversuchen.
+
+---
+*Backlog Stand: Strategisches Audit v1.0 - Erstellt vom System-Architekten & Unternehmensberater.*
