@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
 import { Tenant, Department, JobTitle } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -118,6 +119,8 @@ export default function UnifiedOrganizationPage() {
     if (!tenantName || !tenantSlug) return;
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
+    const isNew = !editingTenant;
+    
     const data: Tenant = {
       ...editingTenant,
       id,
@@ -132,6 +135,16 @@ export default function UnifiedOrganizationPage() {
     try {
       const res = await saveCollectionRecord('tenants', id, data, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: id,
+          actorUid: user?.email || 'system',
+          action: isNew ? `Mandant erstellt: ${tenantName}` : `Mandant aktualisiert: ${tenantName}`,
+          entityType: 'tenant',
+          entityId: id,
+          before: isNew ? null : editingTenant,
+          after: data
+        });
+
         setIsTenantDialogOpen(false);
         refreshTenants();
         toast({ title: "Mandant gespeichert" });
@@ -144,13 +157,32 @@ export default function UnifiedOrganizationPage() {
   const handleCreateSub = async () => {
     if (!newName || !activeAddParent) return;
     const id = `${activeAddParent.type === 'tenant' ? 'd' : 'j'}-${Math.random().toString(36).substring(2, 7)}`;
+    
     if (activeAddParent.type === 'tenant') {
-      await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+      const deptData = { id, tenantId: activeAddParent.id, name: newName, status: 'active' };
+      await saveCollectionRecord('departments', id, deptData, dataSource);
+      await logAuditEventAction(dataSource, {
+        tenantId: activeAddParent.id,
+        actorUid: user?.email || 'system',
+        action: `Abteilung erstellt: ${newName}`,
+        entityType: 'department',
+        entityId: id,
+        after: deptData
+      });
       refreshDepts();
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (!dept) return;
-      await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+      const jobData = { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' };
+      await saveCollectionRecord('jobTitles', id, jobData, dataSource);
+      await logAuditEventAction(dataSource, {
+        tenantId: dept.tenantId,
+        actorUid: user?.email || 'system',
+        action: `Stelle erstellt: ${newName} (Abt: ${dept.name})`,
+        entityType: 'jobTitle',
+        entityId: id,
+        after: jobData
+      });
       refreshJobs();
     }
     setNewName('');
@@ -162,6 +194,15 @@ export default function UnifiedOrganizationPage() {
     const updated = { ...item, status: newStatus };
     const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
     if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: item.tenantId || item.id || 'global',
+        actorUid: user?.email || 'system',
+        action: `${newStatus === 'archived' ? 'Archivierung' : 'Reaktivierung'}: ${item.name}`,
+        entityType: coll.slice(0, -1), // simplified
+        entityId: item.id,
+        after: updated
+      });
+
       if (coll === 'tenants') refreshTenants();
       if (coll === 'departments') refreshDepts();
       if (coll === 'jobTitles') refreshJobs();
@@ -175,6 +216,14 @@ export default function UnifiedOrganizationPage() {
     try {
       const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: 'global',
+          actorUid: user?.email || 'system',
+          action: `Permanente Löschung: ${deleteTarget.label} (${deleteTarget.type})`,
+          entityType: deleteTarget.type,
+          entityId: deleteTarget.id
+        });
+
         toast({ title: "Eintrag permanent gelöscht" });
         if (deleteTarget.type === 'tenants') refreshTenants();
         if (deleteTarget.type === 'departments') refreshDepts();
@@ -206,8 +255,19 @@ export default function UnifiedOrganizationPage() {
     if (!editingJob) return;
     setIsSavingJob(true);
     try {
-      const res = await saveCollectionRecord('jobTitles', editingJob.id, { ...editingJob, name: jobName, description: jobDesc }, dataSource);
+      const updatedJob = { ...editingJob, name: jobName, description: jobDesc };
+      const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: editingJob.tenantId,
+          actorUid: user?.email || 'system',
+          action: `Stelle aktualisiert: ${jobName}`,
+          entityType: 'jobTitle',
+          entityId: editingJob.id,
+          before: editingJob,
+          after: updatedJob
+        });
+
         setIsEditorOpen(false);
         refreshJobs();
         toast({ title: "Stelle gespeichert" });

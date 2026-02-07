@@ -68,6 +68,7 @@ import { doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { Entitlement, Tenant, Resource, Risk, RiskMeasure, ProcessingActivity, DataSubjectGroup } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -75,9 +76,11 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { exportResourcesExcel } from '@/lib/export-utils';
+import { usePlatformAuth } from '@/context/auth-context';
 
 export default function ResourcesPage() {
   const db = useFirestore();
+  const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -138,6 +141,7 @@ export default function ResourcesPage() {
     setIsSaving(true);
     const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+    const isNew = !selectedResource;
 
     const data: Resource = {
       ...selectedResource,
@@ -165,6 +169,16 @@ export default function ResourcesPage() {
     try {
       const res = await saveCollectionRecord('resources', id, data, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: targetTenantId,
+          actorUid: user?.email || 'system',
+          action: isNew ? `System registriert: ${name}` : `System aktualisiert: ${name}`,
+          entityType: 'resource',
+          entityId: id,
+          before: isNew ? null : selectedResource,
+          after: data
+        });
+
         toast({ title: "System gespeichert" });
         setIsResourceDialogOpen(false);
         refreshResources();
@@ -178,7 +192,9 @@ export default function ResourcesPage() {
     if (!entName || !selectedResource) return;
     setIsSaving(true);
     const id = selectedEnt?.id || `ent-${Math.random().toString(36).substring(2, 9)}`;
+    const isNew = !selectedEnt;
     const data: Entitlement = {
+      ...selectedEnt,
       id,
       resourceId: selectedResource.id,
       name: entName,
@@ -192,6 +208,16 @@ export default function ResourcesPage() {
     try {
       const res = await saveCollectionRecord('entitlements', id, data, dataSource);
       if (res.success) {
+        await logAuditEventAction(dataSource, {
+          tenantId: selectedResource.tenantId || 'global',
+          actorUid: user?.email || 'system',
+          action: isNew ? `Rolle definiert: ${entName} (System: ${selectedResource.name})` : `Rolle aktualisiert: ${entName}`,
+          entityType: 'entitlement',
+          entityId: id,
+          before: isNew ? null : selectedEnt,
+          after: data
+        });
+
         toast({ title: "Rolle gespeichert" });
         setIsEntDialogOpen(false);
         refreshEnts();
@@ -205,6 +231,15 @@ export default function ResourcesPage() {
     const updated = { ...res, status: newStatus };
     const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
     if (result.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: res.tenantId || 'global',
+        actorUid: user?.email || 'system',
+        action: `${newStatus === 'archived' ? 'System archiviert' : 'System reaktiviert'}: ${res.name}`,
+        entityType: 'resource',
+        entityId: res.id,
+        after: updated
+      });
+
       toast({ title: newStatus === 'archived' ? "System archiviert" : "System reaktiviert" });
       refreshResources();
     }
@@ -555,7 +590,18 @@ export default function ResourcesPage() {
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setSelectedEnt(e); setEntName(e.name); setEntDesc(e.description); setEntRisk(e.riskLevel as any); setEntIsAdmin(!!e.isAdmin); setEntMapping(e.externalMapping || ''); setIsEntDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => { if(confirm("Rolle permanent löschen?")) deleteCollectionRecord('entitlements', e.id, dataSource).then(() => refreshEnts()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => { if(confirm("Rolle permanent löschen?")) {
+                      deleteCollectionRecord('entitlements', e.id, dataSource).then(() => {
+                        logAuditEventAction(dataSource, {
+                          tenantId: selectedResource?.tenantId || 'global',
+                          actorUid: user?.email || 'system',
+                          action: `Rolle gelöscht: ${e.name} (System: ${selectedResource?.name})`,
+                          entityType: 'entitlement',
+                          entityId: e.id
+                        });
+                        refreshEnts();
+                      });
+                    } }}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 </div>
               ))}
