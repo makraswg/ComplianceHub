@@ -74,7 +74,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   const positions = layout.positions || {};
 
   nodes.forEach((node, idx) => {
-    let nodeSafeId = String(node.id || `node-gen-${idx}`);
+    let nodeSafeId = String(node.id || "node-" + idx);
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 160, h = 80;
@@ -94,7 +94,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   });
 
   edges.forEach((edge, idx) => {
-    let edgeSafeId = String(edge.id || `edge-gen-${idx}`);
+    let edgeSafeId = String(edge.id || "edge-" + idx);
     const sourceExists = nodes.some(n => n.id === edge.source);
     const targetExists = nodes.some(n => n.id === edge.target);
     if (sourceExists && targetExists) {
@@ -155,7 +155,7 @@ export default function ProcessDesignerPage() {
 
   const lastEditors = useMemo(() => {
     if (!auditEvents) return [];
-    const related = auditEvents.filter(e => e.entityId === id || e.entityId?.startsWith(`ver-${id}`));
+    const related = auditEvents.filter(e => e.entityId === id || e.entityId?.startsWith("ver-" + id));
     const unique = new Map();
     related.forEach(e => unique.set(e.actorUid, e));
     return Array.from(unique.values()).slice(0, 3);
@@ -285,7 +285,7 @@ export default function ProcessDesignerPage() {
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'end') => {
-    const newId = `${type}-${Date.now()}`;
+    const newId = type + "-" + Date.now();
     const ops = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: type === 'decision' ? 'Entscheidung?' : type === 'end' ? 'Ende' : 'Neuer Schritt' } } }];
     handleApplyOps(ops).then(() => {
       setSelectedNodeId(newId);
@@ -329,7 +329,7 @@ export default function ProcessDesignerPage() {
   const handleAddComment = async () => {
     if (!commentText.trim() || !user || !id) return;
     setIsCommenting(true);
-    const commentId = `comm-${Math.random().toString(36).substring(2, 9)}`;
+    const commentId = "comm-" + Math.random().toString(36).substring(2, 9);
     const commentData: ProcessComment = {
       id: commentId,
       process_id: id as string,
@@ -355,7 +355,7 @@ export default function ProcessDesignerPage() {
 
   const SidebarLeft = (
     <aside 
-      style={{ width: isMobile ? '100%' : `${leftWidth}px` }} 
+      style={{ width: isMobile ? '100%' : leftWidth + "px" }} 
       className={cn(
         "border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full", 
         isMobile && mobileView !== 'steps' && "hidden"
@@ -447,7 +447,7 @@ export default function ProcessDesignerPage() {
                 
                 return (
                   <div 
-                    key={`${node.id || idx}`} 
+                    key={String(node.id || idx)} 
                     className={cn(
                       "group flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer bg-white shadow-sm hover:shadow-md hover:border-primary/20", 
                       selectedNodeId === node.id ? "border-primary ring-4 ring-primary/5" : "border-slate-100"
@@ -495,7 +495,7 @@ export default function ProcessDesignerPage() {
 
   const SidebarRight = (
     <aside 
-      style={{ width: isMobile ? '100%' : `${rightWidth}px` }} 
+      style={{ width: isMobile ? '100%' : rightWidth + "px" }} 
       className={cn(
         "border-l flex flex-col bg-white shrink-0 overflow-hidden relative group/right h-full", 
         isMobile && mobileView !== 'ai' && "hidden"
@@ -546,7 +546,7 @@ export default function ProcessDesignerPage() {
                       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                         {msg.suggestions.map((op: any, opIdx: number) => (
                           <div key={opIdx} className="text-[10px] p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center gap-4">
-                            <Badge variant="outline" className="text-[8px] font-bold bg-white shrink-0 border-slate-200 uppercase">{op.type.split('_')[0]}</Badge>
+                            <Badge variant="outline" className="text-[8px] font-bold bg-white shrink-0 border-slate-200 uppercase">{String(op.type).split('_')[0]}</Badge>
                             <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modellanpassung'}</span>
                           </div>
                         ))}
@@ -596,7 +596,7 @@ export default function ProcessDesignerPage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Avatar className="h-8 w-8 border-2 border-white ring-2 ring-primary/5">
-                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">{e.actorUid.charAt(0).toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">{String(e.actorUid).charAt(0).toUpperCase()}</AvatarFallback>
                       </Avatar>
                     </TooltipTrigger>
                     <TooltipContent className="text-[9px] font-bold uppercase">{e.actorUid}</TooltipContent>
@@ -621,7 +621,7 @@ export default function ProcessDesignerPage() {
                       <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{new Date(comm.created_at).toLocaleDateString()}</span>
                     </div>
                     {comm.node_id && (
-                      <Badge variant="outline" className="text-[7px] h-4 rounded-none font-bold uppercase border-primary/20 text-primary bg-primary/5">Schritt: {comm.node_id.substring(0, 8)}</Badge>
+                      <Badge variant="outline" className="text-[7px] h-4 rounded-none font-bold uppercase border-primary/20 text-primary bg-primary/5">Schritt: {String(comm.node_id).substring(0, 8)}</Badge>
                     )}
                   </div>
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs leading-relaxed text-slate-600 shadow-sm">
@@ -678,7 +678,7 @@ export default function ProcessDesignerPage() {
                 <AvatarFallback className="bg-indigo-100 text-indigo-600 text-[8px] font-bold">AI</AvatarFallback>
               </Avatar>
               <Avatar className="h-7 w-7 border-2 border-white shadow-sm">
-                <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">{user?.displayName?.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="bg-primary/10 text-primary text-[8px] font-bold">{String(user?.displayName).charAt(0)}</AvatarFallback>
               </Avatar>
             </div>
           </div>
