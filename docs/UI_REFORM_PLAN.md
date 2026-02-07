@@ -56,5 +56,5 @@
 - [x] **Approval Workflows**: Visuelle Freigabeprozesse für Risiko-Bewertungen.
 
 ### 4. Enterprise Data Orchestration
-- [ ] **Advanced Audit Criteria**: Erweiterung der KI-Regelwerke für komplexe SoD-Analysen.
+- [x] **Advanced Audit Criteria**: Erweiterung der KI-Regelwerke für komplexe SoD-Analysen.
 - [ ] **Regional Compliance**: Anpassung der GRC-Logik an spezifische Konzernvorgaben (ohne i18n).

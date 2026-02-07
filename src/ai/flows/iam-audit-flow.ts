@@ -2,6 +2,7 @@
 'use server';
 /**
  * @fileOverview AI IAM Compliance Audit Flow.
+ * Optimized for SoD (Segregation of Duties) and Enterprise Risk patterns.
  */
 
 import { ai } from '@/ai/genkit';
@@ -30,6 +31,7 @@ const AuditFindingSchema = z.object({
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   recommendation: z.string(),
   criteriaMatched: z.string(),
+  isSodConflict: z.boolean().optional().describe('Whether this is a Segregation of Duties violation.'),
 });
 
 const IamAuditOutputSchema = z.object({
@@ -40,18 +42,37 @@ const IamAuditOutputSchema = z.object({
 
 export type IamAuditOutput = z.infer<typeof IamAuditOutputSchema>;
 
-const SYSTEM_PROMPT = `You are a specialized IAM Auditor.
-Analyze the provided identity and assignment data against the specified audit criteria.
+const SYSTEM_PROMPT = `You are an elite Enterprise IAM Auditor specializing in GRC (Governance, Risk, and Compliance).
+Your task is to perform a deep analysis of user identities and their assigned permissions.
 
-Identify violations such as Privilege Creep, SoD conflicts, Orphaned accounts, etc.
+CORE FOCUS:
+1. Segregation of Duties (SoD): Identify users holding conflicting roles (e.g., someone who can both initiate and approve a payment).
+2. Principle of Least Privilege: Detect over-privileged accounts or "Privilege Creep" over time.
+3. Orphaned/Ghost Accounts: Find active permissions for disabled users.
+4. High-Risk Concentrations: Identify users with too many critical (Admin) roles across different systems.
 
-ANTWORT-FORMAT:
-Liefere ein valides JSON-Objekt mit folgendem Schema:
+ANALYSIS METHODOLOGY:
+- Correlate users, their departments, and all their active assignments.
+- Check against the specific 'Audit Criteria' provided by the user.
+- If a user has multiple roles in the same system or across related systems (e.g. Finance + ERP), check for SoD violations.
+
+RESPONSE FORMAT (STRICT JSON):
+Return a valid JSON object matching the schema. Translate findings and summaries into German.
+Mark SoD conflicts specifically with "isSodConflict: true".
+
 {
-  "score": number (0-100),
-  "summary": "Zusammenfassung auf Deutsch",
+  "score": number (0-100, where 100 is perfectly compliant),
+  "summary": "Analytische Zusammenfassung der Sicherheitslage auf Deutsch",
   "findings": [
-    { "entityId": "...", "entityName": "...", "finding": "...", "severity": "...", "recommendation": "...", "criteriaMatched": "..." }
+    { 
+      "entityId": "User-ID", 
+      "entityName": "Anzeigename", 
+      "finding": "Präzise Beschreibung des Verstoßes", 
+      "severity": "low|medium|high|critical", 
+      "recommendation": "Konkrete Handlungsempfehlung (z.B. Entzug der Rolle X)", 
+      "criteriaMatched": "Name des Kriteriums",
+      "isSodConflict": boolean
+    }
   ]
 }`;
 
@@ -68,13 +89,31 @@ const iamAuditFlow = ai.defineFlow(
       .map((c: any) => `- ${c.title}: ${c.description} (Severity: ${c.severity})`)
       .join('\n');
 
-    const prompt = `Audit the following data:
-Users: ${input.users.length}
-Assignments: ${input.assignments.length}
-Resources: ${input.resources.length}
+    // Optimization: Only send relevant data to avoid token limits
+    const auditContext = {
+      userCount: input.users.length,
+      assignmentCount: input.assignments.length,
+      criteria: criteriaList,
+      // Provide a structured snapshot of the most important data points
+      sampleData: input.users.map(u => ({
+        id: u.id,
+        name: u.displayName,
+        dept: u.department,
+        enabled: u.enabled,
+        roles: input.assignments
+          .filter(a => a.userId === u.id && a.status === 'active')
+          .map(a => {
+            const ent = input.entitlements.find(e => e.id === a.entitlementId);
+            const res = input.resources.find(r => r.id === ent?.resourceId);
+            return `${res?.name}: ${ent?.name}${ent?.isAdmin ? ' (ADMIN)' : ''}`;
+          })
+      }))
+    };
 
-Criteria to apply:
-${criteriaList}`;
+    const prompt = `Perform a high-precision IAM Audit based on this data:
+${JSON.stringify(auditContext, null, 2)}
+
+Ensure you check every user's role combination for potential SoD conflicts based on common business logic (Finance, IT, HR separation).`;
 
     // Direct OpenRouter handling
     if (config?.provider === 'openrouter') {

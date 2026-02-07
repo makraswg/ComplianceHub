@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -18,7 +19,10 @@ import {
   Settings2,
   Lock,
   ArrowRight,
-  Activity
+  Activity,
+  Split,
+  Trophy,
+  AlertCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -55,6 +59,7 @@ export default function IamAuditPage() {
     }
     
     setIsAuditing(true);
+    setAuditResult(null);
     try {
       const activeCriteria = criteria.filter((c: any) => c.enabled);
       const res = await runIamAudit({
@@ -76,6 +81,8 @@ export default function IamAuditPage() {
 
   if (!mounted) return null;
 
+  const sodConflicts = auditResult?.findings?.filter((f: any) => f.isSodConflict) || [];
+
   return (
     <div className="space-y-10 pb-20">
       {/* Header Area with Gradient */}
@@ -87,12 +94,12 @@ export default function IamAuditPage() {
           <div>
             <Badge className="mb-2 rounded-full px-3 py-0 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-widest border-none">AI Governance</Badge>
             <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white uppercase">KI Identity Audit</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Automatisierte Analyse der Berechtigungs-Integrität für {activeTenantId === 'all' ? 'alle Standorte' : activeTenantId}.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Automatisierte Analyse der Berechtigungs-Integrität & SoD Checks.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95" onClick={() => router.push('/settings/ai/audit-criteria')}>
-            <Settings2 className="w-4 h-4 mr-2 text-primary" /> Kriterien
+            <Settings2 className="w-4 h-4 mr-2 text-primary" /> Audit-Regeln
           </Button>
           <Button onClick={handleStartAudit} disabled={isAuditing || !users} className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 dark:shadow-none transition-all gap-2 active:scale-95">
             {isAuditing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Zap className="w-5 h-5 fill-current" />}
@@ -125,19 +132,36 @@ export default function IamAuditPage() {
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase text-slate-300">Methodik</p>
-                    <p className="text-[9px] text-slate-500 italic uppercase">Principle of Least Privilege</p>
+                    <p className="text-[9px] text-slate-500 italic uppercase">Enterprise SoD Analysis</p>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {auditResult && sodConflicts.length > 0 && (
+            <Card className="rounded-[2rem] border-none bg-red-600 text-white shadow-xl animate-in zoom-in-95">
+              <CardContent className="p-6 space-y-4 text-center">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto">
+                  <Split className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-2xl font-black font-headline">{sodConflicts.length}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest opacity-80">SoD Konflikte erkannt</p>
+                </div>
+                <p className="text-[10px] leading-relaxed italic opacity-70">
+                  Unzulässige Kombinationen von Berechtigungen wurden im aktuellen Dataset identifiziert.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="p-6 rounded-[2rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm">
             <p className="text-[10px] text-indigo-700 dark:text-indigo-400 font-bold uppercase tracking-widest flex items-center gap-2 mb-3">
-              <Info className="w-4 h-4" /> Hinweis
+              <Info className="w-4 h-4" /> Analyse-Tipp
             </p>
             <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed italic">
-              Der KI-Assistent erkennt komplexe Muster wie "Privilege Creep" automatisch über Mandantengrenzen hinweg.
+              Die KI erkennt nun auch **indirekte** SoD-Verstöße, die über verschiedene IT-Systeme hinweg bestehen.
             </p>
           </div>
         </div>
@@ -150,8 +174,8 @@ export default function IamAuditPage() {
                 <ShieldCheck className="w-12 h-12 text-slate-200 dark:text-slate-600" />
               </div>
               <div className="space-y-2">
-                <p className="text-sm font-black uppercase text-slate-400 tracking-widest">Bereit zur Analyse</p>
-                <p className="text-xs text-slate-400 uppercase font-bold max-w-xs mx-auto">Starten Sie den Scan, um potenzielle Compliance-Lücken aufzudecken.</p>
+                <p className="text-sm font-black uppercase text-slate-400 tracking-widest">Audit Engine Bereit</p>
+                <p className="text-xs text-slate-400 uppercase font-bold max-w-xs mx-auto">Starten Sie den Enterprise-Scan für Identitäts-Risiken.</p>
               </div>
             </div>
           )}
@@ -163,10 +187,10 @@ export default function IamAuditPage() {
                 <Zap className="absolute inset-0 m-auto w-10 h-10 text-indigo-600 animate-pulse fill-current" />
               </div>
               <div className="space-y-3">
-                <p className="text-lg font-headline font-bold text-indigo-600 uppercase tracking-widest">KI-Engine arbeitet...</p>
+                <p className="text-lg font-headline font-bold text-indigo-600 uppercase tracking-widest">KI Tiefenanalyse läuft...</p>
                 <div className="max-w-xs mx-auto space-y-2">
-                  <Progress value={45} className="h-2 rounded-full bg-slate-100 dark:bg-slate-800" />
-                  <p className="text-[9px] text-slate-400 uppercase font-black">Analysiere Berechtigungs-Hierarchien</p>
+                  <Progress value={65} className="h-2 rounded-full bg-slate-100 dark:bg-slate-800" />
+                  <p className="text-[9px] text-slate-400 uppercase font-black">Prüfe Funktionstrennung (SoD Matrix)</p>
                 </div>
               </div>
             </div>
@@ -177,11 +201,14 @@ export default function IamAuditPage() {
               <Card className="rounded-[3rem] border-none shadow-2xl shadow-slate-200/50 dark:shadow-none overflow-hidden bg-white dark:bg-slate-900">
                 <CardHeader className={cn(
                   "py-12 text-white px-12 flex flex-col sm:flex-row sm:items-center justify-between gap-8 transition-colors duration-1000",
-                  auditResult.score > 80 ? "bg-emerald-600" : auditResult.score > 50 ? "bg-accent" : "bg-red-600"
+                  auditResult.score > 85 ? "bg-emerald-600" : auditResult.score > 60 ? "bg-primary" : "bg-red-600"
                 )}>
                   <div>
-                    <CardTitle className="text-2xl font-headline font-bold uppercase tracking-widest drop-shadow-md">IAM Health Score</CardTitle>
-                    <p className="text-[10px] uppercase font-black opacity-80 mt-1 tracking-widest">Compliance Status der Plattform</p>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Trophy className="w-6 h-6 opacity-50" />
+                      <CardTitle className="text-2xl font-headline font-bold uppercase tracking-widest drop-shadow-md">Audit Health Score</CardTitle>
+                    </div>
+                    <p className="text-[10px] uppercase font-black opacity-80 tracking-widest">Governance Status • {activeTenantId === 'all' ? 'Global' : activeTenantId}</p>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="h-20 w-px bg-white/20 hidden sm:block" />
@@ -198,12 +225,12 @@ export default function IamAuditPage() {
                     </div>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between text-xs font-black uppercase tracking-widest text-slate-400">
-                        <span>Compliance Level</span>
+                        <span>Sicherheits-Level</span>
                         <span className={cn(
                           "font-black",
-                          auditResult.score > 80 ? "text-emerald-600" : auditResult.score > 50 ? "text-accent" : "text-red-600"
+                          auditResult.score > 85 ? "text-emerald-600" : auditResult.score > 60 ? "text-primary" : "text-red-600"
                         )}>
-                          {auditResult.score > 80 ? 'EXZELLENT' : auditResult.score > 50 ? 'HANDLUNGSBEDARF' : 'KRITISCH'}
+                          {auditResult.score > 85 ? 'KONFORM' : auditResult.score > 60 ? 'OPTIMIERBAR' : 'HOCHRISIKO'}
                         </span>
                       </div>
                       <Progress value={auditResult.score} className="h-4 rounded-full bg-slate-100 dark:bg-slate-800" />
@@ -220,7 +247,12 @@ export default function IamAuditPage() {
                 </div>
                 <div className="grid grid-cols-1 gap-6">
                   {auditResult.findings?.map((f: any, i: number) => (
-                    <div key={i} className="p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-8 hover:scale-[1.01] transition-all group active:scale-[0.99]">
+                    <div key={i} className={cn(
+                      "p-8 rounded-[2.5rem] shadow-xl border flex flex-col md:flex-row gap-8 transition-all group active:scale-[0.99]",
+                      f.isSodConflict 
+                        ? "bg-red-50/30 border-red-100 dark:bg-red-900/5 dark:border-red-900/30" 
+                        : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800"
+                    )}>
                       <div className="shrink-0 flex flex-col items-center gap-4">
                         <Badge className={cn(
                           "rounded-full text-[10px] font-black h-7 px-4 border-none shadow-md",
@@ -228,13 +260,23 @@ export default function IamAuditPage() {
                         )}>
                           {f.severity.toUpperCase()}
                         </Badge>
-                        <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center shadow-inner group-hover:rotate-6 transition-transform duration-500 border border-slate-100 dark:border-slate-700">
-                          <ShieldAlert className={cn("w-8 h-8", f.severity === 'critical' ? "text-red-600" : "text-slate-400")} />
+                        <div className={cn(
+                          "w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner group-hover:rotate-6 transition-transform duration-500 border",
+                          f.isSodConflict ? "bg-red-100 border-red-200" : "bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700"
+                        )}>
+                          {f.isSodConflict ? (
+                            <Split className="w-8 h-8 text-red-600" />
+                          ) : (
+                            <ShieldAlert className={cn("w-8 h-8", f.severity === 'critical' ? "text-red-600" : "text-slate-400")} />
+                          )}
                         </div>
                       </div>
                       <div className="flex-1 space-y-5">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4 border-slate-50 dark:border-slate-800">
-                          <h4 className="font-headline font-bold text-xl text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{f.finding}</h4>
+                          <div className="flex items-center gap-3">
+                            <h4 className="font-headline font-bold text-xl text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{f.finding}</h4>
+                            {f.isSodConflict && <Badge className="bg-red-600 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">SoD Conflict</Badge>}
+                          </div>
                           <span className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded">ID: {f.entityId}</span>
                         </div>
                         <div className="flex items-center gap-3 text-xs font-bold text-slate-500 uppercase tracking-tight">
@@ -243,12 +285,20 @@ export default function IamAuditPage() {
                           </div>
                           <span>Betroffene Identität: <span className="text-slate-900 dark:text-slate-100">{f.entityName}</span></span>
                         </div>
-                        <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-3xl border border-indigo-100/50 dark:border-indigo-800/50 relative overflow-hidden">
-                          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400" />
-                          <p className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-400 flex items-center gap-2 mb-3 tracking-widest">
-                            <Zap className="w-3.5 h-3.5 fill-current" /> Empfehlung der KI
+                        <div className={cn(
+                          "p-6 rounded-3xl border relative overflow-hidden",
+                          f.isSodConflict 
+                            ? "bg-red-100/50 border-red-200" 
+                            : "bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100/50 dark:border-indigo-800/50"
+                        )}>
+                          <div className={cn("absolute top-0 left-0 w-1 h-full", f.isSodConflict ? "bg-red-600" : "bg-indigo-400")} />
+                          <p className={cn(
+                            "text-[10px] font-black uppercase flex items-center gap-2 mb-3 tracking-widest",
+                            f.isSodConflict ? "text-red-700" : "text-indigo-700 dark:text-indigo-400"
+                          )}>
+                            <Zap className="w-3.5 h-3.5 fill-current" /> Empfehlung der Governance Engine
                           </p>
-                          <p className="text-sm text-indigo-900 dark:text-indigo-200 font-medium leading-relaxed italic">{f.recommendation}</p>
+                          <p className="text-sm text-slate-800 dark:text-slate-200 font-medium leading-relaxed italic">{f.recommendation}</p>
                         </div>
                       </div>
                       <div className="shrink-0 flex items-center justify-center">
