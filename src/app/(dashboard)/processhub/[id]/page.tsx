@@ -69,7 +69,10 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let style = '';
     let w = 160, h = 80;
     switch (node.type) {
-      case 'start': style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;'; w = 60; h = 60; break;
+      case 'start': 
+        style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;'; 
+        w = 60; h = 60; 
+        break;
       case 'end': 
         const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
@@ -77,8 +80,12 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
           : 'ellipse;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;'; 
         w = 60; h = 60; 
         break;
-      case 'decision': style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;'; w = 100; h = 100; break;
-      default: style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
+      case 'decision': 
+        style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;'; 
+        w = 100; h = 100; 
+        break;
+      default: 
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=1;';
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -443,6 +450,7 @@ export default function ProcessDesignerPage() {
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-accent/5 hover:text-accent" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('end')}>+ Endpunkt</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -521,7 +529,7 @@ export default function ProcessDesignerPage() {
                       {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                         <div className="mt-3 w-full bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-4 shadow-sm animate-in zoom-in-95">
                           <div className="flex items-center gap-2 text-blue-700">
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <BrainCircuit className="w-3.5 h-3.5" />
                             <span className="text-[10px] font-bold uppercase tracking-widest">KI Vorschlag</span>
                           </div>
                           <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
@@ -660,6 +668,23 @@ export default function ProcessDesignerPage() {
                   </Select>
                 </div>
               </div>
+
+              {localNodeEdits.type === 'end' && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Zielprozess (Handover)</Label>
+                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
+                    <SelectTrigger className="h-11 rounded-md border-slate-200 bg-white text-xs">
+                      <SelectValue placeholder="Prozess wählen..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-md">
+                      <SelectItem value="none" className="text-xs">Keine Verknüpfung</SelectItem>
+                      {processes?.filter(p => p.id !== id).map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-8">
                 <div className="space-y-2">
