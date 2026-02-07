@@ -1,6 +1,6 @@
 # AccessHub - Enterprise Governance & IAM Platform (Technical Description)
 
-**Rolle**: Diese Dokumentation dient als funktionaler und technischer Leitfaden für die AccessHub-Plattform. Sie verknüpft Geschäftsprozesse direkt mit den implementierten Code-Modulen.
+**Rolle**: Diese Dokumentation dient als funktionaler und technischer Leitfaden für die AccessHub-Plattform. Sie verknüpft Geschäftsprozesse direkt mit den implementierten Code-Modulen (Actions, Flows, Pages).
 
 ---
 
@@ -21,7 +21,7 @@ Das Cockpit für das Management und GRC-Beauftragte.
 ## 2. Identity & Access Management (IAM)
 Der Kern für die Verwaltung digitaler Identitäten.
 
-*   **Step 2.1: Benutzerverzeichnis**: Zentrale Liste aller Mitarbeiter inklusive Tenant-Zugehörigkeit und Status.
+*   **Step 2.1: Benutzerverzeichnis**: Zentrale Liste aller Mitarbeiter inklusive Mandanten-Zugehörigkeit und Status.
     *   *Code-Referenz*: `src/app/(dashboard)/users/page.tsx`, `src/app/actions/mysql-actions.ts`
 *   **Step 2.2: Einzelzuweisungen**: Manuelle Vergabe von Rechten mit Dokumentation von Gültigkeit und Ticket-Referenz.
     *   *Code-Referenz*: `src/app/(dashboard)/assignments/page.tsx`
@@ -33,7 +33,7 @@ Der Kern für die Verwaltung digitaler Identitäten.
 ## 3. Lifecycle Hub & Automatisierung
 Effizienzsteigerung durch automatisierte Joiner-Mover-Leaver (JML) Prozesse.
 
-*   **Step 3.1: Onboarding-Wizard**: Schnelle Erfassung neuer Mitarbeiter inklusive Zuweisung vordefinierter Rollenpakete.
+*   **Step 3.1: Onboarding-Wizard**: Schnelle Erfassung neuer Mitarbeiter inklusive Zuweisung vordefinierter Rollenpakete (Bundles).
     *   *Code-Referenz*: `src/app/(dashboard)/lifecycle/page.tsx`
 *   **Step 3.2: Offboarding-Engine**: Revisionssicherer Entzug aller Berechtigungen bei Austritt eines Mitarbeiters.
     *   *Code-Referenz*: `src/app/(dashboard)/lifecycle/page.tsx`
@@ -63,7 +63,7 @@ Präventive Bedrohungsabwehr nach BSI IT-Grundschutz.
     *   *Code-Referenz*: `src/app/(dashboard)/risks/catalog/page.tsx`
 *   **Step 5.4: Maßnahmen & Kontrollen (TOMs)**: Verknüpfung von Risiken mit technischen und organisatorischen Maßnahmen.
     *   *Code-Referenz*: `src/app/(dashboard)/risks/measures/page.tsx`
-*   **Step 5.5: Approval Workflows**: Formale Abnahme von Risikobewertungen durch Risk Owner.
+*   **Step 5.5: Approval Workflows**: Formale Abnahme von Risikobewertungen durch Risk Owner mit Kommentarfunktion.
     *   *Code-Referenz*: `src/app/(dashboard)/risks/page.tsx` (Approval Dialog)
 
 ## 6. ProcessHub (Business Architecture)
@@ -71,12 +71,12 @@ Verknüpfung von Governance mit operativen Prozessen.
 
 *   **Step 6.1: Process Designer**: Visueller Modellierer für Geschäftsprozesse (ISO 9001).
     *   *Code-Referenz*: `src/app/(dashboard)/processhub/[id]/page.tsx`
-*   **Step 6.2: KI Process Advisor**: Chat-basierter Assistent, der Prozessmodelle generiert.
+*   **Step 6.2: KI Process Advisor**: Chat-basierter Assistent, der Prozessmodelle generiert und optimiert.
     *   *Code-Referenz*: `src/ai/flows/process-designer-flow.ts`
-*   **Step 6.3: Prozesslandkarte**: Dynamische Visualisierung der Vernetzung aller Prozesse.
+*   **Step 6.3: Prozesslandkarte**: Dynamische Visualisierung der Vernetzung aller Prozesse (Diagramm & Kachel-Ansicht).
     *   *Code-Referenz*: `src/app/(dashboard)/processhub/map/page.tsx`
-*   **Step 6.4: Collaborative Comments**: Diskussions-Thread für Teams direkt am Prozessmodell.
-    *   *Code-Referenz*: `src/app/(dashboard)/processhub/[id]/page.tsx`
+*   **Step 6.4: Collaborative Comments**: Diskussions-Thread für Teams direkt am Prozessmodell oder einzelnen Schritten.
+    *   *Code-Referenz*: `src/app/(dashboard)/processhub/[id]/page.tsx`, `src/app/actions/mysql-actions.ts`
 
 ## 7. Integrationen & Ökosystem
 Nahtlose Anbindung an die bestehende IT-Infrastruktur.
@@ -88,17 +88,29 @@ Nahtlose Anbindung an die bestehende IT-Infrastruktur.
 *   **Step 7.3: BookStack Export**: Dokumentations-Export von Prozessen in das externe Wiki.
     *   *Code-Referenz*: `src/app/actions/bookstack-actions.ts`
 
-## 8. Plattform-Administration
+## 8. Compliance & Auditierung
+Sicherstellung der regulatorischen Anforderungen.
+
+*   **Step 8.1: KI Identity Audit**: Automatisierte Prüfung auf SoD-Konflikte (Funktionstrennung) und Über-Privilegierung.
+    *   *Code-Referenz*: `src/app/(dashboard)/iam-audit/page.tsx`, `src/ai/flows/iam-audit-flow.ts`
+*   **Step 8.2: Datenschutz-Register (VVT)**: Verzeichnis von Verarbeitungstätigkeiten nach Art. 30 DSGVO.
+    *   *Code-Referenz*: `src/app/(dashboard)/gdpr/page.tsx`
+*   **Step 8.3: Globales Audit Log**: Lückenlose Protokollierung aller administrativen Änderungen (System Ledger).
+    *   *Code-Referenz*: `src/app/(dashboard)/audit/page.tsx`, `src/app/actions/audit-actions.ts`
+
+## 9. Plattform-Administration
 Infrastruktur-Kontrolle und Compliance-Rahmen.
 
-*   **Step 8.1: Multi-Tenancy**: Mandantentrennung und Konfiguration regionaler Compliance-Regeln.
+*   **Step 9.1: Multi-Tenancy**: Mandantentrennung und Konfiguration regionaler Compliance-Regeln (Region-Context).
     *   *Code-Referenz*: `src/app/(dashboard)/settings/general/page.tsx`
-*   **Step 8.2: User Experience Settings**: Zentrale Steuerung von Animationen und interaktiven Touren.
+*   **Step 9.2: User Experience Settings**: Zentrale Steuerung von Animationen, Quick-Tours und Design-Effekten.
     *   *Code-Referenz*: `src/app/(dashboard)/settings/ux/page.tsx`
-*   **Step 8.3: Data Import Engine**: Massen-Import von BSI-Katalogen und Kreuztabellen.
-    *   *Code-Referenz*: `src/app/actions/bsi-import-actions.ts`, `src/app/actions/bsi-cross-table-actions.ts`
-*   **Step 8.4: Database Setup**: Initialisierung der MySQL-Tabellen und Migrationen.
+*   **Step 9.3: Data Import Engine**: Massen-Import von BSI-Katalogen und Kreuztabellen aus Excel.
+    *   *Code-Referenz*: `src/app/actions/bsi-import-actions.ts`, `src/app/(dashboard)/settings/data/page.tsx`
+*   **Step 9.4: Database Setup**: Initialisierung der MySQL-Tabellen, Migrationen und Datenbereinigung.
     *   *Code-Referenz*: `src/app/(dashboard)/setup/page.tsx`, `src/app/actions/migration-actions.ts`
+*   **Step 9.5: Help Center**: Kontextsensitive Dokumentation und Anleitungen für Administratoren.
+    *   *Code-Referenz*: `src/app/(dashboard)/help/page.tsx`
 
 ---
-*Dokumentation Stand: Phase 3 Abschluss - Erstellt vom System-Architekten.*
+*Dokumentation Stand: Phase 3 Abschluss - Erstellt vom System-Architekten & Unternehmensberater.*
