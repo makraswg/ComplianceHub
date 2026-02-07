@@ -557,7 +557,7 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 md:gap-3">
-          <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-slate-900 hover:bg-black text-white px-4 md:px-6 gap-2" onClick={() => publishToBookStackAction(currentProcess.id, currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>{isPublishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />} <span className="hidden md:inline">Export</span></Button>
+          <Button size="sm" className="rounded-none h-9 text-[10px] font-bold uppercase bg-slate-900 hover:bg-black text-white px-4 md:px-6 gap-2" onClick={() => publishToBookStackAction(currentProcess.id, currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>{isPublishing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />} <span className="hidden md:inline">Export</span></Button>
         </div>
       </header>
 

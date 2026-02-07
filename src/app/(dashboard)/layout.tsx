@@ -18,7 +18,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-function HeaderContent({ onMenuToggle }: { onMenuToggle?: () => void }) {
+function HeaderContent() {
   const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
   const { data: tenants, isLoading } = usePluggableCollection<Tenant>('tenants');
   const [mounted, setMounted] = useState(false);
