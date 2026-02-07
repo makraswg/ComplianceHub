@@ -28,6 +28,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 *Das Nervenzentrum. Hier wird entschieden, was heute wichtig ist.*
 
 *   **Step 1.1: Unified Metrics**
+    *   *Code*: `src/app/(dashboard)/dashboard/page.tsx`
     *   *Status*: Implementiert.
     *   *Consultant Audit*: Es sind nur statische Zähler. Ein Azubi weiß nicht, ob "100 Nutzer" gut oder schlecht sind. 
     *   **KRITIK**: Fehlende Trend-Indikatoren (+/- % zum Vormonat) und "Health-Ampeln".
@@ -46,6 +47,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **OPTIMIERUNG**: Klick auf "Hohes Risiko" filtert sofort die Risikoliste (Modulübergreifender Link).
 
 *   **Step 1.4: Smart Governance Insights (KI)**
+    *   *Code*: `src/ai/flows/iam-audit-flow.ts`
     *   *Status*: KI-Warnungen vorhanden.
     *   *Consultant Audit*: Zu generisch. 
     *   **KRITIK**: Die KI weiß nicht, was im Jira passiert.
@@ -55,32 +57,60 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 *Der Kern der digitalen Identität.*
 
 *   **Step 2.1: Benutzerverzeichnis**
+    *   *Code*: `src/app/(dashboard)/users/page.tsx`
     *   *Status*: Tabelle & Cards vorhanden.
     *   *Consultant Audit*: Woher kommen die Daten? (LDAP-Herkunft muss klarer sein).
     *   **NEUE AUFGABE**: "Inkonsistenz-Flag" einführen. Wenn ein Nutzer im AD deaktiviert ist, aber im Hub noch als "Aktiv" steht, muss ein Azubi das sofort sehen.
 
 *   **Step 2.2: Einzelzuweisungen & Quick Assign**
+    *   *Code*: `src/app/(dashboard)/assignments/page.tsx`
     *   *Status*: Manuelle Vergabe möglich.
     *   *Consultant Audit*: Ein Azubi könnte kritische Rechte versehentlich vergeben.
     *   **KRITIK**: Fehlende Kopplung zum Risiko-Modul. 
     *   **NEUE AUFGABE**: "Real-time Risk Check". Vor dem Speichern einer Zuweisung prüft das System: "Hat die Rolle 'Admin' im Risikomanagement ein hohes Score?". Falls ja: Warnung anzeigen.
 
 *   **Step 2.3: Access Reviews (Rezertifizierung)**
+    *   *Code*: `src/app/(dashboard)/reviews/page.tsx`
     *   *Status*: Workflow vorhanden.
     *   *Consultant Audit*: "Review-Fatigue". Manager klicken alles schnell durch.
     *   **NEUE AUFGABE**: "Smart Pre-Selection". Die KI markiert unkritische Standard-Rechte vorab als "Ok", damit sich der Mensch auf die 5% gefährlichen Ausnahmen konzentriert.
 
 *   **Step 2.4: KI-Access-Advisor**
+    *   *Code*: `src/ai/flows/access-advisor-flow.ts`
     *   *Status*: Flow vorhanden.
     *   *Consultant Audit*: Der Advisor ist isoliert.
     *   **NEUE AUFGABE**: "Peer-Analytik". Der Advisor muss sagen können: "Andere Mitarbeiter in der Abteilung 'Marketing' haben dieses Recht nicht - eventuell Überprivilegierung?".
 
 ### 3. Risikomanagement & GRC
-*Die strategische Absicherung.*
+*Die strategische Absicherung des Unternehmens.*
 
-*   **Step 3.1: Risikoinventar**
-    *   *Status*: Implementiert.
-    *   *Consultant Audit*: Folgt noch in der nächsten Phase...
+*   **Step 3.1: Risikoinventar & Szenarien**
+    *   *Code*: `src/app/(dashboard)/risks/page.tsx`
+    *   *Status*: Implementiert mit Brutto/Netto-Logik.
+    *   *Consultant Audit*: Ein Azubi versteht "Eintrittswahrscheinlichkeit 3" nicht.
+    *   **KRITIK**: Zu mathematisch, zu wenig deskriptiv. Keine Verbindung zum ProcessHub.
+    *   **NEUE AUFGABE**: "Szenario-Translator". Die KI übersetzt Scores in Alltagssprache. Integration eines "Link to Process" Buttons, um zu sehen, in welchem Arbeitsablauf das Risiko schlummert.
+
+*   **Step 3.2: Gefährdungskatalog (BSI/ISO)**
+    *   *Code*: `src/app/(dashboard)/risks/catalog/page.tsx`
+    *   *Status*: Browser für G-Codes vorhanden.
+    *   *Consultant Audit*: Ein Junior weiß nicht, welcher BSI-Code für welches Asset relevant ist.
+    *   **KRITIK**: Der Katalog ist ein passives Nachschlagewerk statt ein aktiver Helfer.
+    *   **NEUE AUFGABE**: "Smart Derive". Basierend auf dem Asset-Typ (z.B. "SaaS") schlägt das System automatisch die Top-5 Gefährdungen aus dem Katalog vor.
+
+*   **Step 3.3: Maßnahmenplan (TOM)**
+    *   *Code*: `src/app/(dashboard)/risks/measures/page.tsx`
+    *   *Status*: CRUD für Maßnahmen.
+    *   *Consultant Audit*: Ein Wirtschaftsprüfer wird nach Beweisen fragen.
+    *   **KRITIK**: "Wirksamkeit: Ja" ist eine unbelegte Behauptung.
+    *   **NEUE AUFGABE**: "Evidence-Upload Placeholder". Jede wirksame Maßnahme braucht ein Feld für einen Dateiupload oder einen URL-Link zum Nachweis (Audit-Proofing).
+
+*   **Step 3.4: Heatmap & Reporting**
+    *   *Code*: `src/app/(dashboard)/risks/reports/page.tsx`
+    *   *Status*: Interaktive Matrix vorhanden.
+    *   *Consultant Audit*: Schön anzusehen, aber keine Handlungsempfehlung.
+    *   **KRITIK**: Die Matrix zeigt das Elend, aber nicht den Ausweg.
+    *   **NEUE AUFGABE**: "Top-3 Mitigation Focus". Automatische Liste der drei Maßnahmen, die den Gesamt-Risk-Score der Firma am effektivsten senken würden.
 
 ---
-*(Fortsetzung folgt in den nächsten Audit-Schritten...)*
+*(Fortsetzung folgt mit Step 4: ProcessHub & Dokumentation...)*
