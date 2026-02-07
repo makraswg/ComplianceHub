@@ -80,12 +80,11 @@ import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '@/context/settings-context';
-import { saveCollectionRecord, deleteCollectionRecord, promoteUserToAdminAction } from '@/app/actions/mysql-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { exportUsersExcel } from '@/lib/export-utils';
-import { Card, CardContent } from '@/components/ui/card';
 
 export default function UsersPage() {
   const db = useFirestore();
@@ -96,7 +95,6 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
-  const [isPromoting, setIsPromoting] = useState(false);
   
   const [isDialogOpen, setIsAddOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
@@ -127,6 +125,7 @@ export default function UsersPage() {
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<any>('assignments');
   const { data: auditLogs, refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
+  const { data: departments } = usePluggableCollection<any>('departments');
 
   useEffect(() => {
     setMounted(true);
@@ -137,6 +136,20 @@ export default function UsersPage() {
     const tenant = tenants?.find(t => t.id === id);
     return tenant ? tenant.slug : id;
   };
+
+  const filteredDepartments = useMemo(() => {
+    if (!departments || !tenantId) return [];
+    return departments.filter(d => d.tenantId === tenantId && d.status !== 'archived');
+  }, [departments, tenantId]);
+
+  const filteredJobTitles = useMemo(() => {
+    if (!jobTitles || !tenantId) return [];
+    return jobTitles.filter(j => 
+      j.tenantId === tenantId && 
+      j.status !== 'archived' && 
+      (!department || j.departmentId === departments?.find(d => d.name === department)?.id)
+    );
+  }, [jobTitles, tenantId, department, departments]);
 
   const handleSaveUser = async () => {
     if (!displayName || !email || !tenantId) {
@@ -293,44 +306,44 @@ export default function UsersPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wider">IAM Directory</Badge>
+          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">IAM Directory</Badge>
           <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Benutzerverzeichnis</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Verwaltung der Identitäten für {activeTenantId === 'all' ? 'alle Standorte' : getTenantSlug(activeTenantId)}.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-[9px] px-4 border-slate-200" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200" onClick={() => exportUsersExcel(filteredUsers, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel
           </Button>
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-[9px] px-4 border-slate-200 text-blue-600" onClick={handleLdapSync} disabled={isSyncing}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 text-blue-600" onClick={handleLdapSync} disabled={isSyncing}>
             {isSyncing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />} LDAP Sync
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-[10px] px-6 bg-primary hover:bg-primary/90 text-white shadow-sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-sm" onClick={() => { resetForm(); setIsAddOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Benutzer anlegen
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 bg-white dark:bg-slate-900 p-3 rounded-lg border shadow-sm">
         <div className="relative lg:col-span-6">
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
             <Input 
               placeholder="Name oder E-Mail suchen..." 
-              className="pl-9 h-10 rounded-md border-slate-200 bg-slate-50 focus:bg-white transition-all shadow-none"
+              className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
         </div>
         <div className="lg:col-span-3">
-          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
+          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9">
             {['all', 'active', 'disabled'].map(f => (
               <button 
                 key={f} 
                 className={cn(
-                  "flex-1 h-8 text-[9px] font-black rounded-sm transition-all",
+                  "flex-1 h-full text-[9px] font-bold rounded-sm transition-all",
                   activeStatusFilter === f ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                 )}
                 onClick={() => setActiveStatusFilter(f as any)}
@@ -341,12 +354,12 @@ export default function UsersPage() {
           </div>
         </div>
         <div className="lg:col-span-3">
-          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
+          <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200 h-9">
             {['all', 'ad', 'manual'].map(f => (
               <button 
                 key={f} 
                 className={cn(
-                  "flex-1 h-8 text-[9px] font-black rounded-sm transition-all",
+                  "flex-1 h-full text-[9px] font-bold rounded-sm transition-all",
                   activeSourceFilter === f ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
                 )}
                 onClick={() => setActiveSourceFilter(f as any)}
@@ -363,16 +376,16 @@ export default function UsersPage() {
           {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-md" />)}
         </div>
       ) : (
-        <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm overflow-hidden">
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[9px] text-slate-400">Identität</TableHead>
-                <TableHead className="font-bold text-[9px] text-slate-400">Mandant</TableHead>
-                <TableHead className="font-bold text-[9px] text-slate-400">Abteilung / Stelle</TableHead>
-                <TableHead className="font-bold text-[9px] text-slate-400">Rollen</TableHead>
-                <TableHead className="font-bold text-[9px] text-slate-400">Status</TableHead>
-                <TableHead className="text-right px-6 font-bold text-[9px] text-slate-400">Aktionen</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Abteilung / Stelle</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Rollen</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
+                <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -385,14 +398,14 @@ export default function UsersPage() {
                   <TableRow key={user.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-black text-xs">
+                        <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-primary font-bold text-xs">
                           {user.displayName?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-xs text-slate-800 cursor-pointer hover:text-primary transition-colors" onClick={() => { setSelectedUser(user); setIsDetailOpen(true); }}>
+                          <div className="font-bold text-sm text-slate-800 cursor-pointer hover:text-primary transition-colors" onClick={() => { setSelectedUser(user); setIsDetailOpen(true); }}>
                             {user.displayName}
                           </div>
-                          <div className="text-[9px] text-slate-400 font-medium">{user.email}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{user.email}</div>
                         </div>
                       </div>
                     </TableCell>
@@ -404,17 +417,17 @@ export default function UsersPage() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold text-slate-600">{user.department || '—'}</span>
-                        <span className="text-[8px] font-medium text-slate-400 italic">{user.title || 'Keine Stelle zugewiesen'}</span>
+                        <span className="text-[9px] font-medium text-slate-400 italic">{user.title || 'Keine Stelle zugewiesen'}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-black text-xs text-slate-800">{userAssignments.length}</span>
-                        {isAd && <Badge className="bg-blue-50 text-blue-600 border-none rounded-full text-[7px] font-black h-4 px-1.5">AD</Badge>}
+                        <span className="font-bold text-xs text-slate-800">{userAssignments.length}</span>
+                        {isAd && <Badge className="bg-blue-50 text-blue-600 border-none rounded-full text-[7px] font-bold h-4 px-1.5">AD</Badge>}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={cn("text-[8px] font-black rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
+                      <Badge variant="outline" className={cn("text-[8px] font-bold rounded-full border-none px-2 h-5", isEnabled ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600")}>
                         {isEnabled ? "Aktiv" : "Inaktiv"}
                       </Badge>
                     </TableCell>
@@ -423,7 +436,7 @@ export default function UsersPage() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className="h-8 rounded-md text-[9px] font-black gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
+                          className="h-8 rounded-md text-[9px] font-bold gap-1.5 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 hover:text-emerald-600 transition-all active:scale-95"
                           onClick={() => { setSelectedUser(user); setQaResourceId(''); setQaEntitlementId(''); setIsQuickAssignOpen(true); }}
                         >
                           <UserPlus className="w-3.5 h-3.5" /> Zuweisen
@@ -462,51 +475,59 @@ export default function UsersPage() {
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
               <div className="space-y-1.5">
-                <Label className="text-[9px] font-black text-slate-400 ml-1">Anzeigename</Label>
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">Anzeigename</Label>
                 <Input value={displayName} onChange={e => setDisplayName(e.target.value)} className="rounded-md h-11 border-slate-200 bg-slate-50/50" placeholder="Max Mustermann" />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[9px] font-black text-slate-400 ml-1">E-Mail</Label>
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">E-Mail</Label>
                 <Input value={email} onChange={e => setEmail(e.target.value)} className="rounded-md h-11 border-slate-200 bg-slate-50/50" placeholder="name@firma.de" />
               </div>
               
               <div className="space-y-1.5">
-                <Label className="text-[9px] font-black text-slate-400 ml-1">Zugeordnete Stelle (Badge)</Label>
-                <Select value={userTitle} onValueChange={setUserTitle}>
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">Mandant</Label>
+                <Select value={tenantId} onValueChange={setTenantId}>
                   <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
-                    <SelectValue placeholder="Stelle wählen..." />
+                    <SelectValue placeholder="Wählen..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Keine spezifische Stelle</SelectItem>
-                    {jobTitles?.filter(j => j.tenantId === tenantId).map((j: any) => (
-                      <SelectItem key={j.id} value={j.name}>{j.name}</SelectItem>
+                  <SelectContent className="rounded-md">
+                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">Abteilung</Label>
+                <Select value={department} onValueChange={setDepartment} disabled={!tenantId}>
+                  <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
+                    <SelectValue placeholder={tenantId ? "Abteilung wählen..." : "Zuerst Mandant wählen"} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-md">
+                    {filteredDepartments.map((d: any) => (
+                      <SelectItem key={d.id} value={d.name} className="text-xs">{d.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black text-slate-400 ml-1">Abteilung</Label>
-                  <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-md h-11 border-slate-200 bg-slate-50/50" placeholder="IT" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[9px] font-black text-slate-400 ml-1">Mandant</Label>
-                  <Select value={tenantId} onValueChange={setTenantId}>
-                    <SelectTrigger className="rounded-md h-11 border-slate-200 bg-slate-50/50">
-                      <SelectValue placeholder="Wählen..." />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-md">
-                      {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id} className="text-xs">{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">Zugeordnete Stelle (Badge)</Label>
+                <Select value={userTitle} onValueChange={setUserTitle} disabled={!tenantId}>
+                  <SelectTrigger className="h-11 rounded-md border-slate-200 bg-slate-50/50">
+                    <SelectValue placeholder={tenantId ? "Stelle wählen..." : "Zuerst Mandant wählen"} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-md">
+                    <SelectItem value="none" className="text-xs">Keine spezifische Stelle</SelectItem>
+                    {filteredJobTitles.map((j: any) => (
+                      <SelectItem key={j.id} value={j.name} className="text-xs">{j.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto rounded-md font-black text-[9px] px-6">Abbrechen</Button>
-            <Button size="sm" onClick={handleSaveUser} className="w-full sm:w-auto rounded-md font-black text-[10px] px-8 h-11 shadow-sm bg-primary text-white">
+            <Button variant="ghost" size="sm" onClick={() => setIsAddOpen(false)} className="w-full sm:w-auto rounded-md font-bold text-[10px] px-6">Abbrechen</Button>
+            <Button size="sm" onClick={handleSaveUser} className="w-full sm:w-auto rounded-md font-bold text-[11px] px-8 h-11 shadow-sm bg-primary text-white">
               Speichern
             </Button>
           </DialogFooter>
@@ -523,7 +544,7 @@ export default function UsersPage() {
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-6">
               <div className="space-y-1.5">
-                <Label className="text-[9px] font-black text-slate-400 ml-1">1. System auswählen</Label>
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">1. System auswählen</Label>
                 <Select value={qaResourceId} onValueChange={(val) => { setQaResourceId(val); setQaEntitlementId(''); }}>
                   <SelectTrigger className="rounded-md h-11 border-slate-200">
                     <SelectValue placeholder="System wählen..." />
@@ -542,7 +563,7 @@ export default function UsersPage() {
 
               {qaResourceId && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                  <Label className="text-[9px] font-black text-slate-400 ml-1">2. Rolle wählen</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1">2. Rolle wählen</Label>
                   <Select value={qaEntitlementId} onValueChange={setQaEntitlementId}>
                     <SelectTrigger className="rounded-md h-11 border-slate-200">
                       <SelectValue placeholder="Rolle wählen..." />
@@ -564,14 +585,14 @@ export default function UsersPage() {
               )}
 
               <div className="space-y-1.5">
-                <Label className="text-[9px] font-black text-slate-400 ml-1">Gültig bis (Optional)</Label>
+                <Label className="text-[10px] font-bold text-slate-400 ml-1">Gültig bis (Optional)</Label>
                 <Input type="date" value={qaValidUntil} onChange={e => setQaValidUntil(e.target.value)} className="rounded-md h-11 border-slate-200" />
               </div>
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setIsQuickAssignOpen(false)} className="w-full sm:w-auto rounded-md font-black text-[9px] px-6">Abbrechen</Button>
-            <Button size="sm" onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="w-full sm:w-auto rounded-md font-black text-[10px] px-8 h-11 bg-primary text-white shadow-sm">
+            <Button variant="ghost" size="sm" onClick={() => setIsQuickAssignOpen(false)} className="w-full sm:w-auto rounded-md font-bold text-[10px] px-6">Abbrechen</Button>
+            <Button size="sm" onClick={handleQuickAssign} disabled={!qaEntitlementId || isSavingAssignment} className="w-full sm:w-auto rounded-md font-bold text-[11px] px-8 h-11 bg-primary text-white shadow-sm">
               {isSavingAssignment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Zuweisen'}
             </Button>
           </DialogFooter>
@@ -583,12 +604,12 @@ export default function UsersPage() {
         <DialogContent className="max-w-3xl w-[95vw] h-[85vh] flex flex-col p-0 rounded-xl overflow-hidden bg-white border-none shadow-2xl">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center text-primary font-black text-xl shadow-lg">
+              <div className="w-12 h-12 bg-primary/20 rounded-lg flex items-center justify-center text-primary font-bold text-xl shadow-lg">
                 {selectedUser?.displayName?.charAt(0)}
               </div>
               <div className="flex-1 min-w-0">
                 <DialogTitle className="text-xl font-headline font-bold truncate">{selectedUser?.displayName}</DialogTitle>
-                <div className="flex flex-wrap items-center gap-3 text-[9px] text-slate-400 font-bold uppercase mt-1">
+                <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400 font-bold mt-1">
                   <span className="flex items-center gap-1.5"><Mail className="w-3 h-3" /> {selectedUser?.email}</span>
                   <span className="w-1 h-1 bg-slate-700 rounded-full" />
                   <span className="flex items-center gap-1.5"><Building2 className="w-3 h-3" /> {getTenantSlug(selectedUser?.tenantId)}</span>
@@ -605,10 +626,10 @@ export default function UsersPage() {
           <Tabs defaultValue="access" className="flex-1 flex flex-col min-h-0">
             <div className="px-6 border-b shrink-0">
               <TabsList className="h-10 bg-transparent gap-6 p-0">
-                <TabsTrigger value="access" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[9px] font-black uppercase">
+                <TabsTrigger value="access" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-bold">
                   <ShieldCheck className="w-3.5 h-3.5" /> Zugriffe
                 </TabsTrigger>
-                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[9px] font-black uppercase">
+                <TabsTrigger value="history" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-bold">
                   <History className="w-3.5 h-3.5" /> Verlauf
                 </TabsTrigger>
               </TabsList>
@@ -627,7 +648,7 @@ export default function UsersPage() {
                           </div>
                           <div className="min-w-0">
                             <p className="font-bold text-xs text-slate-800 truncate">{res?.name}</p>
-                            <p className="text-[8px] font-black text-slate-400 uppercase truncate">{ent?.name}</p>
+                            <p className="text-[10px] font-bold text-slate-400 truncate">{ent?.name}</p>
                           </div>
                         </div>
                       </div>
@@ -636,7 +657,7 @@ export default function UsersPage() {
                   {assignments?.filter(a => a.userId === selectedUser?.id && a.status === 'active').length === 0 && (
                     <div className="col-span-full py-10 text-center space-y-2 opacity-20">
                       <Shield className="w-8 h-8 mx-auto" />
-                      <p className="text-[9px] font-black uppercase">Keine aktiven Rollen</p>
+                      <p className="text-[10px] font-bold">Keine aktiven Rollen</p>
                     </div>
                   )}
                 </TabsContent>
@@ -645,9 +666,9 @@ export default function UsersPage() {
                     {auditLogs?.filter(log => log.entityId === selectedUser?.id || (log.entityType === 'user' && log.entityId === selectedUser?.id)).map((log, i) => (
                       <div key={log.id} className="relative pl-6 pb-6 border-l last:border-0 last:pb-0">
                         <div className="absolute left-[-5px] top-0 w-2.5 h-2.5 rounded-full bg-primary" />
-                        <div className="text-[8px] font-black uppercase text-slate-400 mb-0.5">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>
+                        <div className="text-[9px] font-bold text-slate-400 mb-0.5">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '—'}</div>
                         <p className="text-xs font-bold text-slate-800">{log.action}</p>
-                        <p className="text-[8px] font-medium text-slate-500 uppercase">Akteur: {log.actorUid}</p>
+                        <p className="text-[10px] font-medium text-slate-500">Akteur: {log.actorUid}</p>
                       </div>
                     ))}
                   </div>
@@ -656,7 +677,7 @@ export default function UsersPage() {
             </ScrollArea>
           </Tabs>
           <div className="p-4 border-t bg-slate-50 flex justify-end shrink-0">
-            <Button size="sm" onClick={() => setIsDetailOpen(false)} className="w-full sm:w-auto rounded-md h-9 px-8 font-black text-[9px] shadow-sm">Schließen</Button>
+            <Button size="sm" onClick={() => setIsDetailOpen(false)} className="w-full sm:w-auto rounded-md h-9 px-8 font-bold text-[11px] shadow-sm">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -670,8 +691,8 @@ export default function UsersPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 flex flex-col-reverse sm:flex-row gap-2">
-            <AlertDialogCancel className="w-full sm:w-auto rounded-md font-bold text-[9px] h-10 px-6">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 rounded-md font-black text-[9px] h-10 px-8 text-white">Löschen</AlertDialogAction>
+            <AlertDialogCancel className="w-full sm:w-auto rounded-md font-bold text-[11px] h-10 px-6">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 rounded-md font-bold text-[11px] h-10 px-8 text-white">Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
