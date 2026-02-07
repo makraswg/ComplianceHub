@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -589,7 +590,7 @@ export default function ResourcesPage() {
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setSelectedEnt(e); setEntName(e.name); setEntDesc(e.description); setEntRisk(e.riskLevel as any); setEntIsAdmin(!!e.isAdmin); setEntMapping(e.externalMapping || ''); setIsEntDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => { setSelectedEnt(e); setEntName(e.name); setEntDesc(e.description || ''); setEntRisk(e.riskLevel as any || 'low'); setEntIsAdmin(!!e.isAdmin); setEntMapping(e.externalMapping || ''); setIsEntDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => { if(confirm("Rolle permanent löschen?")) {
                       deleteCollectionRecord('entitlements', e.id, dataSource).then(() => {
                         logAuditEventAction(dataSource, {
@@ -619,61 +620,81 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Role Edit Dialog */}
+      {/* Role Edit Dialog - Unified with Roles Management */}
       <Dialog open={isEntDialogOpen} onOpenChange={setIsEntDialogOpen}>
-        <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center justify-between w-full pr-8">
+        <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
+            <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-emerald-500/10 rounded-lg flex items-center justify-center text-emerald-600">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />
                 </div>
-                <DialogTitle className="text-base font-bold">{selectedEnt ? 'Rolle bearbeiten' : 'Neue Rolle'}</DialogTitle>
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                    {selectedEnt ? 'Rolle bearbeiten' : 'Neue Rolle definieren'}
+                  </DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5">Berechtigungsumfang & System-Mapping</DialogDescription>
+                </div>
               </div>
               <AiFormAssistant 
                 formType="gdpr" 
-                currentData={{ name: entName, description: entDesc, riskLevel: entRisk }} 
+                currentData={{ name: entName, description: entDesc, riskLevel: entRisk, isAdmin: entIsAdmin }} 
                 onApply={applyAiSuggestionsEnt} 
               />
             </div>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[70vh]">
             <div className="p-6 space-y-6">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung</Label>
-                <Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-md h-11 border-slate-200 text-sm font-bold" />
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung der Rolle</Label>
+                <Input value={entName} onChange={e => setEntName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800 font-bold text-sm" placeholder="z.B. IT-Admin, Buchhalter..." />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Risiko-Level</Label>
-                <Select value={entRisk} onValueChange={(v:any) => setEntRisk(v)}>
-                  <SelectTrigger className="rounded-md h-11 border-slate-200 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-md">
-                    <SelectItem value="low" className="text-xs">Niedrig (Low)</SelectItem>
-                    <SelectItem value="medium" className="text-xs">Mittel (Medium)</SelectItem>
-                    <SelectItem value="high" className="text-xs">Hoch (High)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-bold">Privilegierte Rolle</Label>
-                  <p className="text-[10px] text-slate-400 font-medium">Administrator oder kritischer Zugriff.</p>
+              
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Zugehöriges System (Ressource)</Label>
+                <div className="p-3 border rounded-md bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5" /> {selectedResource?.name}
                 </div>
-                <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Beschreibung</Label>
-                <Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} className="rounded-md h-24 text-xs" />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Risiko-Level</Label>
+                  <Select value={entRisk} onValueChange={(v: any) => setEntRisk(v)}>
+                    <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low" className="text-xs">Niedrig (Low)</SelectItem>
+                      <SelectItem value="medium" className="text-xs">Mittel (Medium)</SelectItem>
+                      <SelectItem value="high" className="text-xs">Hoch (High)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 flex flex-col justify-end">
+                  <div className="flex items-center justify-between p-3 border rounded-md bg-slate-50 dark:bg-slate-900 h-11">
+                    <Label className="text-[10px] font-bold text-slate-500">Admin-Recht</Label>
+                    <Switch checked={entIsAdmin} onCheckedChange={setEntIsAdmin} />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] font-bold text-slate-400 ml-1">Technisches Mapping (ID)</Label>
-                <Input value={entMapping} onChange={e => setEntMapping(e.target.value)} className="rounded-md h-11 border-slate-200 font-mono text-xs" placeholder="role_admin_prod" />
+
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Beschreibung / Berechtigungsumfang</Label>
+                <Textarea value={entDesc} onChange={e => setEntDesc(e.target.value)} className="min-h-[100px] rounded-lg border-slate-200 dark:border-slate-800 text-xs leading-relaxed" placeholder="Was darf dieser Nutzer im System?" />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Technisches Mapping (External ID)</Label>
+                <Input value={entMapping} onChange={e => setEntMapping(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800 font-mono text-xs" placeholder="role_admin_prod" />
               </div>
             </div>
           </ScrollArea>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsEntDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleSaveEnt} disabled={isSaving || !entName} className="rounded-md h-10 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px]">Rolle speichern</Button>
+            <Button onClick={handleSaveEnt} disabled={isSaving || !entName} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Rolle speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

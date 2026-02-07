@@ -25,7 +25,8 @@ import {
   Info,
   Building2,
   Save,
-  ChevronRight
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -54,6 +55,7 @@ import { toast } from '@/hooks/use-toast';
 import { Entitlement, Resource, Tenant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 export default function RolesManagementPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -122,6 +124,13 @@ export default function RolesManagementPage() {
     setIsAdmin(!!role.isAdmin);
     setExternalMapping(role.externalMapping || '');
     setIsDialogOpen(true);
+  };
+
+  const applyAiSuggestions = (s: any) => {
+    if (s.name) setName(s.name);
+    if (s.description) setDescription(s.description);
+    if (s.riskLevel) setRiskLevel(s.riskLevel as any);
+    toast({ title: "KI-Vorschläge übernommen" });
   };
 
   const filteredRoles = useMemo(() => {
@@ -215,7 +224,7 @@ export default function RolesManagementPage() {
                     </TableCell>
                     <TableCell>
                       {role.isAdmin ? (
-                        <Badge className="bg-red-600 text-white rounded-full text-[7px] font-black h-4 px-1.5">ADMIN</Badge>
+                        <Badge className="bg-red-600 text-white rounded-full text-[7px] font-black h-4 px-1.5">Admin</Badge>
                       ) : (
                         <Badge variant="outline" className="text-[7px] font-bold text-slate-400 h-4 px-1.5">Standard</Badge>
                       )}
@@ -241,31 +250,41 @@ export default function RolesManagementPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                <Shield className="w-5 h-5" />
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                    {selectedRole ? 'Rolle bearbeiten' : 'Neue Rolle definieren'}
+                  </DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5">Berechtigungsumfang & System-Mapping</DialogDescription>
+                </div>
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                {selectedRole ? 'Rolle bearbeiten' : 'Neue Rolle definieren'}
-              </DialogTitle>
+              <AiFormAssistant 
+                formType="gdpr" 
+                currentData={{ name, description, riskLevel, isAdmin }} 
+                onApply={applyAiSuggestions} 
+              />
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             <div className="p-6 space-y-6">
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Bezeichnung der Rolle</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800" placeholder="z.B. IT-Admin, Buchhalter..." />
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Bezeichnung der Rolle</Label>
+                <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800 font-bold text-sm" placeholder="z.B. IT-Admin, Buchhalter..." />
               </div>
               
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Zugehöriges System (Ressource)</Label>
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Zugehöriges System (Ressource)</Label>
                 <Select value={resourceId} onValueChange={setResourceId}>
-                  <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800">
+                  <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800 text-xs">
                     <SelectValue placeholder="System wählen..." />
                   </SelectTrigger>
                   <SelectContent>
                     {resources?.map(res => (
-                      <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
+                      <SelectItem key={res.id} value={res.id} className="text-xs">{res.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -273,15 +292,15 @@ export default function RolesManagementPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">Risiko-Level</Label>
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Risiko-Level</Label>
                   <Select value={riskLevel} onValueChange={(v: any) => setRiskLevel(v)}>
-                    <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800">
+                    <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="low">Niedrig (Low)</SelectItem>
-                      <SelectItem value="medium">Mittel (Medium)</SelectItem>
-                      <SelectItem value="high">Hoch (High)</SelectItem>
+                      <SelectItem value="low" className="text-xs">Niedrig (Low)</SelectItem>
+                      <SelectItem value="medium" className="text-xs">Mittel (Medium)</SelectItem>
+                      <SelectItem value="high" className="text-xs">Hoch (High)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -294,12 +313,12 @@ export default function RolesManagementPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Beschreibung / Berechtigungsumfang</Label>
-                <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[100px] rounded-lg border-slate-200 dark:border-slate-800 text-xs" placeholder="Was darf dieser Nutzer im System?" />
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Beschreibung / Berechtigungsumfang</Label>
+                <Textarea value={description} onChange={e => setDescription(e.target.value)} className="min-h-[100px] rounded-lg border-slate-200 dark:border-slate-800 text-xs leading-relaxed" placeholder="Was darf dieser Nutzer im System?" />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Technisches Mapping (External ID)</Label>
+                <Label className="text-[11px] font-bold text-slate-400 ml-1">Technisches Mapping (External ID)</Label>
                 <Input value={externalMapping} onChange={e => setExternalMapping(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800 font-mono text-xs" placeholder="role_admin_prod" />
               </div>
             </div>
