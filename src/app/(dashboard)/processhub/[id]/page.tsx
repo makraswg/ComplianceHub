@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -21,7 +22,6 @@ import {
   ChevronUp,
   ChevronDown,
   ClipboardList,
-  FileCode,
   FilePen,
   ArrowRight,
   CheckCircle,
@@ -38,7 +38,8 @@ import {
   Plus,
   ArrowRightCircle,
   Link2,
-  Share2
+  Share2,
+  ArrowLeftCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -353,10 +354,13 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const handleAddEdge = async (targetId: string) => {
+  const handleAddEdge = async (targetId: string, direction: 'forward' | 'backward' = 'forward') => {
     if (!selectedNodeId || !targetId || targetId === 'none') return;
     const edgeId = `edge-${Date.now()}`;
-    const ops = [{ type: 'ADD_EDGE', payload: { edge: { id: edgeId, source: selectedNodeId, target: targetId } } }];
+    const source = direction === 'forward' ? selectedNodeId : targetId;
+    const target = direction === 'forward' ? targetId : selectedNodeId;
+    
+    const ops = [{ type: 'ADD_EDGE', payload: { edge: { id: edgeId, source, target } } }];
     await handleApplyOps(ops);
   };
 
@@ -768,8 +772,8 @@ export default function ProcessDesignerPage() {
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="logic" className="mt-0 space-y-8">
-                  <div className="space-y-6">
+                <TabsContent value="logic" className="mt-0 space-y-10">
+                  <div className="space-y-8">
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2">
                         <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte
@@ -790,7 +794,7 @@ export default function ProcessDesignerPage() {
                           );
                         })}
                         <div className="flex items-center gap-2 pt-2">
-                          <Select onValueChange={handleAddEdge}>
+                          <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
                             <SelectTrigger className="h-10 text-xs rounded-xl border-dashed">
                               <SelectValue placeholder="Neuen Nachfolger verknüpfen..." />
                             </SelectTrigger>
@@ -804,22 +808,41 @@ export default function ProcessDesignerPage() {
                         </div>
                       </div>
                     </div>
+                    
                     <Separator className="bg-slate-100" />
+                    
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2">
-                        <ArrowRightCircle className="w-4 h-4 rotate-180" /> Vorhergehende Schritte
+                        <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte
                       </h4>
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-2">
                         {incomingEdges.map((edge: ProcessEdge) => {
                           const sourceNode = currentVersion?.model_json?.nodes?.find((n: any) => n.id === edge.source);
                           return (
-                            <div key={edge.id} className="flex items-center gap-3 p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed opacity-60">
-                              <Link2 className="w-3.5 h-3.5 text-slate-300" />
-                              <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
+                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed">
+                              <div className="flex items-center gap-3">
+                                <Link2 className="w-3.5 h-3.5 text-slate-300" />
+                                <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => handleRemoveEdge(edge.id)}>
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
                             </div>
                           );
                         })}
-                        {incomingEdges.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Kein direkter Vorgänger definiert</p>}
+                        <div className="flex items-center gap-2 pt-2">
+                          <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
+                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed">
+                              <SelectValue placeholder="Neuen Vorgänger verknüpfen..." />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none" disabled>Schritt wählen...</SelectItem>
+                              {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId && !incomingEdges.some((e: any) => e.source === n.id)).map((n: any) => (
+                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                   </div>
