@@ -9,7 +9,9 @@ import {
   Loader2, 
   Database,
   FileJson,
-  ChevronDown
+  ChevronDown,
+  Info,
+  Filter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +33,7 @@ import {
 } from "@/components/ui/accordion";
 import { Hazard, HazardModule, Catalog } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export default function CatalogBrowserPage() {
   const router = useRouter();
@@ -51,7 +54,6 @@ export default function CatalogBrowserPage() {
       return matchesSearch && matchesModule;
     });
 
-    // Numerische Sortierung für G x.y Codes (verhindert 1, 10, 11, 2...)
     return filtered.sort((a, b) => {
       const regex = /G\s+(\d+)\.(\d+)/i;
       const matchA = a.code.match(regex);
@@ -66,8 +68,6 @@ export default function CatalogBrowserPage() {
         if (majorA !== majorB) return majorA - majorB;
         return minorA - minorB;
       }
-      
-      // Fallback auf natürliche Sortierung falls Regex nicht greift
       return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [hazards, search, selectedModuleId]);
@@ -79,96 +79,100 @@ export default function CatalogBrowserPage() {
   }, [modules, selectedCatalogId]);
 
   return (
-    <div className="space-y-8 pb-20 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between border-b pb-6">
+    <div className="space-y-6 pb-20">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-500/10 text-blue-600 flex items-center justify-center border-2 border-blue-500/20">
+          <div className="w-12 h-12 bg-blue-500/10 text-blue-600 flex items-center justify-center rounded-xl border border-blue-500/10 shadow-sm">
             <Library className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight uppercase font-headline">Gefährdungskatalog</h1>
-            <p className="text-sm text-muted-foreground mt-1">Strukturierte Basis für die Risiko-Ableitung nach BSI IT-Grundschutz.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-blue-100 text-blue-700 text-[9px] font-bold border-none uppercase tracking-wider">RiskHub Intelligence</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Gefährdungskatalog</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Basis für die Risiko-Ableitung nach BSI IT-Grundschutz.</p>
           </div>
         </div>
-        <Button variant="outline" className="h-10 font-bold uppercase text-[10px] rounded-none border-primary/20" onClick={() => router.push('/settings?tab=data')}>
-          <Database className="w-4 h-4 mr-2" /> Kataloge Verwalten
+        <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => router.push('/settings/data')}>
+          <Database className="w-3.5 h-3.5 mr-2" /> Kataloge verwalten
         </Button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
           <Input 
-            placeholder="Gefährdung suchen (z.B. Malware, Brand, Backup)..." 
-            className="pl-10 h-11 border-2 bg-white dark:bg-slate-950 rounded-none shadow-none"
+            placeholder="Gefährdung oder Code suchen..." 
+            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex border bg-card h-11 p-1 gap-1">
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
           <Select value={selectedCatalogId} onValueChange={setSelectedCatalogId}>
-            <SelectTrigger className="border-none shadow-none h-full rounded-none bg-transparent min-w-[180px] text-[10px] font-bold uppercase border-r">
-              <SelectValue placeholder="Standard" />
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px] hover:bg-white/50 transition-all">
+              <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Katalog" />
             </SelectTrigger>
-            <SelectContent className="rounded-none">
+            <SelectContent className="rounded-xl">
               <SelectItem value="all">Alle Kataloge</SelectItem>
-              {catalogs?.map(c => <SelectItem key={c.id} value={c.id}>{c.name} {c.version}</SelectItem>)}
+              {catalogs?.map(c => <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 my-auto mx-1" />
           <Select value={selectedModuleId} onValueChange={setSelectedModuleId}>
-            <SelectTrigger className="border-none shadow-none h-full rounded-none bg-transparent min-w-[180px] text-[10px] font-bold uppercase">
-              <SelectValue placeholder="Modul" />
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px] hover:bg-white/50 transition-all">
+              <SelectValue placeholder="Alle Module" />
             </SelectTrigger>
-            <SelectContent className="rounded-none">
+            <SelectContent className="rounded-xl">
               <SelectItem value="all">Alle Module</SelectItem>
-              {currentModules.map(m => <SelectItem key={m.id} value={m.id}>{m.code}: {m.title}</SelectItem>)}
+              {currentModules.map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.code}: {m.title}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      <div className="admin-card overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isHazardsLoading ? (
-          <div className="flex flex-col items-center justify-center py-40 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Lade Gefährdungen...</p>
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600 opacity-20" />
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lade Katalog-Daten...</p>
           </div>
         ) : (
           <Accordion type="single" collapsible className="w-full">
             {filteredHazards.map(h => {
               const mod = modules?.find(m => m.id === h.moduleId);
               return (
-                <AccordionItem key={h.id} value={h.id} className="border-b last:border-0 px-4">
-                  <AccordionTrigger className="hover:no-underline py-4 group">
+                <AccordionItem key={h.id} value={h.id} className="border-b last:border-0 px-4 group">
+                  <AccordionTrigger className="hover:no-underline py-4">
                     <div className="flex items-center gap-4 text-left w-full">
-                      <Badge className="bg-blue-600 text-white rounded-none text-[10px] font-black h-5 px-2 shrink-0">{h.code}</Badge>
-                      <span className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate group-hover:text-primary transition-colors">
+                      <Badge className="bg-blue-600 text-white rounded-md text-[10px] font-black h-5 px-2 shrink-0 shadow-sm">{h.code}</Badge>
+                      <span className="font-bold text-sm text-slate-800 dark:text-slate-200 leading-tight truncate group-hover:text-blue-600 transition-colors">
                         {h.title}
                       </span>
                       <div className="hidden sm:flex items-center gap-2 ml-auto mr-4 shrink-0">
-                        <span className="text-[8px] font-black uppercase text-slate-400 bg-slate-100 px-1.5 py-0.5">Modul: {mod?.code || '---'}</span>
+                        <Badge variant="outline" className="text-[8px] font-bold uppercase text-slate-400 border-slate-100 bg-slate-50 h-4 px-1.5">MOD: {mod?.code || '---'}</Badge>
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-6 pt-2 px-1">
+                  <AccordionContent className="pb-6 pt-2">
                     <div className="space-y-6">
-                      <div className="p-4 bg-slate-50 dark:bg-slate-900 border rounded-none">
-                        <p className="text-xs font-bold uppercase text-muted-foreground mb-2">Beschreibung der Gefährdung</p>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                      <div className="p-5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl relative overflow-hidden group/card shadow-inner">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500 opacity-50" />
+                        <p className="text-[9px] font-black uppercase text-slate-400 mb-2 tracking-widest">Gefährdungsanalyse</p>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium pl-2 italic">
                           {h.description}
                         </p>
                       </div>
                       
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase text-muted-foreground">
-                          <span>Quell-Modul:</span>
-                          <span className="text-slate-900 dark:text-white">{mod?.title}</span>
+                      <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-50">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                          <Info className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Quelle: {mod?.title}</span>
                         </div>
                         <Button 
-                          className="bg-orange-600 hover:bg-orange-700 text-white rounded-none text-[10px] font-black uppercase h-10 px-8 gap-2 shadow-md transition-all active:scale-95"
+                          className="bg-accent hover:bg-accent/90 text-white rounded-xl text-[10px] font-black uppercase h-10 px-8 gap-2 shadow-lg shadow-accent/20 transition-all active:scale-95"
                           onClick={() => router.push(`/risks?derive=${h.id}`)}
                         >
-                          <Plus className="w-4 h-4" /> Als Risiko ableiten
+                          <Plus className="w-4 h-4" /> Risiko ableiten
                         </Button>
                       </div>
                     </div>
@@ -177,9 +181,11 @@ export default function CatalogBrowserPage() {
               );
             })}
             {filteredHazards.length === 0 && (
-              <div className="py-40 text-center space-y-4">
-                <FileJson className="w-12 h-12 text-muted-foreground mx-auto opacity-20" />
-                <p className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Keine Ergebnisse für diese Auswahl.</p>
+              <div className="py-20 text-center space-y-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
+                  <FileJson className="w-8 h-8 text-slate-300" />
+                </div>
+                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Keine Übereinstimmungen gefunden.</p>
               </div>
             )}
           </Accordion>

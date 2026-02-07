@@ -231,7 +231,7 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Risk Engine</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">RiskHub</p>
             {riskItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-accent" />)}
           </div>
 
