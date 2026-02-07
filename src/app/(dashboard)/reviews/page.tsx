@@ -89,7 +89,7 @@ export default function AccessReviewsPage() {
       const resName = res?.name || '';
       const lowerSearch = search.toLowerCase();
       
-      if (!userName.toLowerCase().includes(lowerSearch) && !resName.toLowerCase().includes(lowerSearch)) {
+      if (search && !userName.toLowerCase().includes(lowerSearch) && !resName.toLowerCase().includes(lowerSearch)) {
         return false;
       }
       
@@ -242,7 +242,7 @@ export default function AccessReviewsPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-lg border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
@@ -259,7 +259,7 @@ export default function AccessReviewsPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-xs text-slate-400">Identität</TableHead>
                 <TableHead className="font-bold text-xs text-slate-400">System / Rolle</TableHead>
-                <TableHead className="font-bold text-xs text-slate-400">KI-Check</TableHead>
+                <TableHead className="font-bold text-xs text-slate-400 text-center">KI-Advisor</TableHead>
                 <TableHead className="text-right px-6 font-bold text-xs text-slate-400">Entscheidung</TableHead>
               </TableRow>
             </TableHeader>
@@ -288,13 +288,13 @@ export default function AccessReviewsPage() {
                         <div className={cn("p-1.5 rounded-lg", isAdmin ? "bg-red-50 text-red-600" : "bg-primary/10 text-primary")}>
                           {isAdmin ? <ShieldAlert className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
                         </div>
-                        <div>
-                          <div className="font-bold text-xs text-slate-800">{res?.name}</div>
-                          <div className="text-[10px] text-slate-400 font-bold">{ent?.name}</div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-slate-800 truncate">{res?.name}</div>
+                          <div className="text-[10px] text-slate-400 font-bold truncate">{ent?.name}</div>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -340,8 +340,9 @@ export default function AccessReviewsPage() {
         </div>
       )}
 
+      {/* AI Advisor Dialog */}
       <Dialog open={isAdvisorOpen} onOpenChange={setIsAdvisorOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[80vh]">
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-xl border border-white/10">
@@ -363,7 +364,7 @@ export default function AccessReviewsPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-slate-800">KI evaluiert Zugriffsprofil...</p>
-                  <p className="text-[10px] text-slate-400 font-medium">Abgleich mit Job-Description und Least-Privilege Prinzip.</p>
+                  <p className="text-[10px] text-slate-400 font-medium italic">Abgleich mit Job-Description und Least-Privilege Prinzip.</p>
                 </div>
               </div>
             ) : aiAdvice && (
@@ -445,7 +446,7 @@ export default function AccessReviewsPage() {
                   className="flex-1 sm:flex-none h-10 px-8 rounded-md font-bold text-[10px] bg-primary text-white shadow-lg shadow-primary/20"
                   onClick={() => { handleReview(selectedReviewItem?.assignment?.id, 'certify'); setIsAdvisorOpen(false); }}
                 >
-                  Bestätigen
+                  Zertifizieren
                 </Button>
               </div>
             )}
