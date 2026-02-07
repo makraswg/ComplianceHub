@@ -558,14 +558,14 @@ export default function ProcessDesignerPage() {
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
-            <header className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
+            <header className="p-4 bg-indigo-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-lg border border-white/10">
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shadow-lg border border-white/10">
                   <BrainCircuit className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3>
-                  <p className="text-[8px] text-slate-400 font-bold uppercase">Prozess-Optimierung aktiv</p>
+                  <p className="text-[8px] text-indigo-100 font-bold uppercase">Prozess-Optimierung aktiv</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10 rounded-full" onClick={() => setIsAiAdvisorOpen(false)}>
@@ -577,15 +577,15 @@ export default function ProcessDesignerPage() {
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8" /></div>
-                    <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
+                    <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-indigo-600" /></div>
+                    <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-indigo-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
                   </div>
                 )}
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
                     <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
                       msg.role === 'user' 
-                        ? "bg-slate-800 text-white border-slate-700 rounded-2xl rounded-tr-none" 
+                        ? "bg-indigo-950 text-white border-indigo-900 rounded-2xl rounded-tr-none" 
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
@@ -625,7 +625,7 @@ export default function ProcessDesignerPage() {
                   <div className="flex justify-start">
                     <div className="bg-white border border-indigo-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                      <span className="text-[10px] font-bold text-slate-400 animate-pulse uppercase tracking-widest">Analyse läuft...</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span>
                     </div>
                   </div>
                 )}
@@ -635,7 +635,7 @@ export default function ProcessDesignerPage() {
             <div className="p-4 border-t bg-white shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
               <div className="relative group">
                 <Input placeholder="Anweisung oder Frage..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 focus:bg-white transition-all text-xs font-medium shadow-inner" disabled={isAiLoading} />
-                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-slate-900 hover:bg-black text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
                   <Send className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -646,9 +646,9 @@ export default function ProcessDesignerPage() {
         {!isAiAdvisorOpen && (
           <Button 
             onClick={() => setIsAiAdvisorOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl bg-slate-900 hover:bg-black text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
+            className="w-14 h-14 rounded-full shadow-2xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
           >
-            <BrainCircuit className="w-7 h-7 text-primary transition-transform group-hover:scale-110" />
+            <BrainCircuit className="w-7 h-7 text-white transition-transform group-hover:scale-110" />
           </Button>
         )}
       </div>
