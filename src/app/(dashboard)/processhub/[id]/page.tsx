@@ -345,14 +345,29 @@ export default function ProcessDesignerPage() {
 
   const handleDeleteNode = async () => {
     if (!selectedNodeId || isApplying) return;
-    if (window.confirm("Möchten Sie dieses Prozessmodul und alle zugehörigen Verbindungen wirklich unwiderruflich löschen?")) {
-      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const success = await handleApplyOps(ops);
-      if (success) {
+    const confirmDelete = window.confirm("Möchten Sie dieses Prozessmodul wirklich unwiderruflich löschen?");
+    if (!confirmDelete) return;
+
+    const nodeIdToDelete = selectedNodeId;
+    setIsApplying(true);
+    
+    try {
+      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: nodeIdToDelete } }];
+      const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user?.id || 'system', dataSource);
+      
+      if (res.success) {
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
+        refreshVersion();
+        refreshProc();
         toast({ title: "Modul entfernt" });
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: "Löschen fehlgeschlagen" });
       }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
+    } finally {
+      setIsApplying(false);
     }
   };
 
@@ -638,7 +653,7 @@ export default function ProcessDesignerPage() {
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
                     <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
                       msg.role === 'user' 
-                        ? "bg-slate-800 text-white border-slate-700 rounded-2xl rounded-tr-none" 
+                        ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" 
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
@@ -776,7 +791,6 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
                   <div className="space-y-8">
-                    {/* Vorgänger zuerst anzeigen */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1">
                         <ArrowLeftCircle className="w-4 h-4" /> Vorhergehende Schritte (Vorgänger)
@@ -814,7 +828,6 @@ export default function ProcessDesignerPage() {
                     
                     <Separator className="bg-slate-100" />
                     
-                    {/* Nachfolger danach anzeigen */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1">
                         <ArrowRightCircle className="w-4 h-4" /> Nachfolgende Schritte (Nachfolger)
@@ -886,7 +899,7 @@ export default function ProcessDesignerPage() {
               onClick={handleDeleteNode}
               disabled={isApplying}
             >
-              {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
+              {isApplying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
             </Button>
             <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto" disabled={isApplying}>
               Schließen

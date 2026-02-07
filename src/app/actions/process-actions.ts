@@ -152,7 +152,6 @@ export async function applyProcessOpsAction(
   let model = JSON.parse(JSON.stringify(currentVersion.model_json || { nodes: [], edges: [], roles: [], isoFields: {}, customFields: {} }));
   let layout = JSON.parse(JSON.stringify(currentVersion.layout_json || { positions: {} }));
 
-  // Globale Liste aller IDs im Modell zur Vermeidung von Dubletten
   const usedIds = new Set([
     ...(model.nodes || []).map((n: any) => String(n.id)),
     ...(model.edges || []).map((e: any) => String(e.id))
@@ -161,7 +160,6 @@ export async function applyProcessOpsAction(
   const nodeIdMap: Record<string, string> = {};
   const edgeIdMap: Record<string, string> = {};
 
-  // 1. Pass: Eindeutigkeit prüfen und Mapping erstellen für neue Elemente
   ops.forEach(op => {
     if (op.type === 'ADD_NODE' && op.payload?.node) {
       const originalId = op.payload.node.id;
@@ -183,22 +181,17 @@ export async function applyProcessOpsAction(
     }
   });
 
-  // 2. Pass: Operationen anwenden
   for (const op of ops) {
     switch (op.type) {
       case 'ADD_NODE':
         if (!model.nodes) model.nodes = [];
         if (!op.payload?.node) break;
-        
         const nodeToAdd = { ...op.payload.node };
         if (!nodeToAdd.checklist) nodeToAdd.checklist = [];
         model.nodes.push(nodeToAdd);
-        
         if (!layout.positions[nodeToAdd.id]) {
           const posValues = Object.values(layout.positions);
-          const lastX = posValues.length > 0 
-            ? Math.max(...posValues.map((p: any) => (p as any).x || 0)) 
-            : 50;
+          const lastX = posValues.length > 0 ? Math.max(...posValues.map((p: any) => (p as any).x || 0)) : 50;
           layout.positions[nodeToAdd.id] = { x: lastX + 220, y: 150 };
         }
         break;
@@ -211,14 +204,11 @@ export async function applyProcessOpsAction(
 
       case 'REMOVE_NODE':
         if (!op.payload?.nodeId) break;
-        const targetRemId = nodeIdMap[String(op.payload.nodeId)] || String(op.payload.nodeId);
-        // Filtere den Knoten
-        model.nodes = (model.nodes || []).filter((n: any) => n.id !== targetRemId);
-        // Filtere alle Verbindungen, die diesen Knoten betreffen
+        const targetRemId = String(op.payload.nodeId);
+        model.nodes = (model.nodes || []).filter((n: any) => String(n.id) !== targetRemId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => String(e.source) !== targetRemId && String(e.target) !== targetRemId);
         }
-        // Entferne Position
         if (layout.positions) {
           delete layout.positions[targetRemId];
         }
@@ -227,20 +217,17 @@ export async function applyProcessOpsAction(
       case 'ADD_EDGE':
         if (!model.edges) model.edges = [];
         if (!op.payload?.edge) break;
-        
         const edgeToAdd = { ...op.payload.edge };
         edgeToAdd.source = nodeIdMap[String(edgeToAdd.source)] || String(edgeToAdd.source);
         edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
-        
-        // Verhindere Kanten zu "undefined"
-        if (edgeToAdd.source !== 'undefined' && edgeToAdd.target !== 'undefined' && edgeToAdd.source !== 'null' && edgeToAdd.target !== 'null') {
+        if (edgeToAdd.source !== 'undefined' && edgeToAdd.target !== 'undefined') {
           model.edges.push(edgeToAdd);
         }
         break;
 
       case 'REMOVE_EDGE':
         if (!op.payload?.edgeId) break;
-        const targetRemEId = edgeIdMap[String(op.payload.edgeId)] || String(op.payload.edgeId);
+        const targetRemEId = String(op.payload.edgeId);
         if (model.edges) {
           model.edges = model.edges.filter((e: any) => String(e.id) !== targetRemEId);
         }
@@ -249,29 +236,15 @@ export async function applyProcessOpsAction(
       case 'UPDATE_LAYOUT':
         if (!layout.positions) layout.positions = {};
         if (op.payload?.positions) {
-          const newPos: Record<string, any> = {};
           Object.entries(op.payload.positions).forEach(([id, pos]) => {
-            newPos[nodeIdMap[id] || id] = pos;
+            layout.positions[nodeIdMap[id] || id] = pos;
           });
-          layout.positions = { ...layout.positions, ...newPos };
         }
         break;
 
       case 'SET_ISO_FIELD':
         if (!model.isoFields) model.isoFields = {};
-        if (op.payload?.field) {
-          model.isoFields[op.payload.field] = op.payload.value;
-        }
-        if (op.payload?.isoFields) {
-          model.isoFields = { ...model.isoFields, ...op.payload.isoFields };
-        }
-        break;
-
-      case 'SET_CUSTOM_FIELD':
-        if (!model.customFields) model.customFields = {};
-        if (op.payload?.customFields) {
-          model.customFields = { ...model.customFields, ...op.payload.customFields };
-        }
+        if (op.payload?.field) model.isoFields[op.payload.field] = op.payload.value;
         break;
 
       case 'REORDER_NODES':
@@ -283,17 +256,12 @@ export async function applyProcessOpsAction(
             const node = (model.nodes || []).find((n: any) => String(n.id) === id);
             if (node) newNodes.push(node);
           });
-          (model.nodes || []).forEach((n: any) => {
-            if (!mappedOrderedIds.includes(String(n.id))) newNodes.push(n);
-          });
           model.nodes = newNodes;
         }
         break;
 
       case 'UPDATE_PROCESS_META':
-        if (op.payload) {
-          await updateProcessMetadataAction(processId, op.payload, dataSource);
-        }
+        if (op.payload) await updateProcessMetadataAction(processId, op.payload, dataSource);
         break;
     }
   }
