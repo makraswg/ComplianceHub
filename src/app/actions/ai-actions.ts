@@ -1,7 +1,7 @@
 
 'use server';
 
-import { AiConfig, DataSource } from '@/lib/types';
+import { AiConfig, DataSource, Tenant } from '@/lib/types';
 import { getCollectionData } from './mysql-actions';
 
 /**
@@ -81,4 +81,14 @@ export async function getActiveAiConfig(dataSource: DataSource = 'mysql'): Promi
     return result.data.find(c => c.enabled === 1 || c.enabled === true) || result.data[0];
   }
   return null;
+}
+
+/**
+ * Ruft die Unternehmensbeschreibung für einen Mandanten ab.
+ */
+export async function getCompanyContext(tenantId: string, dataSource: DataSource = 'mysql'): Promise<string> {
+  if (!tenantId || tenantId === 'all') return '';
+  const res = await getCollectionData('tenants', dataSource);
+  const tenant = res.data?.find((t: Tenant) => t.id === tenantId);
+  return tenant?.companyDescription || '';
 }

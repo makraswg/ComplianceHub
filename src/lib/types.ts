@@ -9,6 +9,7 @@ export interface Tenant {
   createdAt: string;
   status: 'active' | 'archived';
   region?: string; // z.B. "EU-DSGVO", "BSI-Grundschutz", "NIST-USA"
+  companyDescription?: string; // NEU: Kontext für KI
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;

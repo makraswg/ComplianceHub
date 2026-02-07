@@ -18,6 +18,7 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50) NOT NULL',
       status: 'VARCHAR(20) DEFAULT "active"',
       region: 'VARCHAR(100) DEFAULT "EU-DSGVO"',
+      companyDescription: 'TEXT', // NEU
       ldapEnabled: 'BOOLEAN DEFAULT FALSE',
       ldapUrl: 'TEXT',
       ldapPort: 'VARCHAR(10)',

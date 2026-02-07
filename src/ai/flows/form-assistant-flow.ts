@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getActiveAiConfig } from '@/app/actions/ai-actions';
+import { getActiveAiConfig, getCompanyContext } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
 
@@ -14,6 +14,7 @@ const FormAssistantInputSchema = z.object({
   formType: z.enum(['resource', 'risk', 'measure', 'gdpr', 'entitlement']),
   partialData: z.any(),
   userPrompt: z.string(),
+  tenantId: z.string().optional(),
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
 });
 
@@ -28,7 +29,10 @@ export type FormAssistantOutput = z.infer<typeof FormAssistantOutputSchema>;
 const SYSTEM_PROMPT = `You are an expert IT GRC (Governance, Risk, and Compliance) assistant.
 Your task is to help the user complete professional forms for IT systems, risk management, and data protection.
 
-Context: {{{formType}}}
+COMPANY CONTEXT:
+{{{companyDescription}}}
+
+Context Form Type: {{{formType}}}
 Current Data: {{{partialData}}}
 
 Based on the user's prompt and current context, suggest professional values for the missing or incomplete fields.
@@ -49,7 +53,10 @@ const formAssistantFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
+    const companyDescription = await getCompanyContext(input.tenantId || '', input.dataSource as DataSource);
+    
     const systemPromptPopulated = SYSTEM_PROMPT
+      .replace('{{{companyDescription}}}', companyDescription || 'General SME context.')
       .replace('{{{formType}}}', input.formType)
       .replace('{{{partialData}}}', JSON.stringify(input.partialData));
     

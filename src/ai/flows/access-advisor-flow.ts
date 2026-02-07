@@ -6,7 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getActiveAiConfig } from '@/app/actions/ai-actions';
+import { getActiveAiConfig, getCompanyContext } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
 
@@ -19,6 +19,7 @@ const AccessAdvisorInputSchema = z.object({
     entitlementName: z.string(),
     riskLevel: z.string(),
   })),
+  tenantId: z.string().optional(),
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
 });
 
@@ -35,6 +36,9 @@ export type AccessAdvisorOutput = z.infer<typeof AccessAdvisorOutputSchema>;
 
 const SYSTEM_PROMPT = `You are an expert Identity and Access Management (IAM) security advisor.
 Analyze the following user's access profile and provide a professional risk assessment.
+
+COMPANY CONTEXT:
+{{{companyDescription}}}
 
 Identify if there are too many high-risk permissions, if the access matches the department (Principle of Least Privilege), and suggest revoking stale or unnecessary access.
 Return your response as a valid JSON object matching this schema:
@@ -56,7 +60,10 @@ const accessAdvisorFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
+    const companyDescription = await getCompanyContext(input.tenantId || '', input.dataSource as DataSource);
     
+    const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{companyDescription}}}', companyDescription || 'No specific company context provided.');
+
     const assignmentsList = input.assignments
       .map(a => `- Resource: ${a.resourceName}, Entitlement: ${a.entitlementName}, Risk: ${a.riskLevel}`)
       .join('\n');
@@ -77,7 +84,7 @@ ${assignmentsList}`;
       const response = await client.chat.completions.create({
         model: config.openrouterModel || 'google/gemini-2.0-flash-001',
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPromptPopulated },
           { role: 'user', content: prompt }
         ],
         response_format: { type: 'json_object' }
@@ -95,7 +102,7 @@ ${assignmentsList}`;
 
     const { output } = await ai.generate({
       model: modelIdentifier,
-      system: SYSTEM_PROMPT,
+      system: systemPromptPopulated,
       prompt,
       output: { schema: AccessAdvisorOutputSchema }
     });

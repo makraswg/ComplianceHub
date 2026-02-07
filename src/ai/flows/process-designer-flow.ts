@@ -1,22 +1,19 @@
+
 'use server';
 /**
  * @fileOverview AI Flow for Pragmatic Process Engineering.
- * 
- * Pragmatischer Business-Analyst Flow:
- * - Liefert sofort Entwürfe, sobald eine Beschreibung vorliegt.
- * - Nutzt 'openQuestions' im Stammblatt als To-Do Liste für Unklarheiten.
- * - Mappt Halluzinationen (wie EXTENDMODEL) oder leere Typen automatisch auf valide Ops.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getActiveAiConfig } from '@/app/actions/ai-actions';
+import { getActiveAiConfig, getCompanyContext } from '@/app/actions/ai-actions';
 import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
 
 const ProcessDesignerInputSchema = z.object({
   userMessage: z.string(),
   currentModel: z.any(),
+  tenantId: z.string().optional(),
   openQuestions: z.string().nullable().optional().describe('Bestehende offene Fragen aus dem Stammblatt.'),
   chatHistory: z.array(z.object({
     role: z.enum(['user', 'ai']),
@@ -42,6 +39,9 @@ export type ProcessDesignerOutput = z.infer<typeof ProcessDesignerOutputSchema>;
 const SYSTEM_PROMPT = `Du bist ein pragmatischer Prozess-Analyst und ISO 9001:2015 Experte.
 Deine Aufgabe ist es, einen Geschäftsprozess schnell zu erfassen und professionell zu modellieren.
 
+UNTERNEHMENS-KONTEXT:
+{{{companyDescription}}}
+
 PRAGMATISMUS-REGELN:
 1. Falls der Nutzer den Prozess beschreibt, erstelle SOFORT einen Entwurf (ADD_NODE, ADD_EDGE).
 2. Sei nicht pedantisch. Fehlende Informationen hindern dich nicht am Modellieren. Nutze Annahmen basierend auf Best-Practices.
@@ -52,23 +52,14 @@ RECHTSCHREIBUNG FÜR OPS:
 - Nutze NUR diese Typen: ADD_NODE, UPDATE_NODE, REMOVE_NODE, ADD_EDGE, UPDATE_EDGE, REMOVE_EDGE, UPDATE_LAYOUT, SET_ISO_FIELD, REORDER_NODES, UPDATE_PROCESS_META.
 - Erfinde NIEMALS eigene Typen wie 'EXTENDMODEL' oder lass den Typen leer.
 - Jeder Knoten MUSS eine ID und einen Typ ('step', 'decision', 'start', 'end') haben.
-- Vermeide die ID "undefined". Nutze sprechende IDs (z.B. "it_pruefung").
-
-DEIN GEDÄCHTNIS:
-- Prüfe den CHAT-VERLAUF und die OFFENEN FRAGEN: {{{openQuestions}}}.
-- Wiederhole niemals bereits beantwortete Fragen.
 
 ANTWORT-FORMAT (STRENGES JSON):
 {
-  "proposedOps": [ { "type": "ADD_NODE", "payload": { "node": { "id": "...", "type": "step", "title": "..." } } } ],
+  "proposedOps": [ ... ],
   "explanation": "Deine Nachricht an den Nutzer",
   "openQuestions": ["Frage 1", "Frage 2"]
 }`;
 
-/**
- * Hilfsfunktion zum Bereinigen und Normalisieren der KI-Antwort.
- * Behebt leere Typen und Halluzinationen.
- */
 function normalizeAiResponse(text: string): ProcessDesignerOutput {
   if (!text) return { proposedOps: [], explanation: "Keine Antwort erhalten.", openQuestions: [] };
   
@@ -92,68 +83,16 @@ function normalizeAiResponse(text: string): ProcessDesignerOutput {
     rawOps.forEach((op: any) => {
       let type = String(op.type || op.action || '').toUpperCase();
       const payload = op.payload || op;
-
-      // Inferenz für leere Typen oder fehlende Definitionen
-      if (!type || type === "" || type === "UNDEFINED") {
-        if (payload.node || (payload.id && payload.title)) type = 'ADD_NODE';
-        else if (payload.edge || (payload.from && payload.to) || (payload.source && payload.target)) type = 'ADD_EDGE';
-        else if (payload.field || payload.isoFields) type = 'SET_ISO_FIELD';
-        else if (payload.openQuestions || payload.title || payload.status) type = 'UPDATE_PROCESS_META';
-      }
       
-      // Mapping von Halluzinationen
-      if (type === 'EXTENDMODEL' || type === 'EXTEND_MODEL') {
-        if (Array.isArray(payload.nodes)) {
-          payload.nodes.forEach((n: any) => {
-            const nodeId = (n.id && String(n.id).toLowerCase() !== 'undefined') ? n.id : `node-${Math.random().toString(36).substring(2, 7)}`;
-            if (!n.type) n.type = 'step';
-            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: { ...n, id: nodeId } } });
-          });
-        }
-        if (Array.isArray(payload.edges)) {
-          payload.edges.forEach((e: any) => {
-            const source = e.source || e.from;
-            const target = e.target || e.to;
-            if (source && target) {
-              normalized.proposedOps.push({ 
-                type: 'ADD_EDGE', 
-                payload: { edge: { id: e.id || `edge-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`, source, target, label: e.label || '' } } 
-              });
-            }
-          });
-        }
-        if (payload.isoFields) {
-          normalized.proposedOps.push({ type: 'SET_ISO_FIELD', payload: { isoFields: payload.isoFields } });
-        }
-      } else {
-        const validTypes = ['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META'];
-        if (validTypes.includes(type)) {
-          if (type === 'ADD_NODE') {
-            const node = payload.node || payload;
-            const nodeId = (node.id && String(node.id).toLowerCase() !== 'undefined') ? node.id : `node-${Math.random().toString(36).substring(2, 7)}`;
-            if (!node.type) node.type = 'step';
-            normalized.proposedOps.push({ type: 'ADD_NODE', payload: { node: { ...node, id: nodeId } } });
-          } else if (type === 'ADD_EDGE') {
-            const edge = payload.edge || payload;
-            const source = edge.source || edge.from;
-            const target = edge.target || edge.to;
-            if (source && target) {
-              normalized.proposedOps.push({ 
-                type: 'ADD_EDGE', 
-                payload: { edge: { id: edge.id || `edge-${Date.now()}`, source, target, label: edge.label || edge.condition || '' } } 
-              });
-            }
-          } else {
-            normalized.proposedOps.push({ type: type as any, payload: payload });
-          }
-        }
+      const validTypes = ['ADD_NODE', 'UPDATE_NODE', 'REMOVE_NODE', 'ADD_EDGE', 'UPDATE_EDGE', 'REMOVE_EDGE', 'UPDATE_LAYOUT', 'SET_ISO_FIELD', 'REORDER_NODES', 'UPDATE_PROCESS_META'];
+      if (validTypes.includes(type)) {
+        normalized.proposedOps.push({ type: type as any, payload: payload });
       }
     });
 
     return normalized;
   } catch (e) {
-    console.error("JSON Parse Error in AI Response:", e, text);
-    throw new Error("Ungültiges Format von der KI erhalten.");
+    return { proposedOps: [], explanation: "Fehler beim Parsen der KI-Antwort.", openQuestions: [] };
   }
 }
 
@@ -165,23 +104,21 @@ const processDesignerFlow = ai.defineFlow(
   },
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
+    const companyDescription = await getCompanyContext(input.tenantId || '', input.dataSource as DataSource);
+    
     const historyString = (input.chatHistory || []).map(h => `${h.role === 'user' ? 'Nutzer' : 'Assistent'}: ${h.text}`).join('\n');
     const openQuestionsStr = input.openQuestions || "Keine offenen Fragen dokumentiert.";
-    const systemPromptPopulated = SYSTEM_PROMPT.replace('{{{openQuestions}}}', openQuestionsStr);
+    const systemPromptPopulated = SYSTEM_PROMPT
+      .replace('{{{companyDescription}}}', companyDescription || 'General business context.')
+      .replace('{{{openQuestions}}}', openQuestionsStr);
 
     const prompt = `AKTUELLER MODELL-ZUSTAND: 
 ${JSON.stringify(input.currentModel, null, 2)}
 
-OFFENE FRAGEN IM STAMMBLATT:
-${openQuestionsStr}
-
 CHAT-VERLAUF:
 ${historyString}
 
-NUTZER-NACHRICHT: "${input.userMessage}"
-
-Liefere ein valides JSON-Objekt. Erstelle sofort einen Entwurf (proposedOps), wenn der Nutzer Informationen liefert. 
-Jeder Knoten MUSS eine ID (KEIN "undefined") und einen gültigen Typ (step, decision, start, end) besitzen.`;
+NUTZER-NACHRICHT: "${input.userMessage}"`;
 
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({ apiKey: config.openrouterApiKey || '', baseURL: 'https://openrouter.ai/api/v1' });
@@ -210,16 +147,12 @@ Jeder Knoten MUSS eine ID (KEIN "undefined") und einen gültigen Typ (step, deci
 
 export async function getProcessSuggestions(input: any): Promise<ProcessDesignerOutput> {
   try {
-    const sanitizedInput = {
-      ...input,
-      openQuestions: typeof input.openQuestions === 'string' ? input.openQuestions : ""
-    };
-    return await processDesignerFlow(sanitizedInput);
+    return await processDesignerFlow(input);
   } catch (error: any) {
     console.error("Process Advisor Flow Error:", error);
     return { 
       proposedOps: [], 
-      explanation: `Entschuldigung, ich hatte ein technisches Problem bei der Analyse (${error.message || 'Verbindungsfehler'}). Können wir den letzten Punkt nochmal besprechen?`, 
+      explanation: `Technischer Fehler bei der Analyse.`, 
       openQuestions: [] 
     };
   }

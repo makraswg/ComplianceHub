@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -21,13 +22,13 @@ import { useSettings } from '@/context/settings-context';
 import { cn } from '@/lib/utils';
 
 interface AiFormAssistantProps {
-  formType: 'resource' | 'risk' | 'measure' | 'gdpr';
+  formType: 'resource' | 'risk' | 'measure' | 'gdpr' | 'entitlement';
   currentData: any;
   onApply: (suggestions: any) => void;
 }
 
 export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssistantProps) {
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,9 +41,10 @@ export function AiFormAssistant({ formType, currentData, onApply }: AiFormAssist
     
     try {
       const res = await getFormSuggestions({
-        formType,
+        formType: formType === 'entitlement' ? 'gdpr' : formType as any, // fallback for schema enum
         partialData: currentData,
         userPrompt: query,
+        tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
         dataSource
       });
       
