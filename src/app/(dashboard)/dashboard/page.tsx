@@ -30,7 +30,8 @@ import {
   Info,
   CalendarCheck,
   ClipboardList,
-  Target
+  Target,
+  Clock
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -67,12 +68,6 @@ import {
 } from "@/components/ui/tooltip";
 import { useRouter } from 'next/navigation';
 
-const riskData = [
-  { name: 'Niedrig', value: 65, color: '#10b981', key: 'low' },
-  { name: 'Mittel', value: 25, color: '#FF9800', key: 'medium' },
-  { name: 'Hoch', value: 10, color: '#ef4444', key: 'high' },
-];
-
 export default function DashboardPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -85,7 +80,7 @@ export default function DashboardPage() {
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: assignments, isLoading: assignmentsLoading } = usePluggableCollection<any>('assignments');
   const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
-  const { data: risks } = usePluggableCollection<any>('risks');
+  const { data: risks, isLoading: risksLoading } = usePluggableCollection<any>('risks');
   const { data: tenants } = usePluggableCollection<any>('tenants');
 
   useEffect(() => {
@@ -103,6 +98,19 @@ export default function DashboardPage() {
 
     return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks };
   }, [users, resources, assignments, risks, activeTenantId]);
+
+  const riskPieData = useMemo(() => {
+    if (!filteredData.risks) return [];
+    const low = filteredData.risks.filter((r: any) => (r.impact * r.probability) < 8).length;
+    const medium = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 8 && (r.impact * r.probability) < 15).length;
+    const high = filteredData.risks.filter((r: any) => (r.impact * r.probability) >= 15).length;
+    
+    return [
+      { name: 'Niedrig', value: low, color: '#10b981' },
+      { name: 'Mittel', value: medium, color: '#FF9800' },
+      { name: 'Hoch', value: high, color: '#ef4444' },
+    ].filter(d => d.value > 0);
+  }, [filteredData.risks]);
 
   // Action Center Logic (Prioritized Tasks)
   const prioritizedTasks = useMemo(() => {
@@ -240,7 +248,7 @@ export default function DashboardPage() {
         <StatCard id="stat-users" title="Benutzer" value={filteredData.users.length} icon={Users} label="Identitäten" color="text-blue-500" bg="bg-blue-50" loading={usersLoading} trend={2.4} help="Anzahl aller registrierten Mitarbeiter im System." />
         <StatCard id="stat-resources" title="Systeme" value={filteredData.resources.length} icon={Layers} label="IT-Assets" color="text-indigo-500" bg="bg-indigo-50" loading={resourcesLoading} trend={-1.2} help="Alle Anwendungen und Hardware-Komponenten im Katalog." />
         <StatCard id="stat-assignments" title="Zugriffe" value={filteredData.assignments.filter(a => a.status === 'active').length} icon={ShieldCheck} label="Aktive Rechte" color="text-emerald-500" bg="bg-emerald-50" loading={assignmentsLoading} trend={5.8} help="Anzahl der aktuell gültigen Berechtigungen." />
-        <StatCard id="stat-risks" title="Risiken" value={filteredData.risks.length} icon={AlertTriangle} label="Gefahrenlage" color="text-orange-500" bg="bg-orange-50" loading={isLoading} trend={-4.5} help="Identifizierte Bedrohungen für das Unternehmen." />
+        <StatCard id="stat-risks" title="Risiken" value={filteredData.risks.length} icon={AlertTriangle} label="Gefahrenlage" color="text-orange-500" bg="bg-orange-50" loading={risksLoading} trend={-4.5} help="Identifizierte Bedrohungen für das Unternehmen." />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
