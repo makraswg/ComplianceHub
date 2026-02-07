@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -59,7 +58,7 @@ const TestResultDisplay = ({ result }: { result: TestResult }) => {
   }[result.status];
 
   return (
-      <div className={cn("mt-2 text-[10px] font-bold uppercase", color)}>
+      <div className={cn("mt-2 text-[10px] font-bold", color)}>
           <div className="flex items-center">
             {icon}
             <span>{result.message}</span>
@@ -158,9 +157,9 @@ export default function SetupPage() {
             <p className="text-sm text-muted-foreground">Zentrale Konfiguration der Datenquelle und Datenbanken.</p>
         </div>
 
-      <Card className="rounded-none shadow-none border">
-        <CardHeader className="bg-muted/10 border-b">
-          <CardTitle className="text-xs font-bold uppercase tracking-widest">Aktive Plattform-Datenquelle</CardTitle>
+      <Card className="rounded-xl shadow-none border">
+        <CardHeader className="bg-slate-50 border-b p-4">
+          <CardTitle className="text-xs font-bold">Aktive Plattform-Datenquelle</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <RadioGroup 
@@ -170,7 +169,7 @@ export default function SetupPage() {
           >
             {/* MySQL Option */}
             <div className={cn(
-              "flex flex-col items-start space-y-4 border p-6 transition-all",
+              "flex flex-col items-start space-y-4 border p-6 transition-all rounded-xl",
               currentSelection === 'mysql' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
             )}>
               <div className="flex items-center space-x-3">
@@ -178,19 +177,19 @@ export default function SetupPage() {
                 <Label htmlFor="mysql" className="cursor-pointer">
                   <div className="flex flex-col">
                     <span className="font-bold text-sm">Lokal (MySQL / SQL)</span>
-                    <span className="text-[9px] font-bold text-orange-600 uppercase tracking-widest">On-Premise (Empfohlen)</span>
+                    <span className="text-[9px] font-bold text-orange-600 italic">On-Premise (Empfohlen)</span>
                   </div>
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">Nutzt Ihre eigene relationale SQL-Struktur für vollständige Datenkontrolle.</p>
               <div className="w-full space-y-3 pt-2">
-                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8 rounded-md" onClick={(e) => { e.preventDefault(); handleTestMysql(); }}>
                       <Database className="w-3.5 h-3.5 mr-2" /> Datenbank-Ping
                   </Button>
                   <TestResultDisplay result={mysqlTest} />
                   
                   <div className="pt-2 border-t">
-                      <Button variant="secondary" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
+                      <Button variant="secondary" size="sm" className="w-full text-[10px] font-bold h-8 rounded-md" onClick={(e) => { e.preventDefault(); handleRunMigration(); }}>
                           <GanttChartSquare className="w-3.5 h-3.5 mr-2" /> Initialisieren
                       </Button>
                       <TestResultDisplay result={migrationResult} />
@@ -200,7 +199,7 @@ export default function SetupPage() {
 
             {/* Cloud Option */}
             <div className={cn(
-              "flex flex-col items-start space-y-4 border p-6 transition-all",
+              "flex flex-col items-start space-y-4 border p-6 transition-all rounded-xl",
               currentSelection === 'firestore' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
             )}>
               <div className="flex items-center space-x-3">
@@ -208,13 +207,13 @@ export default function SetupPage() {
                 <Label htmlFor="firestore" className="cursor-pointer">
                   <div className="flex flex-col">
                     <span className="font-bold text-sm">Zentral (Cloud Engine)</span>
-                    <span className="text-[9px] font-bold text-primary uppercase tracking-widest">Global Managed</span>
+                    <span className="text-[9px] font-bold text-primary">Global Managed</span>
                   </div>
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">Verwendet die globale Infrastruktur für mandantenübergreifende Koordination.</p>
               <div className="w-full pt-2">
-                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestCloud(); }}>
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8 rounded-md" onClick={(e) => { e.preventDefault(); handleTestCloud(); }}>
                     <ShieldCheck className="w-3.5 h-3.5 mr-2" /> System-Test
                   </Button>
                   <TestResultDisplay result={cloudTest} />
@@ -223,7 +222,7 @@ export default function SetupPage() {
 
             {/* Mock Option */}
             <div className={cn(
-              "flex flex-col items-start space-y-4 border p-6 transition-all",
+              "flex flex-col items-start space-y-4 border p-6 transition-all rounded-xl",
               currentSelection === 'mock' ? 'border-primary ring-1 ring-primary bg-primary/5' : 'hover:bg-muted/50 border-border'
             )}>
               <div className="flex items-center space-x-3">
@@ -231,13 +230,13 @@ export default function SetupPage() {
                 <Label htmlFor="mock" className="cursor-pointer">
                   <div className="flex flex-col">
                     <span className="font-bold text-sm">Demo (Vorschau)</span>
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Statisch</span>
+                    <span className="text-[9px] font-bold text-muted-foreground">Statisch</span>
                   </div>
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground">Statische Beispieldaten für Präsentationen ohne echte Datenbankanbindung.</p>
               <div className="w-full pt-2">
-                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold uppercase h-8 rounded-none" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
+                  <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8 rounded-md" onClick={(e) => { e.preventDefault(); handleTestMock(); }}>
                     <Beaker className="w-3.5 h-3.5 mr-2" /> Laden
                   </Button>
                   <TestResultDisplay result={mockTest} />
@@ -248,9 +247,9 @@ export default function SetupPage() {
       </Card>
 
       {currentSelection === 'mysql' && (
-        <Card className="rounded-none shadow-none border border-red-100 bg-red-50/10">
-          <CardHeader className="bg-red-50/30 border-b py-3">
-            <CardTitle className="text-xs font-bold uppercase tracking-widest text-red-600 flex items-center gap-2">
+        <Card className="rounded-xl shadow-none border border-red-100 bg-red-50/10">
+          <CardHeader className="bg-red-50/30 border-b p-4">
+            <CardTitle className="text-xs font-bold text-red-600 flex items-center gap-2">
               <Trash2 className="w-4 h-4" /> Datenpflege & Bereinigung
             </CardTitle>
           </CardHeader>
@@ -260,17 +259,17 @@ export default function SetupPage() {
                 <p className="text-sm font-bold">Bestandsdaten leeren</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Löscht alle operativen Daten der Plattform. <br/>
-                  <span className="font-bold text-red-600 uppercase text-[9px]">Achtung:</span> Einstellungen und Administratoren bleiben erhalten.
+                  <span className="font-bold text-red-600 text-[9px]">Achtung:</span> Einstellungen und Administratoren bleiben erhalten.
                 </p>
               </div>
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="rounded-none font-bold uppercase text-[10px] px-8 h-10 shadow-lg">
-                    Datenbank Leeren
+                  <Button variant="destructive" size="sm" className="rounded-md font-bold text-xs px-8 h-10 shadow-lg">
+                    Datenbank leeren
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-none border-2">
+                <AlertDialogContent className="rounded-xl border shadow-2xl">
                   <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2 text-red-600">
                       <AlertTriangle className="w-5 h-5" /> Sind Sie absolut sicher?
@@ -286,19 +285,19 @@ export default function SetupPage() {
                           <li>Ressourcen & Rollendefinitionen</li>
                           <li>Alle Zuweisungen & Audit-Logs</li>
                         </ul>
-                        <div className="mt-4 italic">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden NICHT gelöscht.</div>
+                        <div className="mt-4 italic text-[10px]">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden nicht gelöscht.</div>
                       </div>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-none uppercase text-[10px] font-bold">Abbrechen</AlertDialogCancel>
+                  <AlertDialogFooter className="gap-2">
+                    <AlertDialogCancel className="rounded-md text-xs font-bold">Abbrechen</AlertDialogCancel>
                     <AlertDialogAction 
                       onClick={handleClearDatabase} 
-                      className="bg-red-600 hover:bg-red-700 rounded-none text-[10px] font-bold uppercase"
+                      className="bg-red-600 hover:bg-red-700 rounded-md text-xs font-bold"
                       disabled={isClearing}
                     >
                       {isClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
-                      Bereinigung Durchführen
+                      Bereinigung durchführen
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -308,7 +307,7 @@ export default function SetupPage() {
         </Card>
       )}
 
-      <div className="p-4 bg-muted/20 border text-[10px] font-bold uppercase text-muted-foreground">
+      <div className="p-4 bg-muted/20 border rounded-lg text-[10px] font-bold text-muted-foreground">
         Hinweis: Die Datenquelle bestimmt, wie Identitäten und Zuweisungen gespeichert werden. MySQL ist die empfohlene Konfiguration für lokale Installationen.
       </div>
     </div>

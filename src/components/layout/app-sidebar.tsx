@@ -191,7 +191,7 @@ export function AppSidebar() {
             <ShieldCheck className="w-5 h-5 text-white" />
           </div>
           <div>
-            <span className="font-headline font-black text-base tracking-tight block text-slate-900 dark:text-white leading-none">AccessHub</span>
+            <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">AccessHub</span>
             <span className="text-[9px] text-primary font-bold block mt-1">Enterprise GRC</span>
           </div>
         </div>

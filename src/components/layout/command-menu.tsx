@@ -78,7 +78,7 @@ export function CommandMenu() {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{title}</p>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">{sub}</p>
+          <p className="text-[10px] font-bold text-slate-400 truncate">{sub}</p>
         </div>
       </div>
       <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
@@ -87,13 +87,13 @@ export function CommandMenu() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl bg-white dark:bg-slate-950 top-[20%] translate-y-0">
+      <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-none shadow-2xl bg-white dark:bg-slate-950 top-[20%] translate-y-0">
         <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
               <Search className="w-5 h-5 text-white" />
             </div>
-            <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Globale Schnellsuche</DialogTitle>
+            <DialogTitle className="text-lg font-headline font-bold">Globale Schnellsuche</DialogTitle>
           </div>
         </DialogHeader>
         
@@ -112,7 +112,7 @@ export function CommandMenu() {
             {!search && (
               <div className="py-20 text-center space-y-4 opacity-30">
                 <Zap className="w-12 h-12 mx-auto" />
-                <p className="text-[10px] font-black uppercase tracking-[0.2em]">Tippen Sie zum Suchen</p>
+                <p className="text-[10px] font-bold">Tippen Sie zum Suchen</p>
               </div>
             )}
 
@@ -120,7 +120,7 @@ export function CommandMenu() {
               <>
                 {results.users?.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="px-4 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                    <h4 className="px-4 text-[10px] font-bold text-slate-400 flex items-center gap-2">
                       <Users className="w-3 h-3" /> Identitäten
                     </h4>
                     {results.users.map((u: any) => (
@@ -131,7 +131,7 @@ export function CommandMenu() {
 
                 {results.processes?.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="px-4 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                    <h4 className="px-4 text-[10px] font-bold text-slate-400 flex items-center gap-2">
                       <Workflow className="w-3 h-3" /> Prozesse
                     </h4>
                     {results.processes.map((p: any) => (
@@ -142,7 +142,7 @@ export function CommandMenu() {
 
                 {results.resources?.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="px-4 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                    <h4 className="px-4 text-[10px] font-bold text-slate-400 flex items-center gap-2">
                       <Layers className="w-3 h-3" /> Ressourcen
                     </h4>
                     {results.resources.map((r: any) => (
@@ -153,7 +153,7 @@ export function CommandMenu() {
 
                 {results.risks?.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="px-4 text-[9px] font-black uppercase text-slate-400 tracking-[0.2em] flex items-center gap-2">
+                    <h4 className="px-4 text-[10px] font-bold text-slate-400 flex items-center gap-2">
                       <AlertTriangle className="w-3 h-3" /> Risiken
                     </h4>
                     {results.risks.map((r: any) => (
@@ -165,7 +165,7 @@ export function CommandMenu() {
                 {Object.values(results).every(arr => arr.length === 0) && (
                   <div className="py-20 text-center space-y-4 opacity-30">
                     <Search className="w-12 h-12 mx-auto" />
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Keine Treffer gefunden</p>
+                    <p className="text-[10px] font-bold">Keine Treffer gefunden</p>
                   </div>
                 )}
               </>
@@ -174,7 +174,7 @@ export function CommandMenu() {
         </ScrollArea>
 
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4 text-[9px] font-black uppercase text-slate-400">
+          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400">
             <div className="flex items-center gap-1.5"><Badge className="h-5 px-1 bg-slate-200 text-slate-600 border-none">Enter</Badge> Auswählen</div>
             <div className="flex items-center gap-1.5"><Badge className="h-5 px-1 bg-slate-200 text-slate-600 border-none">Esc</Badge> Schließen</div>
           </div>
