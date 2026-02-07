@@ -255,7 +255,9 @@ export default function ProcessDesignerPage() {
     if (!currentVersion || !user || !ops.length) return false;
     setIsApplying(true);
     try {
+      console.log("DEBUG: applyProcessOpsAction started", ops);
       const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
+      console.log("DEBUG: applyProcessOpsAction finished", res);
       if (res.success) {
         refreshVersion();
         refreshProc();
@@ -263,6 +265,7 @@ export default function ProcessDesignerPage() {
       }
       return false;
     } catch (e: any) {
+      console.error("DEBUG: handleApplyOps failed", e);
       toast({ variant: "destructive", title: "Update fehlgeschlagen", description: e.message });
       return false;
     } finally {
@@ -311,20 +314,26 @@ export default function ProcessDesignerPage() {
   };
 
   const handleDeleteNode = async () => {
+    console.log("DEBUG: handleDeleteNode triggered", selectedNodeId);
     if (!selectedNodeId) return;
     if (!confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.')) return;
     
     setIsDeleting(true);
     try {
       const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
+      console.log("DEBUG: Calling handleApplyOps for removal", ops);
       const success = await handleApplyOps(ops);
+      console.log("DEBUG: handleApplyOps result", success);
       if (success) {
         toast({ title: "Schritt entfernt" });
         setIsStepDialogOpen(false);
         setSelectedNodeId(null);
       }
+    } catch (err) {
+      console.error("DEBUG: handleDeleteNode catch block", err);
     } finally {
       setIsDeleting(false);
+      console.log("DEBUG: handleDeleteNode finally reached");
     }
   };
 
