@@ -21,7 +21,6 @@ import {
   RefreshCw, 
   Sparkles, 
   GitBranch, 
-  Box,
   AlertTriangle,
   ChevronUp,
   ChevronDown,
@@ -30,16 +29,14 @@ import {
   FilePen,
   ArrowRightCircle,
   ArrowRight,
-  Terminal,
   CheckCircle,
   Link as LinkIcon,
-  MousePointer2,
   Maximize2,
-  Info,
   CircleDot,
-  LogOut,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Tags,
+  PlusCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +53,7 @@ import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/action
 import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, ProcessNode, Process } from '@/lib/types';
+import { ProcessModel, ProcessLayout, ProcessNode, Process, JobTitle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -64,7 +61,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 
 /**
  * Erzeugt das XML für mxGraph. 
- * Garantiert Eindeutigkeit der IDs durch Fallbacks.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -123,19 +119,22 @@ export default function ProcessDesignerPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
-    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '' 
+    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', customFields: {} as Record<string, string>
   });
 
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
   const [metaStatus, setMetaStatus] = useState<any>('draft');
+  const [metaCustomFields, setMetaCustomFields] = useState<Record<string, string>>({});
 
   const [newEdgeTargetId, setNewEdgeTargetId] = useState<string>('');
   const [newEdgeLabel, setNewEdgeLabel] = useState<string>('');
+  const [newFieldName, setNewFieldName] = useState('');
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
+  const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id), [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -151,8 +150,9 @@ export default function ProcessDesignerPage() {
       setMetaDesc(currentProcess.description || '');
       setMetaOpenQuestions(currentProcess.openQuestions || '');
       setMetaStatus(currentProcess.status || 'draft');
+      setMetaCustomFields(currentVersion?.model_json?.customFields || {});
     }
-  }, [currentProcess?.id]);
+  }, [currentProcess?.id, currentVersion?.id]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -165,12 +165,12 @@ export default function ProcessDesignerPage() {
         tips: selectedNode.tips || '',
         errors: selectedNode.errors || '',
         type: selectedNode.type || 'step',
-        targetProcessId: selectedNode.targetProcessId || ''
+        targetProcessId: selectedNode.targetProcessId || '',
+        customFields: selectedNode.customFields || {}
       });
     }
   }, [selectedNode?.id]);
 
-  // Handler für das Resizing
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));
@@ -223,7 +223,6 @@ export default function ProcessDesignerPage() {
     try {
       const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
       if (res.success) {
-        toast({ title: "Modell aktualisiert" });
         refreshVersion();
         refreshProc();
       }
@@ -253,13 +252,27 @@ export default function ProcessDesignerPage() {
     } finally { setIsSavingMeta(false); }
   };
 
-  const saveNodeUpdate = async (field: string) => {
+  const saveNodeUpdate = async (field: string, value?: any) => {
     if (!selectedNodeId) return;
-    const value = (localNodeEdits as any)[field];
-    let processedValue: any = value;
-    if (field === 'checklist') processedValue = value.split('\n').filter((l: string) => l.trim() !== '');
+    const val = value !== undefined ? value : (localNodeEdits as any)[field];
+    let processedValue: any = val;
+    if (field === 'checklist' && typeof val === 'string') processedValue = val.split('\n').filter((l: string) => l.trim() !== '');
     const ops = [{ type: 'UPDATE_NODE', payload: { nodeId: selectedNodeId, patch: { [field]: processedValue } } }];
     await handleApplyOps(ops);
+  };
+
+  const handleAddCustomField = (target: 'process' | 'node') => {
+    if (!newFieldName.trim()) return;
+    if (target === 'process') {
+      const updated = { ...metaCustomFields, [newFieldName]: '' };
+      setMetaCustomFields(updated);
+      handleApplyOps([{ type: 'SET_CUSTOM_FIELD', payload: { customFields: updated } }]);
+    } else {
+      const updated = { ...localNodeEdits.customFields, [newFieldName]: '' };
+      setLocalNodeEdits({ ...localNodeEdits, customFields: updated });
+      saveNodeUpdate('customFields', updated);
+    }
+    setNewFieldName('');
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'end') => {
@@ -269,24 +282,6 @@ export default function ProcessDesignerPage() {
       setSelectedNodeId(newId);
       setIsStepDialogOpen(true);
     });
-  };
-
-  const handleMoveNode = async (nodeId: string, direction: 'up' | 'down') => {
-    if (!currentVersion) return;
-    const nodes = [...currentVersion.model_json.nodes];
-    const index = nodes.findIndex((n: any) => n.id === nodeId);
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= nodes.length) return;
-    const newNodes = [...nodes];
-    const [movedNode] = newNodes.splice(index, 1);
-    newNodes.splice(newIndex, 0, movedNode);
-    await handleApplyOps([{ type: 'REORDER_NODES', payload: { orderedNodeIds: newNodes.map(n => n.id) } }]);
-  };
-
-  const handleAddEdge = async () => {
-    if (!selectedNodeId || !newEdgeTargetId) return;
-    await handleApplyOps([{ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: selectedNodeId, target: newEdgeTargetId, label: newEdgeLabel } } }]);
-    setNewEdgeTargetId(''); setNewEdgeLabel('');
   };
 
   const handleAiChat = async () => {
@@ -355,7 +350,7 @@ export default function ProcessDesignerPage() {
                       <Textarea 
                         value={metaOpenQuestions} 
                         onChange={e => setMetaOpenQuestions(e.target.value)} 
-                        placeholder="Was muss noch geklärt werden? Die KI berücksichtigt dieses Feld..."
+                        placeholder="Was muss noch geklärt werden?"
                         className="rounded-none min-h-[120px] text-xs border-indigo-100 bg-indigo-50/10 focus:border-indigo-300" 
                       />
                     </div>
@@ -366,6 +361,27 @@ export default function ProcessDesignerPage() {
                     {[{ id: 'inputs', label: 'Inputs', icon: ArrowRight }, { id: 'outputs', label: 'Outputs', icon: Check }, { id: 'risks', label: 'Risiken', icon: AlertTriangle }, { id: 'evidence', label: 'Nachweise', icon: FileCode }].map(f => (
                       <div key={f.id} className="space-y-2"><Label className="text-[10px] font-bold uppercase flex items-center gap-2"><f.icon className="w-3.5 h-3.5 text-emerald-600" /> {f.label}</Label><Textarea defaultValue={currentVersion?.model_json?.isoFields?.[f.id] || ''} className="text-xs rounded-none min-h-[80px]" onBlur={e => handleApplyOps([{ type: 'SET_ISO_FIELD', payload: { field: f.id, value: e.target.value } }])} /></div>
                     ))}
+                  </div>
+
+                  <div className="space-y-6 pt-10 border-t">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2"><Tags className="w-4 h-4 text-blue-600" /><h3 className="text-[10px] font-black uppercase text-blue-700">Eigene Felder</h3></div>
+                    </div>
+                    <div className="space-y-4">
+                      {Object.entries(metaCustomFields).map(([key, val]) => (
+                        <div key={key} className="space-y-1.5">
+                          <Label className="text-[10px] font-bold uppercase">{key}</Label>
+                          <Input value={val} onChange={e => {
+                            const updated = { ...metaCustomFields, [key]: e.target.value };
+                            setMetaCustomFields(updated);
+                          }} onBlur={() => handleApplyOps([{ type: 'SET_CUSTOM_FIELD', payload: { customFields: metaCustomFields } }])} className="rounded-none h-9 text-xs" />
+                        </div>
+                      ))}
+                      <div className="flex gap-2 pt-2">
+                        <Input placeholder="Neuer Feldname..." value={newFieldName} onChange={e => setNewFieldName(e.target.value)} className="h-9 text-xs rounded-none" />
+                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleAddCustomField('process')}><PlusCircle className="w-4 h-4" /></Button>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="pt-10 border-t">
@@ -378,7 +394,7 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </TabsContent>
 
-            <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none">
+            <TabsContent value="steps" className="flex-1 m-0 p-0 overflow-hidden data-[state=active]:flex flex-col outline-none mt-0">
               <div className="px-5 py-3 border-b bg-slate-50 flex items-center justify-between shrink-0">
                 <h3 className="text-[10px] font-bold uppercase text-slate-400">Ablauffolge</h3>
                 <div className="flex gap-1">
@@ -390,7 +406,7 @@ export default function ProcessDesignerPage() {
               <ScrollArea className="flex-1">
                 <div className="p-5 space-y-1.5 pb-20">
                   {(currentVersion?.model_json?.nodes || []).map((node: any, idx: number) => {
-                    const isEndLinked = node.type === 'end' && !!node.targetProcessId;
+                    const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
                     const linkedProc = isEndLinked ? processes?.find(p => p.id === node.targetProcessId) : null;
                     
                     return (
@@ -476,7 +492,7 @@ export default function ProcessDesignerPage() {
       </div>
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
-        <DialogContent className="max-w-3xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
+        <DialogContent className="max-w-4xl rounded-none p-0 overflow-hidden flex flex-col border-2 shadow-2xl bg-white">
           <DialogHeader className={cn("p-6 text-white shrink-0", localNodeEdits.type === 'end' ? "bg-red-900" : "bg-slate-900")}>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white/10 rounded-none flex items-center justify-center shrink-0 border border-white/20">
@@ -500,7 +516,17 @@ export default function ProcessDesignerPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Verantwortliche Rolle</Label>
-                  <Input value={localNodeEdits.roleId} onChange={e => setLocalNodeEdits({...localNodeEdits, roleId: e.target.value})} onBlur={() => saveNodeUpdate('roleId')} className="h-11 text-sm rounded-none border-2" placeholder="z.B. IT-Admin, HR, Einkauf" />
+                  <Select value={localNodeEdits.roleId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, roleId: val}); saveNodeUpdate('roleId', val); }}>
+                    <SelectTrigger className="h-11 rounded-none border-2">
+                      <SelectValue placeholder="Rolle wählen..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-none">
+                      <SelectItem value="none">Keine spezifische Rolle</SelectItem>
+                      {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
+                        <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -510,7 +536,7 @@ export default function ProcessDesignerPage() {
                     <LinkIcon className="w-4 h-4" />
                     <Label className="text-[10px] font-black uppercase tracking-widest">Prozess-Verknüpfung (Handover)</Label>
                   </div>
-                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId'); }}>
+                  <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
                     <SelectTrigger className="h-11 rounded-none bg-white border-blue-200 border-2 font-bold text-xs">
                       <SelectValue placeholder="Folgeprozess wählen..." />
                     </SelectTrigger>
@@ -538,6 +564,31 @@ export default function ProcessDesignerPage() {
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste
                   </Label>
                   <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-xs min-h-[100px] bg-slate-50/50 rounded-none border-2 font-mono" placeholder="Ein Prüfpunkt pro Zeile..." />
+                </div>
+              </div>
+
+              <div className="space-y-6 pt-8 border-t">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Tags className="w-4 h-4" />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Schritt-Metadaten</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(localNodeEdits.customFields || {}).map(([key, val]) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label className="text-[9px] font-bold uppercase">{key}</Label>
+                      <Input value={val} onChange={e => {
+                        const updated = { ...localNodeEdits.customFields, [key]: e.target.value };
+                        setLocalNodeEdits({ ...localNodeEdits, customFields: updated });
+                      }} onBlur={() => saveNodeUpdate('customFields', localNodeEdits.customFields)} className="h-9 text-xs rounded-none border-2" />
+                    </div>
+                  ))}
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 space-y-1.5">
+                      <Label className="text-[9px] font-bold uppercase text-slate-400">Neues Feld</Label>
+                      <Input placeholder="Name..." value={newFieldName} onChange={e => setNewFieldName(e.target.value)} className="h-9 text-xs rounded-none" />
+                    </div>
+                    <Button variant="outline" className="h-9 rounded-none px-3" onClick={() => handleAddCustomField('node')}><Plus className="w-4 h-4" /></Button>
+                  </div>
                 </div>
               </div>
               
@@ -568,11 +619,6 @@ export default function ProcessDesignerPage() {
                           </div>
                         );
                       })}
-                      {(currentVersion?.model_json?.edges || []).filter((e: any) => e.source === selectedNodeId).length === 0 && (
-                        <div className="p-4 border-2 border-dashed text-center text-[10px] font-bold text-slate-400 uppercase">
-                          Keine Ausgänge definiert
-                        </div>
-                      )}
                     </div>
                   </div>
 

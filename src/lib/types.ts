@@ -67,12 +67,13 @@ export interface ProcessNode {
   type: 'step' | 'decision' | 'subprocess' | 'start' | 'end';
   title: string;
   description?: string;
-  roleId?: string;
+  roleId?: string; // Links to JobTitle.id or free text
   checklist?: string[];
   tips?: string;
   errors?: string;
   links?: { title: string; url: string }[];
   targetProcessId?: string; 
+  customFields?: Record<string, string>;
 }
 
 export interface ProcessEdge {
@@ -88,6 +89,7 @@ export interface ProcessModel {
   edges: ProcessEdge[];
   roles: { id: string; name: string }[];
   isoFields?: Record<string, string>;
+  customFields?: Record<string, string>;
 }
 
 export interface ProcessLayout {
@@ -97,7 +99,7 @@ export interface ProcessLayout {
 }
 
 export interface ProcessOperation {
-  type: 'ADD_NODE' | 'UPDATE_NODE' | 'REMOVE_NODE' | 'ADD_EDGE' | 'UPDATE_EDGE' | 'REMOVE_EDGE' | 'REORDER_NODES' | 'UPDATE_LAYOUT' | 'SET_ISO_FIELD' | 'UPDATE_PROCESS_META';
+  type: 'ADD_NODE' | 'UPDATE_NODE' | 'REMOVE_NODE' | 'ADD_EDGE' | 'UPDATE_EDGE' | 'REMOVE_EDGE' | 'REORDER_NODES' | 'UPDATE_LAYOUT' | 'SET_ISO_FIELD' | 'SET_CUSTOM_FIELD' | 'UPDATE_PROCESS_META';
   payload: any;
 }
 
@@ -127,37 +129,15 @@ export interface ProcessVersion {
   created_at: string;
 }
 
-export interface ProcessOp {
+export interface Document {
   id: string;
-  process_id: string;
-  version: number;
-  revision_before: number;
-  revision_after: number;
-  actor_type: 'user' | 'ai';
-  actor_user_id?: string;
-  ops_json: ProcessOperation[];
-  created_at: string;
+  [key: string]: any;
 }
 
-export interface BookStackConfig {
-  id: string;
-  enabled: boolean;
-  url: string;
-  token_id: string;
-  token_secret: string;
-  default_book_id?: string;
-}
-
-export interface DataSubjectGroup {
+export interface JobTitle {
   id: string;
   tenantId: string;
-  name: string;
-  status: 'active' | 'archived';
-}
-
-export interface DataCategory {
-  id: string;
-  tenantId: string;
+  departmentId: string;
   name: string;
   status: 'active' | 'archived';
 }
@@ -216,101 +196,6 @@ export interface ProcessingActivity {
   resourceIds?: string[];
 }
 
-export interface Entitlement {
-  id: string;
-  resourceId: string;
-  parentId?: string;
-  name: string;
-  description: string;
-  riskLevel: 'low' | 'medium' | 'high';
-  isAdmin?: boolean | number;
-  isSharedAccount?: boolean | number;
-  passwordManagerUrl?: string;
-  tenantId?: string;
-  externalMapping?: string;
-}
-
-export interface JiraConfig {
-  id: string;
-  enabled: boolean;
-  url: string;
-  email: string;
-  apiToken: string;
-  projectKey: string;
-  issueTypeName?: string;
-  approvedStatusName?: string;
-  doneStatusName?: string;
-  workspaceId?: string;
-  schemaId?: string;
-  objectTypeId?: string;
-  entitlementObjectTypeId?: string;
-  autoSyncAssets?: boolean;
-}
-
-export interface SmtpConfig {
-  id: string;
-  enabled: boolean;
-  host: string;
-  port: string;
-  user: string;
-  password?: string;
-  fromEmail: string;
-}
-
-export interface AiConfig {
-  id: string;
-  enabled: boolean;
-  provider: 'ollama' | 'google' | 'openrouter';
-  ollamaUrl?: string;
-  ollamaModel?: string;
-  geminiModel?: string;
-  openrouterApiKey?: string;
-  openrouterModel?: string;
-  enabledForAdvisor?: boolean;
-  systemPrompt?: string;
-}
-
-export interface SyncJob {
-  id: string;
-  name: string;
-  lastRun?: string;
-  lastStatus?: 'success' | 'error' | 'running';
-  lastMessage?: string;
-}
-
-export interface Catalog {
-  id: string;
-  name: string;
-  version: string;
-  provider: string;
-  importedAt: string;
-}
-
-export interface HazardModule {
-  id: string;
-  catalogId: string;
-  code: string;
-  title: string;
-}
-
-export interface Hazard {
-  id: string;
-  moduleId: string;
-  code: string;
-  title: string;
-  description: string;
-  contentHash: string;
-}
-
-export interface ImportRun {
-  id: string;
-  catalogId: string;
-  timestamp: string;
-  status: 'success' | 'partial' | 'failed';
-  itemCount: number;
-  log: string;
-}
-
 export interface Risk {
   id: string;
   tenantId: string;
@@ -348,28 +233,6 @@ export interface RiskMeasure {
   status: 'planned' | 'active' | 'completed' | 'on_hold';
   effectiveness: number;
   notes?: string;
-  isTom?: boolean | number;
-  tomCategory?: 'Zugriffskontrolle' | 'Zutrittskontrolle' | 'Weitergabekontrolle' | 'Eingabekontrolle' | 'Auftragskontrolle' | 'Verfügbarkeitskontrolle' | 'Trennungsgebots' | 'Verschlüsselung / Pseudonymisierung' | 'Wiederherstellbarkeit' | 'Wirksamkeitsprüfung';
-  art32Mapping?: string[];
-  gdprProtectionGoals?: string[];
-  vvtIds?: string[];
-  dataCategories?: string[];
-  isArt9Relevant?: boolean | number;
-  isEffective?: boolean | number;
-  checkType?: 'Audit' | 'Test' | 'Review';
-  lastCheckDate?: string;
-  evidenceDetails?: string;
-}
-
-export interface Document {
-  id: string;
-  [key: string]: any;
-}
-
-export interface GroupMemberConfig {
-  id: string;
-  validFrom: string;
-  validUntil: string | null;
 }
 
 export interface AssignmentGroup {
@@ -378,10 +241,8 @@ export interface AssignmentGroup {
   name: string;
   description?: string;
   status?: 'active' | 'archived';
-  userConfigs: GroupMemberConfig[];
-  entitlementConfigs: GroupMemberConfig[];
-  userIds?: string[];
-  entitlementIds?: string[];
+  userConfigs: { id: string; validFrom: string; validUntil: string | null }[];
+  entitlementConfigs: { id: string; validFrom: string; validUntil: string | null }[];
 }
 
 export interface Bundle {
@@ -399,13 +260,4 @@ export interface HelpContent {
   title: string;
   content: string;
   order: number;
-}
-
-export interface JiraSyncItem {
-  key: string;
-  summary: string;
-  status: string;
-  reporter: string;
-  created: string;
-  requestedUserEmail?: string;
 }

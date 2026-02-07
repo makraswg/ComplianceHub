@@ -15,6 +15,7 @@ import {
 /**
  * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
  * Verhindert den "Duplicate ID" Fehler für Knoten und Verbindungen.
+ * Erkennt auch ungültige Strings wie "undefined" oder "null".
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
   const isInvalid = !requestedId || 
@@ -64,7 +65,8 @@ export async function createProcessAction(
     nodes: [{ id: 'start', type: 'start', title: 'START', checklist: [] }],
     edges: [],
     roles: [],
-    isoFields: {}
+    isoFields: {},
+    customFields: {}
   };
 
   const initialLayout: ProcessLayout = {
@@ -164,11 +166,9 @@ export async function applyProcessOpsAction(
       const originalId = op.payload.node.id;
       const uniqueId = ensureUniqueId(originalId, usedIds, 'node');
       usedIds.add(uniqueId);
-      // Nur mappen, wenn eine valide ID vorhanden war, die geändert werden musste
       if (originalId && String(originalId).toLowerCase() !== 'undefined') {
         nodeIdMap[String(originalId)] = uniqueId;
       } else {
-        // Falls keine ID da war, setzen wir sie direkt im Payload für den 2. Pass
         op.payload.node.id = uniqueId;
       }
     }
@@ -229,7 +229,6 @@ export async function applyProcessOpsAction(
         
         const edgeToAdd = { ...op.payload.edge };
         if (!edgeToAdd.id) edgeToAdd.id = `edge-${Date.now()}`;
-        // Referenzen korrigieren, falls Quelle/Ziel umgemappt wurden
         edgeToAdd.source = nodeIdMap[String(edgeToAdd.source)] || String(edgeToAdd.source);
         edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
         
@@ -262,6 +261,13 @@ export async function applyProcessOpsAction(
         }
         if (op.payload?.isoFields) {
           model.isoFields = { ...model.isoFields, ...op.payload.isoFields };
+        }
+        break;
+
+      case 'SET_CUSTOM_FIELD':
+        if (!model.customFields) model.customFields = {};
+        if (op.payload?.customFields) {
+          model.customFields = { ...model.customFields, ...op.payload.customFields };
         }
         break;
 
