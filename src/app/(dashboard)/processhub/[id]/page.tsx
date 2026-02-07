@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -48,7 +49,8 @@ import {
   ClipboardCheck,
   Building2,
   CheckSquare,
-  Square
+  Square,
+  FileEdit
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,7 +74,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 
 /**
- * Erzeugt BPMN 2.0 MX-XML für draw.io Integration.
+ * Erzeugt BPMN 2.0 MX-XML für draw.io Integration mit fachlichen Standards.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -84,31 +86,28 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let nodeSafeId = String(node.id || `node-${idx}`);
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
-    let w = 160, h = 80;
+    let w = 140, h = 70;
     
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
-        w = 50; h = 50; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;shadow=0;'; 
+        w = 40; h = 40; 
         break;
       case 'end': 
-        const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
-        style = hasLink 
-          ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
-          : 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=4;shadow=1;'; 
-        w = 50; h = 50; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=0;'; 
+        w = 40; h = 40; 
         break;
       case 'decision': 
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
-        w = 80; h = 80; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;shadow=0;'; 
+        w = 60; h = 60; 
         break;
       case 'subprocess':
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=2;dashed=1;';
-        w = 160; h = 80;
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=1;dashed=1;shadow=0;';
+        w = 140; h = 70;
         break;
-      default: 
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
-        w = 160; h = 80;
+      default: // Task
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1;shadow=0;';
+        w = 140; h = 70;
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -118,7 +117,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1;fontSize=10;endArrow=block;endFill=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -589,7 +588,7 @@ export default function ProcessDesignerPage() {
               <div className="p-4 border-t bg-slate-50/50 shrink-0">
                 <div className="space-y-2.5">
                   <Textarea placeholder="Anmerkung..." value={commentText} onChange={e => setCommentText(e.target.value)} className="min-h-[70px] rounded-lg text-[11px] bg-white" />
-                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full h-9 font-bold text-[10px] bg-primary text-white shadow-md transition-all active:scale-95">{isCommenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Senden</Button>
+                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full h-9 font-bold text-[10px] bg-primary text-white shadow-md transition-all active:scale-95">{isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Senden</Button>
                 </div>
               </div>
             </TabsContent>

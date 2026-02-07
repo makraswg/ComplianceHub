@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -64,6 +65,9 @@ import {
   DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
 
+/**
+ * Erzeugt BPMN 2.0 MX-XML für draw.io Integration mit fachlichen Standards.
+ */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
@@ -74,12 +78,28 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     let nodeSafeId = String(node.id || `node-${idx}`);
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
-    let w = 160, h = 80;
+    let w = 140, h = 70;
+    
     switch (node.type) {
-      case 'start': style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; w = 50; h = 50; break;
-      case 'end': style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=4;shadow=1;'; w = 50; h = 50; break;
-      case 'decision': style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; w = 80; h = 80; break;
-      default: style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;'; w = 160; h = 80;
+      case 'start': 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;shadow=0;'; 
+        w = 40; h = 40; 
+        break;
+      case 'end': 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=3;shadow=0;'; 
+        w = 40; h = 40; 
+        break;
+      case 'decision': 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;shadow=0;'; 
+        w = 60; h = 60; 
+        break;
+      case 'subprocess':
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=1;dashed=1;shadow=0;';
+        w = 140; h = 70;
+        break;
+      default: // Task
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1;shadow=0;';
+        w = 140; h = 70;
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
@@ -88,7 +108,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="edge-${idx}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1;fontSize=10;endArrow=block;endFill=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
