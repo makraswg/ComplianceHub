@@ -65,14 +65,11 @@ export default function GdprPage() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   
-  // Modals
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Selection
   const [selectedActivity, setSelectedActivity] = useState<ProcessingActivity | null>(null);
 
-  // Form State
   const [name, setName] = useState('');
   const [version, setVersion] = useState('1.0');
   const [description, setDescription] = useState('');
@@ -144,7 +141,7 @@ export default function GdprPage() {
     return activities.filter(act => {
       const matchTenant = activeTenantId === 'all' || act.tenantId === activeTenantId;
       const matchSearch = act.name.toLowerCase().includes(search.toLowerCase()) || 
-                          act.responsibleDepartment?.toLowerCase().includes(search.toLowerCase());
+                          (act.responsibleDepartment || '').toLowerCase().includes(search.toLowerCase());
       return matchTenant && matchSearch;
     });
   }, [activities, search, activeTenantId]);
@@ -162,7 +159,6 @@ export default function GdprPage() {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 flex items-center justify-center rounded-xl border border-emerald-500/10 shadow-sm">
@@ -176,7 +172,7 @@ export default function GdprPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => exportGdprExcel(filteredActivities)}>
-            <Download className="w-3.5 h-3.5 mr-2 text-primary" /> Excel Export
+            <Download className="w-3.5 h-3.5 mr-2" /> Excel Export
           </Button>
           <Button size="sm" onClick={() => { setSelectedActivity(null); setName(''); setDescription(''); setVersion('1.0'); setResourceIds([]); setIsDialogOpen(true); }} className="h-9 rounded-md font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all active:scale-95">
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Tätigkeit
@@ -184,7 +180,6 @@ export default function GdprPage() {
         </div>
       </div>
 
-      {/* Compact Filtering (Toolbar Pattern) */}
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
@@ -201,7 +196,6 @@ export default function GdprPage() {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -272,10 +266,9 @@ export default function GdprPage() {
               ))}
             </TableBody>
           </Table>
-        </div>
+        )}
       </div>
 
-      {/* Enterprise Dialog Standards */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -289,7 +282,6 @@ export default function GdprPage() {
                   <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Art. 30 DSGVO Dokumentation • Mandant: {activeTenantId}</DialogDescription>
                 </div>
               </div>
-              {/* Standardized AI Help Button */}
               <AiFormAssistant 
                 formType="gdpr" 
                 currentData={{ name, description, responsibleDepartment, legalBasis, retentionPeriod, status }} 
