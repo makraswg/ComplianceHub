@@ -13,7 +13,8 @@ import {
   Menu, 
   UserCircle,
   HelpCircle,
-  Search
+  Search,
+  Zap
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/context/settings-context';
@@ -32,7 +33,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { usePlatformAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { CommandMenu } from '@/components/layout/command-menu';
 
 function HeaderContent() {
   const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
@@ -112,6 +114,26 @@ function HeaderContent() {
       </div>
       
       <div className="flex items-center gap-2 md:gap-4">
+        {/* Global Search Trigger */}
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="h-9 px-4 gap-3 border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary transition-all rounded-xl hidden md:flex"
+                onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+              >
+                <Search className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Suche...</span>
+                <kbd className="h-5 px-1 bg-slate-100 dark:bg-slate-800 rounded flex items-center justify-center font-mono text-[9px] border border-slate-200 dark:border-slate-700">⌘K</kbd>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="text-[10px] font-black uppercase bg-slate-900 text-white border-none rounded-lg py-1.5 px-3">
+              Globale Schnellsuche
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -160,6 +182,7 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 selection:bg-primary/20 selection:text-primary transition-colors duration-500">
+      <CommandMenu />
       {!isMobile && (
         <aside className="w-64 shrink-0 border-r bg-white dark:bg-slate-900/50 backdrop-blur-xl hidden md:block sticky top-0 h-screen z-50">
           <AppSidebar />

@@ -20,7 +20,12 @@ import {
   UserCircle,
   Table as TableIcon,
   TrendingUp,
-  ArrowUpRight
+  ArrowUpRight,
+  Zap,
+  Sparkles,
+  Search,
+  BrainCircuit,
+  ArrowRight
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -53,6 +58,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 import { QuickTour, type TourStep } from '@/components/layout/quick-tour';
+import { useRouter } from 'next/navigation';
 
 const riskData = [
   { name: 'Niedriges Risiko', value: 65, color: '#29ABE2' },
@@ -61,6 +67,7 @@ const riskData = [
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
@@ -87,6 +94,11 @@ export default function DashboardPage() {
 
     return { users: fUsers, resources: fResources, assignments: fAssignments };
   }, [users, resources, assignments, activeTenantId]);
+
+  const latestAuditFinding = useMemo(() => {
+    if (!auditLogs) return null;
+    return auditLogs.find((log: any) => log.entityType === 'iam-audit' || log.action.toLowerCase().includes('audit'));
+  }, [auditLogs]);
 
   const handleExport = async (format: 'pdf' | 'excel', mode: 'user' | 'resource') => {
     setIsExporting(true);
@@ -168,7 +180,14 @@ export default function DashboardPage() {
           <h1 className="text-4xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">Dashboard</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Status der Governance für {activeTenantId === 'all' ? 'die gesamte Organisation' : activeTenantId}.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Button 
+            variant="outline" 
+            className="h-11 rounded-2xl font-bold uppercase text-[10px] tracking-widest px-6 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 transition-all active:scale-95 hidden md:flex"
+            onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+          >
+            <Search className="w-4 h-4 mr-2" /> Suche (⌘K)
+          </Button>
           <Button 
             id="report-btn"
             variant="outline" 
@@ -176,10 +195,57 @@ export default function DashboardPage() {
             onClick={() => setIsReportDialogOpen(true)}
           >
             <FileText className="w-4 h-4 mr-2 text-primary" />
-            Compliance Reports
+            Berichte
           </Button>
         </div>
       </div>
+
+      {/* Phase 3: Proactive Smart Insights */}
+      <Card className="border-none shadow-2xl rounded-[3rem] overflow-hidden bg-slate-900 text-white animate-in zoom-in-95 duration-500">
+        <div className="p-1 gap-1 flex flex-col md:flex-row">
+          <div className="flex-1 p-8 md:p-12 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-xl shadow-black/20">
+                <BrainCircuit className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-headline font-bold uppercase tracking-widest">Smart Governance Insights</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group" onClick={() => router.push('/iam-audit')}>
+                <div className="flex justify-between items-start mb-4">
+                  <Badge className="bg-emerald-500 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">Compliance Status</Badge>
+                  <ArrowUpRight className="w-4 h-4 text-white/30 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                </div>
+                <p className="text-sm font-medium italic text-slate-300 leading-relaxed">
+                  "Die aktuelle Analyse zeigt eine exzellente Trennung von Admin-Rechten im Mandanten {activeTenantId === 'all' ? 'Global' : activeTenantId}."
+                </p>
+              </div>
+              
+              <div className="p-6 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 transition-all cursor-pointer group" onClick={() => router.push('/risks')}>
+                <div className="flex justify-between items-start mb-4">
+                  <Badge className="bg-amber-500 text-white rounded-none text-[8px] font-black uppercase h-4 px-1.5">Risiko Warnung</Badge>
+                  <AlertTriangle className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+                </div>
+                <p className="text-sm font-medium text-amber-200 leading-relaxed">
+                  3 kritische Risiken benötigen einen Review. Die durchschnittliche Reaktionszeit liegt aktuell bei 4.2 Tagen.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="md:w-80 bg-primary p-8 md:p-12 flex flex-col items-center justify-center text-center gap-4 relative overflow-hidden shrink-0 rounded-[2.8rem]">
+            <Zap className="w-20 h-20 text-white/20 absolute -right-4 -bottom-4 rotate-12" />
+            <div className="relative">
+              <div className="text-6xl font-headline font-black">82%</div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Health Score</p>
+            </div>
+            <Button size="sm" className="mt-4 rounded-xl bg-white text-primary hover:bg-slate-50 font-black uppercase text-[10px] px-6 h-10 shadow-xl active:scale-95 transition-all" onClick={() => router.push('/iam-audit')}>
+              Audit starten <ArrowRight className="w-3.5 h-3.5 ml-2" />
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
