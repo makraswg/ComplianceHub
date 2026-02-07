@@ -30,7 +30,8 @@ import {
   AlertTriangle,
   Lightbulb,
   ArrowDown,
-  GitBranch
+  GitBranch,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -300,6 +301,8 @@ export default function ProcessDetailViewPage() {
                     const isStart = node.type === 'start';
                     const isEnd = node.type === 'end';
                     
+                    const outgoing = currentVersion?.model_json?.edges?.filter((e: any) => String(e.source) === String(node.id)) || [];
+                    
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
                         <div className={cn(
@@ -384,6 +387,30 @@ export default function ProcessDetailViewPage() {
                                     </div>
                                   </div>
                                 )}
+                              </div>
+                            )}
+
+                            {outgoing.length > 0 && (
+                              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">
+                                  {isDecision ? 'Entscheidungswege' : 'Nächste Schritte'}
+                                </Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {outgoing.map((edge: any, eIdx: number) => {
+                                    const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.target));
+                                    return (
+                                      <div key={eIdx} className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 group/link">
+                                        <div className="w-5 h-5 rounded bg-white dark:bg-slate-800 flex items-center justify-center border shadow-sm shrink-0">
+                                          <ArrowRight className="w-3 h-3 text-primary" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          {edge.label && <p className="text-[8px] font-black uppercase text-primary mb-0.5">{edge.label}</p>}
+                                          <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300 truncate">{targetNode?.title || 'Unbekannt'}</p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             )}
                           </CardContent>
