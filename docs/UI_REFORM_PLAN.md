@@ -29,19 +29,9 @@
 - [x] **Dynamic Charts**: Animierte Charts in den Risk Reports.
 - [x] **Audit-Visuals**: Grafische Aufbereitung der Compliance-Lücken im IAM-Audit.
 
-### 3. Visual Veredelung
-- [x] **Gradients & Depth**: Einsatz von dezenten Verläufen in den Header-Bereichen.
-- [x] **Empty States**: Liebevoll gestaltete Illustrationen für leere Listen.
-- [x] **Darkmode Fine-Tuning**: Perfektionierung der Kontraste in allen Detail-Dialogen.
-
-### 4. User Guidance
-- [x] **Quick Tours**: Geführte Einführung für neue Administratoren.
-- [x] **Contextual Help**: Integration der Hilfe-Inhalte direkt in die Header-Leiste.
-- [x] **UX Control**: Zentrale Steuerung der UX-Features in den Einstellungen.
-
 ---
 
-## Phase 3: Intelligence & Ecosystem Mastery (IN ARBEIT 🚀)
+## Phase 3: Intelligence & Ecosystem Mastery (ABGESCHLOSSEN ✅)
 
 ### 1. AI Proactive Governance
 - [x] **Smart Alerts**: KI-gestützte Warnungen bei kritischen Rechtekombinationen direkt im Dashboard.
@@ -57,4 +47,19 @@
 
 ### 4. Enterprise Data Orchestration
 - [x] **Advanced Audit Criteria**: Erweiterung der KI-Regelwerke für komplexe SoD-Analysen.
-- [ ] **Regional Compliance**: Anpassung der GRC-Logik an spezifische Konzernvorgaben (ohne i18n).
+- [x] **Regional Compliance**: Anpassung der GRC-Logik an spezifische regulatorische Rahmenbedingungen (ohne i18n).
+
+---
+
+## Phase 4: Predictive GRC & Resilience (GEPLANT 🚀)
+
+### 1. AI Forecasting
+- [ ] **Predictive Trends**: Vorhersage von Risiko-Entwicklungen basierend auf historischen Audit-Daten.
+- [ ] **Capacity Planning**: KI-gestützte Schätzung des Aufwands für anstehende Rezertifizierungen.
+
+### 2. Operational Mastery
+- [ ] **Disaster Recovery Designer**: Spezielle Workflows für Notfall-Prozesse im ProcessHub.
+- [ ] **Automated Mitigation**: KI schlägt automatisch Maßnahmen (Measures) für neu erkannte Risiken vor.
+
+### 3. Reporting Excellence
+- [ ] **Auditor Portal**: Dedizierter, schreibgeschützter Zugang für externe Prüfer mit One-Click-Beweis-Export.

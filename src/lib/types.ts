@@ -8,6 +8,7 @@ export interface Tenant {
   slug: string;
   createdAt: string;
   status: 'active' | 'archived';
+  region?: string; // z.B. "EU-DSGVO", "BSI-Grundschutz", "NIST-USA"
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;

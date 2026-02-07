@@ -2,13 +2,14 @@
 'use server';
 /**
  * @fileOverview AI IAM Compliance Audit Flow.
- * Optimized for SoD (Segregation of Duties) and Enterprise Risk patterns.
+ * Optimized for SoD (Segregation of Duties) and Regional Compliance patterns.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getActiveAiConfig } from '@/app/actions/ai-actions';
-import { DataSource } from '@/lib/types';
+import { getCollectionData } from '@/app/actions/mysql-actions';
+import { DataSource, Tenant } from '@/lib/types';
 import OpenAI from 'openai';
 
 const IamAuditInputSchema = z.object({
@@ -22,6 +23,7 @@ const IamAuditInputSchema = z.object({
     severity: z.string()
   })),
   dataSource: z.enum(['mysql', 'firestore', 'mock']).optional(),
+  tenantId: z.string().optional(),
 });
 
 const AuditFindingSchema = z.object({
@@ -46,31 +48,32 @@ const SYSTEM_PROMPT = `You are an elite Enterprise IAM Auditor specializing in G
 Your task is to perform a deep analysis of user identities and their assigned permissions.
 
 CORE FOCUS:
-1. Segregation of Duties (SoD): Identify users holding conflicting roles (e.g., someone who can both initiate and approve a payment).
-2. Principle of Least Privilege: Detect over-privileged accounts or "Privilege Creep" over time.
-3. Orphaned/Ghost Accounts: Find active permissions for disabled users.
-4. High-Risk Concentrations: Identify users with too many critical (Admin) roles across different systems.
+1. Segregation of Duties (SoD): Identify users holding conflicting roles (e.g., someone who can both initiate and approve a payment). 
+   CRITICAL: Correlate cross-system permissions!
+2. Principle of Least Privilege: Detect over-privileged accounts.
+3. Regional Compliance: Respect the specific regulatory framework of the company (e.g. GDPR, BSI, NIST).
+4. High-Risk Concentrations: Identify users with too many critical (Admin) roles.
 
 ANALYSIS METHODOLOGY:
 - Correlate users, their departments, and all their active assignments.
-- Check against the specific 'Audit Criteria' provided by the user.
-- If a user has multiple roles in the same system or across related systems (e.g. Finance + ERP), check for SoD violations.
+- Check against the specific 'Audit Criteria' provided.
+- Factor in the 'Regional Context' provided in the prompt.
 
 RESPONSE FORMAT (STRICT JSON):
 Return a valid JSON object matching the schema. Translate findings and summaries into German.
 Mark SoD conflicts specifically with "isSodConflict: true".
 
 {
-  "score": number (0-100, where 100 is perfectly compliant),
-  "summary": "Analytische Zusammenfassung der Sicherheitslage auf Deutsch",
+  "score": number (0-100),
+  "summary": "Analytische Zusammenfassung auf Deutsch",
   "findings": [
     { 
       "entityId": "User-ID", 
       "entityName": "Anzeigename", 
-      "finding": "Präzise Beschreibung des Verstoßes", 
+      "finding": "Verstoß", 
       "severity": "low|medium|high|critical", 
-      "recommendation": "Konkrete Handlungsempfehlung (z.B. Entzug der Rolle X)", 
-      "criteriaMatched": "Name des Kriteriums",
+      "recommendation": "Handlungsempfehlung", 
+      "criteriaMatched": "Regelname",
       "isSodConflict": boolean
     }
   ]
@@ -85,21 +88,26 @@ const iamAuditFlow = ai.defineFlow(
   async (input) => {
     const config = await getActiveAiConfig(input.dataSource as DataSource);
     
+    // Fetch Tenant Context for Regional Compliance
+    let regionalContext = "General ISO 27001";
+    if (input.tenantId && input.tenantId !== 'all') {
+      const tenantRes = await getCollectionData('tenants', input.dataSource as DataSource);
+      const tenant = tenantRes.data?.find((t: Tenant) => t.id === input.tenantId);
+      if (tenant?.region) regionalContext = tenant.region;
+    }
+
     const criteriaList = input.criteria
       .map((c: any) => `- ${c.title}: ${c.description} (Severity: ${c.severity})`)
       .join('\n');
 
-    // Optimization: Only send relevant data to avoid token limits
     const auditContext = {
+      regionalFramework: regionalContext,
       userCount: input.users.length,
-      assignmentCount: input.assignments.length,
       criteria: criteriaList,
-      // Provide a structured snapshot of the most important data points
       sampleData: input.users.map(u => ({
         id: u.id,
         name: u.displayName,
         dept: u.department,
-        enabled: u.enabled,
         roles: input.assignments
           .filter(a => a.userId === u.id && a.status === 'active')
           .map(a => {
@@ -110,37 +118,29 @@ const iamAuditFlow = ai.defineFlow(
       }))
     };
 
-    const prompt = `Perform a high-precision IAM Audit based on this data:
+    const prompt = `REGIONAL CONTEXT: This company follows ${regionalContext} compliance rules.
+Perform a high-precision IAM Audit based on this data:
 ${JSON.stringify(auditContext, null, 2)}
 
-Ensure you check every user's role combination for potential SoD conflicts based on common business logic (Finance, IT, HR separation).`;
+Ensure you check every user's role combination for potential SoD conflicts based on common business logic.`;
 
     // Direct OpenRouter handling
     if (config?.provider === 'openrouter') {
       const client = new OpenAI({
         apiKey: config.openrouterApiKey || '',
         baseURL: 'https://openrouter.ai/api/v1',
-        defaultHeaders: {
-          "HTTP-Referer": "https://compliance-hub.local",
-          "X-Title": "ComplianceHub",
-        }
+        defaultHeaders: { "HTTP-Referer": "https://compliance-hub.local", "X-Title": "ComplianceHub" }
       });
 
       const response = await client.chat.completions.create({
         model: config.openrouterModel || 'google/gemini-2.0-flash-001',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content: prompt }],
         response_format: { type: 'json_object' }
       });
 
-      const content = response.choices[0].message.content;
-      if (!content) throw new Error('AI failed to perform audit via OpenRouter.');
-      return JSON.parse(content) as IamAuditOutput;
+      return JSON.parse(response.choices[0].message.content || '{}') as IamAuditOutput;
     }
 
-    // Standard Genkit handling
     const modelIdentifier = config?.provider === 'ollama' 
       ? `ollama/${config.ollamaModel || 'llama3'}` 
       : `googleai/${config?.geminiModel || 'gemini-1.5-flash'}`;
