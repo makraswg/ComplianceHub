@@ -219,7 +219,8 @@ export interface Risk {
   nettoReason?: string;
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
-  acceptanceStatus?: 'pending' | 'accepted' | 'rejected';
+  acceptanceStatus?: 'draft' | 'pending' | 'approved' | 'rejected';
+  acceptanceComment?: string;
   lastReviewDate?: string;
   createdAt: string;
 }

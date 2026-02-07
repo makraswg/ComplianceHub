@@ -265,6 +265,8 @@ export const appSchema: AppSchema = {
       nettoReason: 'TEXT',
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
+      acceptanceStatus: 'VARCHAR(50) DEFAULT "draft"',
+      acceptanceComment: 'TEXT',
       lastReviewDate: 'VARCHAR(50)',
       createdAt: 'VARCHAR(50) NOT NULL',
     },

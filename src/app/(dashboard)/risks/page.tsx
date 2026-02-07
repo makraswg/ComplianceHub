@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -43,7 +44,9 @@ import {
   Download,
   MoreVertical,
   Activity,
-  History
+  History,
+  FileCheck,
+  BadgeAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -93,6 +96,11 @@ function RiskDashboardContent() {
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
+
+  // Workflow Modal
+  const [isApprovalOpen, setIsApprovalOpen] = useState(false);
+  const [riskToApprove, setRiskToApprove] = useState<Risk | null>(null);
+  const [approvalComment, setApprovalComment] = useState('');
 
   // Review State
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
@@ -158,6 +166,7 @@ function RiskDashboardContent() {
       owner,
       description,
       status,
+      acceptanceStatus: selectedRisk?.acceptanceStatus || 'draft',
       createdAt: selectedRisk?.createdAt || new Date().toISOString(),
       lastReviewDate: selectedRisk?.lastReviewDate || new Date().toISOString()
     };
@@ -176,6 +185,50 @@ function RiskDashboardContent() {
         toast({ title: "Risiko gespeichert" });
         setIsRiskDialogOpen(false);
         resetForm();
+        refresh();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleWorkflowAction = async (risk: Risk, action: 'request' | 'approve' | 'reject') => {
+    setIsSaving(true);
+    let newStatus: Risk['acceptanceStatus'] = risk.acceptanceStatus;
+    let logAction = '';
+
+    if (action === 'request') {
+      newStatus = 'pending';
+      logAction = 'Abnahme für Risiko angefordert';
+    } else if (action === 'approve') {
+      newStatus = 'approved';
+      logAction = 'Risikobewertung formal abgenommen';
+    } else if (action === 'reject') {
+      newStatus = 'rejected';
+      logAction = 'Risikobewertung abgelehnt / Überarbeitung gefordert';
+    }
+
+    const updatedRisk: Risk = {
+      ...risk,
+      acceptanceStatus: newStatus,
+      acceptanceComment: action !== 'request' ? approvalComment : risk.acceptanceComment,
+      lastReviewDate: new Date().toISOString()
+    };
+
+    try {
+      const res = await saveCollectionRecord('risks', risk.id, updatedRisk, dataSource);
+      if (res.success) {
+        await logAuditEventAction(dataSource as any, {
+          tenantId: risk.tenantId,
+          actorUid: authUser?.email || 'system',
+          action: `${logAction}: ${risk.title}`,
+          entityType: 'risk',
+          entityId: risk.id,
+          after: updatedRisk
+        });
+        toast({ title: "Workflow aktualisiert" });
+        setIsApprovalOpen(false);
+        setApprovalComment('');
         refresh();
       }
     } finally {
@@ -306,6 +359,15 @@ function RiskDashboardContent() {
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
+  const getAcceptanceBadge = (status?: string) => {
+    switch (status) {
+      case 'pending': return <Badge className="bg-amber-500 text-white border-none rounded-none text-[8px] font-black uppercase h-4.5 px-1.5 animate-pulse">PRÜFUNG</Badge>;
+      case 'approved': return <Badge className="bg-emerald-600 text-white border-none rounded-none text-[8px] font-black uppercase h-4.5 px-1.5">ABGENOMMEN</Badge>;
+      case 'rejected': return <Badge className="bg-red-600 text-white border-none rounded-none text-[8px] font-black uppercase h-4.5 px-1.5">REVISION</Badge>;
+      default: return <Badge variant="outline" className="text-[8px] font-black uppercase h-4.5 px-1.5 border-slate-200">ENTWURF</Badge>;
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -389,10 +451,10 @@ function RiskDashboardContent() {
                     <div className="flex justify-between items-start mb-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1.5">
+                          {getAcceptanceBadge(risk.acceptanceStatus)}
                           <Badge variant="outline" className="rounded-full text-[8px] font-black uppercase border-slate-200 dark:border-slate-800 text-slate-400 h-5">
                             {risk.category}
                           </Badge>
-                          {isSub && <Badge className="bg-slate-100 text-slate-500 text-[8px] font-black uppercase rounded-full border-none h-5 px-2">Sub-Risiko</Badge>}
                         </div>
                         <h3 className="font-bold text-slate-900 dark:text-white leading-tight" onClick={() => openEdit(risk)}>{risk.title}</h3>
                       </div>
@@ -402,9 +464,6 @@ function RiskDashboardContent() {
                           scoreRaw >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
                         )}>
                           {scoreRaw}
-                        </Badge>
-                        <Badge variant="outline" className="rounded-xl border-slate-100 text-[9px] font-bold text-emerald-600">
-                          {scoreRes || '—'}
                         </Badge>
                       </div>
                     </div>
@@ -430,9 +489,15 @@ function RiskDashboardContent() {
                           <Button variant="outline" className="w-10 h-10 p-0 rounded-xl border-slate-200 dark:border-slate-800"><MoreVertical className="w-4 h-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-2xl p-2 w-56 shadow-2xl">
+                          {risk.acceptanceStatus === 'pending' && (
+                            <DropdownMenuItem onSelect={() => { setRiskToApprove(risk); setIsApprovalOpen(true); }} className="rounded-xl py-2.5 gap-3 font-bold text-emerald-600"><FileCheck className="w-4 h-4" /> Formale Abnahme</DropdownMenuItem>
+                          )}
+                          {risk.acceptanceStatus !== 'pending' && risk.acceptanceStatus !== 'approved' && (
+                            <DropdownMenuItem onSelect={() => handleWorkflowAction(risk, 'request')} className="rounded-xl py-2.5 gap-3"><BadgeAlert className="w-4 h-4 text-amber-500" /> Abnahme anfordern</DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator className="my-2" />
                           {!risk.parentId && <DropdownMenuItem onSelect={() => openCreateSubRisk(risk)} className="rounded-xl py-2.5 gap-3"><Plus className="w-4 h-4" /> Sub-Risiko erstellen</DropdownMenuItem>}
-                          <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-xl py-2.5 gap-3"><Pencil className="w-4 h-4" /> Bearbeiten</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => { setViewMeasuresRisk(risk); setIsMeasuresViewOpen(true); }} className="rounded-xl py-2.5 gap-3"><ClipboardCheck className="w-4 h-4" /> Maßnahmen</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-xl py-2.5 gap-3"><Pencil className="w-4 h-4 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                           <DropdownMenuSeparator className="my-2" />
                           <DropdownMenuItem className="text-red-600 rounded-xl py-2.5 gap-3" onSelect={() => { if(confirm("Risiko löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                             <Trash2 className="w-4 h-4" /> Löschen
@@ -452,8 +517,8 @@ function RiskDashboardContent() {
               <TableHeader className="bg-slate-50/50 dark:bg-slate-950/50">
                 <TableRow className="hover:bg-transparent border-slate-100 dark:border-slate-800">
                   <TableHead className="py-6 px-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Risiko / Bezug</TableHead>
-                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Brutto-Score</TableHead>
-                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Netto-Score</TableHead>
+                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500 text-center">Score</TableHead>
+                  <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Workflow</TableHead>
                   <TableHead className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Maßnahmen</TableHead>
                   <TableHead className="text-right px-8 font-black uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">Aktionen</TableHead>
                 </TableRow>
@@ -464,7 +529,6 @@ function RiskDashboardContent() {
                   const scoreRaw = risk.impact * risk.probability;
                   const scoreRes = (risk.residualImpact || 0) * (risk.residualProbability || 0);
                   const asset = resources?.find(r => r.id === risk.assetId);
-                  const lastReview = risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'N/A';
                   const assignedMeasures = getMeasuresForRisk(risk.id);
                   const subs = getSubRisks(risk.id);
                   
@@ -479,7 +543,7 @@ function RiskDashboardContent() {
                             {isSub ? <GitPullRequest className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate group-hover:text-accent transition-colors" onClick={() => openEdit(risk)}>{risk.title}</div>
+                            <div className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate group-hover:text-accent transition-colors cursor-pointer" onClick={() => openEdit(risk)}>{risk.title}</div>
                             <div className="flex items-center gap-3 mt-1">
                               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">{risk.category}</span>
                               {asset && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><Layers className="w-3 h-3" /> {asset.name}</span>}
@@ -488,7 +552,7 @@ function RiskDashboardContent() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className={cn(
                           "inline-flex items-center px-3 py-1 rounded-xl font-black text-xs shadow-sm",
                           scoreRaw >= 15 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
@@ -497,15 +561,7 @@ function RiskDashboardContent() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <ArrowRightLeft className="w-3.5 h-3.5 text-slate-300" />
-                          <div className={cn(
-                            "inline-flex items-center px-3 py-1 rounded-xl font-black text-xs border",
-                            scoreRes >= 8 ? "bg-orange-50/50 text-orange-600 border-orange-100" : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                          )}>
-                            {scoreRes || '—'}
-                          </div>
-                        </div>
+                        {getAcceptanceBadge(risk.acceptanceStatus)}
                       </TableCell>
                       <TableCell>
                         <Badge 
@@ -521,16 +577,23 @@ function RiskDashboardContent() {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider gap-2 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all"
+                            className="h-9 rounded-xl text-[10px] font-black uppercase tracking-wider gap-2 opacity-0 group-hover:opacity-100 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all active:scale-95"
                             onClick={() => openReviewDialog(risk)}
                           >
                             <CalendarCheck className="w-4 h-4" /> Review
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-5 h-5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition-transform"><MoreHorizontal className="w-5 h-5" /></Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl">
+                            <DropdownMenuContent align="end" className="w-56 rounded-2xl p-2 shadow-2xl border-slate-100 dark:border-slate-800">
+                              {risk.acceptanceStatus === 'pending' && (
+                                <DropdownMenuItem onSelect={() => { setRiskToApprove(risk); setIsApprovalOpen(true); }} className="rounded-xl py-2.5 gap-3 font-bold text-emerald-600"><FileCheck className="w-4 h-4" /> Formale Abnahme</DropdownMenuItem>
+                              )}
+                              {risk.acceptanceStatus !== 'pending' && risk.acceptanceStatus !== 'approved' && (
+                                <DropdownMenuItem onSelect={() => handleWorkflowAction(risk, 'request')} className="rounded-xl py-2.5 gap-3"><BadgeAlert className="w-4 h-4 text-amber-500" /> Abnahme anfordern</DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator className="my-2" />
                               {!risk.parentId && <DropdownMenuItem onSelect={() => openCreateSubRisk(risk)} className="rounded-xl py-2.5 gap-3"><Plus className="w-4 h-4" /> Sub-Risiko erstellen</DropdownMenuItem>}
                               <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-xl py-2.5 gap-3"><Pencil className="w-4 h-4 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                               <DropdownMenuSeparator className="my-2" />
@@ -677,7 +740,7 @@ function RiskDashboardContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Review Dialog remains similar logic but styled */}
+      {/* Review Dialog */}
       <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-950 border-none shadow-2xl">
           <DialogHeader className="p-8 bg-emerald-900 text-white">
@@ -691,7 +754,6 @@ function RiskDashboardContent() {
               <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1 block">Aktuelles Risiko</Label>
               <p className="font-bold text-slate-800 dark:text-slate-100">{reviewRisk?.title}</p>
             </div>
-            {/* Review fields simplified for mobile first ... */}
             <div className="grid grid-cols-2 gap-6 pt-4 border-t">
               <div className="space-y-4">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Brutto Score</Label>
@@ -706,6 +768,42 @@ function RiskDashboardContent() {
           <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t">
             <Button variant="ghost" onClick={() => setIsReviewDialogOpen(false)} className="rounded-xl text-[10px] font-black uppercase">Abbrechen</Button>
             <Button onClick={handleReviewSubmit} disabled={isSaving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] h-12 shadow-lg">Review Abschließen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Workflow Approval Dialog */}
+      <Dialog open={isApprovalOpen} onOpenChange={setIsApprovalOpen}>
+        <DialogContent className="max-w-lg rounded-[2.5rem] p-0 overflow-hidden bg-white dark:bg-slate-900 border-none shadow-2xl">
+          <DialogHeader className="p-8 bg-slate-900 text-white">
+            <div className="flex items-center gap-4">
+              <FileCheck className="w-8 h-8 text-primary" />
+              <DialogTitle className="text-xl font-headline font-bold uppercase">Risiko-Abnahme</DialogTitle>
+            </div>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Anmerkungen zur Abnahme</Label>
+              <Textarea 
+                value={approvalComment} 
+                onChange={e => setApprovalComment(e.target.value)} 
+                placeholder="Begründung für die Abnahme oder Ablehnung..."
+                className="rounded-xl min-h-[120px] border-slate-200"
+              />
+            </div>
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 rounded-xl">
+              <p className="text-[10px] text-blue-700 dark:text-blue-300 font-bold uppercase leading-relaxed italic">
+                Hinweis: Mit der Abnahme bestätigen Sie die Korrektheit der Szenario-Bewertung und die Angemessenheit der Netto-Schätzung.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-900/50 border-t flex gap-3">
+            <Button variant="outline" onClick={() => handleWorkflowAction(riskToApprove!, 'reject')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase text-red-600 border-red-100 hover:bg-red-50">
+              <X className="w-4 h-4 mr-2" /> Ablehnen
+            </Button>
+            <Button onClick={() => handleWorkflowAction(riskToApprove!, 'approve')} disabled={isSaving} className="flex-1 rounded-xl h-12 font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-2" />} Abnehmen
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

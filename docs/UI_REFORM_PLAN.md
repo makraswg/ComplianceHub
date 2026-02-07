@@ -53,8 +53,8 @@
 
 ### 3. Advanced Collaboration
 - [x] **Presence & Comments**: Zusammenarbeit im ProcessHub (Diskussions-Thread & Editoren-Historie).
-- [ ] **Approval Workflows**: Visuelle Freigabeprozesse für Risiko-Bewertungen.
+- [x] **Approval Workflows**: Visuelle Freigabeprozesse für Risiko-Bewertungen.
 
-### 4. Internationalization (i18n)
-- [ ] **Multi-Language Support**: Vorbereitung der UI auf Englisch/Deutsch Umschaltung.
-- [ ] **Regional Compliance**: Anpassung der GRC-Logik an länderspezifische Vorgaben.
+### 4. Enterprise Data Orchestration
+- [ ] **Advanced Audit Criteria**: Erweiterung der KI-Regelwerke für komplexe SoD-Analysen.
+- [ ] **Regional Compliance**: Anpassung der GRC-Logik an spezifische Konzernvorgaben (ohne i18n).
