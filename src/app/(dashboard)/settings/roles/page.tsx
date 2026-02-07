@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -119,9 +118,9 @@ export default function PlatformRolesPage() {
   };
 
   const PermSelector = ({ label, icon: Icon, value, onChange }: any) => (
-    <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border rounded-lg hover:border-primary/30 transition-all">
+    <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-900 border rounded-lg hover:border-primary/30 transition-all shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
+        <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-200 dark:border-slate-700">
           <Icon className="w-4 h-4" />
         </div>
         <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{label}</span>
@@ -254,7 +253,7 @@ export default function PlatformRolesPage() {
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleSave} disabled={isSaving || !name} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+            <Button onClick={handleSave} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>

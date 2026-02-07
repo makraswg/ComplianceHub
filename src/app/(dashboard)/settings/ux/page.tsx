@@ -78,7 +78,7 @@ export default function UxSettingsPage() {
     onCheckedChange: (v: boolean) => void,
     badge?: string
   }) => (
-    <div className="p-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl transition-all hover:shadow-md hover:border-primary/20 flex items-center justify-between group">
+    <div className="p-4 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl transition-all hover:shadow-md hover:border-primary/20 flex items-center justify-between group shadow-sm">
       <div className="flex items-center gap-4">
         <div className={cn(
           "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 border shadow-inner",
@@ -101,32 +101,32 @@ export default function UxSettingsPage() {
   return (
     <div className="space-y-8">
       <Card className="rounded-xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-        <CardHeader className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
-              <Sparkles className="w-6 h-6" />
+        <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+          <div className="flex items-center gap-6">
+            <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
+              <Sparkles className="w-7 h-7" />
             </div>
             <div>
-              <CardTitle className="text-lg font-headline font-bold tracking-tight text-slate-900 dark:text-white">Erlebnis & Design</CardTitle>
-              <p className="text-[10px] text-slate-400 font-bold tracking-widest mt-1">Personalisierung der Plattform-Interaktion</p>
+              <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Erlebnis & Design</CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Personalisierung der Plattform-Interaktion</p>
             </div>
           </div>
         </CardHeader>
         
-        <CardContent className="p-6 space-y-8">
-          <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-              <Info className="w-4 h-4" />
+        <CardContent className="p-8 space-y-10">
+          <div className="p-6 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-lg">
+              <Info className="w-5 h-5" />
             </div>
-            <div className="space-y-0.5">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">System Performance</p>
-              <p className="text-[10px] text-slate-500 italic leading-relaxed">
+            <div className="space-y-1">
+              <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">System Performance</p>
+              <p className="text-[11px] text-slate-500 italic leading-relaxed">
                 Diese Einstellungen steuern die visuelle Qualität der Benutzeroberfläche. Auf älterer Hardware kann das Deaktivieren von Animationen die Reaktionszeit verbessern.
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <UxCard 
               icon={Wind}
               title="Erweiterte Animationen"
@@ -158,14 +158,14 @@ export default function UxSettingsPage() {
             />
           </div>
 
-          <div className="flex justify-end pt-6 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex justify-end pt-10 border-t border-slate-100 dark:border-slate-800">
             <Button 
               onClick={handleSave} 
               disabled={isSaving || isLoading} 
-              className="rounded-xl font-bold text-xs tracking-wide h-11 px-10 gap-2 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
+              className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Speichern
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              Änderungen Speichern
             </Button>
           </div>
         </CardContent>

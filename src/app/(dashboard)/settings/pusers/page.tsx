@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -137,7 +136,7 @@ export default function PlatformUsersPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Berechtigte Nutzer für die Governance-Konsole</p>
           </div>
         </div>
-        <Button size="sm" className="h-9 font-bold text-xs gap-2" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+        <Button size="sm" className="h-9 rounded-md font-bold text-xs gap-2" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
           <Plus className="w-3.5 h-3.5" /> Admin hinzufügen
         </Button>
       </div>
