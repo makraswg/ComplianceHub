@@ -29,7 +29,7 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
 
 *   **Step 1.1: Unified Metrics**
     *   *Status*: Implementiert.
-    *   *Consultant Audit*: Es sind nur Zähler. Ein Azubi weiß nicht, ob "100 Nutzer" gut oder schlecht sind. 
+    *   *Consultant Audit*: Es sind nur statische Zähler. Ein Azubi weiß nicht, ob "100 Nutzer" gut oder schlecht sind. 
     *   **KRITIK**: Fehlende Trend-Indikatoren (+/- % zum Vormonat) und "Health-Ampeln".
     *   **OPTIMIERUNG**: Metriken müssen Kontext bieten. "10 neue Nutzer seit gestern" ist eine Information, "100 Nutzer gesamt" nur eine Zahl.
 
@@ -51,37 +51,36 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **KRITIK**: Die KI weiß nicht, was im Jira passiert.
     *   **OPTIMIERUNG**: Verknüpfung mit Jira-Tickets (z.B. "Warnung: 5 offene Leaver-Tickets seit > 3 Tagen"). Proaktive Vorschläge statt nur Warnungen.
 
-*   **Step 1.5: Global Search (Cmd+K)**
-    *   *Status*: Implementiert.
-    *   *Consultant Audit*: UI ist exzellent. 
-    *   **KRITIK**: Suche findet nur "Dinge", keine "Taten".
-    *   **OPTIMIERUNG**: Erweiterung der Suche auf "Aktionen" (z.B. "Neuen Nutzer anlegen" oder "Risiko-Export" direkt aus der Suche).
-
----
-
 ### 2. Identity & Access Management (IAM)
 *Der Kern der digitalen Identität.*
 
 *   **Step 2.1: Benutzerverzeichnis**
     *   *Status*: Tabelle & Cards vorhanden.
-    *   *Consultant Audit*: Woher kommen die Daten? (Cross-Check mit LDAP).
-    *   **NEUE AUFGABE**: "Inkonsistenz-Flag", wenn LDAP-Daten von Hub-Daten abweichen.
+    *   *Consultant Audit*: Woher kommen die Daten? (LDAP-Herkunft muss klarer sein).
+    *   **NEUE AUFGABE**: "Inkonsistenz-Flag" einführen. Wenn ein Nutzer im AD deaktiviert ist, aber im Hub noch als "Aktiv" steht, muss ein Azubi das sofort sehen.
 
-*   **Step 2.2: Einzelzuweisungen**
+*   **Step 2.2: Einzelzuweisungen & Quick Assign**
     *   *Status*: Manuelle Vergabe möglich.
     *   *Consultant Audit*: Ein Azubi könnte kritische Rechte versehentlich vergeben.
-    *   **NEUE AUFGABE**: "Risk-Check" vor dem Speichern (KI warnt: "Diese Rolle ist hochkritisch für diese Abteilung").
+    *   **KRITIK**: Fehlende Kopplung zum Risiko-Modul. 
+    *   **NEUE AUFGABE**: "Real-time Risk Check". Vor dem Speichern einer Zuweisung prüft das System: "Hat die Rolle 'Admin' im Risikomanagement ein hohes Score?". Falls ja: Warnung anzeigen.
 
 *   **Step 2.3: Access Reviews (Rezertifizierung)**
     *   *Status*: Workflow vorhanden.
-    *   *Consultant Audit*: Zu trocken. 
-    *   **NEUE AUFGABE**: "Bulk-Zertifizierung" für Standardrechte, um Review-Fatigue zu vermeiden.
+    *   *Consultant Audit*: "Review-Fatigue". Manager klicken alles schnell durch.
+    *   **NEUE AUFGABE**: "Smart Pre-Selection". Die KI markiert unkritische Standard-Rechte vorab als "Ok", damit sich der Mensch auf die 5% gefährlichen Ausnahmen konzentriert.
 
 *   **Step 2.4: KI-Access-Advisor**
     *   *Status*: Flow vorhanden.
-    *   *Consultant Audit*: Sehr wertvoll. 
-    *   **NEUE AUFGABE**: Advisor soll proaktiv "Peer-Analysen" machen ("Andere in der IT haben dieses Recht nicht").
+    *   *Consultant Audit*: Der Advisor ist isoliert.
+    *   **NEUE AUFGABE**: "Peer-Analytik". Der Advisor muss sagen können: "Andere Mitarbeiter in der Abteilung 'Marketing' haben dieses Recht nicht - eventuell Überprivilegierung?".
+
+### 3. Risikomanagement & GRC
+*Die strategische Absicherung.*
+
+*   **Step 3.1: Risikoinventar**
+    *   *Status*: Implementiert.
+    *   *Consultant Audit*: Folgt noch in der nächsten Phase...
 
 ---
-
 *(Fortsetzung folgt in den nächsten Audit-Schritten...)*
