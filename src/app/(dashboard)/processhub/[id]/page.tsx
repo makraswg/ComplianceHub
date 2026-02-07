@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -169,7 +170,7 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNode?.id]);
 
-  // Handler für das Resizing (Verschoben nach oben für korrekte Initialisierung)
+  // Handler für das Resizing
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (isResizingLeft.current) setLeftWidth(Math.max(250, Math.min(600, e.clientX)));
     if (isResizingRight.current) setRightWidth(Math.max(300, Math.min(600, window.innerWidth - e.clientX)));

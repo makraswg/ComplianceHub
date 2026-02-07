@@ -72,7 +72,7 @@ export interface ProcessNode {
   tips?: string;
   errors?: string;
   links?: { title: string; url: string }[];
-  targetProcessId?: string; // New: Link to another process
+  targetProcessId?: string; 
 }
 
 export interface ProcessEdge {
@@ -106,7 +106,7 @@ export interface Process {
   tenantId: string;
   title: string;
   description?: string;
-  openQuestions?: string; // New: Field for persistent open questions
+  openQuestions?: string; 
   status: 'draft' | 'published' | 'archived';
   ownerUserId: string;
   currentVersion: number;
