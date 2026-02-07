@@ -68,10 +68,12 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     
     switch (node.type) {
       case 'start': 
+        // BPMN Start Event: thin circle, green
         style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
         w = 50; h = 50; 
         break;
       case 'end': 
+        // BPMN End Event: thick circle, red
         const hasLink = !!node.targetProcessId && node.targetProcessId !== 'none';
         style = hasLink 
           ? 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#e1f5fe;strokeColor=#0288d1;strokeWidth=3;shadow=1;' 
@@ -79,6 +81,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         w = 50; h = 50; 
         break;
       case 'decision': 
+        // BPMN Gateway: rhombus, yellow
         style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
         w = 80; h = 80; 
         break;
