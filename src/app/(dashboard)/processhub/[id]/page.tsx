@@ -576,7 +576,7 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Floating AI Advisor (Bottom Right) - Fancy Emerald Brand */}
+      {/* Floating AI Advisor (Bottom Right) - Emerald Green Branding */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
@@ -590,9 +590,9 @@ export default function ProcessDesignerPage() {
                   <p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Optimierung aktiv</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10 rounded-full" onClick={() => setIsAiAdvisorOpen(false)}>
+              <button onClick={() => setIsAiAdvisorOpen(false)} className="text-white/50 hover:text-white transition-colors">
                 <Minus className="w-4 h-4" />
-              </Button>
+              </button>
             </header>
 
             <ScrollArea className="flex-1 bg-slate-50/50">
@@ -607,7 +607,7 @@ export default function ProcessDesignerPage() {
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
                     <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
                       msg.role === 'user' 
-                        ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" 
+                        ? "bg-slate-800 text-white border-slate-700 rounded-2xl rounded-tr-none" 
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
@@ -622,22 +622,22 @@ export default function ProcessDesignerPage() {
                       </div>
                     )}
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                      <div className="mt-3 w-full bg-emerald-50 border-2 border-emerald-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
-                        <div className="flex items-center gap-2 text-emerald-700">
+                      <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
+                        <div className="flex items-center gap-2 text-primary">
                           <BrainCircuit className="w-3.5 h-3.5" />
                           <span className="text-[10px] font-black uppercase tracking-widest">KI Vorschlag anwenden</span>
                         </div>
                         <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                           {msg.suggestions.map((op: any, opIdx: number) => (
-                            <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-emerald-100 rounded-lg flex items-center gap-3">
-                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-emerald-200 text-emerald-600 h-4 px-1">NEU</Badge>
+                            <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
+                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-primary h-4 px-1">NEU</Badge>
                               <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Update'}</span>
                             </div>
                           ))}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
-                          <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-emerald-200 rounded-lg bg-white">Ignorieren</Button>
+                          <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-9 bg-primary hover:bg-primary/90 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
+                          <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-slate-200 rounded-lg bg-white">Ignorieren</Button>
                         </div>
                       </div>
                     )}
@@ -646,7 +646,7 @@ export default function ProcessDesignerPage() {
                 {isAiLoading && (
                   <div className="flex justify-start">
                     <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span>
                     </div>
                   </div>
@@ -675,7 +675,7 @@ export default function ProcessDesignerPage() {
         )}
       </div>
 
-      {/* Node Edit Dialog */}
+      {/* Node Edit Dialog - Final Enterprise Polishing */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
@@ -693,7 +693,7 @@ export default function ProcessDesignerPage() {
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
                   {localNodeEdits.title || 'Modul bearbeiten'}
                 </DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider uppercase">
+                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider">
                   Modul: {localNodeEdits.type} • ID: {selectedNodeId}
                 </DialogDescription>
               </div>
@@ -752,7 +752,7 @@ export default function ProcessDesignerPage() {
                   <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-900 text-slate-100 rounded-xl font-mono p-4 leading-relaxed shadow-lg border-none" placeholder="Einen Punkt pro Zeile eingeben..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Einen Punkt pro Zeile eingeben..." />
                 </div>
               </div>
 
@@ -776,7 +776,7 @@ export default function ProcessDesignerPage() {
             >
               <Trash2 className="w-3.5 h-3.5" /> Modul löschen
             </Button>
-            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-slate-900 hover:bg-black text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto">
+            <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto">
               Schließen
             </Button>
           </DialogFooter>
