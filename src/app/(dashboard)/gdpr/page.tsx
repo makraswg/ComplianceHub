@@ -336,7 +336,7 @@ export default function GdprPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-500 shadow-md">
                   <ShieldCheck className="w-5 h-5" />
@@ -356,10 +356,10 @@ export default function GdprPage() {
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
             <div className="px-6 border-b bg-slate-50 shrink-0">
               <TabsList className="h-10 bg-transparent gap-6 p-0">
-                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
                   <FileText className="w-3.5 h-3.5" /> Stammdaten
                 </TabsTrigger>
-                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
+                <TabsTrigger value="systems" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600">
                   <Layers className="w-3.5 h-3.5" /> IT-Systeme
                 </TabsTrigger>
               </TabsList>

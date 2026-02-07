@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -250,7 +249,7 @@ export default function RolesManagementPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />
@@ -307,7 +306,7 @@ export default function RolesManagementPage() {
                 <div className="space-y-2 flex flex-col justify-end">
                   <div className="flex items-center justify-between p-3 border rounded-md bg-slate-50 dark:bg-slate-900 h-11">
                     <Label className="text-[10px] font-bold text-slate-500">Admin-Recht</Label>
-                    <Switch checked={isAdmin} onCheckedChange={setIsAdmin} />
+                    <Switch checked={isAdmin} onCheckedChange={setAdminOnly} />
                   </div>
                 </div>
               </div>

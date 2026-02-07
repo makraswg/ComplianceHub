@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -333,7 +332,7 @@ export default function ResourcesPage() {
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
           <Button variant="ghost" size="sm" className="h-9 rounded-md font-bold text-xs gap-2" onClick={() => setShowArchived(!showArchived)}>
-            {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+            {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
             {showArchived ? 'Aktive' : 'Archiv'}
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => { resetResourceForm(); setIsResourceDialogOpen(true); }}>
@@ -421,7 +420,7 @@ export default function ResourcesPage() {
       <Dialog open={isResourceDialogOpen} onOpenChange={setIsResourceDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Network className="w-5 h-5" />
@@ -561,7 +560,7 @@ export default function ResourcesPage() {
       <Dialog open={isEntitlementListOpen} onOpenChange={setIsEntitlementListOpen}>
         <DialogContent className="max-w-4xl w-[95vw] rounded-xl h-[85vh] p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-inner">
                   <Shield className="w-5 h-5" />
@@ -624,7 +623,7 @@ export default function ResourcesPage() {
       <Dialog open={isEntDialogOpen} onOpenChange={setIsEntDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />

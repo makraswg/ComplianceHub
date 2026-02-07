@@ -377,7 +377,7 @@ function RiskDashboardContent() {
       <Dialog open={isRiskDialogOpen} onOpenChange={(val) => { if(!val) { setIsRiskDialogOpen(false); setSelectedRisk(null); } }}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full pr-8">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center text-accent shadow-md">
                   <ShieldAlert className="w-5 h-5" />
@@ -390,7 +390,13 @@ function RiskDashboardContent() {
               <AiFormAssistant 
                 formType="risk" 
                 currentData={{ title, category, assetId, description, impact, probability }} 
-                onApply={applyAiSuggestions} 
+                onApply={(s) => {
+                  if (s.title) setTitle(s.title);
+                  if (s.description) setDescription(s.description);
+                  if (s.impact) setImpact(String(s.impact));
+                  if (s.probability) setProbability(String(s.probability));
+                  toast({ title: "KI-Vorschläge übernommen" });
+                }} 
               />
             </div>
           </DialogHeader>
