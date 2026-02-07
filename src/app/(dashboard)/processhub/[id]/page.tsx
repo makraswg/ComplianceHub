@@ -63,6 +63,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 /**
  * Erzeugt das XML für mxGraph mit robustem Fallback für IDs.
+ * Verhindert den "Duplicate ID undefined" Fehler.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -72,8 +73,9 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   nodes.forEach((node, idx) => {
     let nodeSafeId = String(node.id || `node-gen-${idx}`);
-    if (nodeSafeId === 'undefined' || nodeSafeId === 'null' || nodeSafeId === '') {
-      nodeSafeId = `node-auto-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+    // Finale Härtung gegen mxGraph Auto-ID Konflikte
+    if (nodeSafeId === 'undefined' || nodeSafeId === 'null' || nodeSafeId === '' || nodeSafeId === '[object Object]') {
+      nodeSafeId = `node-fix-${idx}-${Math.random().toString(36).substring(2, 5)}`;
     }
     
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
@@ -96,8 +98,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   edges.forEach((edge, idx) => {
     let edgeSafeId = String(edge.id || `edge-gen-${idx}`);
-    if (edgeSafeId === 'undefined' || edgeSafeId === 'null' || edgeSafeId === '') {
-      edgeSafeId = `edge-auto-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+    if (edgeSafeId === 'undefined' || edgeSafeId === 'null' || edgeSafeId === '' || edgeSafeId === '[object Object]') {
+      edgeSafeId = `edge-fix-${idx}-${Math.random().toString(36).substring(2, 5)}`;
     }
 
     const sourceExists = nodes.some(n => n.id === edge.source);
@@ -362,12 +364,12 @@ export default function ProcessDesignerPage() {
       )}
     >
       <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
-        <TabsList className="h-14 bg-slate-50 border-b gap-4 p-0 w-full justify-start px-6 shrink-0 rounded-none">
+        <TabsList className="h-12 bg-slate-50 border-b gap-4 p-0 w-full justify-start px-6 shrink-0 rounded-none">
           <TabsTrigger value="meta" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><FilePen className="w-4 h-4" /> Stammblatt</TabsTrigger>
           <TabsTrigger value="steps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-2"><ClipboardList className="w-4 h-4" /> Schritte</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0">
+        <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
           <ScrollArea className="flex-1">
             <div className="p-8 space-y-10 pb-32">
               <div className="space-y-6">
@@ -430,8 +432,8 @@ export default function ProcessDesignerPage() {
           </ScrollArea>
         </TabsContent>
 
-        <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0">
-          <div className="px-6 py-4 border-b bg-white flex items-center justify-between shrink-0">
+        <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+          <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
             <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Ablauffolge</h3>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="h-8 text-[9px] font-black uppercase rounded-lg border-slate-200 hover:bg-primary/5 hover:text-primary transition-all" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>

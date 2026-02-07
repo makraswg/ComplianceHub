@@ -17,10 +17,12 @@ import {
  * Erkennt auch ungültige Strings wie "undefined" oder "null".
  */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
+  const idStr = String(requestedId || '').trim().toLowerCase();
   const isInvalid = !requestedId || 
-                    String(requestedId).toLowerCase() === 'undefined' || 
-                    String(requestedId).toLowerCase() === 'null' || 
-                    String(requestedId).trim() === '';
+                    idStr === 'undefined' || 
+                    idStr === 'null' || 
+                    idStr === '' ||
+                    idStr === '[object object]';
 
   let baseId = isInvalid 
     ? `${prefix}-${Math.random().toString(36).substring(2, 7)}` 
@@ -147,10 +149,10 @@ export async function applyProcessOpsAction(
 
   if (!currentVersion) throw new Error("Prozessversion nicht gefunden.");
   
-  let model = JSON.parse(JSON.stringify(currentVersion.model_json));
-  let layout = JSON.parse(JSON.stringify(currentVersion.layout_json));
+  let model = JSON.parse(JSON.stringify(currentVersion.model_json || { nodes: [], edges: [], roles: [], isoFields: {}, customFields: {} }));
+  let layout = JSON.parse(JSON.stringify(currentVersion.layout_json || { positions: {} }));
 
-  // Globale Liste aller IDs im Modell (mxGraph erfordert Eindeutigkeit über Nodes UND Edges)
+  // Globale Liste aller IDs im Modell
   const usedIds = new Set([
     ...(model.nodes || []).map((n: any) => String(n.id)),
     ...(model.edges || []).map((e: any) => String(e.id))
@@ -227,7 +229,10 @@ export async function applyProcessOpsAction(
         edgeToAdd.source = nodeIdMap[String(edgeToAdd.source)] || String(edgeToAdd.source);
         edgeToAdd.target = nodeIdMap[String(edgeToAdd.target)] || String(edgeToAdd.target);
         
-        model.edges.push(edgeToAdd);
+        // Verhindere Kanten zu "undefined"
+        if (edgeToAdd.source !== 'undefined' && edgeToAdd.target !== 'undefined') {
+          model.edges.push(edgeToAdd);
+        }
         break;
 
       case 'REMOVE_EDGE':
