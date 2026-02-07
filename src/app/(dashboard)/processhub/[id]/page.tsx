@@ -14,7 +14,6 @@ import {
   BookOpen,
   ShieldCheck,
   Save, 
-  Trash2, 
   Activity, 
   RefreshCw, 
   GitBranch, 
@@ -139,7 +138,6 @@ export default function ProcessDesignerPage() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   
@@ -353,40 +351,6 @@ export default function ProcessDesignerPage() {
     const [moved] = newNodes.splice(idx, 1);
     newNodes.splice(newIdx, 0, moved);
     handleApplyOps([{ type: 'REORDER_NODES', payload: { orderedNodeIds: newNodes.map((n: any) => n.id) } }]);
-  };
-
-  const handleDeleteNode = async () => {
-    if (!selectedNodeId || isDeleting) return;
-    
-    const confirmDelete = window.confirm("Möchten Sie dieses Prozessmodul wirklich unwiderruflich löschen?");
-    if (!confirmDelete) return;
-
-    setIsDeleting(true);
-    try {
-      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const res = await applyProcessOpsAction(
-        currentVersion.process_id, 
-        currentVersion.version, 
-        ops, 
-        currentVersion.revision, 
-        user?.id || 'system', 
-        dataSource
-      );
-      
-      if (res.success) {
-        setIsStepDialogOpen(false);
-        setSelectedNodeId(null);
-        refreshVersion();
-        refreshProc();
-        toast({ title: "Modul entfernt" });
-      } else {
-        toast({ variant: "destructive", title: "Fehler", description: "Löschen fehlgeschlagen" });
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   const handleAddEdge = async (targetId: string, direction: 'forward' | 'backward' = 'forward') => {
@@ -901,24 +865,14 @@ export default function ProcessDesignerPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-            <Button 
-              variant="ghost" 
-              className="text-red-600 rounded-xl h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" 
-              onClick={handleDeleteNode}
-              disabled={isDeleting || isApplying}
-            >
-              {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Modul löschen
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying}>
+              Abbrechen
             </Button>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>
-                Abbrechen
-              </Button>
-              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
-                {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
-                Änderungen speichern
-              </Button>
-            </div>
+            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying}>
+              {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
+              Änderungen speichern
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
