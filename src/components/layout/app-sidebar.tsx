@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -119,10 +120,10 @@ export function AppSidebar() {
   ];
 
   const settingSubItems = [
-    { name: 'Organisation', href: '/settings/general', icon: Building2 },
-    { name: 'Struktur & Stellen', href: '/settings/structure', icon: Briefcase },
-    { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
+    { name: 'Organisation & Struktur', href: '/settings/organization', icon: Building2 },
+    { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
+    { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
     { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },

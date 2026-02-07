@@ -43,8 +43,16 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       departmentId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
-      description: 'TEXT', // NEU
+      description: 'TEXT', 
       status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  platformRoles: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      permissions: 'LONGTEXT', // JSON object
     }
   },
   platformUsers: {
@@ -83,8 +91,8 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       process_id: 'VARCHAR(255) NOT NULL',
       version: 'INT NOT NULL',
-      model_json: 'LONGTEXT', // Semantic nodes/edges
-      layout_json: 'LONGTEXT', // Diagram positions
+      model_json: 'LONGTEXT', 
+      layout_json: 'LONGTEXT', 
       revision: 'INT DEFAULT 0',
       created_by_user_id: 'VARCHAR(255)',
       created_at: 'VARCHAR(50)',
@@ -108,7 +116,7 @@ export const appSchema: AppSchema = {
       version: 'INT NOT NULL',
       revision_before: 'INT',
       revision_after: 'INT',
-      actor_type: 'VARCHAR(20)', // 'user', 'ai'
+      actor_type: 'VARCHAR(20)', 
       actor_user_id: 'VARCHAR(255)',
       ops_json: 'LONGTEXT',
       created_at: 'VARCHAR(50)',
@@ -129,9 +137,9 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       process_id: 'VARCHAR(255) NOT NULL',
       version: 'INT NOT NULL',
-      sender: 'VARCHAR(20)', // 'user', 'ai'
+      sender: 'VARCHAR(20)', 
       message_text: 'TEXT',
-      structured_json: 'LONGTEXT', // proposedOps
+      structured_json: 'LONGTEXT', 
       created_at: 'VARCHAR(50)',
     }
   },

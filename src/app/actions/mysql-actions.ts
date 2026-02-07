@@ -14,6 +14,7 @@ import bcrypt from 'bcryptjs';
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
   platformUsers: 'platformUsers',
+  platformRoles: 'platformRoles',
   tenants: 'tenants',
   auditEvents: 'auditEvents',
   catalogs: 'catalogs',
@@ -61,7 +62,8 @@ function normalizeRecord(item: any, tableName: string) {
     process_versions: ['model_json', 'layout_json'],
     process_ops: ['ops_json'],
     ai_sessions: ['context_json'],
-    ai_messages: ['structured_json']
+    ai_messages: ['structured_json'],
+    platformRoles: ['permissions']
   };
 
   if (jsonFields[tableName]) {
@@ -143,7 +145,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       process_versions: ['model_json', 'layout_json'],
       process_ops: ['ops_json'],
       ai_sessions: ['context_json'],
-      ai_messages: ['structured_json']
+      ai_messages: ['structured_json'],
+      platformRoles: ['permissions']
     };
 
     if (jsonFields[tableName]) {
@@ -232,7 +235,8 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'process_ops',
       'ai_sessions',
       'ai_messages',
-      'uiConfigs'
+      'uiConfigs',
+      'platformRoles'
     ];
 
     for (const table of tablesToClear) {

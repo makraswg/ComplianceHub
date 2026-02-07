@@ -1,5 +1,5 @@
 
-export type Role = 'tenantOwner' | 'admin' | 'editor' | 'viewer' | 'superAdmin';
+export type Role = 'tenantOwner' | 'admin' | 'editor' | 'viewer' | 'superAdmin' | string;
 export type DataSource = 'firestore' | 'mock' | 'mysql';
 
 export interface Tenant {
@@ -8,8 +8,8 @@ export interface Tenant {
   slug: string;
   createdAt: string;
   status: 'active' | 'archived';
-  region?: string; // z.B. "EU-DSGVO", "BSI-Grundschutz", "NIST-USA"
-  companyDescription?: string; // NEU: Kontext für KI
+  region?: string; 
+  companyDescription?: string; 
   ldapEnabled?: boolean | number;
   ldapUrl?: string;
   ldapPort?: string;
@@ -32,7 +32,7 @@ export interface JobTitle {
   tenantId: string;
   departmentId: string;
   name: string;
-  description?: string; // NEU: Stellenbeschreibung für Audit-Zwecke
+  description?: string; 
   status: 'active' | 'archived';
 }
 
@@ -52,26 +52,39 @@ export interface User {
   adGroups?: string[];
 }
 
+export interface PlatformRole {
+  id: string;
+  name: string;
+  description: string;
+  permissions: {
+    iam: 'none' | 'read' | 'write';
+    risks: 'none' | 'read' | 'write';
+    processhub: 'none' | 'read' | 'write';
+    gdpr: 'none' | 'read' | 'write';
+    settings: 'none' | 'read' | 'write';
+    audit: 'none' | 'read' | 'write';
+  };
+}
+
 export interface PlatformUser {
   id: string;
   uid?: string;
   email: string;
   password?: string;
   displayName: string;
-  role: Role;
+  role: string; // ID of PlatformRole or legacy role
   tenantId: string;
   enabled: boolean | number;
   createdAt: string;
   authSource?: 'local' | 'ldap';
 }
 
-// ProcessHub Interface Definitions
 export interface ProcessNode {
   id: string;
   type: 'step' | 'decision' | 'subprocess' | 'start' | 'end';
   title: string;
   description?: string;
-  roleId?: string; // Links to JobTitle.id or free text
+  roleId?: string; 
   checklist?: string[];
   tips?: string;
   errors?: string;
