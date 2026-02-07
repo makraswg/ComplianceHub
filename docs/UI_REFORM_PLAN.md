@@ -1,6 +1,6 @@
 # UI/UX Reform Plan - AccessHub
 
-## Status: Schritt 4 abgeschlossen ✅
+## Status: Schritt 5 abgeschlossen ✅
 
 ### 1. Fundament & Design System (ERLEDIGT ✅)
 - [x] Farben gemäß PRD in `globals.css` (Vibrant Blue #29ABE2, Accent Orange #FF9800).
@@ -22,9 +22,10 @@
 - [x] Optimierung des View-Switchers für Mobilgeräte.
 - [x] Modernisierung des KI-Chat-Interfaces.
 
-### 5. Risk & Compliance
-- [ ] Risikomatrix-Visualisierung für kleine Bildschirme.
-- [ ] Formular-Assistent Integration (UI-Overlay statt Side-Panel).
+### 5. Risk & Compliance (ERLEDIGT ✅)
+- [x] Risikomatrix-Visualisierung für kleine Bildschirme.
+- [x] Formular-Assistent Integration (UI-Overlay statt Side-Panel).
+- [x] Umstellung der Risiko- und VVT-Listen auf Mobile-First Cards.
 
 ### 6. Settings & Global Navigation
 - [ ] Strukturierung der Einstellungen.
