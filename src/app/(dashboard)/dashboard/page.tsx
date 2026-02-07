@@ -229,7 +229,7 @@ export default function DashboardPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 active:scale-95" onClick={() => setIsReportDialogOpen(true)}>
             <FileDown className="w-3.5 h-3.5 mr-2 text-primary" /> Audit Snapshot
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-slate-900 hover:bg-black text-white shadow-sm active:scale-95" onClick={() => router.push('/iam-audit')}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-95" onClick={() => router.push('/iam-audit')}>
             <BrainCircuit className="w-3.5 h-3.5 mr-2" /> KI Audit starten
           </Button>
         </div>

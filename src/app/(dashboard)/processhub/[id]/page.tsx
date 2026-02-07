@@ -62,7 +62,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 /**
  * Erzeugt MX-XML für draw.io Integration.
- * Edges werden nun mit expliziten Stilen und Kontrastfarben gezeichnet.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -93,7 +92,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         w = 100; h = 100; 
         break;
       case 'subprocess':
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#eff6ff;strokeColor=#3b82f6;strokeWidth=2;shadow=1;fontStyle=1;';
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=1;fontStyle=1;';
         break;
       default: 
         style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
@@ -129,7 +128,7 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // Floating AI State - Indigo Branding
+  // Floating AI State - Emerald Branding
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -280,9 +279,6 @@ export default function ProcessDesignerPage() {
     await handleApplyOps(ops);
   };
 
-  /**
-   * Fügt einen neuen Knoten hinzu und verbindet ihn automatisch mit dem vorherigen.
-   */
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
     if (!currentVersion) return;
     const newId = `${type}-${Date.now()}`;
@@ -323,6 +319,15 @@ export default function ProcessDesignerPage() {
     const [moved] = newNodes.splice(idx, 1);
     newNodes.splice(newIdx, 0, moved);
     handleApplyOps([{ type: 'REORDER_NODES', payload: { orderedNodeIds: newNodes.map((n: any) => n.id) } }]);
+  };
+
+  const handleDeleteNode = async () => {
+    if (!selectedNodeId) return;
+    if (confirm("Dieses Modul unwiderruflich entfernen?")) {
+      await handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]);
+      setIsStepDialogOpen(false);
+      setSelectedNodeId(null);
+    }
   };
 
   const handleAiChat = async () => {
@@ -390,7 +395,7 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold border-slate-200 px-4 gap-2 hidden md:flex hover:bg-indigo-50 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
+          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold border-slate-200 px-4 gap-2 hidden md:flex hover:bg-emerald-50 transition-all" onClick={() => publishToBookStackAction(currentProcess?.id || '', currentVersion?.version || 1, "", dataSource).then(() => toast({ title: "Export erfolgreich" }))} disabled={isPublishing}>
             <BookOpen className="w-3.5 h-3.5" /> Export
           </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-primary hover:bg-primary/90 text-white px-6 shadow-sm transition-all active:scale-[0.95]" onClick={() => syncDiagramToModel()}>
@@ -435,11 +440,11 @@ export default function ProcessDesignerPage() {
                       <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[80px] text-xs border-slate-200 leading-relaxed" />
                     </div>
                     
-                    <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 space-y-2.5 shadow-inner">
-                      <Label className="text-[10px] font-bold text-indigo-600 flex items-center gap-2">
+                    <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-2.5 shadow-inner">
+                      <Label className="text-[10px] font-bold text-emerald-600 flex items-center gap-2">
                         <HelpCircle className="w-3.5 h-3.5" /> Offene Fragen für KI
                       </Label>
-                      <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Unklarheiten dokumentieren..." className="rounded-lg min-h-[100px] text-[11px] border-indigo-200 bg-white focus:border-indigo-400" />
+                      <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Unklarheiten dokumentieren..." className="rounded-lg min-h-[100px] text-[11px] border-emerald-200 bg-white focus:border-emerald-400" />
                     </div>
                   </div>
                   
@@ -468,8 +473,8 @@ export default function ProcessDesignerPage() {
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ablauffolge</h3>
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-accent/5 hover:text-accent" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('subprocess')}>+ Link</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-amber-50 hover:text-amber-600" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-emerald-50 hover:text-emerald-600" onClick={() => handleQuickAdd('subprocess')}>+ Link</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-red-50 hover:text-red-600" onClick={() => handleQuickAdd('end')}>+ Ende</Button>
                 </div>
               </div>
@@ -483,7 +488,7 @@ export default function ProcessDesignerPage() {
 
                     return (
                       <div key={String(node.id || idx)} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/30", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : node.type === 'subprocess' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : node.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
                           {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-4 h-4" /> : <CircleDot className="w-4 h-4" />) : node.type === 'subprocess' ? <LinkIcon className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           {nodeCommentCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeCommentCount}</div>}
                         </div>
@@ -571,18 +576,18 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Floating AI Advisor (Bottom Right) - Fancy Indigo Brand */}
+      {/* Floating AI Advisor (Bottom Right) - Fancy Emerald Brand */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
-            <header className="p-4 bg-indigo-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
+            <header className="p-4 bg-emerald-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shadow-lg border border-white/10">
                   <BrainCircuit className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3>
-                  <p className="text-[8px] text-indigo-100 font-bold uppercase">Prozess-Optimierung aktiv</p>
+                  <p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Optimierung aktiv</p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10 rounded-full" onClick={() => setIsAiAdvisorOpen(false)}>
@@ -594,45 +599,45 @@ export default function ProcessDesignerPage() {
               <div className="p-5 space-y-6 pb-10">
                 {chatHistory.length === 0 && (
                   <div className="text-center py-20 opacity-30 flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-indigo-600" /></div>
-                    <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-indigo-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
+                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><BrainCircuit className="w-8 h-8 text-emerald-600" /></div>
+                    <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
                   </div>
                 )}
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
                     <div className={cn("p-4 text-[11px] leading-relaxed max-w-[90%] shadow-md border transition-all", 
                       msg.role === 'user' 
-                        ? "bg-indigo-950 text-white border-indigo-900 rounded-2xl rounded-tr-none" 
+                        ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" 
                         : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
                       {msg.text}
                     </div>
                     {msg.role === 'ai' && msg.questions && msg.questions.length > 0 && (
                       <div className="space-y-2 w-full pl-2">
                         {msg.questions.map((q: string, qIdx: number) => (
-                          <div key={qIdx} className="p-3 bg-indigo-50/50 border border-indigo-100 text-[11px] font-bold text-indigo-900 italic rounded-xl shadow-sm flex items-start gap-2 animate-in slide-in-from-left-2">
-                            <HelpCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                          <div key={qIdx} className="p-3 bg-emerald-50/50 border border-emerald-100 text-[11px] font-bold text-emerald-900 italic rounded-xl shadow-sm flex items-start gap-2 animate-in slide-in-from-left-2">
+                            <HelpCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                             {q}
                           </div>
                         ))}
                       </div>
                     )}
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
-                      <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
-                        <div className="flex items-center gap-2 text-blue-700">
+                      <div className="mt-3 w-full bg-emerald-50 border-2 border-emerald-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
+                        <div className="flex items-center gap-2 text-emerald-700">
                           <BrainCircuit className="w-3.5 h-3.5" />
                           <span className="text-[10px] font-black uppercase tracking-widest">KI Vorschlag anwenden</span>
                         </div>
                         <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
                           {msg.suggestions.map((op: any, opIdx: number) => (
-                            <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
-                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-blue-600 h-4 px-1">NEU</Badge>
+                            <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-emerald-100 rounded-lg flex items-center gap-3">
+                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-emerald-200 text-emerald-600 h-4 px-1">NEU</Badge>
                               <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || op.payload?.field || 'Modell-Update'}</span>
                             </div>
                           ))}
                         </div>
                         <div className="flex gap-2 pt-1">
-                          <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
-                          <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-blue-200 rounded-lg bg-white">Ignorieren</Button>
+                          <Button onClick={() => { handleApplyOps(msg.suggestions); msg.suggestions = []; }} disabled={isApplying} className="flex-1 h-9 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
+                          <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-emerald-200 rounded-lg bg-white">Ignorieren</Button>
                         </div>
                       </div>
                     )}
@@ -640,8 +645,8 @@ export default function ProcessDesignerPage() {
                 ))}
                 {isAiLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-white border border-indigo-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                    <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI analysiert Kontext...</span>
                     </div>
                   </div>
@@ -652,7 +657,7 @@ export default function ProcessDesignerPage() {
             <div className="p-4 border-t bg-white shrink-0 shadow-[0_-4px_15px_rgba(0,0,0,0.02)]">
               <div className="relative group">
                 <Input placeholder="Anweisung oder Frage..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 focus:bg-white transition-all text-xs font-medium shadow-inner" disabled={isAiLoading} />
-                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
+                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95 transition-transform" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
                   <Send className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -663,7 +668,7 @@ export default function ProcessDesignerPage() {
         {!isAiAdvisorOpen && (
           <Button 
             onClick={() => setIsAiAdvisorOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
+            className="w-14 h-14 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 pointer-events-auto border-4 border-white dark:border-slate-800 animate-in zoom-in duration-300 group"
           >
             <BrainCircuit className="w-7 h-7 text-white transition-transform group-hover:scale-110" />
           </Button>
@@ -679,7 +684,7 @@ export default function ProcessDesignerPage() {
                 "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border",
                 localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : 
                 localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : 
-                localNodeEdits.type === 'subprocess' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                localNodeEdits.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                 "bg-primary/10 text-primary border-primary/10"
               )}>
                 {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <LinkIcon className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
@@ -764,7 +769,11 @@ export default function ProcessDesignerPage() {
           </ScrollArea>
 
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row items-center justify-between gap-3">
-            <Button variant="ghost" className="text-red-600 rounded-xl h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" onClick={() => { if(confirm("Diesen Modul unwiderruflich entfernen?")) { handleApplyOps([{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }]); setIsStepDialogOpen(false); } }}>
+            <Button 
+              variant="ghost" 
+              className="text-red-600 rounded-xl h-10 px-6 hover:bg-red-50 font-bold text-[10px] gap-2 transition-colors w-full sm:w-auto" 
+              onClick={handleDeleteNode}
+            >
               <Trash2 className="w-3.5 h-3.5" /> Modul löschen
             </Button>
             <Button onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-12 font-bold text-xs bg-slate-900 hover:bg-black text-white shadow-lg transition-all active:scale-[0.95] w-full sm:w-auto">
