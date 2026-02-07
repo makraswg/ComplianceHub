@@ -136,12 +136,6 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **KRITIK**: Keine Information über "Risiko-Staus" in der Kette.
     *   **NEUE AUFGABE**: "Process Health Overlay". In der Landkarte müssen Prozesse rot leuchten, wenn verknüpfte Risiken überfällig sind oder Maßnahmen nicht greifen.
 
-*   **Step 4.4: ISO 9001 Stammdaten**
-    *   *Status*: Formularfelder für Inputs/Outputs vorhanden.
-    *   *Consultant Audit*: Zu passiv für ein Software-Audit.
-    *   **KRITIK**: Felder werden oft nur mit "siehe Handbuch" ausgefüllt.
-    *   **NEUE AUFGABE**: "Compliance Checkpoint". Ein Schritt im Designer muss explizit als "ISO-Kontrollpunkt" markiert werden können, inkl. Verweis auf die Norm-Ziffer.
-
 ### 5. Datenschutz & VVT
 *Die Einhaltung der Privatsphäre als Prozess.*
 
@@ -163,11 +157,6 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   *Consultant Audit*: Das schwierigste Feld für SME.
     *   **NEUE AUFGABE**: "Smart Retention". Basierend auf der Datenkategorie (z.B. "Bewerberdaten") schlägt das System automatisch die gesetzliche Frist (z.B. 6 Monate) vor.
 
-*   **Step 5.4: Audit-Snapshot (VVT)**
-    *   *Status*: Excel Export vorhanden.
-    *   *Consultant Audit*: Ein Prüfer will die Historie sehen.
-    *   **NEUE AUFGABE**: "Point-in-Time Recovery". Visualisierung, wie das VVT zu einem bestimmten Datum in der Vergangenheit aussah (Revisionierung).
-
 ### 6. Konzernstruktur & Stellenplan
 *Das organisatorische Fundament der Governance.*
 
@@ -184,15 +173,31 @@ AccessHub soll die erste Compliance-App sein, die **alles in einem Guss** denkt.
     *   **KRITIK**: Ein Auditor will die "Rollen-Definition" sehen, um SoD-Verstöße auf der Ebene der Stellenbeschreibung zu prüfen.
     *   **NEUE AUFGABE**: "Role Blueprint". Verknüpfung von Stellen mit Standard-Berechtigungen (RBAC-Vorbereitung).
 
-*   **Step 6.3: Branchen-Vorlagen (KI)**
-    *   *Status*: Manuelle Anlage.
-    *   *Consultant Audit*: SME wissen oft nicht, wie sie ihre Struktur aufbauen sollen.
-    *   **NEUE AUFGABE**: "Industry Template AI". Die KI schlägt basierend auf der Branche (z.B. "Handel") typische Abteilungen und Rollen vor.
+### 7. Ressourcenkatalog & Asset-Inventar
+*Das technische Rückgrat der Compliance.*
 
-*   **Step 6.4: Struktur-Impact Analyse**
-    *   *Status*: Keine.
-    *   *Consultant Audit*: Riskant für die Datenintegrität.
-    *   **NEUE AUFGABE**: "Impact-Check". Warnung, wenn das Löschen einer Abteilung aktive Nutzer oder laufende Prozesse verwaist.
+*   **Step 7.1: Asset-Management**
+    *   *Code*: `src/app/(dashboard)/resources/page.tsx`
+    *   *Status*: CRUD für Ressourcen implementiert.
+    *   *Consultant Audit*: Ein Junior weiß nicht, warum ein System "kritisch" ist.
+    *   **KRITIK**: Fehlendes Dependency Mapping. 
+    *   **NEUE AUFGABE**: "Usage-Explorer". Anzeige im Asset-Formular, in welchen **Prozessen (Step 4)** und welchen **VVT-Einträgen (Step 5)** diese Ressource verwendet wird.
+
+*   **Step 7.2: Schutzbedarfsfeststellung (CIA)**
+    *   *Status*: Dropdowns vorhanden.
+    *   *Consultant Audit*: Zu technisch für Azubis.
+    *   **NEUE AUFGABE**: "CIA Assessment Wizard". Die KI führt den Nutzer durch Fragen ("Was passiert wenn Daten weg sind?") zur richtigen Einstufung von Vertraulichkeit, Integrität und Verfügbarkeit.
+
+*   **Step 7.3: Lifecycle & Archivierung**
+    *   *Status*: Archivierung möglich.
+    *   *Consultant Audit*: Ein Auditor prüft die Aussonderung von Systemen.
+    *   **NEUE AUFGABE**: "Decommissioning Protocol". Ein geführter Workflow zum Abschalten eines Systems inkl. Checkliste (z.B. Backup gemacht? Zugriff gesperrt?).
+
+*   **Step 7.4: Externer Daten-Sync (JSM)**
+    *   *Code*: `src/app/actions/jira-actions.ts`
+    *   *Status*: Import aus Jira Assets möglich.
+    *   *Consultant Audit*: Dubletten-Gefahr.
+    *   **NEUE AUFGABE**: "Drift Detection". Das System meldet sich, wenn sich Daten in Jira ändern (z.B. neuer Owner), die im Hub noch alt sind.
 
 ---
-*(Fortsetzung folgt mit Step 7: Ressourcenkatalog & Asset-Inventar...)*
+*(Fortsetzung folgt mit Step 8: System-Konfiguration & Sicherheit...)*
