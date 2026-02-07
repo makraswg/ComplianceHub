@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -34,7 +35,8 @@ import {
   Info,
   Sparkles,
   Briefcase,
-  Minus
+  Minus,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +54,7 @@ import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
 import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -62,7 +64,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /**
  * Erzeugt MX-XML für draw.io Integration.
- * Optimiert für klare Linien und Enterprise-Design.
+ * Korrektur: Linien (Edges) werden nun explizit mit Kontrastfarben gezeichnet.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -75,6 +77,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
     let style = '';
     let w = 160, h = 80;
+    
     switch (node.type) {
       case 'start': 
         style = 'ellipse;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;'; 
@@ -91,8 +94,10 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
         w = 100; h = 100; 
         break;
+      case 'subprocess':
+        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#eff6ff;strokeColor=#3b82f6;strokeWidth=2;shadow=1;fontStyle=1;';
+        break;
       default: 
-        // Standard-Schritt: Kräftigere Linien und Schatten
         style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
     }
     xml += `<mxCell id="${nodeSafeId}" value="${node.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
@@ -100,10 +105,15 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 
   edges.forEach((edge, idx) => {
     let edgeSafeId = String(edge.id || `edge-${idx}`);
-    const sourceExists = nodes.some(n => n.id === edge.source);
-    const targetExists = nodes.some(n => n.id === edge.target);
+    // Sicherstellen, dass die IDs als Strings vorliegen
+    const sourceId = String(edge.source);
+    const targetId = String(edge.target);
+    
+    const sourceExists = nodes.some(n => String(n.id) === sourceId);
+    const targetExists = nodes.some(n => String(n.id) === targetId);
+    
     if (sourceExists && targetExists) {
-      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="${edge.source}" target="${edge.target}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;fontColor=#1e293b;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -209,11 +219,9 @@ export default function ProcessDesignerPage() {
     if (!iframeRef.current || !currentVersion) return;
     const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
-    // Automatischer Zoom-Fit nach kurzer Verzögerung
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 300);
   }, [currentVersion]);
 
-  // Iframe Handshake Fix: Sicherstellen, dass das Diagramm geladen wird sobald der Editor bereit ist
   useEffect(() => {
     if (!mounted || !iframeRef.current) return;
     
@@ -275,9 +283,15 @@ export default function ProcessDesignerPage() {
     await handleApplyOps(ops);
   };
 
-  const handleQuickAdd = (type: 'step' | 'decision' | 'end') => {
+  const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
     const newId = `${type}-${Date.now()}`;
-    const ops = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: type === 'decision' ? 'Entscheidung?' : type === 'end' ? 'Endpunkt' : 'Neuer Schritt' } } }];
+    const titles = {
+      step: 'Neuer Schritt',
+      decision: 'Entscheidung?',
+      end: 'Endpunkt',
+      subprocess: 'Prozess-Link'
+    };
+    const ops = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type] } } }];
     handleApplyOps(ops).then(() => {
       setSelectedNodeId(newId);
       setIsStepDialogOpen(true);
@@ -440,7 +454,8 @@ export default function ProcessDesignerPage() {
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-primary/5 hover:text-primary" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-accent/5 hover:text-accent" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('end')}>+ Ende</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-blue-50 hover:text-blue-600" onClick={() => handleQuickAdd('subprocess')}>+ Link</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md border-slate-200 hover:bg-red-50 hover:text-red-600" onClick={() => handleQuickAdd('end')}>+ Ende</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -453,8 +468,8 @@ export default function ProcessDesignerPage() {
 
                     return (
                       <div key={String(node.id || idx)} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/30", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
-                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-4 h-4" /> : <CircleDot className="w-4 h-4" />) : <Activity className="w-4 h-4" />}
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : node.type === 'subprocess' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
+                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'end' ? (isEndLinked ? <LinkIcon className="w-4 h-4" /> : <CircleDot className="w-4 h-4" />) : node.type === 'subprocess' ? <LinkIcon className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           {nodeCommentCount > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeCommentCount}</div>}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -649,9 +664,10 @@ export default function ProcessDesignerPage() {
                 "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border",
                 localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : 
                 localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : 
+                localNodeEdits.type === 'subprocess' ? "bg-blue-50 text-blue-600 border-blue-100" :
                 "bg-primary/10 text-primary border-primary/10"
               )}>
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <LinkIcon className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
@@ -687,9 +703,9 @@ export default function ProcessDesignerPage() {
                 </div>
               </div>
 
-              {localNodeEdits.type === 'end' && (
+              {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover)</Label>
+                  <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Zielprozess (Handover/Link)</Label>
                   <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => { setLocalNodeEdits({...localNodeEdits, targetProcessId: val}); saveNodeUpdate('targetProcessId', val); }}>
                     <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
                       <SelectValue placeholder="Prozess wählen..." />
