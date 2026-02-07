@@ -61,7 +61,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 /**
- * Erzeugt MX-XML für draw.io Integration.
+ * Erzeugt MX-XML für draw.io Integration mit Fokus auf sauberem orthogonalem Layout.
  */
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -109,6 +109,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const targetExists = nodes.some(n => String(n.id) === targetId);
     
     if (sourceExists && targetExists) {
+      // OrthogonalEdgeStyle für sauberes Layout ohne Überlappungen
       xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;fontColor=#1e293b;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
@@ -128,7 +129,7 @@ export default function ProcessDesignerPage() {
   const [leftWidth, setLeftWidth] = useState(360);
   const isResizingLeft = useRef(false);
 
-  // Floating AI State - Emerald Branding
+  // AI State - Emerald Branding
   const [isAiAdvisorOpen, setIsAiAdvisorOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -576,7 +577,7 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Floating AI Advisor (Bottom Right) - Emerald Green Branding */}
+      {/* Floating AI Advisor - Emerald Branding */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white pointer-events-auto">
@@ -624,10 +625,10 @@ export default function ProcessDesignerPage() {
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                       <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
                         <div className="flex items-center gap-2 text-primary">
-                          <BrainCircuit className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">KI Vorschlag anwenden</span>
+                          <BrainCircuit className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">KI Vorschlag anwenden</span>
                         </div>
-                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
                           {msg.suggestions.map((op: any, opIdx: number) => (
                             <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
                               <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-primary h-4 px-1">NEU</Badge>
@@ -675,13 +676,13 @@ export default function ProcessDesignerPage() {
         )}
       </div>
 
-      {/* Node Edit Dialog - Final Enterprise Polishing */}
+      {/* Node Edit Dialog - Enterprise Standard Icon-Tile Header */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border",
+                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border transition-colors",
                 localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : 
                 localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : 
                 localNodeEdits.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
@@ -752,7 +753,7 @@ export default function ProcessDesignerPage() {
                   <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
                     <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
                   </Label>
-                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Einen Punkt pro Zeile eingeben..." />
+                  <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} onBlur={() => saveNodeUpdate('checklist')} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner focus:bg-white transition-colors" placeholder="Einen Punkt pro Zeile eingeben..." />
                 </div>
               </div>
 
