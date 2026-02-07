@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -29,6 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode } from '@/lib/types';
@@ -105,7 +107,6 @@ export default function ProcessDetailViewPage() {
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !currentVersion) return;
     const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
-    // UI=min, read-only via params oder messages steuerbar. Hier nutzen wir die Standard-Embed mit gesperrtem Editor
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 0 }), '*');
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
   }, [currentVersion]);

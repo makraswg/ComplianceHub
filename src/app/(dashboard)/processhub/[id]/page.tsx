@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -10,7 +11,6 @@ import {
   Check, 
   X, 
   BrainCircuit, 
-  BookOpen,
   ShieldCheck,
   Save, 
   Activity, 
@@ -32,7 +32,6 @@ import {
   Info,
   Sparkles,
   Briefcase,
-  Minus,
   Plus,
   ArrowRightCircle,
   Link2,
@@ -58,7 +57,6 @@ import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { getProcessSuggestions } from '@/ai/flows/process-designer-flow';
-import { publishToBookStackAction } from '@/app/actions/bookstack-actions';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion } from '@/lib/types';
@@ -100,9 +98,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
         style = 'rhombus;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;shadow=1;'; 
         w = 100; h = 100; 
         break;
-      case 'subprocess':
-        style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=1;fontStyle=1;';
-        break;
       default: 
         style = 'whiteSpace=wrap;html=1;rounded=1;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;shadow=1;';
     }
@@ -114,11 +109,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     
-    const sourceExists = nodes.some(n => String(n.id) === sourceId);
-    const targetExists = nodes.some(n => String(n.id) === targetId);
-    
-    if (sourceExists && targetExists) {
-      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;fontSize=10;fontColor=#1e293b;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
+      xml += `<mxCell id="${edgeSafeId}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=2;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -186,7 +178,7 @@ export default function ProcessDesignerPage() {
     [currentVersion, selectedNodeId]
   );
 
-  // Networking logic for process-level metadata summary
+  // Process Links for main sidebar
   const incomingProcessLinks = useMemo(() => {
     if (!processes || !versions || !id) return [];
     const links: any[] = [];
@@ -206,7 +198,6 @@ export default function ProcessDesignerPage() {
     const targetIds = (currentVersion.model_json?.nodes || [])
       .filter((n: ProcessNode) => n.targetProcessId && n.targetProcessId !== 'none')
       .map((n: ProcessNode) => n.targetProcessId);
-    
     return processes.filter(p => targetIds.includes(p.id));
   }, [currentVersion, processes]);
 
@@ -269,9 +260,7 @@ export default function ProcessDesignerPage() {
       if (!evt.data || typeof evt.data !== 'string') return;
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') {
-          syncDiagramToModel();
-        }
+        if (msg.event === 'init') syncDiagramToModel();
       } catch (e) {}
     };
     
@@ -298,6 +287,44 @@ export default function ProcessDesignerPage() {
     }
   };
 
+  const handleDeleteNode = async () => {
+    if (!selectedNodeId || !currentVersion || !user) return;
+    
+    const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
+    if (!confirmed) return;
+    
+    console.log("[DEBUG] Starting deletion for node:", selectedNodeId);
+    setIsDeleting(true);
+    
+    try {
+      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
+      const res = await applyProcessOpsAction(
+        currentVersion.process_id, 
+        currentVersion.version, 
+        ops, 
+        currentVersion.revision, 
+        user.id, 
+        dataSource
+      );
+      
+      if (res.success) {
+        console.log("[DEBUG] Node deleted successfully");
+        toast({ title: "Schritt entfernt" });
+        setIsStepDialogOpen(false);
+        setSelectedNodeId(null);
+        refreshVersion();
+        refreshProc();
+      } else {
+        throw new Error("Server confirmed action but success was false");
+      }
+    } catch (e: any) {
+      console.error("[DEBUG] Deletion failed:", e);
+      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleSaveMetadata = async () => {
     if (!currentProcess) return;
     setIsSavingMeta(true);
@@ -319,7 +346,6 @@ export default function ProcessDesignerPage() {
 
   const handleSaveNodeEdits = async () => {
     if (!selectedNodeId) return;
-    
     const patch = {
       title: localNodeEdits.title,
       roleId: localNodeEdits.roleId,
@@ -329,7 +355,6 @@ export default function ProcessDesignerPage() {
       errors: localNodeEdits.errors,
       targetProcessId: localNodeEdits.targetProcessId
     };
-
     const ops = [{ type: 'UPDATE_NODE', payload: { nodeId: selectedNodeId, patch } }];
     const success = await handleApplyOps(ops);
     if (success) {
@@ -338,38 +363,10 @@ export default function ProcessDesignerPage() {
     }
   };
 
-  const handleDeleteNode = async () => {
-    if (!selectedNodeId || !currentVersion || !user) return;
-    const confirmed = window.confirm('Möchten Sie diesen Prozessschritt wirklich unwiderruflich löschen? Alle Verknüpfungen werden ebenfalls entfernt.');
-    if (!confirmed) return;
-    
-    setIsDeleting(true);
-    try {
-      const ops = [{ type: 'REMOVE_NODE', payload: { nodeId: selectedNodeId } }];
-      const res = await applyProcessOpsAction(currentVersion.process_id, currentVersion.version, ops, currentVersion.revision, user.id, dataSource);
-      if (res.success) {
-        toast({ title: "Schritt entfernt" });
-        setIsStepDialogOpen(false);
-        setSelectedNodeId(null);
-        refreshVersion();
-        refreshProc();
-      }
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Fehler beim Löschen", description: e.message });
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleQuickAdd = (type: 'step' | 'decision' | 'end' | 'subprocess') => {
     if (!currentVersion) return;
     const newId = `${type}-${Date.now()}`;
-    const titles = {
-      step: 'Neuer Schritt',
-      decision: 'Entscheidung?',
-      end: 'Endpunkt',
-      subprocess: 'Prozess-Referenz'
-    };
+    const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Endpunkt', subprocess: 'Prozess-Referenz' };
     
     const nodes = currentVersion.model_json.nodes || [];
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
@@ -410,7 +407,6 @@ export default function ProcessDesignerPage() {
     const edgeId = `edge-${Date.now()}`;
     const source = direction === 'forward' ? selectedNodeId : targetId;
     const target = direction === 'forward' ? targetId : selectedNodeId;
-    
     const ops = [{ type: 'ADD_EDGE', payload: { edge: { id: edgeId, source, target } } }];
     await handleApplyOps(ops);
   };
@@ -454,20 +450,16 @@ export default function ProcessDesignerPage() {
       text: commentText,
       created_at: new Date().toISOString()
     };
-
     try {
       const res = await saveCollectionRecord('process_comments', commentId, commentData, dataSource);
       if (res.success) {
         setCommentText('');
         refreshComments();
       }
-    } finally {
-      setIsCommenting(false);
-    }
+    } finally { setIsCommenting(false); }
   };
 
   if (!mounted) return null;
-
   const hasNodes = (currentVersion?.model_json?.nodes?.length || 0) > 0;
 
   return (
@@ -520,9 +512,7 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-bold text-slate-500 ml-1">Status</Label>
                       <Select value={metaStatus} onValueChange={setMetaStatus}>
-                        <SelectTrigger className="rounded-xl h-10 border-slate-200 text-xs bg-white">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="rounded-xl h-10 border-slate-200 text-xs bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-xl">
                           <SelectItem value="draft" className="text-xs">Entwurf</SelectItem>
                           <SelectItem value="published" className="text-xs">Veröffentlicht</SelectItem>
@@ -534,9 +524,7 @@ export default function ProcessDesignerPage() {
                       <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="rounded-xl min-h-[80px] text-xs border-slate-200 leading-relaxed bg-white" />
                     </div>
                     <div className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-2.5 shadow-inner">
-                      <Label className="text-[10px] font-bold text-emerald-600 flex items-center gap-2">
-                        <HelpCircle className="w-3.5 h-3.5" /> Offene Fragen für KI
-                      </Label>
+                      <Label className="text-[10px] font-bold text-emerald-600 flex items-center gap-2"><HelpCircle className="w-3.5 h-3.5" /> Offene Fragen für KI</Label>
                       <Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Unklarheiten dokumentieren..." className="rounded-lg min-h-[100px] text-[11px] border-emerald-200 bg-white focus:border-emerald-400" />
                     </div>
                   </div>
@@ -546,7 +534,6 @@ export default function ProcessDesignerPage() {
                       <Network className="w-4 h-4 text-primary" />
                       <h3 className="text-[10px] font-bold text-slate-900 uppercase tracking-wider">Prozess-Vernetzung</h3>
                     </div>
-                    
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label className="text-[9px] font-bold text-slate-400 uppercase">Input von (Vorgänger-Prozesse)</Label>
@@ -555,17 +542,12 @@ export default function ProcessDesignerPage() {
                             {incomingProcessLinks.map(p => (
                               <div key={p.id} className="p-2 bg-slate-50 border rounded-lg flex items-center justify-between group">
                                 <span className="text-[10px] font-bold text-slate-700 truncate flex-1 mr-2">{p.title}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => router.push(`/processhub/${p.id}`)}>
-                                  <ExternalLink className="w-3 h-3" />
-                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => router.push(`/processhub/view/${p.id}`)}><ExternalLink className="w-3 h-3" /></Button>
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-[9px] text-slate-300 italic px-1">Keine eingehenden Verknüpfungen</p>
-                        )}
+                        ) : <p className="text-[9px] text-slate-300 italic px-1">Keine eingehenden Verknüpfungen</p>}
                       </div>
-
                       <div className="space-y-2">
                         <Label className="text-[9px] font-bold text-slate-400 uppercase">Output nach (Ziel-Prozesse)</Label>
                         {outgoingProcessLinks.length > 0 ? (
@@ -573,23 +555,18 @@ export default function ProcessDesignerPage() {
                             {outgoingProcessLinks.map(p => (
                               <div key={p.id} className="p-2 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between group">
                                 <span className="text-[10px] font-bold text-primary truncate flex-1 mr-2">{p.title}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" onClick={() => router.push(`/processhub/${p.id}`)}>
-                                  <ExternalLink className="w-3 h-3" />
-                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-primary shrink-0" onClick={() => router.push(`/processhub/view/${p.id}`)}><ExternalLink className="w-3 h-3" /></Button>
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <p className="text-[9px] text-slate-300 italic px-1">Keine ausgehenden Verknüpfungen</p>
-                        )}
+                        ) : <p className="text-[9px] text-slate-300 italic px-1">Keine ausgehenden Verknüpfungen</p>}
                       </div>
                     </div>
                   </div>
 
                   <div className="pt-8 border-t border-slate-100">
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full rounded-xl h-11 font-bold text-xs gap-2 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/10 transition-all active:scale-95">
-                      {isSavingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
-                      Stammdaten speichern
+                      {isSavingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Stammdaten speichern
                     </Button>
                   </div>
                 </div>
@@ -611,8 +588,6 @@ export default function ProcessDesignerPage() {
                     const isEndLinked = node.type === 'end' && !!node.targetProcessId && node.targetProcessId !== 'none';
                     const nodeCommentCount = comments?.filter(c => c.node_id === node.id).length || 0;
                     const roleName = jobTitles?.find(j => j.id === node.roleId)?.name;
-                    const descPreview = node.description ? node.description.split(' ').slice(0, 8).join(' ') + (node.description.split(' ').length > 8 ? '...' : '') : '';
-
                     return (
                       <div key={String(node.id || idx)} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/30", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : node.type === 'start' ? "bg-emerald-50 text-emerald-700 border-emerald-100" : node.type === 'end' ? (isEndLinked ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-red-50 text-red-600 border-red-100") : node.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-500 border-slate-100 shadow-inner")}>
@@ -621,16 +596,7 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                          {roleName && (
-                            <p className="text-[9px] text-primary font-bold mt-0.5 flex items-center gap-1">
-                              <Briefcase className="w-2.5 h-2.5" /> {roleName}
-                            </p>
-                          )}
-                          {descPreview && (
-                            <p className="text-[9px] text-slate-400 italic mt-0.5 truncate leading-tight">
-                              {descPreview}
-                            </p>
-                          )}
+                          {roleName && <p className="text-[9px] text-primary font-bold mt-0.5 flex items-center gap-1"><Briefcase className="w-2.5 h-2.5" /> {roleName}</p>}
                         </div>
                         <div className="flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button className="p-0.5 hover:text-primary transition-colors disabled:opacity-20" disabled={idx === 0} onClick={e => { e.stopPropagation(); handleMoveNode(node.id, 'up'); }}><ChevronUp className="w-3.5 h-3.5" /></button>
@@ -656,20 +622,10 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-5 space-y-5">
-                  {processComments.length === 0 ? (
-                    <div className="py-16 text-center space-y-3 opacity-20">
-                      <MessageCircle className="w-10 h-10 mx-auto" />
-                      <p className="text-[10px] font-bold">Keine Anmerkungen dokumentiert</p>
-                    </div>
-                  ) : processComments.map((comm) => (
+                  {processComments.length === 0 ? <div className="py-16 text-center space-y-3 opacity-20"><MessageCircle className="w-10 h-10 mx-auto" /><p className="text-[10px] font-bold">Keine Anmerkungen dokumentiert</p></div> : processComments.map((comm) => (
                     <div key={comm.id} className="space-y-1.5 animate-in slide-in-from-right-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-900">{comm.user_name}</span>
-                        <span className="text-[9px] font-bold text-slate-400">{new Date(comm.created_at).toLocaleDateString()}</span>
-                      </div>
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] leading-relaxed text-slate-600 shadow-sm">
-                        {comm.text}
-                      </div>
+                      <div className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-900">{comm.user_name}</span><span className="text-[9px] font-bold text-slate-400">{new Date(comm.created_at).toLocaleDateString()}</span></div>
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] leading-relaxed text-slate-600 shadow-sm">{comm.text}</div>
                     </div>
                   ))}
                 </div>
@@ -677,9 +633,7 @@ export default function ProcessDesignerPage() {
               <div className="p-4 border-t bg-slate-50/50 shrink-0">
                 <div className="space-y-2.5">
                   <Textarea placeholder="Kommentar..." value={commentText} onChange={e => setCommentText(e.target.value)} className="min-h-[70px] rounded-lg border-slate-200 focus:border-primary text-[11px] shadow-inner bg-white" />
-                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-lg h-9 font-bold text-[10px] gap-2 bg-primary text-white shadow-md transition-all active:scale-95">
-                    {isCommenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Senden
-                  </Button>
+                  <Button onClick={handleAddComment} disabled={isCommenting || !commentText.trim()} className="w-full rounded-lg h-9 font-bold text-[10px] gap-2 bg-primary text-white shadow-md transition-all active:scale-95">{isCommenting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />} Senden</Button>
                 </div>
               </div>
             </TabsContent>
@@ -690,21 +644,10 @@ export default function ProcessDesignerPage() {
         <main className={cn("flex-1 relative bg-slate-100 flex flex-col overflow-hidden")}>
           {!hasNodes ? (
             <div className="h-full flex flex-col items-center justify-center bg-white p-10 text-center animate-in fade-in duration-700">
-              <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 border border-dashed border-primary/20">
-                <Workflow className="w-10 h-10 text-primary opacity-20" />
-              </div>
+              <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6 border border-dashed border-primary/20"><Workflow className="w-10 h-10 text-primary opacity-20" /></div>
               <h2 className="text-xl font-headline font-bold text-slate-900">Starten Sie die Modellierung</h2>
-              <p className="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">
-                Fügen Sie den ersten Prozessschritt über das Menü oben links hinzu oder nutzen Sie den KI-Assistenten unten rechts für einen Entwurf.
-              </p>
-              <div className="flex gap-3 mt-8">
-                <Button className="rounded-xl h-11 px-8 font-bold text-xs shadow-lg" onClick={() => handleQuickAdd('step')}>
-                  <PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen
-                </Button>
-                <Button variant="outline" className="rounded-xl h-11 px-8 font-bold text-xs" onClick={() => setIsAiAdvisorOpen(true)}>
-                  <BrainCircuit className="w-4 h-4 mr-2" /> KI-Entwurf starten
-                </Button>
-              </div>
+              <p className="text-sm text-slate-500 max-w-md mt-2 leading-relaxed">Fügen Sie den ersten Prozessschritt über das Menü oben links hinzu oder nutzen Sie den KI-Assistenten unten rechts für einen Entwurf.</p>
+              <div className="flex gap-3 mt-8"><Button className="rounded-xl h-11 px-8 font-bold text-xs shadow-lg" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen</Button><Button variant="outline" className="rounded-xl h-11 px-8 font-bold text-xs" onClick={() => setIsAiAdvisorOpen(true)}><BrainCircuit className="w-4 h-4 mr-2" /> KI-Entwurf starten</Button></div>
             </div>
           ) : (
             <>
@@ -722,278 +665,91 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* AI Assistant FAB */}
       <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-auto">
         {isAiAdvisorOpen && (
           <Card className="w-[calc(100vw-2rem)] sm:w-[400px] h-[600px] rounded-3xl shadow-2xl border-none flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300 bg-white">
-            <header className="p-4 bg-emerald-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shadow-lg border border-white/10">
-                  <BrainCircuit className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3>
-                  <p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Modellierung</p>
-                </div>
-              </div>
-              <button onClick={() => setIsAiAdvisorOpen(false)} className="text-white/50 hover:text-white transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </header>
+            <header className="p-4 bg-emerald-600 text-white flex items-center justify-between shrink-0 border-b border-white/10 shadow-lg"><div className="flex items-center gap-3"><div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center text-white shadow-lg border border-white/10"><BrainCircuit className="w-5 h-5" /></div><div><h3 className="text-[10px] font-black uppercase tracking-[0.2em]">KI Advisor</h3><p className="text-[8px] text-emerald-100 font-bold uppercase">Prozess-Modellierung</p></div></div><button onClick={() => setIsAiAdvisorOpen(false)} className="text-white/50 hover:text-white transition-colors"><X className="w-4 h-4" /></button></header>
             <ScrollArea className="flex-1 bg-slate-50/50">
               <div className="p-5 space-y-6 pb-10">
-                {chatHistory.length === 0 && (
-                  <div className="text-center py-16 opacity-30 flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><Zap className="w-8 h-8 text-emerald-600" /></div>
-                    <p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p>
-                  </div>
-                )}
+                {chatHistory.length === 0 && <div className="text-center py-16 opacity-30 flex flex-col items-center gap-4"><div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center shadow-inner"><Zap className="w-8 h-8 text-emerald-600" /></div><p className="text-[10px] font-bold max-w-[200px] leading-relaxed uppercase tracking-tight italic text-emerald-900">Beschreiben Sie Ihren Prozess für einen KI-Entwurf</p></div>}
                 {chatHistory.map((msg, i) => (
                   <div key={i} className={cn("flex flex-col gap-2 animate-in fade-in slide-in-from-bottom-1", msg.role === 'user' ? "items-end" : "items-start")}>
-                    <div className={cn("p-4 text-[11px] font-medium leading-relaxed max-w-[90%] shadow-md border transition-all", 
-                      msg.role === 'user' 
-                        ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" 
-                        : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>
-                      {msg.text}
-                    </div>
+                    <div className={cn("p-4 text-[11px] font-medium leading-relaxed max-w-[90%] shadow-md border transition-all", msg.role === 'user' ? "bg-emerald-950 text-white border-emerald-900 rounded-2xl rounded-tr-none" : "bg-white text-slate-600 border-slate-100 rounded-2xl rounded-tl-none")}>{msg.text}</div>
                     {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
                       <div className="mt-3 w-full bg-blue-50 border-2 border-blue-100 p-4 rounded-2xl space-y-4 shadow-sm animate-in zoom-in-95">
-                        <div className="flex items-center gap-2 text-primary">
-                          <BrainCircuit className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">KI Vorschlag anwenden</span>
-                        </div>
-                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">
-                          {msg.suggestions.map((op: any, opIdx: number) => (
-                            <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3">
-                              <Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-primary h-4 px-1">NEU</Badge>
-                              <span className="truncate font-bold text-slate-700">{op.payload?.node?.title || 'Strukturelles Update'}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <Button onClick={() => handleApplyOps(msg.suggestions)} disabled={isApplying} className="flex-1 h-9 bg-primary hover:bg-primary/90 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button>
-                          <Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-slate-200 rounded-lg bg-white">Ignorieren</Button>
-                        </div>
+                        <div className="flex items-center gap-2 text-primary"><BrainCircuit className="w-3.5 h-3.5 text-emerald-600" /><span className="text-[10px] font-black uppercase tracking-widest text-emerald-700">KI Vorschlag anwenden</span></div>
+                        <div className="space-y-1.5 max-h-[180px] overflow-y-auto pr-1">{msg.suggestions.map((op: any, opIdx: number) => <div key={opIdx} className="text-[9px] p-2 bg-white/80 border border-blue-100 rounded-lg flex items-center gap-3"><Badge variant="outline" className="text-[8px] font-bold bg-white border-blue-200 text-primary h-4 px-1">NEU</Badge><span className="truncate font-bold text-slate-700">{op.payload?.node?.title || 'Strukturelles Update'}</span></div>)}</div>
+                        <div className="flex gap-2 pt-1"><Button onClick={() => handleApplyOps(msg.suggestions)} disabled={isApplying} className="flex-1 h-9 bg-primary hover:bg-primary/90 text-white text-[10px] font-bold rounded-lg shadow-md transition-all active:scale-95">Bestätigen</Button><Button variant="ghost" onClick={() => msg.suggestions = []} className="flex-1 h-9 text-[10px] font-bold border border-slate-200 rounded-lg bg-white">Ignorieren</Button></div>
                       </div>
                     )}
                   </div>
                 ))}
-                {isAiLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200">
-                      <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI entwirft Modell...</span>
-                    </div>
-                  </div>
-                )}
+                {isAiLoading && <div className="flex justify-start"><div className="bg-white border border-emerald-100 p-3 rounded-2xl flex items-center gap-3 shadow-sm border-emerald-200"><Loader2 className="w-4 h-4 animate-spin text-emerald-600" /><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">KI entwirft Modell...</span></div></div>}
               </div>
             </ScrollArea>
-            <div className="p-4 border-t bg-white shrink-0">
-              <div className="relative">
-                <Input placeholder="Prozess beschreiben..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 text-xs font-medium" disabled={isAiLoading} />
-                <Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}>
-                  <Send className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
+            <div className="p-4 border-t bg-white shrink-0"><div className="relative"><Input placeholder="Prozess beschreiben..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAiChat()} className="h-11 rounded-xl border border-slate-200 bg-slate-50/50 pr-12 text-xs font-medium" disabled={isAiLoading} /><Button size="icon" className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-md active:scale-95" onClick={handleAiChat} disabled={isAiLoading || !chatMessage}><Send className="w-3.5 h-3.5" /></Button></div></div>
           </Card>
         )}
-        {!isAiAdvisorOpen && (
-          <Button 
-            onClick={() => setIsAiAdvisorOpen(true)}
-            className="w-14 h-14 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 border-4 border-white"
-          >
-            <BrainCircuit className="w-7 h-7" />
-          </Button>
-        )}
+        {!isAiAdvisorOpen && <Button onClick={() => setIsAiAdvisorOpen(true)} className="w-14 h-14 rounded-full shadow-2xl bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center p-0 transition-all active:scale-90 border-4 border-white"><BrainCircuit className="w-7 h-7" /></Button>}
       </div>
 
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-3xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
-              <div className={cn(
-                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border transition-colors",
-                localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : 
-                localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : 
-                localNodeEdits.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                "bg-primary/10 text-primary border-primary/10"
-              )}>
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <LinkIcon className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">
-                  {localNodeEdits.title || 'Schritt bearbeiten'}
-                </DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider uppercase">
-                  Modul: {localNodeEdits.type} • ID: {selectedNodeId}
-                </DialogDescription>
-              </div>
+              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border transition-colors", localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600 border-amber-100" : localNodeEdits.type === 'end' ? "bg-red-50 text-red-600 border-red-100" : localNodeEdits.type === 'subprocess' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-primary/10 text-primary border-primary/10")}>{localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'end' ? <CircleDot className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <LinkIcon className="w-6 h-6" /> : <Activity className="w-6 h-6" />}</div>
+              <div className="min-w-0 flex-1"><DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle><DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5 tracking-wider uppercase">Modul: {localNodeEdits.type} • ID: {selectedNodeId}</DialogDescription></div>
             </div>
           </DialogHeader>
-          
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none">
-              <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
-              <TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><Share2 className="w-3.5 h-3.5" /> Prozess-Logik</TabsTrigger>
-              <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2"><ClipboardList className="w-3.5 h-3.5" /> Ausführung</TabsTrigger>
-            </TabsList>
+            <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none"><TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2"><FilePen className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger><TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><Share2 className="w-3.5 h-3.5" /> Prozess-Logik</TabsTrigger><TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2"><ClipboardList className="w-3.5 h-3.5" /> Ausführung</TabsTrigger></TabsList>
             <ScrollArea className="flex-1 p-0">
               <div className="p-8 space-y-10">
-                <TabsContent value="base" className="mt-0 space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label>
-                      <Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label>
-                      <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
-                        <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs">
-                          <SelectValue placeholder="Rolle wählen..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none" className="text-xs">Keine spezifische Rolle</SelectItem>
-                          {jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => (
-                            <SelectItem key={j.id} value={j.id} className="text-xs">{j.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </TabsContent>
+                <TabsContent value="base" className="mt-0 space-y-8"><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-1.5"><Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 text-sm font-bold rounded-xl border-slate-200 bg-white" /></div><div className="space-y-1.5"><Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Verantwortliche Stelle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="none" className="text-xs">Keine spezifische Rolle</SelectItem>{jobTitles?.filter(j => j.tenantId === currentProcess?.tenantId || j.tenantId === 'global').map(j => <SelectItem key={j.id} value={j.id} className="text-xs">{j.name}</SelectItem>)}</SelectContent></Select></div></div></TabsContent>
                 <TabsContent value="logic" className="mt-0 space-y-10">
                   <div className="space-y-10">
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1">
-                        <ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Eingehend)
-                      </h4>
+                      <h4 className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-2 ml-1"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Eingehend)</h4>
                       <div className="grid grid-cols-1 gap-2">
                         {incomingEdges.map((edge: ProcessEdge) => {
-                          const sourceNode = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.source));
-                          return (
-                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed">
-                              <div className="flex items-center gap-3">
-                                <Link2 className="w-3.5 h-3.5 text-slate-300" />
-                                <span className="text-xs font-medium text-slate-500">{sourceNode?.title || edge.source}</span>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}>
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          );
+                          const src = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.source));
+                          return <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-100 border-dashed"><div className="flex items-center gap-3"><Link2 className="w-3.5 h-3.5 text-slate-300" /><span className="text-xs font-medium text-slate-500">{src?.title || edge.source}</span></div><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button></div>;
                         })}
-                        <div className="pt-2">
-                          <Select onValueChange={(val) => handleAddEdge(val, 'backward')}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
-                              <SelectValue placeholder="Vorgänger hinzufügen..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => (
-                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <div className="pt-2"><Select onValueChange={(val) => handleAddEdge(val, 'backward')}><SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white"><SelectValue placeholder="Vorgänger hinzufügen..." /></SelectTrigger><SelectContent className="rounded-xl">{currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}</SelectContent></Select></div>
                       </div>
                     </div>
-                    
                     <Separator className="bg-slate-100" />
-                    
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1">
-                        <ArrowRightCircle className="w-4 h-4" /> Nachfolger (Ausgehend)
-                      </h4>
+                      <h4 className="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-2 ml-1"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Ausgehend)</h4>
                       <div className="grid grid-cols-1 gap-2">
                         {outgoingEdges.map((edge: ProcessEdge) => {
-                          const targetNode = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.target));
-                          return (
-                            <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                              <div className="flex items-center gap-3">
-                                <Link2 className="w-3.5 h-3.5 text-slate-400" />
-                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}>
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          );
+                          const trg = currentVersion?.model_json?.nodes?.find((n: any) => String(n.id) === String(edge.target));
+                          return <div key={edge.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100"><div className="flex items-center gap-3"><Link2 className="w-3.5 h-3.5 text-slate-400" /><span className="text-xs font-bold text-slate-700">{trg?.title || edge.target}</span></div><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => handleRemoveEdge(edge.id)}><X className="w-3.5 h-3.5" /></Button></div>;
                         })}
-                        <div className="pt-2">
-                          <Select onValueChange={(val) => handleAddEdge(val, 'forward')}>
-                            <SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white">
-                              <SelectValue placeholder="Nachfolger hinzufügen..." />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              {currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => (
-                                <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <div className="pt-2"><Select onValueChange={(val) => handleAddEdge(val, 'forward')}><SelectTrigger className="h-10 text-xs rounded-xl border-dashed bg-white"><SelectValue placeholder="Nachfolger hinzufügen..." /></SelectTrigger><SelectContent className="rounded-xl">{currentVersion?.model_json?.nodes?.filter((n: any) => String(n.id) !== String(selectedNodeId)).map((n: any) => <SelectItem key={n.id} value={n.id} className="text-xs">{n.title}</SelectItem>)}</SelectContent></Select></div>
                       </div>
                     </div>
-
                     {(localNodeEdits.type === 'end' || localNodeEdits.type === 'subprocess') && (
                       <>
                         <Separator className="bg-slate-100" />
                         <div className="space-y-4">
-                          <h4 className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2 ml-1">
-                            <ExternalLink className="w-4 h-4" /> Zielprozess
-                          </h4>
-                          <div className="p-4 rounded-xl bg-blue-50/30 border border-blue-100">
-                            <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
-                              <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs shadow-sm">
-                                <SelectValue placeholder="Folgeprozess wählen..." />
-                              </SelectTrigger>
-                              <SelectContent className="rounded-xl">
-                                <SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>
-                                {processes?.filter(p => p.id !== id).map(p => (
-                                  <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <h4 className="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-2 ml-1"><ExternalLink className="w-4 h-4" /> Zielprozess</h4>
+                          <div className="p-4 rounded-xl bg-blue-50/30 border border-blue-100"><Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}><SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white text-xs shadow-sm"><SelectValue placeholder="Folgeprozess wählen..." /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="none" className="text-xs">Kein Folgeprozess</SelectItem>{processes?.filter(p => p.id !== id).map(p => <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>)}</SelectContent></Select></div>
                         </div>
                       </>
                     )}
                   </div>
                 </TabsContent>
-                <TabsContent value="details" className="mt-0 space-y-8">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label>
-                      <Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-slate-200 p-4 leading-relaxed" placeholder="Was genau wird hier getan?" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste
-                      </Label>
-                      <Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Ein Punkt pro Zeile..." />
-                    </div>
-                  </div>
-                </TabsContent>
+                <TabsContent value="details" className="mt-0 space-y-8"><div className="space-y-8"><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 tracking-widest uppercase">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl border-slate-200 p-4 leading-relaxed" placeholder="Was genau wird hier getan?" /></div><div className="space-y-2"><Label className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-2 tracking-widest uppercase"><CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Prüfschritte / Checkliste</Label><Textarea value={localNodeEdits.checklist} onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} className="text-[11px] min-h-[100px] bg-slate-50 text-slate-900 border border-slate-200 rounded-xl p-4 leading-relaxed shadow-inner" placeholder="Ein Punkt pro Zeile..." /></div></div></TabsContent>
               </div>
             </ScrollArea>
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between gap-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleDeleteNode} 
-              disabled={isDeleting}
-              className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 transition-all gap-2"
-            >
+            <Button variant="outline" size="sm" onClick={handleDeleteNode} disabled={isDeleting} className="rounded-xl h-10 px-6 font-bold text-xs text-red-600 border-red-100 hover:bg-red-50 transition-all gap-2">
               {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
               Modul löschen
             </Button>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>Abbrechen</Button>
-              <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>
-                {isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} 
-                Änderungen speichern
-              </Button>
-            </div>
+            <div className="flex items-center gap-2"><Button variant="ghost" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs" disabled={isApplying || isDeleting}>Abbrechen</Button><Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 font-bold text-xs bg-primary text-white shadow-lg transition-all active:scale-[0.95]" disabled={isApplying || isDeleting}>{isApplying ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Save className="w-3.5 h-3.5 mr-2" />} Änderungen speichern</Button></div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
