@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -16,13 +15,17 @@ import {
   GanttChartSquare, 
   ShieldCheck, 
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Zap,
+  Building2
 } from 'lucide-react';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
 import { testMysqlConnectionAction, truncateDatabaseAreasAction } from '@/app/actions/mysql-actions';
 import { runDatabaseMigrationAction } from '@/app/actions/migration-actions';
+import { seedDemoDataAction } from '@/app/actions/demo-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -36,6 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { usePlatformAuth } from '@/context/auth-context';
 
 type TestResult = {
   status: 'idle' | 'loading' | 'success' | 'error';
@@ -75,8 +79,10 @@ const TestResultDisplay = ({ result }: { result: TestResult }) => {
 
 export default function SetupPage() {
   const { dataSource, setDataSource } = useSettings();
+  const { user } = usePlatformAuth();
   const [currentSelection, setCurrentSelection] = useState(dataSource);
   const [isClearing, setIsClearing] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   
   const [cloudTest, setCloudTest] = useState<TestResult>({ status: 'idle', message: '' });
   const [mockTest, setMockTest] = useState<TestResult>({ status: 'idle', message: '' });
@@ -128,6 +134,22 @@ export default function SetupPage() {
         description: result.message,
         variant: result.success ? "default" : "destructive",
       });
+  };
+
+  const handleSeedDemoData = async () => {
+    setIsSeeding(true);
+    try {
+      const res = await seedDemoDataAction(dataSource, user?.email || 'admin');
+      if (res.success) {
+        toast({ title: "Demo-Szenario aktiv", description: res.message });
+      } else {
+        toast({ variant: "destructive", title: "Fehler beim Seeding", description: res.error });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   const handleClearDatabase = async () => {
@@ -247,68 +269,101 @@ export default function SetupPage() {
         </CardContent>
       </Card>
 
-      {currentSelection === 'mysql' && (
-        <Card className="rounded-xl shadow-none border border-red-100 bg-red-50/10">
-          <CardHeader className="bg-red-50/30 border-b p-4">
-            <CardTitle className="text-xs font-bold text-red-600 flex items-center gap-2">
-              <Trash2 className="w-4 h-4" /> Datenpflege & Bereinigung
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="rounded-xl shadow-none border border-indigo-100 bg-indigo-50/10">
+          <CardHeader className="bg-indigo-50/30 border-b p-4">
+            <CardTitle className="text-xs font-bold text-indigo-600 flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> Prototyping & Demo
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex flex-col gap-4">
               <div className="space-y-1">
-                <p className="text-sm font-bold">Bestandsdaten leeren</p>
+                <p className="text-sm font-bold">Demo-Daten laden</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Löscht alle operativen Daten der Plattform. <br/>
-                  <span className="font-bold text-red-600 text-[9px]">Achtung:</span> Einstellungen und Administratoren bleiben erhalten.
+                  Füllt alle Module mit Beispieldaten für eine Wohnungsbaugesellschaft und deren Handwerksbetrieb (Wodis Yuneo, Aareon RZ, etc.).
                 </p>
               </div>
-              
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm" className="rounded-md font-bold text-xs px-8 h-10 shadow-lg">
-                    Datenbank leeren
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="rounded-xl border shadow-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-                      <AlertTriangle className="w-5 h-5" /> Sind Sie absolut sicher?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="text-xs leading-relaxed" asChild>
-                      <div>
-                        Diese Aktion löscht unwiderruflich alle im System erfassten:
-                        <ul className="list-disc list-inside mt-2 space-y-1 font-bold">
-                          <li>Benutzerverzeichnis (IAM-Identitäten)</li>
-                          <li>Onboarding-Pakete & Lifecycle-Gruppen</li>
-                          <li>Risikoinventare & Maßnahmenpläne</li>
-                          <li>Importierten Kataloge & Gefährdungen (BSI)</li>
-                          <li>Ressourcen & Rollendefinitionen</li>
-                          <li>Alle Zuweisungen & Audit-Logs</li>
-                          <li>Aufgaben (Tickets) & Kommentare</li>
-                          <li>Medienanhänge & OCR-Daten</li>
-                        </ul>
-                        <div className="mt-4 italic text-[10px]">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden nicht gelöscht.</div>
-                      </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="gap-2">
-                    <AlertDialogCancel className="rounded-md text-xs font-bold">Abbrechen</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={handleClearDatabase} 
-                      className="bg-red-600 hover:bg-red-700 rounded-md text-xs font-bold"
-                      disabled={isClearing}
-                    >
-                      {isClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
-                      Bereinigung durchführen
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <Button 
+                onClick={handleSeedDemoData} 
+                disabled={isSeeding || dataSource !== 'mysql'} 
+                className="w-full h-10 font-bold text-xs gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-100"
+              >
+                {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Demo-Szenario generieren
+              </Button>
+              {dataSource !== 'mysql' && (
+                <p className="text-[9px] text-orange-600 font-bold uppercase flex items-center gap-1.5">
+                  <AlertTriangle className="w-3 h-3" /> Nur im MySQL-Modus verfügbar
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
-      )}
+
+        {currentSelection === 'mysql' && (
+          <Card className="rounded-xl shadow-none border border-red-100 bg-red-50/10">
+            <CardHeader className="bg-red-50/30 border-b p-4">
+              <CardTitle className="text-xs font-bold text-red-600 flex items-center gap-2">
+                <Trash2 className="w-4 h-4" /> Datenpflege & Bereinigung
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="flex flex-col gap-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-bold">Bestandsdaten leeren</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Löscht alle operativen Daten der Plattform. <br/>
+                    <span className="font-bold text-red-600 text-[9px]">Achtung:</span> Einstellungen und Administratoren bleiben erhalten.
+                  </p>
+                </div>
+                
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="w-full rounded-md font-bold text-xs h-10 shadow-lg">
+                      Datenbank leeren
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="rounded-xl border shadow-2xl">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                        <AlertTriangle className="w-5 h-5" /> Sind Sie absolut sicher?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="text-xs leading-relaxed" asChild>
+                        <div>
+                          Diese Aktion löscht unwiderruflich alle im System erfassten:
+                          <ul className="list-disc list-inside mt-2 space-y-1 font-bold">
+                            <li>Benutzerverzeichnis (IAM-Identitäten)</li>
+                            <li>Onboarding-Pakete & Lifecycle-Gruppen</li>
+                            <li>Risikoinventare & Maßnahmenpläne</li>
+                            <li>Importierten Kataloge & Gefährdungen (BSI)</li>
+                            <li>Ressourcen & Rollendefinitionen</li>
+                            <li>Alle Zuweisungen & Audit-Logs</li>
+                            <li>Aufgaben (Tickets) & Kommentare</li>
+                            <li>Medienanhänge & OCR-Daten</li>
+                          </ul>
+                          <div className="mt-4 italic text-[10px]">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden nicht gelöscht.</div>
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="gap-2">
+                      <AlertDialogCancel className="rounded-md text-xs font-bold">Abbrechen</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleClearDatabase} 
+                        className="bg-red-600 hover:bg-red-700 rounded-md text-xs font-bold"
+                        disabled={isClearing}
+                      >
+                        {isClearing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : null}
+                        Bereinigung durchführen
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       <div className="p-4 bg-muted/20 border rounded-lg text-[10px] font-bold text-muted-foreground">
         Hinweis: Die Datenquelle bestimmt, wie Identitäten und Zuweisungen gespeichert werden. MySQL ist die empfohlene Konfiguration für lokale Installationen.
