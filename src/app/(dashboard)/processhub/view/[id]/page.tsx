@@ -7,6 +7,7 @@ import {
   ChevronLeft, 
   Loader2, 
   ShieldCheck,
+  ShieldAlert,
   Activity, 
   RefreshCw, 
   ChevronRight,
