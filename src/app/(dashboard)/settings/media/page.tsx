@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -28,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePlatformAuth } from '@/context/auth-context';
+import { cn } from '@/lib/utils';
 
 export default function MediaSettingsPage() {
   const { dataSource } = useSettings();
