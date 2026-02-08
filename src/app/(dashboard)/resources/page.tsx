@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -35,7 +34,9 @@ import {
   Activity,
   Info,
   HardDrive,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  ChevronRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -61,6 +62,7 @@ import { saveResourceAction, deleteResourceAction } from '@/app/actions/resource
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +75,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -315,7 +318,7 @@ export default function ResourcesPage() {
             </TableHeader>
             <TableBody>
               {filteredResources.map((res) => (
-                <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0", res.status === 'archived' && "opacity-60")}>
+                <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                   <TableCell className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner relative">
@@ -327,7 +330,7 @@ export default function ResourcesPage() {
                         )}
                       </div>
                       <div>
-                        <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors cursor-pointer" onClick={() => openEdit(res)}>{res.name}</div>
+                        <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
                         <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">{res.assetType} • {res.operatingModel}</div>
                       </div>
                     </div>
@@ -348,17 +351,18 @@ export default function ResourcesPage() {
                       <UserIcon className="w-3 h-3 text-slate-300" /> {res.systemOwner || '---'}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right px-6">
+                  <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-end items-center gap-1.5">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}>
-                        <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}>
+                        <Eye className="w-3.5 h-3.5 text-primary" />
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4" text-slate-400 /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                          <DropdownMenuItem onSelect={() => openEdit(res)} className="rounded-lg py-2 gap-2 text-xs font-bold"><FileEdit className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => router.push(`/resources/${res.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEdit(res)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                           <DropdownMenuSeparator className="my-1" />
                           <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Ressource permanent löschen?")) deleteResourceAction(res.id, dataSource).then(() => refresh()); }}>
                             <Trash2 className="w-3.5 h-3.5" /> Löschen
@@ -606,7 +610,7 @@ export default function ResourcesPage() {
                       <Input value={systemOwner} onChange={e => setSystemOwner(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" placeholder="Verantwortliche Person (IT)" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Risk Owner</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Risk Owner</Label>
                       <Input value={riskOwner} onChange={e => setRiskOwner(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" placeholder="Verantwortliche Person (Fachbereich)" />
                     </div>
                     <div className="space-y-2 md:col-span-2">
