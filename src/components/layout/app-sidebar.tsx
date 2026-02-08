@@ -214,7 +214,14 @@ export function AppSidebar() {
           </div>
           <div>
             <span className="font-headline font-bold text-base tracking-tight block text-slate-900 dark:text-white leading-none">ComplianceHub</span>
-            <span className="text-sm text-primary font-script block mt-1">Struktur statt Bauchgefühl</span>
+            <div className="mt-1.5 relative inline-block group cursor-default">
+              <span className="text-[11px] text-primary font-script block -rotate-2 group-hover:rotate-0 transition-transform duration-300">
+                Struktur statt Bauchgefühl
+              </span>
+              <svg className="absolute -bottom-1.5 left-0 w-full h-1.5 text-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
+                <path d="M1 5C20 1 80 1 99 5" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+              </svg>
+            </div>
           </div>
         </div>
       </div>

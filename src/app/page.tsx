@@ -117,7 +117,14 @@ export default function LoginPage() {
         </div>
         <div className="text-center">
           <h1 className="text-3xl font-headline font-bold tracking-tight text-slate-900 dark:text-white">ComplianceHub</h1>
-          <p className="text-lg font-script text-primary mt-1">Struktur statt Bauchgefühl</p>
+          <div className="mt-2 relative inline-block group">
+            <p className="text-xl font-script text-primary -rotate-2 transition-transform duration-300 group-hover:rotate-0">
+              Struktur statt Bauchgefühl
+            </p>
+            <svg className="absolute -bottom-2.5 left-0 w-full h-3 text-primary/30" viewBox="0 0 100 10" preserveAspectRatio="none">
+              <path d="M1 5C20 1 80 1 99 5" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+            </svg>
+          </div>
         </div>
       </div>
 
