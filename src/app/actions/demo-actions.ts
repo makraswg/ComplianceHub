@@ -173,7 +173,8 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     const m1Id = 'msr-backup';
     await saveCollectionRecord('riskMeasures', m1Id, {
       id: m1Id, riskIds: [r1Id], resourceIds: ['res-wodis'], title: 'Revisionssicheres Backup & Restore', 
-      owner: 'Aareon Support', status: 'active', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
+      description: 'Regelmäßige Sicherung der SQL-Datenbanken und der Dateisysteme auf getrennten Speichermedien.',
+      owner: 'Aareon Support', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
       dueDate: in30Days, effectiveness: 5
     }, dataSource);
 
@@ -181,6 +182,15 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       id: 'ctrl-backup-01', measureId: m1Id, title: 'Wöchentlicher Backup-Report Check', 
       owner: 'IT-Leitung', status: 'completed', isEffective: true, checkType: 'Review',
       lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Report vom Sonntag liegt vor. Keine Fehler.'
+    }, dataSource);
+
+    // Add more measures for the new detail view
+    const m2Id = 'msr-mfa';
+    await saveCollectionRecord('riskMeasures', m2Id, {
+      id: m2Id, riskIds: [r1Id], resourceIds: ['res-m365', 'res-wodis'], title: 'Multi-Faktor Authentifizierung (MFA)',
+      description: 'Zwingende Nutzung von MFA für alle administrativen und externen Zugriffe.',
+      owner: 'IT-Security', status: 'active', isTom: true, tomCategory: 'Zugriffskontrolle',
+      dueDate: in30Days, effectiveness: 4
     }, dataSource);
 
     // --- 9. AUDIT LOG ---
