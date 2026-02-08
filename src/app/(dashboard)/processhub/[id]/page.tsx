@@ -63,7 +63,10 @@ import {
   Database,
   Settings2,
   BarChart3,
-  Clock
+  Clock,
+  ListChecks,
+  AlertCircle,
+  Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,6 +178,8 @@ export default function ProcessDesignerPage() {
   const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
   const [metaVolume, setMetaDataVolume] = useState<'low' | 'medium' | 'high'>('low');
   const [metaFrequency, setMetaFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'on_demand'>('on_demand');
+  const [metaTags, setMetaTags] = useState('');
+  const [metaQuestions, setMetaQuestions] = useState('');
 
   // Task Creation State
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -220,6 +225,8 @@ export default function ProcessDesignerPage() {
       setMetaAutomation(currentProcess.automationLevel || 'manual');
       setMetaDataVolume(currentProcess.dataVolume || 'low');
       setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
+      setMetaTags(currentProcess.tags || '');
+      setMetaQuestions(currentProcess.openQuestions || '');
     }
   }, [currentProcess]);
 
@@ -298,7 +305,9 @@ export default function ProcessDesignerPage() {
         regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
         automationLevel: metaAutomation,
         dataVolume: metaVolume,
-        processingFrequency: metaFrequency
+        processingFrequency: metaFrequency,
+        tags: metaTags,
+        openQuestions: metaQuestions
       }, dataSource);
       if (res.success) {
         toast({ title: "Stammdaten gespeichert" });
@@ -424,6 +433,9 @@ export default function ProcessDesignerPage() {
           roleId: localNodeEdits.roleId,
           resourceIds: localNodeEdits.resourceIds,
           description: localNodeEdits.description,
+          tips: localNodeEdits.tips,
+          errors: localNodeEdits.errors,
+          targetProcessId: localNodeEdits.targetProcessId,
           checklist: localNodeEdits.checklist.split('\n').filter(l => l.trim() !== '')
         }
       }
@@ -545,6 +557,10 @@ export default function ProcessDesignerPage() {
                       <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
                       <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
                     </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Tags / Schlagworte</Label>
+                      <Input value={metaTags} onChange={e => setMetaTags(e.target.value)} placeholder="z.B. Finanzen, HR, Core" className="h-10 text-xs" />
+                    </div>
                     <Separator />
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
@@ -595,6 +611,10 @@ export default function ProcessDesignerPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Klärungsbedarf</Label>
+                      <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs" placeholder="Was muss noch geklärt werden?..." />
                     </div>
                     <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
                       {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
@@ -695,7 +715,7 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
               <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Datenobjekte</TabsTrigger>
               <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
-              <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Tätigkeit</TabsTrigger>
+              <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Details & Expertise</TabsTrigger>
             </TabsList>
             <ScrollArea className="flex-1">
               <div className="p-8 space-y-10">
@@ -703,7 +723,21 @@ export default function ProcessDesignerPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
                     <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
+                    
+                    {(localNodeEdits.type === 'subprocess' || localNodeEdits.type === 'end') && (
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label className="text-[10px] font-bold uppercase text-indigo-600">Referenzierter Ziel-Prozess (Handover)</Label>
+                        <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
+                          <SelectTrigger className="h-11 rounded-xl bg-indigo-50 border-indigo-100"><SelectValue placeholder="Zielprozess wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Keine Referenz</SelectItem>
+                            {processes?.filter(p => p.id !== id).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kurzbeschreibung der Tätigkeit</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[100px] rounded-xl" /></div>
                 </TabsContent>
 
                 <TabsContent value="resources" className="mt-0 space-y-6">
@@ -832,8 +866,43 @@ export default function ProcessDesignerPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="details" className="mt-0 space-y-8">
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Tätigkeitsbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[120px] rounded-xl" /></div>
+                <TabsContent value="details" className="mt-0 space-y-10">
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
+                      <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste (Ein Punkt pro Zeile)
+                    </Label>
+                    <Textarea 
+                      value={localNodeEdits.checklist} 
+                      onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} 
+                      className="text-xs min-h-[120px] rounded-xl bg-slate-50 border-slate-200" 
+                      placeholder="Prüfschritt 1&#10;Prüfschritt 2..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2">
+                        <Lightbulb className="w-3.5 h-3.5" /> Tipps & Tricks (Best Practice)
+                      </Label>
+                      <Textarea 
+                        value={localNodeEdits.tips} 
+                        onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} 
+                        className="text-xs min-h-[100px] rounded-xl bg-blue-50/20 border-blue-100" 
+                        placeholder="Expertisen-Wissen für diesen Schritt..."
+                      />
+                    </div>
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2">
+                        <AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler & Risiken
+                      </Label>
+                      <Textarea 
+                        value={localNodeEdits.errors} 
+                        onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} 
+                        className="text-xs min-h-[100px] rounded-xl bg-red-50/20 border-red-100" 
+                        placeholder="Was kann hier schiefgehen?..."
+                      />
+                    </div>
+                  </div>
                 </TabsContent>
               </div>
             </ScrollArea>
