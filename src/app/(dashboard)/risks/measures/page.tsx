@@ -56,6 +56,7 @@ import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
+import { Input } from '@/components/ui/input';
 
 function RiskMeasuresContent() {
   const { dataSource, activeTenantId } = useSettings();
@@ -106,7 +107,7 @@ function RiskMeasuresContent() {
       riskIds: selectedRiskIds,
       resourceIds: selectedResourceIds,
       effectiveness: selectedMeasure?.effectiveness || 3
-    };
+    } as RiskMeasure;
 
     try {
       const res = await saveCollectionRecord('riskMeasures', id, data, dataSource);
@@ -302,7 +303,7 @@ function RiskMeasuresContent() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl border-none">
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl border-none bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
@@ -433,7 +434,7 @@ function RiskMeasuresContent() {
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
               <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-              <Button onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              <Button onClick={handleSave} disabled={isSaving || !title} className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>
