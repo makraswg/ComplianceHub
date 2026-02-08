@@ -66,7 +66,9 @@ import {
   Clock,
   ListChecks,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  FileCheck,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,7 +88,7 @@ import { saveMediaAction, deleteMediaAction, getMediaConfigAction } from '@/app/
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource, Task, PlatformUser } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource, Task, PlatformUser, ProcessingActivity } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -180,6 +182,8 @@ export default function ProcessDesignerPage() {
   const [metaFrequency, setMetaFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'on_demand'>('on_demand');
   const [metaTags, setMetaTags] = useState('');
   const [metaQuestions, setMetaQuestions] = useState('');
+  const [metaVvtId, setMetaVvtId] = useState('');
+  const [metaOwnerId, setMetaOwnerId] = useState('');
 
   // Task Creation State
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
@@ -202,6 +206,7 @@ export default function ProcessDesignerPage() {
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
+  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -227,6 +232,8 @@ export default function ProcessDesignerPage() {
       setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
       setMetaTags(currentProcess.tags || '');
       setMetaQuestions(currentProcess.openQuestions || '');
+      setMetaVvtId(currentProcess.vvtId || 'none');
+      setMetaOwnerId(currentProcess.ownerUserId || 'none');
     }
   }, [currentProcess]);
 
@@ -307,7 +314,9 @@ export default function ProcessDesignerPage() {
         dataVolume: metaVolume,
         processingFrequency: metaFrequency,
         tags: metaTags,
-        openQuestions: metaQuestions
+        openQuestions: metaQuestions,
+        vvtId: metaVvtId === 'none' ? undefined : metaVvtId,
+        ownerUserId: metaOwnerId === 'none' ? undefined : metaOwnerId
       }, dataSource);
       if (res.success) {
         toast({ title: "Stammdaten gespeichert" });
@@ -562,6 +571,38 @@ export default function ProcessDesignerPage() {
                       <Input value={metaTags} onChange={e => setMetaTags(e.target.value)} placeholder="z.B. Finanzen, HR, Core" className="h-10 text-xs" />
                     </div>
                     <Separator />
+                    
+                    <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl">
+                      <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
+                        <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
+                      </h4>
+                      <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
+                        <Select value={metaVvtId} onValueChange={setMetaVvtId}>
+                          <SelectTrigger className="h-10 text-xs bg-white border-emerald-100"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Kein VVT Bezug</SelectItem>
+                            {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
+                              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner)</Label>
+                      <Select value={metaOwnerId} onValueChange={setMetaOwnerId}>
+                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                          {pUsers?.map(u => (
+                            <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
                       <Select value={metaDeptId} onValueChange={setMetaDeptId}>
@@ -596,6 +637,17 @@ export default function ProcessDesignerPage() {
                             <SelectItem value="manual">Manuell</SelectItem>
                             <SelectItem value="partial">Teil-Automatisiert</SelectItem>
                             <SelectItem value="full">Voll-Automatisiert</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
+                        <Select value={metaVolume} onValueChange={(v: any) => setMetaDataVolume(v)}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Niedrig (Low)</SelectItem>
+                            <SelectItem value="medium">Mittel (Medium)</SelectItem>
+                            <SelectItem value="high">Hoch (High)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -888,7 +940,7 @@ export default function ProcessDesignerPage() {
                         value={localNodeEdits.tips} 
                         onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} 
                         className="text-xs min-h-[100px] rounded-xl bg-blue-50/20 border-blue-100" 
-                        placeholder="Expertisen-Wissen für diesen Schritt..."
+                        placeholder="Expertisen-Wissen für dieser Schritt..."
                       />
                     </div>
                     <div className="space-y-4">
