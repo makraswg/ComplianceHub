@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -27,7 +28,8 @@ import {
   Scale,
   CheckCircle2,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  HardDrive
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -57,7 +59,7 @@ import { useSettings } from '@/context/settings-context';
 import { saveFeatureAction, deleteFeatureAction } from '@/app/actions/feature-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Feature, Department, JobTitle } from '@/lib/types';
+import { Feature, Department, JobTitle, DataStore } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -87,6 +89,7 @@ export default function FeaturesOverviewPage() {
   const [isComplianceRelevant, setIsComplianceRelevant] = useState(false);
   const [deptId, setDeptId] = useState('');
   const [ownerId, setOwnerId] = useState('');
+  const [dataStoreId, setDataStoreId] = useState('');
   const [maintenanceNotes, setMaintenanceNotes] = useState('');
   const [validFrom, setValidFrom] = useState('');
   const [validUntil, setValidUntil] = useState('');
@@ -103,6 +106,7 @@ export default function FeaturesOverviewPage() {
   const { data: features, isLoading, refresh } = usePluggableCollection<Feature>('features');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: dataStores } = usePluggableCollection<DataStore>('dataStores');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -144,6 +148,7 @@ export default function FeaturesOverviewPage() {
       isComplianceRelevant,
       deptId,
       ownerId,
+      dataStoreId: dataStoreId === 'none' ? undefined : dataStoreId,
       maintenanceNotes,
       validFrom,
       validUntil,
@@ -184,6 +189,7 @@ export default function FeaturesOverviewPage() {
     setIsComplianceRelevant(false);
     setDeptId('');
     setOwnerId('');
+    setDataStoreId('');
     setMaintenanceNotes('');
     setValidFrom('');
     setValidUntil('');
@@ -206,6 +212,7 @@ export default function FeaturesOverviewPage() {
     setIsComplianceRelevant(!!f.isComplianceRelevant);
     setDeptId(f.deptId);
     setOwnerId(f.ownerId || '');
+    setDataStoreId(f.dataStoreId || 'none');
     setMaintenanceNotes(f.maintenanceNotes || '');
     setValidFrom(f.validFrom || '');
     setValidUntil(f.validUntil || '');
@@ -510,7 +517,7 @@ export default function FeaturesOverviewPage() {
                 <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
                   <div className="flex items-center gap-2 border-b pb-3">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung</h4>
+                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung & Ablage</h4>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -533,6 +540,24 @@ export default function FeaturesOverviewPage() {
                         <SelectContent>
                           {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
                             <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 md:col-span-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugeordneter Datenspeicher</Label>
+                      <Select value={dataStoreId} onValueChange={setDataStoreId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
+                          <div className="flex items-center gap-2">
+                            <HardDrive className="w-3.5 h-3.5 text-slate-400" />
+                            <SelectValue placeholder="Datenspeicher wählen..." />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein spezifischer Datenspeicher</SelectItem>
+                          {dataStores?.filter(ds => ds.status === 'active' && (activeTenantId === 'all' || ds.tenantId === activeTenantId || ds.tenantId === 'global')).map(ds => (
+                            <SelectItem key={ds.id} value={ds.id}>{ds.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>

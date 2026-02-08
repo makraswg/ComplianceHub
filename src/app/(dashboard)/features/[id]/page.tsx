@@ -39,7 +39,8 @@ import {
   MessageSquare,
   Save,
   CalendarDays,
-  Server
+  Server,
+  HardDrive
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, FeatureDependency, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser, FeatureProcessStep, ProcessNode
+  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser, FeatureProcessStep, ProcessNode, DataStore
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -97,6 +98,7 @@ export default function FeatureDetailPage() {
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: usageTypes } = usePluggableCollection<UsageTypeOption>('usage_type_options');
+  const { data: dataStores } = usePluggableCollection<DataStore>('dataStores');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
   const { data: allResources } = usePluggableCollection<Resource>('resources');
@@ -213,6 +215,7 @@ export default function FeatureDetailPage() {
 
   const dept = departments?.find(d => d.id === feature.deptId);
   const owner = jobTitles?.find(j => j.id === feature.ownerId);
+  const store = dataStores?.find(s => s.id === feature.dataStoreId);
 
   return (
     <div className="space-y-6 pb-20">
@@ -246,7 +249,7 @@ export default function FeatureDetailPage() {
         <aside className="lg:col-span-1 space-y-4">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Kritikalität</CardTitle>
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Governance & Kontext</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 shadow-inner">
@@ -260,6 +263,13 @@ export default function FeatureDetailPage() {
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Verantwortliche Rolle</p>
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" /> {owner?.name || '---'}
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenspeicher</p>
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                    <HardDrive className="w-4 h-4 text-indigo-500" /> {store?.name || '---'}
                   </div>
                 </div>
               </div>

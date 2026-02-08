@@ -48,6 +48,15 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
+  data_stores: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
   platformRoles: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -145,6 +154,7 @@ export const appSchema: AppSchema = {
       isComplianceRelevant: 'BOOLEAN DEFAULT FALSE',
       deptId: 'VARCHAR(255) NOT NULL',
       ownerId: 'VARCHAR(255)',
+      dataStoreId: 'VARCHAR(255)',
       maintenanceNotes: 'TEXT',
       validFrom: 'VARCHAR(50)',
       validUntil: 'VARCHAR(50)',

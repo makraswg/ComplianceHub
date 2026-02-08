@@ -222,6 +222,14 @@ export interface UsageTypeOption {
   enabled: boolean | number;
 }
 
+export interface DataStore {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'archived';
+}
+
 export interface Feature {
   id: string;
   tenantId: string;
@@ -243,6 +251,7 @@ export interface Feature {
   isComplianceRelevant: boolean | number;
   deptId: string; 
   ownerId?: string; 
+  dataStoreId?: string;
   maintenanceNotes?: string;
   validFrom?: string;
   validUntil?: string;
