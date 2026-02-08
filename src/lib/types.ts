@@ -38,6 +38,15 @@ export interface JobTitle {
   entitlementIds?: string[];
 }
 
+export interface SystemOwner {
+  id: string;
+  tenantId: string;
+  name: string;
+  email: string;
+  department?: string;
+  status: 'active' | 'archived';
+}
+
 export interface User {
   id: string;
   tenantId: string;
@@ -325,12 +334,11 @@ export interface Resource {
   hasSpecialCategoryData: boolean | number;
   isDataRepository: boolean | number;
   affectedGroups: string[];
-  processingPurpose: string;
   dataLocation: string;
   isInternetExposed: boolean | number;
   isBusinessCritical: boolean | number;
   isSpof: boolean | number;
-  systemOwner: string;
+  systemOwnerId?: string; // Reference to SystemOwner
   operatorId: string;
   riskOwner: string;
   dataOwner: string;

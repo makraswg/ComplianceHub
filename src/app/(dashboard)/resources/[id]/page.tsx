@@ -28,7 +28,8 @@ import {
   Clock,
   BadgeCheck,
   Zap,
-  ArrowUp
+  ArrowUp,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature } from '@/lib/types';
+import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, SystemOwner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -62,10 +63,12 @@ export default function ResourceDetailPage() {
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: features } = usePluggableCollection<Feature>('features');
+  const { data: owners } = usePluggableCollection<SystemOwner>('systemOwners');
 
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
+  const currentOwner = useMemo(() => owners?.find(o => o.id === resource?.systemOwnerId), [owners, resource]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
@@ -81,7 +84,6 @@ export default function ResourceDetailPage() {
     const affectedVvts = vvts?.filter(v => vvtIds.has(v.id)) || [];
 
     // 3. Welche Datenobjekte (Features) werden in diesen Prozessen verarbeitet?
-    // (Inkludiert Features, die dieses System explizit als dataStoreId nutzen)
     const linkedFeatures = features?.filter(f => f.dataStoreId === resource.id) || [];
 
     return { processes: affectedProcesses, vvts: affectedVvts, features: linkedFeatures };
@@ -250,7 +252,7 @@ export default function ResourceDetailPage() {
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>
                   <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <UserIcon className="w-4 h-4 text-primary" /> {resource.systemOwner || '---'}
+                    <UserCircle className="w-4 h-4 text-primary" /> {currentOwner?.name || '---'}
                   </div>
                 </div>
               </div>
@@ -449,20 +451,20 @@ export default function ResourceDetailPage() {
             <TabsContent value="details" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <CardTitle className="text-sm font-bold">Systembeschreibung & Zweck</CardTitle>
+                  <CardTitle className="text-sm font-bold">Systembeschreibung & Technischer Kontext</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Verarbeitungszweck</p>
-                        <p className="text-sm text-slate-700 font-medium leading-relaxed">{resource.processingPurpose || 'Kein spezifischer Zweck hinterlegt.'}</p>
-                      </div>
-                      <div className="space-y-1">
                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenstandort</p>
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                           <Globe className="w-4 h-4 text-slate-400" /> {resource.dataLocation || 'Unbekannt'}
                         </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">URL / Referenz</p>
+                        <p className="text-xs text-primary font-bold">{resource.url || '---'}</p>
                       </div>
                     </div>
                     <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">

@@ -1,16 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
 import { 
   Plus, 
   Search, 
@@ -36,12 +28,17 @@ import {
   HardDrive,
   HelpCircle,
   Eye,
-  ChevronRight
+  ChevronRight,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant } from '@/lib/types';
+import { Resource, Tenant, SystemOwner } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -62,7 +59,6 @@ import { saveResourceAction, deleteResourceAction } from '@/app/actions/resource
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
-import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -97,15 +93,15 @@ export default function ResourcesPage() {
   const [availabilityReq, setAvailabilityReq] = useState<Resource['availabilityReq']>('medium');
   const [hasPersonalData, setHasPersonalData] = useState(false);
   const [isDataRepository, setIsDataRepository] = useState(false);
-  const [processingPurpose, setProcessingPurpose] = useState('');
   const [dataLocation, setDataLocation] = useState('');
-  const [systemOwner, setSystemOwner] = useState('');
+  const [systemOwnerId, setSystemOwnerId] = useState('');
   const [riskOwner, setRiskOwner] = useState('');
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
 
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: owners } = usePluggableCollection<SystemOwner>('systemOwners');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -129,9 +125,8 @@ export default function ResourcesPage() {
     setAvailabilityReq('medium');
     setHasPersonalData(false);
     setIsDataRepository(false);
-    setProcessingPurpose('');
     setDataLocation('');
-    setSystemOwner('');
+    setSystemOwnerId('');
     setRiskOwner('');
     setNotes('');
     setUrl('');
@@ -161,9 +156,8 @@ export default function ResourcesPage() {
       availabilityReq,
       hasPersonalData,
       isDataRepository,
-      processingPurpose,
       dataLocation,
-      systemOwner,
+      systemOwnerId: systemOwnerId === 'none' ? undefined : systemOwnerId,
       riskOwner,
       notes,
       url,
@@ -197,9 +191,8 @@ export default function ResourcesPage() {
     setAvailabilityReq(res.availabilityReq || 'medium');
     setHasPersonalData(!!res.hasPersonalData);
     setIsDataRepository(!!res.isDataRepository);
-    setProcessingPurpose(res.processingPurpose || '');
     setDataLocation(res.dataLocation || '');
-    setSystemOwner(res.systemOwner || '');
+    setSystemOwnerId(res.systemOwnerId || 'none');
     setRiskOwner(res.riskOwner || '');
     setNotes(res.notes || '');
     setUrl(res.url || '');
@@ -210,7 +203,6 @@ export default function ResourcesPage() {
     if (s.name) setName(s.name);
     if (s.category) setCategory(s.category);
     if (s.criticality) setCriticality(s.criticality);
-    if (s.processingPurpose) setProcessingPurpose(s.processingPurpose);
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
@@ -312,67 +304,70 @@ export default function ResourcesPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Kategorie / CIA</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Besitzer</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortung</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredResources.map((res) => (
-                <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner relative">
-                        <Server className="w-4 h-4" />
-                        {res.isDataRepository && (
-                          <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center border border-white">
-                            <Database className="w-2 h-2" />
-                          </div>
-                        )}
+              {filteredResources.map((res) => {
+                const owner = owners?.find(o => o.id === res.systemOwnerId);
+                return (
+                  <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner relative">
+                          <Server className="w-4 h-4" />
+                          {res.isDataRepository && (
+                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center border border-white">
+                              <Database className="w-2 h-2" />
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
+                          <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">{res.assetType} • {res.operatingModel}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
-                        <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">{res.assetType} • {res.operatingModel}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex gap-1.5">
+                          <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
+                          {res.isDataRepository && <Badge className="bg-indigo-50 text-indigo-700 border-none text-[7px] font-black h-4 px-1.5">REPOSITORY</Badge>}
+                        </div>
+                        <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1">
+                          CIA: <span className="text-primary">{res.confidentialityReq?.charAt(0)}</span>|<span className="text-primary">{res.integrityReq?.charAt(0)}</span>|<span className="text-primary">{res.availabilityReq?.charAt(0)}</span>
+                        </span>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex gap-1.5">
-                        <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 border-slate-200 text-slate-500 w-fit">{res.category}</Badge>
-                        {res.isDataRepository && <Badge className="bg-indigo-50 text-indigo-700 border-none text-[7px] font-black h-4 px-1.5">REPOSITORY</Badge>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                        <UserCircle className="w-3.5 h-3.5 text-slate-300" /> {owner?.name || '---'}
                       </div>
-                      <span className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1">
-                        CIA: <span className="text-primary">{res.confidentialityReq?.charAt(0)}</span>|<span className="text-primary">{res.integrityReq?.charAt(0)}</span>|<span className="text-primary">{res.availabilityReq?.charAt(0)}</span>
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                      <UserIcon className="w-3 h-3 text-slate-300" /> {res.systemOwner || '---'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-end items-center gap-1.5">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}>
-                        <Eye className="w-3.5 h-3.5 text-primary" />
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4" text-slate-400 /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                          <DropdownMenuItem onSelect={() => router.push(`/resources/${res.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => openEdit(res)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
-                          <DropdownMenuSeparator className="my-1" />
-                          <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Ressource permanent löschen?")) deleteResourceAction(res.id, dataSource).then(() => refresh()); }}>
-                            <Trash2 className="w-3.5 h-3.5" /> Löschen
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-end items-center gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}>
+                          <Eye className="w-3.5 h-3.5 text-primary" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4" text-slate-400 /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
+                            <DropdownMenuItem onSelect={() => router.push(`/resources/${res.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEdit(res)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
+                            <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Ressource permanent löschen?")) deleteResourceAction(res.id, dataSource).then(() => refresh()); }}>
+                              <Trash2 className="w-3.5 h-3.5" /> Löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -393,7 +388,7 @@ export default function ResourcesPage() {
               </div>
               <AiFormAssistant 
                 formType="resource" 
-                currentData={{ name, assetType, category, operatingModel, criticality, dataClassification, confidentialityReq, integrityReq, availabilityReq, hasPersonalData, processingPurpose, dataLocation, systemOwner, riskOwner, notes, url }} 
+                currentData={{ name, assetType, category, operatingModel, criticality, dataClassification, confidentialityReq, integrityReq, availabilityReq, hasPersonalData, dataLocation, systemOwnerId, riskOwner, notes, url }} 
                 onApply={applyAiSuggestions} 
               />
             </div>
@@ -590,10 +585,6 @@ export default function ResourcesPage() {
 
                   <div className="space-y-6 animate-in fade-in slide-in-from-top-2">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck der Verarbeitung</Label>
-                      <Textarea value={processingPurpose} onChange={e => setProcessingPurpose(e.target.value)} className="rounded-2xl min-h-[100px] p-4 text-xs font-medium border-slate-200 bg-white" placeholder="z.B. Vertragsabwicklung, Lohnabrechnung..." />
-                    </div>
-                    <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenstandort / Region</Label>
                       <div className="relative">
                         <Database className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
@@ -606,8 +597,18 @@ export default function ResourcesPage() {
                 <TabsContent value="admin" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">System Owner</Label>
-                      <Input value={systemOwner} onChange={e => setSystemOwner(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" placeholder="Verantwortliche Person (IT)" />
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">System Owner (Verantwortlich)</Label>
+                      <Select value={systemOwnerId} onValueChange={setSystemOwnerId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
+                          <SelectValue placeholder="Person wählen..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Verantwortlicher zugewiesen</SelectItem>
+                          {owners?.map(o => (
+                            <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Risk Owner</Label>

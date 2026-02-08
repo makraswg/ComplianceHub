@@ -49,6 +49,16 @@ export const appSchema: AppSchema = {
       entitlementIds: 'TEXT', // JSON array of standard roles (Blueprint)
     }
   },
+  system_owners: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      email: 'VARCHAR(255)',
+      department: 'VARCHAR(255)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
   data_stores: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -503,12 +513,11 @@ export const appSchema: AppSchema = {
       hasSpecialCategoryData: 'BOOLEAN DEFAULT FALSE',
       isDataRepository: 'BOOLEAN DEFAULT FALSE',
       affectedGroups: 'TEXT',
-      processingPurpose: 'TEXT',
       dataLocation: 'VARCHAR(255)',
       isInternetExposed: 'BOOLEAN DEFAULT FALSE',
       isBusinessCritical: 'BOOLEAN DEFAULT FALSE',
       isSpof: 'BOOLEAN DEFAULT FALSE',
-      systemOwner: 'VARCHAR(255)',
+      systemOwnerId: 'VARCHAR(255)',
       operatorId: 'VARCHAR(255)',
       riskOwner: 'VARCHAR(255)',
       dataOwner: 'VARCHAR(255)',
