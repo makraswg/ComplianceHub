@@ -98,6 +98,30 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50) NOT NULL',
     }
   },
+  // Media Management
+  media: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      module: 'VARCHAR(50) NOT NULL',
+      entityId: 'VARCHAR(255) NOT NULL',
+      subEntityId: 'VARCHAR(255)',
+      fileName: 'VARCHAR(255) NOT NULL',
+      fileType: 'VARCHAR(100) NOT NULL',
+      fileSize: 'BIGINT NOT NULL',
+      fileUrl: 'LONGTEXT NOT NULL',
+      ocrText: 'LONGTEXT',
+      createdAt: 'VARCHAR(50) NOT NULL',
+      createdBy: 'VARCHAR(255) NOT NULL',
+    }
+  },
+  media_configs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      allowedTypes: 'TEXT', // JSON array
+      maxFileSize: 'BIGINT DEFAULT 5242880', // 5MB default
+    }
+  },
   // Feature Management Tables
   features: {
     columns: {

@@ -42,7 +42,8 @@ import {
   Zap,
   Info,
   ListFilter,
-  ClipboardList
+  ClipboardList,
+  FileStack
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -162,6 +163,7 @@ export function AppSidebar() {
     { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
+    { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
     { name: 'Regulatorik & Normen', href: '/settings/compliance', icon: Scale },
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },

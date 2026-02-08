@@ -89,6 +89,7 @@ export interface PlatformRole {
     gdpr: 'none' | 'read' | 'write';
     settings: 'none' | 'read' | 'write';
     audit: 'none' | 'read' | 'write';
+    media: 'none' | 'read' | 'write';
   };
 }
 
@@ -103,6 +104,27 @@ export interface PlatformUser {
   enabled: boolean | number;
   createdAt: string;
   authSource?: 'local' | 'ldap';
+}
+
+export interface MediaFile {
+  id: string;
+  tenantId: string;
+  module: 'ProcessHub' | 'RiskHub' | 'General';
+  entityId: string;
+  subEntityId?: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  fileUrl: string; // Data URI or path
+  ocrText?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface MediaConfig {
+  id: string;
+  allowedTypes: string[]; // MIME types
+  maxFileSize: number; // in bytes
 }
 
 export interface ProcessNode {

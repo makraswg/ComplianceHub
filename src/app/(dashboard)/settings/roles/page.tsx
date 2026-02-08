@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -18,7 +19,8 @@ import {
   FileCheck,
   BrainCircuit,
   Activity,
-  Layers
+  Layers,
+  FileStack
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -54,7 +56,8 @@ export default function PlatformRolesPage() {
     processhub: 'none',
     gdpr: 'none',
     settings: 'none',
-    audit: 'none'
+    audit: 'none',
+    media: 'none'
   });
 
   const { data: roles, refresh: refreshRoles, isLoading } = usePluggableCollection<PlatformRole>('platformRoles');
@@ -99,7 +102,9 @@ export default function PlatformRolesPage() {
     setSelectedRole(role);
     setName(role.name);
     setDescription(role.description || '');
-    setPermissions(role.permissions);
+    setPermissions(role.permissions || {
+      iam: 'read', risks: 'none', processhub: 'none', gdpr: 'none', settings: 'none', audit: 'none', media: 'none'
+    });
     setIsDialogOpen(true);
   };
 
@@ -113,7 +118,8 @@ export default function PlatformRolesPage() {
       processhub: 'none',
       gdpr: 'none',
       settings: 'none',
-      audit: 'none'
+      audit: 'none',
+      media: 'none'
     });
   };
 
@@ -163,7 +169,7 @@ export default function PlatformRolesPage() {
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Rollenbezeichnung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">IAM</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">Risiko</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Konfig</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Medien</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -188,7 +194,7 @@ export default function PlatformRolesPage() {
                     <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.risks === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.risks}</Badge>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.settings === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.settings}</Badge>
+                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.media === 'write' ? "bg-indigo-50 text-indigo-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.media || 'none'}</Badge>
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <div className="flex justify-end gap-1">
@@ -204,12 +210,6 @@ export default function PlatformRolesPage() {
               ))}
             </TableBody>
           </Table>
-          {(!roles || roles.length === 0) && !isLoading && (
-            <div className="py-20 text-center space-y-4">
-              <Shield className="w-12 h-12 text-slate-200 dark:text-slate-800 mx-auto" />
-              <p className="text-[11px] font-bold text-slate-400">Keine benutzerdefinierten Rollen definiert</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -220,9 +220,7 @@ export default function PlatformRolesPage() {
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <Lock className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                {selectedRole ? 'Berechtigungsprofil bearbeiten' : 'Neue Plattform-Rolle'}
-              </DialogTitle>
+              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Berechtigungsprofil</DialogTitle>
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
@@ -231,10 +229,6 @@ export default function PlatformRolesPage() {
                 <div className="space-y-2">
                   <Label className="text-[11px] font-bold text-slate-400">Rollenbezeichnung</Label>
                   <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800" placeholder="z.B. Compliance-Officer" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">Beschreibung</Label>
-                  <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800" placeholder="Zuständigkeitsbereich..." />
                 </div>
               </div>
 
@@ -245,6 +239,7 @@ export default function PlatformRolesPage() {
                   <PermSelector label="Risikomanagement" icon={Activity} value={perms.risks} onChange={(v: any) => setPermissions({...perms, risks: v})} />
                   <PermSelector label="ProzessHub" icon={Layers} value={perms.processhub} onChange={(v: any) => setPermissions({...perms, processhub: v})} />
                   <PermSelector label="Datenschutz (VVT)" icon={FileCheck} value={perms.gdpr} onChange={(v: any) => setPermissions({...perms, gdpr: v})} />
+                  <PermSelector label="Medienverwaltung" icon={FileStack} value={perms.media} onChange={(v: any) => setPermissions({...perms, media: v})} />
                   <PermSelector label="Systemeinstellungen" icon={Settings2} value={perms.settings} onChange={(v: any) => setPermissions({...perms, settings: v})} />
                   <PermSelector label="Audit & Protokoll" icon={BrainCircuit} value={perms.audit} onChange={(v: any) => setPermissions({...perms, audit: v})} />
                 </div>
@@ -252,8 +247,8 @@ export default function PlatformRolesPage() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+            <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleSave} disabled={isSaving} className="px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
