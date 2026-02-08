@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -281,7 +282,7 @@ export default function SetupPage() {
                           <li>Benutzerverzeichnis (IAM-Identitäten)</li>
                           <li>Onboarding-Pakete & Lifecycle-Gruppen</li>
                           <li>Risikoinventare & Maßnahmenpläne</li>
-                          <li>Importierten Kataloge & Gefährdungen</li>
+                          <li>Importierten Kataloge & Gefährdungen (BSI)</li>
                           <li>Ressourcen & Rollendefinitionen</li>
                           <li>Alle Zuweisungen & Audit-Logs</li>
                           <li>Aufgaben (Tickets) & Kommentare</li>

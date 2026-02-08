@@ -246,8 +246,12 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'process_versions',
       'process_comments',
       'process_ops',
+      'process_relations',
+      'bookstack_exports',
       'ai_sessions',
       'ai_messages',
+      'regulatory_options',
+      'usage_type_options',
       'uiConfigs',
       'platformRoles',
       'features',
@@ -259,14 +263,27 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'media'
     ];
 
+    // Deaktiviere Fremdschlüssel-Prüfungen für eine reibungslose Bereinigung
+    await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
+
     for (const table of tablesToClear) {
-      await connection.execute(`DELETE FROM \`${table}\``);
+      try {
+        await connection.execute(`DELETE FROM \`${table}\``);
+      } catch (err) {
+        console.warn(`Could not clear table ${table}, might not exist yet.`);
+      }
     }
+
+    // Re-aktiviere Fremdschlüssel-Prüfungen
+    await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
 
     connection.release();
     return { success: true, message: "Ausgewählte Datenbereiche wurden erfolgreich geleert." };
   } catch (error: any) {
-    if (connection) connection.release();
+    if (connection) {
+      await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
+      connection.release();
+    }
     console.error("Truncate failed:", error);
     return { success: false, message: `Fehler beim Leeren der Tabellen: ${error.message}` };
   }
