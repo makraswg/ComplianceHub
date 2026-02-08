@@ -13,7 +13,11 @@ import {
   Activity,
   Layers,
   ChevronRight,
-  Filter
+  Filter,
+  Workflow,
+  Target,
+  Search,
+  LayoutDashboard
 } from 'lucide-react';
 import { 
   PieChart, 
@@ -29,43 +33,64 @@ import {
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { cn } from '@/lib/utils';
-import { Risk, RiskMeasure } from '@/lib/types';
+import { Risk, RiskMeasure, Process, ProcessVersion, ProcessNode } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 export default function RiskReportsPage() {
-  const { activeTenantId } = useSettings();
+  const { activeTenantId, dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{ impact: number, probability: number } | null>(null);
+  const [filterProcessId, setFilterProcessId] = useState<string>('all');
 
   const { data: risks, isLoading: risksLoading, refresh: refreshRisks } = usePluggableCollection<Risk>('risks');
+  const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
 
   useEffect(() => { setMounted(true); }, []);
 
-  const filteredRisks = useMemo(() => {
+  const processFilteredRisks = useMemo(() => {
     if (!risks) return [];
-    return risks.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId);
-  }, [risks, activeTenantId]);
+    let base = risks.filter(r => activeTenantId === 'all' || r.tenantId === activeTenantId);
+
+    if (filterProcessId !== 'all') {
+      const selectedProc = processes?.find(p => p.id === filterProcessId);
+      const ver = versions?.find(v => v.process_id === filterProcessId);
+      const resourceIdsInProc = new Set<string>();
+      ver?.model_json?.nodes?.forEach((n: ProcessNode) => {
+        n.resourceIds?.forEach(rid => resourceIdsInProc.add(rid));
+      });
+
+      base = base.filter(r => 
+        r.processId === filterProcessId || 
+        (r.assetId && resourceIdsInProc.has(r.assetId))
+      );
+    }
+
+    return base;
+  }, [risks, activeTenantId, filterProcessId, processes, versions]);
 
   const displayRisks = useMemo(() => {
-    if (!selectedCell) return filteredRisks;
-    return filteredRisks.filter(r => r.impact === selectedCell.impact && r.probability === selectedCell.probability);
-  }, [filteredRisks, selectedCell]);
+    if (!selectedCell) return processFilteredRisks;
+    return processFilteredRisks.filter(r => r.impact === selectedCell.impact && r.probability === selectedCell.probability);
+  }, [processFilteredRisks, selectedCell]);
 
   const stats = useMemo(() => {
-    const total = filteredRisks.length;
-    const scores = filteredRisks.map(r => r.impact * r.probability);
+    const total = processFilteredRisks.length;
+    const scores = processFilteredRisks.map(r => r.impact * r.probability);
     const critical = scores.filter(s => s >= 15).length;
     const medium = scores.filter(s => s >= 8 && s < 15).length;
     const low = scores.filter(s => s < 8).length;
 
-    const categories = Array.from(new Set(filteredRisks.map(r => r.category)));
+    const categories = Array.from(new Set(processFilteredRisks.map(r => r.category)));
     const catData = categories.map(cat => ({
       name: cat,
-      count: filteredRisks.filter(r => r.category === cat).length
+      count: processFilteredRisks.filter(r => r.category === cat).length
     })).sort((a, b) => b.count - a.count);
 
     return { total, critical, medium, low, catData };
-  }, [filteredRisks]);
+  }, [processFilteredRisks]);
 
   const riskPieData = [
     { name: 'Kritisch', value: stats.critical, color: '#ef4444' },
@@ -98,6 +123,30 @@ export default function RiskReportsPage() {
         </div>
       </div>
 
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-3 px-4 py-1.5 flex-1">
+          <Workflow className="w-4 h-4 text-slate-400" />
+          <div className="flex-1 max-w-xs">
+            <Select value={filterProcessId} onValueChange={setFilterProcessId}>
+              <SelectTrigger className="h-9 border-none shadow-none text-xs font-bold bg-transparent">
+                <SelectValue placeholder="Alle Prozesse (Global)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Prozesse (Global)</SelectItem>
+                {processes?.filter(p => activeTenantId === 'all' || p.tenantId === activeTenantId).map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-[10px] text-slate-400 italic">Inkludiert vererbte Risiken der IT-Systeme</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
+          <Activity className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Filter aktiv</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 border shadow-sm bg-white dark:bg-slate-900 rounded-2xl overflow-hidden">
           <CardHeader className="border-b py-4 px-6 flex flex-row items-center justify-between bg-slate-50/50">
@@ -123,7 +172,7 @@ export default function RiskReportsPage() {
                   const x = (i % 5) + 1;
                   const y = 5 - Math.floor(i / 5);
                   const score = x * y;
-                  const cellRisks = filteredRisks.filter(r => r.impact === y && r.probability === x);
+                  const cellRisks = processFilteredRisks.filter(r => r.impact === y && r.probability === x);
                   const isSelected = selectedCell?.impact === y && selectedCell?.probability === x;
                   
                   return (
