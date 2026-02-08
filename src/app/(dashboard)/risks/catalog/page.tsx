@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   Library, 
   Search, 
@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 export default function CatalogBrowserPage() {
   const router = useRouter();
   const { dataSource } = useSettings();
+  const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedCatalogId, setSelectedCatalogId] = useState<string>('all');
   const [selectedModuleId, setSelectedModuleId] = useState<string>('all');
@@ -45,6 +46,8 @@ export default function CatalogBrowserPage() {
   const { data: catalogs } = usePluggableCollection<Catalog>('catalogs');
   const { data: modules } = usePluggableCollection<HazardModule>('hazardModules');
   const { data: hazards, isLoading: isHazardsLoading } = usePluggableCollection<Hazard>('hazards');
+
+  useEffect(() => { setMounted(true); }, []);
 
   const filteredHazards = useMemo(() => {
     if (!hazards) return [];
@@ -78,11 +81,13 @@ export default function CatalogBrowserPage() {
     return modules.filter(m => m.catalogId === selectedCatalogId);
   }, [modules, selectedCatalogId]);
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-500/10 text-blue-600 flex items-center justify-center rounded-xl border border-blue-500/10 shadow-sm">
+          <div className="w-12 h-12 bg-blue-500/10 text-blue-600 flex items-center justify-center rounded-xl border border-blue-500/10 shadow-sm transition-transform hover:scale-105">
             <Library className="w-6 h-6" />
           </div>
           <div>
@@ -130,8 +135,8 @@ export default function CatalogBrowserPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isHazardsLoading ? (
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden min-h-[400px]">
+        {(isHazardsLoading && !hazards) ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600 opacity-20" />
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lade Katalog-Daten...</p>

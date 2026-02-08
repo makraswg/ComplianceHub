@@ -148,14 +148,19 @@ function RiskDashboardContent() {
     setMounted(true); 
   }, []);
 
-  // Effect to handle derivation from catalog without focus jump
+  // Effect to handle derivation from catalog with stable state
   useEffect(() => {
     if (!mounted || !hazards) return;
-    const deriveId = searchParams.get('derive');
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const deriveId = urlParams.get('derive');
+    
     if (deriveId && deriveId !== processedDerive.current) {
       const hazard = hazards.find(h => h.id === deriveId);
       if (hazard) {
         processedDerive.current = deriveId;
+        
+        // Reset form and set data
         resetForm();
         setTitle(`Risiko: ${hazard.title}`);
         setDescription(hazard.description);
@@ -163,13 +168,13 @@ function RiskDashboardContent() {
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
         
-        // Clean up URL parameters immediately
-        const newParams = new URLSearchParams(searchParams.toString());
-        newParams.delete('derive');
-        router.replace(`/risks?${newParams.toString()}`, { scroll: false });
+        // Clean up URL without full Next.js router re-render loop
+        urlParams.delete('derive');
+        const newUrl = urlParams.toString() ? `${window.location.pathname}?${urlParams.toString()}` : window.location.pathname;
+        window.history.replaceState(null, '', newUrl);
       }
     }
-  }, [searchParams, hazards, mounted, router]);
+  }, [hazards, mounted]);
 
   const { topLevelRisks, subRisksMap } = useMemo(() => {
     if (!risks) return { topLevelRisks: [], subRisksMap: {} };
@@ -193,6 +198,11 @@ function RiskDashboardContent() {
       subRisksMap: subMap 
     };
   }, [risks, search, categoryFilter, activeTenantId]);
+
+  const linkedMeasures = useMemo(() => {
+    if (!selectedRisk || !allMeasures) return [];
+    return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
+  }, [selectedRisk, allMeasures]);
 
   const applyAiSuggestions = (s: any) => {
     if (s.title) setTitle(s.title);
@@ -627,7 +637,7 @@ function RiskDashboardContent() {
       </div>
 
       <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
-        {isLoading ? (
+        {(isLoading && !risks) ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-accent opacity-20" />
             <p className="text-[10px] font-bold text-slate-400">Inventar wird geladen...</p>
@@ -663,6 +673,7 @@ function RiskDashboardContent() {
         )}
       </div>
 
+      {/* Risk Edit Dialog */}
       <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -782,6 +793,26 @@ function RiskDashboardContent() {
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Szenariobeschreibung & Kontext</Label>
                   <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[100px] p-5 border-slate-200 text-xs font-medium leading-relaxed bg-white shadow-inner" placeholder="Detaillierte Beschreibung der Bedrohung und potenziellen Auswirkungen..." />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Aktive Verknüpfungen ({linkedMeasures.length})
+                  </h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    {linkedMeasures.map(m => (
+                      <div key={m.id} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 shadow-inner">
+                            <ClipboardCheck className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold text-slate-700">{m.title}</span>
+                        </div>
+                        <Badge variant="outline" className="text-[8px] font-black h-4 uppercase">{m.status}</Badge>
+                      </div>
+                    ))}
+                    {linkedMeasures.length === 0 && <p className="text-[10px] text-slate-400 italic px-2">Keine Maßnahmen verknüpft.</p>}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
