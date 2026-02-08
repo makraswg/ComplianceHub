@@ -24,7 +24,11 @@ import {
   Briefcase,
   FileEdit,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Scale,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +63,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function FeaturesOverviewPage() {
   const router = useRouter();
@@ -88,11 +93,36 @@ export default function FeaturesOverviewPage() {
   const [validUntil, setValidUntil] = useState('');
   const [changeReason, setChangeReason] = useState('');
 
+  // Matrix State
+  const [matrixFinancial, setMatrixFinancial] = useState(false);
+  const [matrixLegal, setMatrixLegal] = useState(false);
+  const [matrixExternal, setMatrixExternal] = useState(false);
+  const [matrixHardToCorrect, setMatrixHardToCorrect] = useState(false);
+  const [matrixAutomatedDecision, setMatrixAutomatedDecision] = useState(false);
+  const [matrixPlanning, setMatrixPlanning] = useState(false);
+
   const { data: features, isLoading, refresh } = usePluggableCollection<Feature>('features');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
 
   useEffect(() => { setMounted(true); }, []);
+
+  const currentScore = useMemo(() => {
+    let s = 0;
+    if (matrixFinancial) s++;
+    if (matrixLegal) s++;
+    if (matrixExternal) s++;
+    if (matrixHardToCorrect) s++;
+    if (matrixAutomatedDecision) s++;
+    if (matrixPlanning) s++;
+    return s;
+  }, [matrixFinancial, matrixLegal, matrixExternal, matrixHardToCorrect, matrixAutomatedDecision, matrixPlanning]);
+
+  const currentLevel = useMemo(() => {
+    if (currentScore >= 4) return 'high';
+    if (currentScore >= 2) return 'medium';
+    return 'low';
+  }, [currentScore]);
 
   const handleSave = async () => {
     if (!name || !deptId || !carrier) {
@@ -119,6 +149,15 @@ export default function FeaturesOverviewPage() {
       validFrom,
       validUntil,
       changeReason,
+      // Matrix
+      matrixFinancial,
+      matrixLegal,
+      matrixExternal,
+      matrixHardToCorrect,
+      matrixAutomatedDecision,
+      matrixPlanning,
+      criticality: currentLevel,
+      criticalityScore: currentScore,
       createdAt: selectedFeature?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     } as Feature;
@@ -150,6 +189,12 @@ export default function FeaturesOverviewPage() {
     setValidFrom('');
     setValidUntil('');
     setChangeReason('');
+    setMatrixFinancial(false);
+    setMatrixLegal(false);
+    setMatrixExternal(false);
+    setMatrixHardToCorrect(false);
+    setMatrixAutomatedDecision(false);
+    setMatrixPlanning(false);
   };
 
   const openEdit = (f: Feature) => {
@@ -166,6 +211,12 @@ export default function FeaturesOverviewPage() {
     setValidFrom(f.validFrom || '');
     setValidUntil(f.validUntil || '');
     setChangeReason(f.changeReason || '');
+    setMatrixFinancial(!!f.matrixFinancial);
+    setMatrixLegal(!!f.matrixLegal);
+    setMatrixExternal(!!f.matrixExternal);
+    setMatrixHardToCorrect(!!f.matrixHardToCorrect);
+    setMatrixAutomatedDecision(!!f.matrixAutomatedDecision);
+    setMatrixPlanning(!!f.matrixPlanning);
     setIsDialogOpen(true);
   };
 
@@ -315,7 +366,7 @@ export default function FeaturesOverviewPage() {
                       <Badge className={cn(
                         "rounded-md font-bold text-[9px] h-5 px-2 border-none shadow-sm",
                         f.criticality === 'high' ? "bg-red-50 text-red-600" : f.criticality === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
-                      )}>{f.criticality?.toUpperCase()}</Badge>
+                      )}>{f.criticality?.toUpperCase()} ({f.criticalityScore})</Badge>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end items-center gap-1.5">
@@ -349,7 +400,6 @@ export default function FeaturesOverviewPage() {
         )}
       </div>
 
-      {/* Feature Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -408,8 +458,60 @@ export default function FeaturesOverviewPage() {
 
                 <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
                   <div className="flex items-center gap-2 border-b pb-3">
+                    <Activity className="w-4 h-4 text-primary" />
+                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Kritikalitäts-Punktematrix</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-fin" checked={matrixFinancial} onCheckedChange={(v: any) => setMatrixFinancial(!!v)} />
+                        <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (z. B. Abrechnung)</Label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-leg" checked={matrixLegal} onCheckedChange={(v: any) => setMatrixLegal(!!v)} />
+                        <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt vertraglich oder rechtlich</Label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-ext" checked={matrixExternal} onCheckedChange={(v: any) => setMatrixExternal(!!v)} />
+                        <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde, Partner, Behörde)</Label>
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-hard" checked={matrixHardToCorrect} onCheckedChange={(v: any) => setMatrixHardToCorrect(!!v)} />
+                        <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist nicht leicht korrigierbar</Label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-auto" checked={matrixAutomatedDecision} onCheckedChange={(v: any) => setMatrixAutomatedDecision(!!v)} />
+                        <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Merkmal fließt in automatisierte Entscheidungen</Label>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Checkbox id="mat-plan" checked={matrixPlanning} onCheckedChange={(v: any) => setMatrixPlanning(!!v)} />
+                        <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Merkmal fließt in langfristige Planung</Label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Resultierender Score:</p>
+                      <Badge className="bg-primary text-white rounded-md font-black">{currentScore} Punkte</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-bold uppercase text-slate-400">Einstufung:</p>
+                      <Badge className={cn(
+                        "rounded-full font-black uppercase text-[9px] px-3",
+                        currentLevel === 'high' ? "bg-red-50 text-red-600" : currentLevel === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                      )}>{currentLevel}</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
+                  <div className="flex items-center gap-2 border-b pb-3">
                     <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Zuständigkeit & Verantwortung</h4>
+                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung</h4>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">

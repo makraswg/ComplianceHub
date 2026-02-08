@@ -80,7 +80,16 @@ export const appSchema: AppSchema = {
       carrier: 'VARCHAR(50) NOT NULL',
       description: 'TEXT',
       purpose: 'TEXT',
-      criticality: 'VARCHAR(20) DEFAULT "medium"',
+      criticality: 'VARCHAR(20) DEFAULT "low"',
+      criticalityScore: 'INT DEFAULT 0',
+      // Matrix Criteria
+      matrixFinancial: 'BOOLEAN DEFAULT FALSE',
+      matrixLegal: 'BOOLEAN DEFAULT FALSE',
+      matrixExternal: 'BOOLEAN DEFAULT FALSE',
+      matrixHardToCorrect: 'BOOLEAN DEFAULT FALSE',
+      matrixAutomatedDecision: 'BOOLEAN DEFAULT FALSE',
+      matrixPlanning: 'BOOLEAN DEFAULT FALSE',
+      
       isComplianceRelevant: 'BOOLEAN DEFAULT FALSE',
       deptId: 'VARCHAR(255) NOT NULL',
       ownerId: 'VARCHAR(255)',

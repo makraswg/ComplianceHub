@@ -5,20 +5,23 @@ import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from 
 import { Feature, FeatureLink, FeatureDependency, DataSource, FeatureProcessLink } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
-const criticalityMap: Record<string, number> = { 'low': 1, 'medium': 2, 'high': 3 };
-const reverseCriticalityMap: Record<number, 'low' | 'medium' | 'high'> = { 1: 'low', 2: 'medium', 3: 'high' };
-
 /**
- * Berechnet die Gesamt-Kritikalität eines Merkmals basierend auf den zugeordneten Prozessen.
+ * Berechnet den Kritikalitäts-Score und das Label basierend auf der Punktematrix.
  */
-async function calculateAggregateCriticality(featureId: string, dataSource: DataSource): Promise<'low' | 'medium' | 'high'> {
-  const linksRes = await getCollectionData('feature_processes', dataSource);
-  const links = (linksRes.data as FeatureProcessLink[])?.filter(l => l.featureId === featureId) || [];
-  
-  if (links.length === 0) return 'low';
+function calculateMatrixCriticality(feature: Partial<Feature>): { score: number, label: 'low' | 'medium' | 'high' } {
+  let score = 0;
+  if (feature.matrixFinancial) score++;
+  if (feature.matrixLegal) score++;
+  if (feature.matrixExternal) score++;
+  if (feature.matrixHardToCorrect) score++;
+  if (feature.matrixAutomatedDecision) score++;
+  if (feature.matrixPlanning) score++;
 
-  const maxVal = Math.max(...links.map(l => criticalityMap[l.criticality || 'low']));
-  return reverseCriticalityMap[maxVal] || 'low';
+  let label: 'low' | 'medium' | 'high' = 'low';
+  if (score >= 4) label = 'high';
+  else if (score >= 2) label = 'medium';
+
+  return { score, label };
 }
 
 /**
@@ -29,13 +32,14 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
   const id = isNew ? `feat-${Math.random().toString(36).substring(2, 9)}` : feature.id;
   const now = new Date().toISOString();
   
-  // Aggregate criticality from context
-  const aggregateCriticality = await calculateAggregateCriticality(id, dataSource);
+  // Matrix Calculation
+  const { score, label } = calculateMatrixCriticality(feature);
 
   const data = {
     ...feature,
     id,
-    criticality: aggregateCriticality,
+    criticality: label,
+    criticalityScore: score,
     createdAt: feature.createdAt || now,
     updatedAt: now
   };
@@ -59,36 +63,18 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
 }
 
 /**
- * Verknüpft ein Merkmal mit einem Prozess inklusive Kritikalität im Nutzungskontext.
+ * Verknüpft ein Merkmal mit einem Prozess.
  */
 export async function linkFeatureToProcessAction(link: Omit<FeatureProcessLink, 'id'>, dataSource: DataSource = 'mysql') {
   const id = `fproc-${Math.random().toString(36).substring(2, 9)}`;
-  const res = await saveCollectionRecord('feature_processes', id, { ...link, id }, dataSource);
-  
-  // Recalculate feature criticality
-  const featureRes = await getCollectionData('features', dataSource);
-  const feature = featureRes.data?.find((f: Feature) => f.id === link.featureId);
-  if (feature) {
-    await saveFeatureAction(feature, dataSource);
-  }
-  
-  return res;
+  return await saveCollectionRecord('feature_processes', id, { ...link, id }, dataSource);
 }
 
 /**
  * Entfernt eine Prozessverknüpfung.
  */
 export async function unlinkFeatureFromProcessAction(linkId: string, featureId: string, dataSource: DataSource = 'mysql') {
-  const res = await deleteCollectionRecord('feature_processes', linkId, dataSource);
-  
-  // Recalculate
-  const featureRes = await getCollectionData('features', dataSource);
-  const feature = featureRes.data?.find((f: Feature) => f.id === featureId);
-  if (feature) {
-    await saveFeatureAction(feature, dataSource);
-  }
-  
-  return res;
+  return await deleteCollectionRecord('feature_processes', linkId, dataSource);
 }
 
 /**

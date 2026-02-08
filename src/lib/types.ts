@@ -177,15 +177,24 @@ export interface UsageTypeOption {
 export interface Feature {
   id: string;
   tenantId: string;
-  name: string; // Unified name/code
+  name: string; 
   status: 'active' | 'in_preparation' | 'open_questions' | 'archived';
   carrier: 'wirtschaftseinheit' | 'objekt' | 'verwaltungseinheit' | 'mietvertrag' | 'geschaeftspartner';
   description: string;
   purpose: string;
-  criticality: 'low' | 'medium' | 'high'; // Derived overall criticality
+  criticality: 'low' | 'medium' | 'high';
+  criticalityScore: number;
+  // Matrix Criteria
+  matrixFinancial: boolean | number;
+  matrixLegal: boolean | number;
+  matrixExternal: boolean | number;
+  matrixHardToCorrect: boolean | number;
+  matrixAutomatedDecision: boolean | number;
+  matrixPlanning: boolean | number;
+  
   isComplianceRelevant: boolean | number;
-  deptId: string; // Responsible Department
-  ownerId?: string; // Responsible Role (JobTitle)
+  deptId: string; 
+  ownerId?: string; 
   maintenanceNotes?: string;
   validFrom?: string;
   validUntil?: string;
@@ -198,7 +207,7 @@ export interface FeatureProcessLink {
   id: string;
   featureId: string;
   processId: string;
-  usageType: string; // e.g. "Schreibend", "Lesend"
+  usageType: string;
   criticality: 'low' | 'medium' | 'high';
 }
 

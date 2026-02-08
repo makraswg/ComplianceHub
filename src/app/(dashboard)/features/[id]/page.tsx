@@ -31,7 +31,9 @@ import {
   Shield,
   Briefcase,
   GitBranch,
-  X
+  X,
+  Scale,
+  CheckCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -127,6 +129,21 @@ export default function FeatureDetailPage() {
   const dept = departments?.find(d => d.id === feature.deptId);
   const owner = jobTitles?.find(j => j.id === feature.ownerId);
 
+  const MatrixItem = ({ label, checked }: { label: string, checked: boolean }) => (
+    <div className={cn(
+      "flex items-center gap-3 p-3 rounded-xl border transition-all",
+      checked ? "bg-primary/5 border-primary/20" : "bg-slate-50/50 border-slate-100 opacity-50"
+    )}>
+      <div className={cn(
+        "w-5 h-5 rounded-md flex items-center justify-center border",
+        checked ? "bg-primary text-white border-primary" : "bg-white border-slate-200"
+      )}>
+        {checked && <CheckCircle className="w-3.5 h-3.5" />}
+      </div>
+      <span className={cn("text-[11px] font-bold", checked ? "text-slate-900" : "text-slate-400")}>{label}</span>
+    </div>
+  );
+
   return (
     <div className="space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -146,8 +163,8 @@ export default function FeatureDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs">
-            <Activity className="w-3.5 h-3.5 mr-2" /> Analyse
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => router.push(`/features`)}>
+            <Activity className="w-3.5 h-3.5 mr-2" /> Alle Merkmale
           </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6">
             <Zap className="w-3.5 h-3.5 mr-2" /> KI Audit
@@ -180,7 +197,7 @@ export default function FeatureDetailPage() {
               <Separator />
               
               <div className="space-y-3">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Gesamt-Kritikalität (Kontext)</p>
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Punktematrix Ergebnis</p>
                 <div className={cn(
                   "p-4 rounded-2xl border flex items-center justify-between shadow-sm transition-all",
                   feature.criticality === 'high' ? "bg-red-50 border-red-100 text-red-700" : 
@@ -188,8 +205,8 @@ export default function FeatureDetailPage() {
                   "bg-emerald-50 border-emerald-100 text-emerald-700"
                 )}>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black uppercase">{feature.criticality}</span>
-                    <span className="text-[8px] font-bold opacity-70 italic">Abgeleitet aus Prozessen</span>
+                    <span className="text-[10px] font-black uppercase">{feature.criticality} ({feature.criticalityScore} Pkt.)</span>
+                    <span className="text-[8px] font-bold opacity-70 italic">Strukturierte Bewertung</span>
                   </div>
                   <AlertTriangle className="w-5 h-5" />
                 </div>
@@ -215,6 +232,7 @@ export default function FeatureDetailPage() {
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1">
               <TabsTrigger value="overview" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Info className="w-3.5 h-3.5" /> Überblick</TabsTrigger>
+              <TabsTrigger value="matrix" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Scale className="w-3.5 h-3.5" /> Kritikalitäts-Matrix</TabsTrigger>
               <TabsTrigger value="context" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><GitBranch className="w-3.5 h-3.5" /> Nutzungskontext</TabsTrigger>
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold text-primary data-[state=active]:bg-white data-[state=active]:shadow-sm"><Zap className="w-3.5 h-3.5" /> Impact-Analyse</TabsTrigger>
             </TabsList>
@@ -239,7 +257,7 @@ export default function FeatureDetailPage() {
                   <Separator />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <Label className="text-[9px] font-black uppercase text-primary tracking-widest">Pflege & Qualität</Label>
+                      <Label className="text-[9px] font-black uppercase text-primary tracking-widest">Pflegehinweise & Qualität</Label>
                       <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 shadow-inner">
                         <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed italic">{feature.maintenanceNotes || 'Keine spezifischen Pflegehinweise vorhanden.'}</p>
                       </div>
@@ -262,6 +280,40 @@ export default function FeatureDetailPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="matrix" className="space-y-6 animate-in fade-in duration-500">
+              <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b p-6">
+                  <div className="flex items-center gap-3">
+                    <Activity className="w-5 h-5 text-indigo-600" />
+                    <div>
+                      <CardTitle className="text-sm font-bold">Punktematrix Bewertung</CardTitle>
+                      <CardDescription className="text-[10px] font-bold">Auditfähige Dokumentation der Kritikalitäts-Faktoren.</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <MatrixItem label="Fehler wirkt finanziell (z. B. Abrechnung)" checked={!!feature.matrixFinancial} />
+                    <MatrixItem label="Fehler wirkt vertraglich oder rechtlich" checked={!!feature.matrixLegal} />
+                    <MatrixItem label="Fehler wirkt extern (Kunde, Partner, Behörde)" checked={!!feature.matrixExternal} />
+                    <MatrixItem label="Fehler ist nicht leicht korrigierbar" checked={!!feature.matrixHardToCorrect} />
+                    <MatrixItem label="Merkmal fließt in automatisierte Entscheidungen" checked={!!feature.matrixAutomatedDecision} />
+                    <MatrixItem label="Merkmal fließt in langfristige Planung" checked={!!feature.matrixPlanning} />
+                  </div>
+                  <div className="mt-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between shadow-inner">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">Ermitteltes Schutzniveau</p>
+                      <p className="text-[10px] text-slate-500 font-medium">Basiert auf {feature.criticalityScore} erfüllten Kriterien.</p>
+                    </div>
+                    <Badge className={cn(
+                      "rounded-full px-6 h-10 text-sm font-black uppercase border-none shadow-lg",
+                      feature.criticality === 'high' ? "bg-red-600 text-white" : feature.criticality === 'medium' ? "bg-orange-500 text-white" : "bg-emerald-600 text-white"
+                    )}>{feature.criticality?.toUpperCase()}</Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="context" className="space-y-8 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6">
@@ -270,7 +322,7 @@ export default function FeatureDetailPage() {
                       <Workflow className="w-5 h-5 text-indigo-600" />
                       <div>
                         <CardTitle className="text-sm font-bold">Zugeordnete Geschäftsprozesse</CardTitle>
-                        <CardDescription className="text-[10px] font-bold">Kritikalität und Nutzungstyp pro Prozess-Kontext.</CardDescription>
+                        <CardDescription className="text-[10px] font-bold">Nutzungskontext und operative Relevanz.</CardDescription>
                       </div>
                     </div>
                   </div>
@@ -342,7 +394,7 @@ export default function FeatureDetailPage() {
                       <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><Zap className="w-5 h-5" /></div>
                       <div>
                         <CardTitle className="text-base font-headline font-bold">Impact Analysis</CardTitle>
-                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Prozessnutzung</p>
+                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Merkmalsnutzung</p>
                       </div>
                     </div>
                     <Badge className="bg-white/10 text-white border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest">Active Analysis</Badge>
