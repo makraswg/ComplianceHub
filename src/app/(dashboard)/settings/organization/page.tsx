@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -26,13 +25,15 @@ import {
   Settings2,
   AlertTriangle,
   Link as LinkIcon,
-  Image as ImageIcon,
+  ImageIcon,
   Network,
   ChevronRight,
   Maximize2,
   RefreshCw,
   ShieldCheck,
-  Shield
+  Shield,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -89,7 +90,7 @@ function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
         const jX = dX + GAP_X;
         const jY = dY + (jIdx * 70);
         xml += `<mxCell id="${job.id}" value="${job.name}" style="rounded=1;fillColor=#ffffff;strokeColor=#3b82f6;fontColor=#1e40af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${jX}" y="${jY}" width="${NODE_W}" height="40" as="geometry"/></mxCell>`;
-        xml += `<mxCell id="edge-d-j-${job.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#cbd5e1;strokeWidth=1;endArrow=none;" edge="1" parent="1" source="${dept.id}" target="${job.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+        xml += `<mxCell id="edge-d-j-${job.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#cbd5e1;strokeWidth=1.5;endArrow=none;" edge="1" parent="1" source="${dept.id}" target="${job.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
       });
     });
   });
@@ -106,6 +107,7 @@ export default function UnifiedOrganizationPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
   const [isIframeReady, setIsIframeReady] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   
   // Selection
   const [activeAddParent, setActiveAddParent] = useState<{ id: string, type: 'tenant' | 'dept' } | null>(null);
@@ -464,8 +466,37 @@ export default function UnifiedOrganizationPage() {
         <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] relative overflow-hidden shadow-inner animate-in fade-in">
           <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-xl p-1.5 flex flex-col gap-1.5">
             <TooltipProvider>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-lg hover:bg-slate-100"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left">Neu zeichnen</TooltipContent></Tooltip>
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-lg hover:bg-slate-100"><Maximize2 className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left">Zentrieren</TooltipContent></Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => setIsLocked(!isLocked)} 
+                    className={cn("h-9 w-9 rounded-lg transition-all", isLocked ? "bg-amber-50 text-amber-600" : "hover:bg-slate-100 text-slate-600")}
+                  >
+                    {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  {isLocked ? 'Layout entsperren' : 'Layout sperren'}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-lg hover:bg-slate-100">
+                    <RefreshCw className="w-4 h-4 text-slate-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Neu zeichnen</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-lg hover:bg-slate-100">
+                    <Maximize2 className="w-4 h-4 text-slate-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Zentrieren</TooltipContent>
+              </Tooltip>
             </TooltipProvider>
           </div>
           <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
