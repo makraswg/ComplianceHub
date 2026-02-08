@@ -408,7 +408,7 @@ export default function FeatureDetailPage() {
                         </div>
                         <div className="space-y-1.5">
                           <Label required className="text-[9px] font-black uppercase text-slate-400">2. Arbeitsschritt wählen</Label>
-                          <Select value={selectedNodeId} onValueChange={setSelectedNodeId} disabled={!selectedProcessId}>
+                          <Select value={selectedNodeId} onValueChange={setNodeId} disabled={!selectedProcessId}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Schritt..." /></SelectTrigger>
                             <SelectContent>
                               {currentProcessNodes.map(n => <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>)}
@@ -603,7 +603,7 @@ export default function FeatureDetailPage() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
-                <Textarea value={taskDesc} onChange={e => setDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed shadow-inner" placeholder="Beschreiben Sie die fachliche Anforderung..." />
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed shadow-inner" placeholder="Beschreiben Sie die fachliche Anforderung..." />
               </div>
             </div>
           </ScrollArea>

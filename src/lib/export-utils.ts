@@ -318,7 +318,7 @@ export async function exportFullComplianceReportPdf(
         startY += 5;
 
         const tableData = resAssignments.map(a => {
-          const user = users.find(u => u.id === uid);
+          const user = users.find(u => u.id === a.userId);
           const ent = entitlements.find(e => e.id === a.entitlementId);
           return [
             user?.displayName || a.userId,
