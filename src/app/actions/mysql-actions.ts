@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -52,6 +51,7 @@ const collectionToTableMap: { [key: string]: string } = {
   feature_links: 'feature_links',
   feature_dependencies: 'feature_dependencies',
   feature_process_steps: 'feature_process_steps',
+  feature_processes: 'feature_process_steps', // Alias for backward compatibility
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
   task_comments: 'task_comments'

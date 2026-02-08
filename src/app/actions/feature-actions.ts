@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
@@ -67,14 +66,14 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
  */
 export async function linkFeatureToProcessAction(link: Omit<FeatureProcessLink, 'id'>, dataSource: DataSource = 'mysql') {
   const id = `fproc-${Math.random().toString(36).substring(2, 9)}`;
-  return await saveCollectionRecord('feature_processes', id, { ...link, id }, dataSource);
+  return await saveCollectionRecord('feature_process_steps', id, { ...link, id }, dataSource);
 }
 
 /**
  * Entfernt eine Prozessverknüpfung.
  */
 export async function unlinkFeatureFromProcessAction(linkId: string, featureId: string, dataSource: DataSource = 'mysql') {
-  return await deleteCollectionRecord('feature_processes', linkId, dataSource);
+  return await deleteCollectionRecord('feature_process_steps', linkId, dataSource);
 }
 
 /**
@@ -88,10 +87,10 @@ export async function deleteFeatureAction(featureId: string, dataSource: DataSou
       await deleteCollectionRecord('feature_links', link.id, dataSource);
     }
 
-    const procLinksRes = await getCollectionData('feature_processes', dataSource);
+    const procLinksRes = await getCollectionData('feature_process_steps', dataSource);
     const procLinks = procLinksRes.data?.filter((l: any) => l.featureId === featureId) || [];
     for (const link of procLinks) {
-      await deleteCollectionRecord('feature_processes', link.id, dataSource);
+      await deleteCollectionRecord('feature_process_steps', link.id, dataSource);
     }
 
     const depsRes = await getCollectionData('feature_dependencies', dataSource);

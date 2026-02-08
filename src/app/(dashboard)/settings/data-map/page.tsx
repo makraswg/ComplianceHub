@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -115,27 +114,28 @@ function generateEcosystemXml(data: {
 }
 
 export default function EcosystemDataMapPage() {
-  const { activeTenantId } = useSettings();
+  const { activeTenantId, dataSource } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isIframeReady, setIsIframeReady] = useState(false);
   const [search, setSearch] = useState('');
   
   // Collections
   const { data: users, isLoading: uLoad } = usePluggableCollection<User>('users');
   const { data: resources, isLoading: rLoad } = usePluggableCollection<Resource>('resources');
   const { data: processes, isLoading: pLoad } = usePluggableCollection<Process>('processes');
-  const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: versions, isLoading: verLoad } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: risks, isLoading: rkLoad } = usePluggableCollection<Risk>('risks');
   const { data: measures, isLoading: mLoad } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: features, isLoading: fLoad } = usePluggableCollection<Feature>('features');
-  const { data: vvts, isLoading: vLoad } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: vvts, isLoading: vvtLoad } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: stores, isLoading: sLoad } = usePluggableCollection<DataStore>('dataStores');
-  const { data: featProcs } = usePluggableCollection<any>('feature_process_steps');
+  const { data: featProcs, isLoading: fpLoad } = usePluggableCollection<any>('feature_process_steps');
 
   useEffect(() => { setMounted(true); }, []);
 
-  const isLoading = uLoad || rLoad || pLoad || rkLoad || mLoad || fLoad || vLoad || sLoad;
+  const isLoading = uLoad || rLoad || pLoad || verLoad || rkLoad || mLoad || fLoad || vvtLoad || sLoad || fpLoad;
 
   const ecosystemData = useMemo(() => {
     if (!mounted || isLoading) return null;
@@ -194,26 +194,36 @@ export default function EcosystemDataMapPage() {
   }, [mounted, isLoading, users, resources, processes, versions, risks, measures, features, vvts, stores, featProcs, activeTenantId]);
 
   const syncDiagram = useCallback(() => {
-    if (!iframeRef.current || !ecosystemData || isLocked) return;
+    if (!iframeRef.current || !ecosystemData || isLocked || !isIframeReady) return;
     const xml = generateEcosystemXml(ecosystemData);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
     setTimeout(() => {
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*');
     }, 500);
-  }, [ecosystemData, isLocked]);
+  }, [ecosystemData, isLocked, isIframeReady]);
 
+  // Listener registered ONCE on mount to ensure we never miss 'init'
   useEffect(() => {
-    if (!mounted || isLoading) return;
+    if (!mounted) return;
     const handleMessage = (evt: MessageEvent) => {
       if (!evt.data || typeof evt.data !== 'string') return;
       try {
         const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') syncDiagram();
+        if (msg.event === 'init') {
+          setIsIframeReady(true);
+        }
       } catch (e) {}
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [mounted, isLoading, syncDiagram]);
+  }, [mounted]);
+
+  // Trigger sync when both data and iframe are ready
+  useEffect(() => {
+    if (isIframeReady && ecosystemData && !isLocked) {
+      syncDiagram();
+    }
+  }, [isIframeReady, ecosystemData, isLocked, syncDiagram]);
 
   if (!mounted) return null;
 
@@ -310,7 +320,7 @@ export default function EcosystemDataMapPage() {
             src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" 
             className="absolute inset-0 w-full h-full border-none" 
           />
-          {isLoading && (
+          {(isLoading || !isIframeReady) && (
             <div className="absolute inset-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 animate-pulse">Analysiere Relationen...</p>
