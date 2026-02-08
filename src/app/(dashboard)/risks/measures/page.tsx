@@ -1,7 +1,7 @@
-
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,13 +67,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 
-export default function RiskMeasuresPage() {
+function RiskMeasuresContent() {
   const { dataSource, activeTenantId } = useSettings();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isMeasureDialogOpen, setIsMeasureDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedMeasure, setSelectedMeasure] = useState<RiskMeasure | null>(null);
+
+  const riskFilterId = searchParams.get('riskId');
 
   const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
@@ -137,7 +140,7 @@ export default function RiskMeasuresPage() {
 
   const resetForm = () => {
     setSelectedMeasure(null);
-    setSelectedRiskIds([]);
+    setSelectedRiskIds(riskFilterId ? [riskFilterId] : []);
     setSelectedResourceIds([]);
     setTitle('');
     setOwner('');
@@ -181,8 +184,12 @@ export default function RiskMeasuresPage() {
 
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
-    return measures.filter(m => m.title.toLowerCase().includes(search.toLowerCase()) || m.owner.toLowerCase().includes(search.toLowerCase()));
-  }, [measures, search]);
+    return measures.filter(m => {
+      const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || m.owner.toLowerCase().includes(search.toLowerCase());
+      const matchesRiskFilter = !riskFilterId || m.riskIds?.includes(riskFilterId);
+      return matchesSearch && matchesRiskFilter;
+    });
+  }, [measures, search, riskFilterId]);
 
   if (!mounted) return null;
 
@@ -199,10 +206,25 @@ export default function RiskMeasuresPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Monitoring der risikomindernden Aktivitäten (TOM).</p>
           </div>
         </div>
-        <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsMeasureDialogOpen(true); }}>
-          <Plus className="w-3.5 h-3.5 mr-2" /> Kontrolle planen
-        </Button>
+        <div className="flex gap-2">
+          {riskFilterId && (
+            <Button variant="ghost" size="sm" className="h-9 text-[10px] font-bold uppercase text-red-600" onClick={() => router.push('/risks/measures')}>Filter aufheben</Button>
+          )}
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsMeasureDialogOpen(true); }}>
+            <Plus className="w-3.5 h-3.5 mr-2" /> Kontrolle planen
+          </Button>
+        </div>
       </div>
+
+      {riskFilterId && (
+        <Alert className="bg-blue-50 border-blue-100 text-blue-800 rounded-xl">
+          <Info className="w-4 h-4" />
+          <AlertTitle className="text-xs font-bold">Filter aktiv</AlertTitle>
+          <AlertDescription className="text-[10px] font-medium">
+            Es werden nur Maßnahmen für das Risiko <strong>{risks?.find(r => r.id === riskFilterId)?.title || riskFilterId}</strong> angezeigt.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
@@ -294,7 +316,6 @@ export default function RiskMeasuresPage() {
         )}
       </div>
 
-      {/* Enterprise Dialog Standards */}
       <Dialog open={isMeasureDialogOpen} onOpenChange={setIsMeasureDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
@@ -454,5 +475,13 @@ export default function RiskMeasuresPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function RiskMeasuresPage() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-600 opacity-20" /></div>}>
+      <RiskMeasuresContent />
+    </Suspense>
   );
 }

@@ -36,7 +36,10 @@ import {
   X,
   BrainCircuit,
   ShieldCheck,
-  Target
+  Target,
+  ExternalLink,
+  ClipboardCheck,
+  ZapIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -129,6 +132,7 @@ function RiskDashboardContent() {
   // Catalog Browser State (Quick Add Measure)
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [catalogSuggestions, setCatalogSuggestions] = useState<any[]>([]);
+  const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false);
 
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
@@ -178,11 +182,6 @@ function RiskDashboardContent() {
       subRisksMap: subMap 
     };
   }, [risks, search, categoryFilter, activeTenantId]);
-
-  const linkedMeasures = useMemo(() => {
-    if (!selectedRisk || !allMeasures) return [];
-    return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
-  }, [selectedRisk, allMeasures]);
 
   const handleSaveRisk = async () => {
     if (!title) {
@@ -255,14 +254,17 @@ function RiskDashboardContent() {
     }
   };
 
-  const loadCatalogSuggestions = async () => {
-    if (!hazardId || !hMeasures || !hRelations) {
+  const loadCatalogSuggestions = async (riskOverride?: Risk) => {
+    const activeRisk = riskOverride || selectedRisk;
+    const hId = riskOverride ? riskOverride.hazardId : hazardId;
+
+    if (!hId || !hMeasures || !hRelations) {
       toast({ variant: "destructive", title: "Keine Katalogdaten", description: "Dieses Risiko ist nicht mit einer Katalog-Gefährdung verknüpft." });
       return;
     }
     
     setIsCatalogLoading(true);
-    const hazard = hazards?.find(h => h.id === hazardId);
+    const hazard = hazards?.find(h => h.id === hId);
     if (!hazard) return;
 
     const relations = hRelations.filter((r: any) => r.hazardCode === hazard.code);
@@ -272,17 +274,20 @@ function RiskDashboardContent() {
     setIsCatalogLoading(false);
     if (suggestedMeasures.length === 0) {
       toast({ title: "Keine Vorschläge", description: "Für diesen Code sind keine BSI-Maßnahmen im Katalog hinterlegt." });
+    } else {
+      setIsCatalogDialogOpen(true);
     }
   };
 
   const applyCatalogMeasure = async (catMeasure: any) => {
-    if (!selectedRisk) return;
+    const riskToUse = selectedRisk;
+    if (!riskToUse) return;
     
     const measureId = `msr-cat-${Math.random().toString(36).substring(2, 7)}`;
     const data: RiskMeasure = {
       id: measureId,
-      riskIds: [selectedRisk.id],
-      resourceIds: selectedRisk.assetId ? [selectedRisk.assetId] : [],
+      riskIds: [riskToUse.id],
+      resourceIds: riskToUse.assetId ? [riskToUse.assetId] : [],
       title: `${catMeasure.code}: ${catMeasure.title}`,
       description: `Automatisch abgeleitet aus BSI Baustein ${catMeasure.baustein}.`,
       owner: user?.displayName || 'N/A',
@@ -414,6 +419,7 @@ function RiskDashboardContent() {
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
     const score = risk.impact * risk.probability;
     const asset = resources?.find(r => r.id === risk.assetId);
+    const measureCount = allMeasures?.filter(m => m.riskIds?.includes(risk.id)).length || 0;
     
     return (
       <>
@@ -446,6 +452,21 @@ function RiskDashboardContent() {
               score >= 15 ? "bg-red-600 text-white" : score >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
             )}>{score}</Badge>
           </TableCell>
+          <TableCell className="text-center">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "rounded-full font-bold text-[9px] px-2 h-5 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all cursor-pointer",
+                measureCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "text-slate-400"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/risks/measures?riskId=${risk.id}`);
+              }}
+            >
+              <ClipboardCheck className="w-2.5 h-2.5 mr-1" /> {measureCount}
+            </Badge>
+          </TableCell>
           <TableCell className="p-4">
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
           </TableCell>
@@ -462,11 +483,14 @@ function RiskDashboardContent() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm">
-                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                    <MoreVertical className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                   <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                  {risk.hazardId && (
+                    <DropdownMenuItem onSelect={() => { setSelectedRisk(risk); loadCatalogSuggestions(risk); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><ZapIcon className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onSelect={() => openQuickMeasure(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-emerald-600"><FileCheck className="w-3.5 h-3.5" /> Maßnahme hinzufügen</DropdownMenuItem>
                   {!isSub && (
                     <DropdownMenuItem onSelect={() => { resetForm(); setParentId(risk.id); setIsRiskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Split className="w-3.5 h-3.5" /> Sub-Risiko hinzufügen</DropdownMenuItem>
@@ -553,6 +577,7 @@ function RiskDashboardContent() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Risiko / Bezug</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Score</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Kontrollen</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Kategorie</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
@@ -564,7 +589,7 @@ function RiskDashboardContent() {
               ))}
               {topLevelRisks.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-20 text-center space-y-4">
+                  <TableCell colSpan={6} className="py-20 text-center space-y-4">
                     <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
                       <Layers className="w-8 h-8 text-slate-300" />
                     </div>
@@ -738,7 +763,7 @@ function RiskDashboardContent() {
                     </div>
                     <div className="flex gap-2">
                       {hazardId && (
-                        <Button variant="outline" size="sm" className="h-9 rounded-xl border-emerald-200 bg-white text-emerald-700 font-black text-[9px] uppercase tracking-widest shadow-sm" onClick={loadCatalogSuggestions} disabled={isCatalogLoading}>
+                        <Button variant="outline" size="sm" className="h-9 rounded-xl border-emerald-200 bg-white text-emerald-700 font-black text-[9px] uppercase tracking-widest shadow-sm" onClick={() => loadCatalogSuggestions()} disabled={isCatalogLoading}>
                           {isCatalogLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Library className="w-3.5 h-3.5 mr-2" />} BSI Katalog-Vorschläge
                         </Button>
                       )}
@@ -747,27 +772,6 @@ function RiskDashboardContent() {
                       </Button>
                     </div>
                   </div>
-
-                  {catalogSuggestions.length > 0 && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                      <h4 className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2 ml-1">
-                        <Zap className="w-3.5 h-3.5 fill-current" /> Katalog-Vorschläge (Gefährdung {hazards?.find(h => h.id === hazardId)?.code})
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        {catalogSuggestions.map((cm, i) => (
-                          <div key={i} className="p-4 bg-white border rounded-xl flex items-center justify-between group shadow-sm hover:border-blue-300 transition-all">
-                            <div className="flex items-center gap-4">
-                              <Badge className="bg-blue-50 text-blue-700 border-none font-black text-[9px] h-5 px-2">{cm.code}</Badge>
-                              <span className="text-xs font-bold text-slate-700">{cm.title}</span>
-                            </div>
-                            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all" onClick={() => applyCatalogMeasure(cm)}>
-                              Übernehmen
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2 ml-1">
@@ -815,6 +819,50 @@ function RiskDashboardContent() {
               </Button>
             </DialogFooter>
           </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Catalog Suggestions Dialog */}
+      <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-blue-600 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shadow-sm">
+                <Library className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">BSI Katalog-Vorschläge</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/60 font-bold uppercase tracking-widest mt-0.5">Empfohlene Kontrollen für Risiko: {selectedRisk?.title}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="h-[50vh] p-6 bg-slate-50/50">
+            <div className="space-y-3">
+              {catalogSuggestions.map((cm, i) => (
+                <div key={i} className="p-4 bg-white border rounded-xl flex items-center justify-between group shadow-sm hover:border-blue-300 transition-all">
+                  <div className="flex items-center gap-4">
+                    <Badge className="bg-blue-50 text-blue-700 border-none font-black text-[9px] h-5 px-2">{cm.code}</Badge>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-700">{cm.title}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Baustein: {cm.baustein}</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase text-blue-600 hover:bg-blue-50 transition-all" onClick={() => applyCatalogMeasure(cm)}>
+                    Übernehmen
+                  </Button>
+                </div>
+              ))}
+              {catalogSuggestions.length === 0 && (
+                <div className="py-20 text-center opacity-30">
+                  <Info className="w-10 h-10 mx-auto mb-2" />
+                  <p className="text-xs font-bold uppercase">Keine passenden Vorschläge im Katalog.</p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+            <Button variant="ghost" onClick={() => setIsCatalogDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase tracking-widest">Schließen</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
