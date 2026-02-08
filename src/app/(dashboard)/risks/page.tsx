@@ -42,6 +42,12 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -272,9 +278,9 @@ function RiskDashboardContent() {
                         score >= 15 ? "bg-red-50 text-red-600" : score >= 8 ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
                       )}>{score}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <td className="p-4">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
-                    </TableCell>
+                    </td>
                     <TableCell>
                       <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-400 px-2 h-5 uppercase">
                         {risk.status}
