@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -26,7 +28,8 @@ import {
   Save,
   ChevronRight,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -72,6 +75,7 @@ import { usePlatformAuth } from '@/context/auth-context';
 export default function RolesManagementPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -199,7 +203,7 @@ export default function RolesManagementPage() {
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary flex items-center justify-center rounded-lg border shadow-sm">
+          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/10 shadow-sm">
             <Shield className="w-6 h-6" />
           </div>
           <div>
@@ -208,7 +212,7 @@ export default function RolesManagementPage() {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Definition von Berechtigungen und Zugriffsrechten pro System.</p>
           </div>
         </div>
-        <Button size="sm" className="h-9 rounded-md font-bold text-[10px] px-6" onClick={() => { setSelectedRole(null); setName(''); setDescription(''); setResourceId(''); setRiskLevel('low'); setIsAdmin(false); setExternalMapping(''); setIsDialogOpen(true); }}>
+        <Button size="sm" className="h-9 rounded-md font-bold text-[10px] px-6" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
           <Plus className="w-3.5 h-3.5 mr-2" /> Neue Rolle definieren
         </Button>
       </div>
@@ -217,7 +221,7 @@ export default function RolesManagementPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
         <Input 
           placeholder="Nach Rolle oder System suchen..." 
-          className="pl-9 h-10 rounded-md border-slate-200 bg-white"
+          className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -241,7 +245,7 @@ export default function RolesManagementPage() {
               {filteredRoles.map((role) => {
                 const resource = resources?.find(res => res.id === role.resourceId);
                 return (
-                  <TableRow key={role.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0">
+                  <TableRow key={role.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <div className={cn(
@@ -251,7 +255,7 @@ export default function RolesManagementPage() {
                           {role.isAdmin ? <ShieldAlert className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
                         </div>
                         <div>
-                          <div className="font-bold text-xs text-slate-800">{role.name}</div>
+                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{role.name}</div>
                           <div className="text-[9px] text-slate-400 font-medium truncate max-w-[200px]">{role.description || 'Keine Beschreibung'}</div>
                         </div>
                       </div>
@@ -278,16 +282,20 @@ export default function RolesManagementPage() {
                         <Badge variant="outline" className="text-[7px] font-bold text-slate-400 h-4 px-1.5">Standard</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right px-6">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary opacity-0 group-hover:opacity-100 transition-all" onClick={() => openEdit(role)}>
-                          <Pencil className="w-3.5 h-3.5" />
+                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1.5">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/roles/${role.id}`)}>
+                          <Eye className="w-3.5 h-3.5 text-primary" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(role)}>
+                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreHorizontal className="w-4 h-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                            <DropdownMenuItem onSelect={() => router.push(`/roles/${role.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(role)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
                             <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => { 
