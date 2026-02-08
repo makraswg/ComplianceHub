@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,9 @@ import {
   Clock, 
   AlertCircle,
   MoreHorizontal,
-  Pencil,
-  Trash2,
-  ChevronRight,
+  Pencil, 
+  Trash2, 
+  ChevronRight, 
   Filter,
   Loader2,
   ArrowRight,
@@ -37,8 +37,7 @@ import {
   Activity
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
-import { useSettings } from '@/context/settings-context';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Dialog, 
   DialogContent, 
@@ -57,12 +56,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { Risk, RiskMeasure, Resource } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
@@ -70,6 +69,7 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 function RiskMeasuresContent() {
   const { dataSource, activeTenantId } = useSettings();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [isMeasureDialogOpen, setIsMeasureDialogOpen] = useState(false);
@@ -477,6 +477,9 @@ function RiskMeasuresContent() {
     </div>
   );
 }
+
+import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
+import { useSettings } from '@/context/settings-context';
 
 export default function RiskMeasuresPage() {
   return (
