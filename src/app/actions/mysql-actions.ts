@@ -1,9 +1,8 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
 import { DataSource, User, PlatformUser } from '@/lib/types';
 import bcrypt from 'bcryptjs';
@@ -65,6 +64,7 @@ const collectionToTableMap: { [key: string]: string } = {
 };
 
 function normalizeRecord(item: any, tableName: string) {
+  if (!item) return null;
   const normalized = { ...item };
   
   const jsonFields: Record<string, string[]> = {
@@ -132,6 +132,44 @@ export async function getCollectionData(collectionName: string, dataSource: Data
     if (tableName === 'platformUsers') { rawData = rawData.map((u: any) => { const { password, ...rest } = u; return rest; }); }
     const data = rawData.map((item: any) => normalizeRecord(item, tableName));
     return { data, error: null };
+  } catch (error: any) {
+    if (connection) connection.release();
+    return { data: null, error: error.message };
+  }
+}
+
+/**
+ * Holt einen einzelnen Datensatz anhand der ID. 
+ * Deutlich performanter als getCollectionData für Punktabfragen.
+ */
+export async function getSingleRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ data: any | null; error: string | null; }> {
+  if (dataSource === 'mock') {
+    const coll = getMockCollection(collectionName);
+    return { data: coll.find(i => i.id === id) || null, error: null };
+  }
+  if (dataSource === 'firestore') {
+    try {
+      const { firestore } = initializeFirebase();
+      const docSnap = await getDoc(doc(firestore, collectionName, id));
+      if (docSnap.exists()) {
+        return { data: { ...docSnap.data(), id: docSnap.id }, error: null };
+      }
+      return { data: null, error: null };
+    } catch (e: any) { return { data: null, error: e.message }; }
+  }
+  const tableName = collectionToTableMap[collectionName];
+  if (!tableName) return { data: null, error: `Invalid collection mapping: ${collectionName}` };
+  
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    const [rows]: any = await connection.execute(`SELECT * FROM \`${tableName}\` WHERE id = ? LIMIT 1`, [id]);
+    connection.release();
+    
+    if (!rows || rows.length === 0) return { data: null, error: null };
+    
+    const record = normalizeRecord(rows[0], tableName);
+    return { data: record, error: null };
   } catch (error: any) {
     if (connection) connection.release();
     return { data: null, error: error.message };

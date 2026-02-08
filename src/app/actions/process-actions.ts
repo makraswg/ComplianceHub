@@ -1,7 +1,6 @@
-
 'use server';
 
-import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
+import { saveCollectionRecord, getCollectionData, deleteCollectionRecord, getSingleRecord } from './mysql-actions';
 import { 
   Process, 
   ProcessVersion, 
@@ -100,6 +99,7 @@ export async function createProcessAction(
  */
 export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql') {
   try {
+    // We search for versions. This might still be slow for massive tables, but usually versions are fewer than individual nodes.
     const verRes = await getCollectionData('process_versions', dataSource);
     const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
     for (const v of versions) {
@@ -120,8 +120,9 @@ export async function updateProcessMetadataAction(
   data: Partial<Process>,
   dataSource: DataSource = 'mysql'
 ) {
-  const res = await getCollectionData('processes', dataSource);
-  const process = res.data?.find((p: Process) => p.id === processId);
+  // Use getSingleRecord for much better performance
+  const res = await getSingleRecord('processes', processId, dataSource);
+  const process = res.data;
   if (!process) throw new Error("Prozess nicht gefunden.");
 
   const updatedProcess = {
@@ -135,6 +136,7 @@ export async function updateProcessMetadataAction(
 
 /**
  * Wendet Operationen auf eine Prozessversion an.
+ * Optimiert durch gezielte Abfrage der spezifischen Version.
  */
 export async function applyProcessOpsAction(
   processId: string,
@@ -144,8 +146,10 @@ export async function applyProcessOpsAction(
   userId: string,
   dataSource: DataSource = 'mysql'
 ) {
-  const versionsRes = await getCollectionData('process_versions', dataSource);
-  const currentVersion = versionsRes.data?.find((v: ProcessVersion) => v.process_id === processId && v.version === version);
+  // Use point-query for performance
+  const versionId = `ver-${processId}-${version}`;
+  const versionRes = await getSingleRecord('process_versions', versionId, dataSource);
+  const currentVersion = versionRes.data;
 
   if (!currentVersion) throw new Error("Prozessversion nicht gefunden.");
   
@@ -289,8 +293,9 @@ export async function commitProcessVersionAction(
   actorUid: string,
   dataSource: DataSource = 'mysql'
 ) {
-  const versionsRes = await getCollectionData('process_versions', dataSource);
-  const current = versionsRes.data?.find((v: ProcessVersion) => v.process_id === processId && v.version === versionNum);
+  const versionId = `ver-${processId}-${versionNum}`;
+  const versionRes = await getSingleRecord('process_versions', versionId, dataSource);
+  const current = versionRes.data;
   
   if (!current) throw new Error("Keine Version zum Speichern gefunden.");
 

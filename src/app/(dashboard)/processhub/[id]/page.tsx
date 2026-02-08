@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -58,7 +57,6 @@ import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/ap
 import { saveTaskAction } from '@/app/actions/task-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { runOcrAction } from '@/ai/flows/ocr-flow';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, RegulatoryOption, Feature, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -573,145 +571,149 @@ export default function ProcessDesignerPage() {
             </TabsList>
             
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <ScrollArea className="flex-1 bg-white">
-                <div className="p-6 space-y-6 pb-32">
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
-                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
-                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
-                    </div>
+              <div className="flex-1 min-h-0 flex flex-col">
+                <ScrollArea className="flex-1 bg-white">
+                  <div className="p-6 space-y-6 pb-10">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
+                        <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
+                        <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
+                      </div>
 
-                    <Separator />
-                    
-                    <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl">
-                      <h4 className="text-[10px] font-black uppercase text-indigo-700 flex items-center gap-2">
-                        <Settings2 className="w-3.5 h-3.5" /> ISO 9001:2015 Anforderungen
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Inputs (Eingaben)</Label>
-                          <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</Label>
-                          <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">Leistungskennzahlen (KPIs)</Label>
-                          <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                      <Separator />
+                      
+                      <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl">
+                        <h4 className="text-[10px] font-black uppercase text-indigo-700 flex items-center gap-2">
+                          <Settings2 className="w-3.5 h-3.5" /> ISO 9001:2015 Anforderungen
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Inputs (Eingaben)</Label>
+                            <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</Label>
+                            <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[9px] font-black uppercase text-slate-400">Leistungskennzahlen (KPIs)</Label>
+                            <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <Separator />
+                      <Separator />
 
-                    <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl">
-                      <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
-                        <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
-                      </h4>
+                      <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl">
+                        <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
+                          <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
+                        </h4>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
+                          <Select value={metaVvtId} onValueChange={setMetaVvtId}>
+                            <SelectTrigger className="h-10 text-xs bg-white border-emerald-100"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Kein VVT Bezug</SelectItem>
+                              {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
+                                <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
                       <div className="space-y-1.5">
-                        <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
-                        <Select value={metaVvtId} onValueChange={setMetaVvtId}>
-                          <SelectTrigger className="h-10 text-xs bg-white border-emerald-100"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner Rolle)</Label>
+                        <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">Kein VVT Bezug</SelectItem>
-                            {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
-                              <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                            <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                            {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
+                              <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner Rolle)</Label>
-                      <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
-                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
-                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
-                            <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
-                      <Select value={metaDeptId} onValueChange={setMetaDeptId}>
-                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Keine Abteilung</SelectItem>
-                          {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
-                            <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorik / Standard</Label>
-                      <Select value={metaFramework} onValueChange={setMetaFramework}>
-                        <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Kein Standard</SelectItem>
-                          {regulatoryOptions?.filter(o => o.enabled).map(o => (
-                            <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Separator />
-                    <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierung</Label>
-                        <Select value={metaAutomation} onValueChange={(v: any) => setMetaAutomation(v)}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                        <Select value={metaDeptId} onValueChange={setMetaDeptId}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="manual">Manuell</SelectItem>
-                            <SelectItem value="partial">Teil-Automatisiert</SelectItem>
-                            <SelectItem value="full">Voll-Automatisiert</SelectItem>
+                            <SelectItem value="none">Keine Abteilung</SelectItem>
+                            {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
-                        <Select value={metaVolume} onValueChange={(v: any) => setMetaDataVolume(v)}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorik / Standard</Label>
+                        <Select value={metaFramework} onValueChange={setMetaFramework}>
+                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="low">Niedrig (Low)</SelectItem>
-                            <SelectItem value="medium">Mittel (Medium)</SelectItem>
-                            <SelectItem value="high">Hoch (High)</SelectItem>
+                            <SelectItem value="none">Kein Standard</SelectItem>
+                            {regulatoryOptions?.filter(o => o.enabled).map(o => (
+                              <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <Separator />
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierung</Label>
+                          <Select value={metaAutomation} onValueChange={(v: any) => setMetaAutomation(v)}>
+                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="manual">Manuell</SelectItem>
+                              <SelectItem value="partial">Teil-Automatisiert</SelectItem>
+                              <SelectItem value="full">Voll-Automatisiert</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
+                          <Select value={metaVolume} onValueChange={(v: any) => setMetaDataVolume(v)}>
+                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Niedrig (Low)</SelectItem>
+                              <SelectItem value="medium">Mittel (Medium)</SelectItem>
+                              <SelectItem value="high">Hoch (High)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[10px] font-black uppercase text-slate-400">Frequenz</Label>
+                          <Select value={metaFrequency} onValueChange={(v: any) => setMetaFrequency(v)}>
+                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="daily">Täglich</SelectItem>
+                              <SelectItem value="weekly">Wöchentlich</SelectItem>
+                              <SelectItem value="monthly">Monatlich</SelectItem>
+                              <SelectItem value="on_demand">Ad-hoc / Bedarf</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-[10px] font-black uppercase text-slate-400">Frequenz</Label>
-                        <Select value={metaFrequency} onValueChange={(v: any) => setMetaFrequency(v)}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="daily">Täglich</SelectItem>
-                            <SelectItem value="weekly">Wöchentlich</SelectItem>
-                            <SelectItem value="monthly">Monatlich</SelectItem>
-                            <SelectItem value="on_demand">Ad-hoc / Bedarf</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Klärungsbedarf</Label>
+                        <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs" placeholder="Was muss noch geklärt werden?..." />
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Klärungsbedarf</Label>
-                      <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs" placeholder="Was muss noch geklärt werden?..." />
-                    </div>
-                    <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
-                      {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
-                      Stammdaten sichern
-                    </Button>
                   </div>
+                </ScrollArea>
+                <div className="p-4 border-t bg-slate-50 shrink-0">
+                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
+                    {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
+                    Stammdaten sichern
+                  </Button>
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
 
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
