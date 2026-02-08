@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
   ChevronLeft, 
+  ChevronRight,
   Loader2, 
   Server, 
   Activity, 
@@ -97,7 +98,7 @@ export default function ResourceDetailPage() {
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: departments } = usePluggableCollection<Department>('departments');
+  const { data: departmentsData } = usePluggableCollection<Department>('departments');
   const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
@@ -111,7 +112,7 @@ export default function ResourceDetailPage() {
   
   // Resolved Internal System Owner
   const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
-  const systemOwnerDept = useMemo(() => departments?.find(d => d.id === systemOwnerRole?.departmentId), [departments, systemOwnerRole]);
+  const systemOwnerDept = useMemo(() => departmentsData?.find(d => d.id === systemOwnerRole?.departmentId), [departmentsData, systemOwnerRole]);
 
   // Resolved External System Owner
   const systemOwnerPartner = useMemo(() => partners?.find(p => p.id === resource?.externalOwnerPartnerId), [partners, resource]);
@@ -119,7 +120,7 @@ export default function ResourceDetailPage() {
 
   // Resolved Internal Risk Owner
   const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
-  const riskOwnerDept = useMemo(() => departments?.find(d => d.id === riskOwnerRole?.departmentId), [departments, riskOwnerRole]);
+  const riskOwnerDept = useMemo(() => departmentsData?.find(d => d.id === riskOwnerRole?.departmentId), [departmentsData, riskOwnerRole]);
 
   // Resolved Identity Provider
   const identityProvider = useMemo(() => {
