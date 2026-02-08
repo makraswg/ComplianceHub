@@ -216,6 +216,22 @@ function RiskDashboardContent() {
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
+  const resetForm = () => {
+    setSelectedRisk(null);
+    setTitle('');
+    setAssetId('none');
+    setProcessId('none');
+    setParentId('none');
+    setCategory('IT-Sicherheit');
+    setImpact('3');
+    setProbability('3');
+    setDescription('');
+    setOwner('');
+    setStatus('active');
+    setHazardId('');
+    setCatalogSuggestions([]);
+  };
+
   const handleSaveRisk = async () => {
     if (!title) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Titel angeben." });
@@ -447,22 +463,6 @@ function RiskDashboardContent() {
     });
     setAssessmentData(initialData);
     setIsQuickAssessmentOpen(true);
-  };
-
-  const resetForm = () => {
-    setSelectedRisk(null);
-    setTitle('');
-    setAssetId('none');
-    setProcessId('none');
-    setParentId('none');
-    setCategory('IT-Sicherheit');
-    setImpact('3');
-    setProbability('3');
-    setDescription('');
-    setOwner('');
-    setStatus('active');
-    setHazardId('');
-    setCatalogSuggestions([]);
   };
 
   const openEdit = (risk: Risk) => {
@@ -1227,7 +1227,7 @@ function RiskDashboardContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
-                  <Select value={taskAssigneeId} onValueChange={setAssigneeId}>
+                  <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
