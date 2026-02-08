@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -46,7 +45,8 @@ import {
   FileStack,
   HardDrive,
   Map,
-  UserCircle
+  UserCircle,
+  Fingerprint
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -139,6 +139,7 @@ export function AppSidebar() {
   ];
 
   const accessHubItems = [
+    { name: 'Dashboard', href: '/access/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
     { name: 'Rollenverwaltung', href: '/roles', icon: ShieldCheck },
     { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
