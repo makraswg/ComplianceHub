@@ -32,7 +32,6 @@ import {
   UserCircle,
   Workflow,
   Zap,
-  RotateLeft,
   Briefcase,
   AlertTriangle
 } from 'lucide-react';
@@ -154,7 +153,6 @@ export default function ResourcesPage() {
       maxI = Math.max(maxI, rankMap[f.integrityReq || 'low'] || 1);
       maxA = Math.max(maxA, rankMap[f.availabilityReq || 'low'] || 1);
       maxCrit = Math.max(maxCrit, rankMap[f.criticality] || 1);
-      // For classification, we assume high criticality usually leads to high class
       if (f.criticality === 'high') maxClass = Math.max(maxClass, 3);
       else if (f.criticality === 'medium') maxClass = Math.max(maxClass, 2);
     });
@@ -384,7 +382,7 @@ export default function ResourcesPage() {
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100" onClick={() => openEdit(res)}>
-                          <Pencil className="w-3.5 h-3.5" />
+                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}>
                           <Eye className="w-3.5 h-3.5" />
@@ -463,7 +461,7 @@ export default function ResourcesPage() {
                         Basierend auf den verarbeiteten Datenobjekten in den verknüpften Prozessen wird ein Schutzbedarf von <strong className="uppercase">{suggestedCompliance.criticality}</strong> empfohlen.
                         <div className="mt-3">
                           <Button size="sm" onClick={applyInheritance} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase h-8 px-4 rounded-lg shadow-md gap-2">
-                            <RotateLeft className="w-3 h-3" /> Auf Vorschlag zurücksetzen
+                            <RotateCcw className="w-3 h-3" /> Auf Vorschlag zurücksetzen
                           </Button>
                         </div>
                       </AlertDescription>
@@ -586,7 +584,7 @@ export default function ResourcesPage() {
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2 uppercase">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>
