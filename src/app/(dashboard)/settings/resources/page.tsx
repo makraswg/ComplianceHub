@@ -54,8 +54,10 @@ export default function ResourceOptionsPage() {
         refreshTypes();
         toast({ title: "Asset Typ hinzugefügt" });
       } else {
-        toast({ variant: "destructive", title: "Fehler", description: res.error });
+        toast({ variant: "destructive", title: "Fehler", description: res.error || "Unbekannter Fehler" });
       }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: err.message });
     } finally {
       setIsSaving(false);
     }
@@ -73,36 +75,57 @@ export default function ResourceOptionsPage() {
         refreshModels();
         toast({ title: "Betriebsmodell hinzugefügt" });
       } else {
-        toast({ variant: "destructive", title: "Fehler", description: res.error });
+        toast({ variant: "destructive", title: "Fehler", description: res.error || "Unbekannter Fehler" });
       }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: err.message });
     } finally {
       setIsSaving(false);
     }
   };
 
   const toggleEnabled = async (coll: string, item: any) => {
-    const updated = { ...item, enabled: !item.enabled };
-    const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
-    if (res.success) {
-      if (coll === 'assetTypeOptions') refreshTypes();
-      else refreshModels();
-      toast({ title: "Status aktualisiert" });
+    try {
+      const updated = { ...item, enabled: !item.enabled };
+      const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
+      if (res.success) {
+        if (coll === 'assetTypeOptions') refreshTypes();
+        else refreshModels();
+        toast({ title: "Status aktualisiert" });
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.error || "Konnte Status nicht ändern" });
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: err.message });
     }
   };
 
   const handleDelete = async (coll: string, id: string) => {
     if (!confirm("Eintrag permanent entfernen?")) return;
+    
     try {
       const res = await deleteCollectionRecord(coll, id, dataSource);
       if (res.success) {
         toast({ title: "Eintrag gelöscht" });
-        if (coll === 'assetTypeOptions') refreshTypes();
-        else refreshModels();
+        if (coll === 'assetTypeOptions') {
+          setTimeout(() => refreshTypes(), 100);
+        } else {
+          setTimeout(() => refreshModels(), 100);
+        }
       } else {
-        toast({ variant: "destructive", title: "Löschen fehlgeschlagen", description: res.error });
+        toast({ 
+          variant: "destructive", 
+          title: "Löschen fehlgeschlagen", 
+          description: res.error || "Die Datenbank hat die Anfrage abgelehnt." 
+        });
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
+      console.error("Delete error:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "Systemfehler", 
+        description: e.message || "Ein unerwarteter Fehler ist aufgetreten." 
+      });
     }
   };
 
@@ -122,9 +145,9 @@ export default function ResourceOptionsPage() {
         </CardHeader>
         
         <Tabs defaultValue="types">
-          <TabsList className="bg-white border-b h-12 w-full justify-start rounded-none px-8 gap-8">
-            <TabsTrigger value="types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary">Asset Typen</TabsTrigger>
-            <TabsTrigger value="models" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Betriebsmodelle</TabsTrigger>
+          <TabsList className="bg-white dark:bg-slate-950 border-b h-12 w-full justify-start rounded-none px-8 gap-8">
+            <TabsTrigger value="types" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Asset Typen</TabsTrigger>
+            <TabsTrigger value="models" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Betriebsmodelle</TabsTrigger>
           </TabsList>
 
           <CardContent className="p-8 space-y-10">
@@ -137,25 +160,25 @@ export default function ResourceOptionsPage() {
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung</Label>
                       <Input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="z.B. Cloud-App, Hardware-Server..." className="h-11 rounded-lg" />
                     </div>
-                    <Button onClick={handleAddType} disabled={isSaving || !newTypeName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-primary text-white shadow-lg">
+                    <Button onClick={handleAddType} disabled={isSaving || !newTypeName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-primary text-white shadow-lg shadow-primary/20">
                       {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Hinzufügen
                     </Button>
                   </div>
                 </div>
-                <div className="md:col-span-2 space-y-6 border-l pl-8 border-slate-100">
+                <div className="md:col-span-2 space-y-6 border-l pl-8 border-slate-100 dark:border-slate-800">
                   <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-widest border-b pb-2">Verfügbare Asset Typen</h3>
                   <div className="grid grid-cols-1 gap-3">
                     {assetTypes?.map(opt => (
-                      <div key={opt.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all", opt.enabled ? "bg-white" : "bg-slate-50 opacity-60")}>
+                      <div key={opt.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all shadow-sm", opt.enabled ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900 opacity-60")}>
                         <div className="flex items-center gap-4">
                           <Switch checked={!!opt.enabled} onCheckedChange={() => toggleEnabled('assetTypeOptions', opt)} />
-                          <span className="text-sm font-bold">{opt.name}</span>
+                          <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{opt.name}</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100" onClick={() => handleDelete('assetTypeOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete('assetTypeOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {(!assetTypes || assetTypes.length === 0) && !typesLoading && (
-                      <div className="py-10 text-center opacity-30 italic text-xs">Keine Typen definiert</div>
+                      <div className="py-10 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Typen definiert</div>
                     )}
                   </div>
                 </div>
@@ -171,25 +194,25 @@ export default function ResourceOptionsPage() {
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Modell-Name</Label>
                       <Input value={newModelName} onChange={e => setNewModelName(e.target.value)} placeholder="z.B. Externer Host, SaaS Shared..." className="h-11 rounded-lg" />
                     </div>
-                    <Button onClick={handleAddModel} disabled={isSaving || !newModelName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-indigo-600 text-white shadow-lg">
+                    <Button onClick={handleAddModel} disabled={isSaving || !newModelName} className="w-full h-11 rounded-lg font-black uppercase text-[10px] tracking-widest gap-2 bg-indigo-600 text-white shadow-lg shadow-indigo-200">
                       {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Hinzufügen
                     </Button>
                   </div>
                 </div>
-                <div className="md:col-span-2 space-y-6 border-l pl-8 border-slate-100">
+                <div className="md:col-span-2 space-y-6 border-l pl-8 border-slate-100 dark:border-slate-800">
                   <h3 className="text-xs font-black uppercase text-slate-900 dark:text-white tracking-widest border-b pb-2">Verfügbare Betriebsmodelle</h3>
                   <div className="grid grid-cols-1 gap-3">
                     {operatingModels?.map(opt => (
-                      <div key={opt.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all", opt.enabled ? "bg-white" : "bg-slate-50 opacity-60")}>
+                      <div key={opt.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all shadow-sm", opt.enabled ? "bg-white dark:bg-slate-950" : "bg-slate-50 dark:bg-slate-900 opacity-60")}>
                         <div className="flex items-center gap-4">
                           <Switch checked={!!opt.enabled} onCheckedChange={() => toggleEnabled('operatingModelOptions', opt)} />
-                          <span className="text-sm font-bold">{opt.name}</span>
+                          <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{opt.name}</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100" onClick={() => handleDelete('operatingModelOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete('operatingModelOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {(!operatingModels || operatingModels.length === 0) && !modelsLoading && (
-                      <div className="py-10 text-center opacity-30 italic text-xs">Keine Modelle definiert</div>
+                      <div className="py-10 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Modelle definiert</div>
                     )}
                   </div>
                 </div>
