@@ -1,7 +1,6 @@
-
 'use client';
 
-import { Process, ProcessVersion, Tenant, JobTitle } from './types';
+import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
@@ -67,6 +66,99 @@ export async function exportGdprExcel(activities: any[]) {
     'Letzte Prüfung': a.lastReviewDate ? new Date(a.lastReviewDate).toLocaleDateString() : '---'
   }));
   await exportToExcel(data, `Verarbeitungsverzeichnis_VVT_${new Date().toISOString().split('T')[0]}`);
+}
+
+/**
+ * Offizieller VVT-Bericht nach Art. 30 DSGVO (PDF).
+ */
+export async function exportGdprPdf(
+  activity: ProcessingActivity,
+  tenant: Tenant,
+  resources: Resource[],
+  toms: RiskMeasure[]
+) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const timestamp = new Date().toLocaleString('de-DE');
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(5, 150, 105); // Emerald
+    doc.text('Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Mandant: ${tenant.name}`, 14, 28);
+    doc.text(`Exportdatum: ${timestamp}`, 14, 33);
+
+    // 1. Stammdaten
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text(`1. Bezeichnung: ${activity.name}`, 14, 45);
+    
+    autoTable(doc, {
+      startY: 50,
+      body: [
+        ['Version', activity.version || '1.0'],
+        ['Zuständige Abteilung', activity.responsibleDepartment || '-'],
+        ['Status', activity.status.toUpperCase()],
+        ['Rechtsgrundlage', activity.legalBasis || '-'],
+        ['Aufbewahrungsfrist', activity.retentionPeriod || '-'],
+        ['Zweckbeschreibung', activity.description || '-']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 50 } }
+    });
+
+    // 2. Transfer & Rollen
+    doc.text('2. Übermittlung & Verantwortlichkeit', 14, (doc as any).lastAutoTable.finalY + 15);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      body: [
+        ['Gemeinsame Verantw.', activity.jointController ? 'JA' : 'NEIN'],
+        ['Drittstaatentransfer', activity.thirdCountryTransfer ? 'JA' : 'NEIN'],
+        ['Zielland', activity.targetCountry || '-'],
+        ['Transfer-Mechanismus', activity.transferMechanism || 'Keiner']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 50 } }
+    });
+
+    // 3. IT-Systeme
+    doc.text('3. Involvierte IT-Ressourcen', 14, (doc as any).lastAutoTable.finalY + 15);
+    const resourceData = resources.map(r => [r.name, r.assetType, r.dataLocation || '-', r.criticality.toUpperCase()]);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['System', 'Typ', 'Standort', 'Schutzbedarf']],
+      body: resourceData.length > 0 ? resourceData : [['Keine Systeme verknüpft', '', '', '']],
+      theme: 'striped',
+      headStyles: { fillColor: [5, 150, 105] },
+      styles: { fontSize: 8 }
+    });
+
+    // 4. TOM (Art. 32)
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('4. Technisch-organisatorische Maßnahmen (Art. 32 DSGVO)', 14, 20);
+    const tomData = toms.map(t => [t.title, t.tomCategory || '-', t.status.toUpperCase(), t.effectiveness === 5 ? 'HOCH' : 'MITTEL']);
+    autoTable(doc, {
+      startY: 25,
+      head: [['Kontrolle / Maßnahme', 'Kategorie', 'Status', 'Wirksamkeit']],
+      body: tomData.length > 0 ? tomData : [['Keine automatisierten TOM hinterlegt', '', '', '']],
+      theme: 'striped',
+      headStyles: { fillColor: [5, 150, 105] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`VVT_Bericht_${activity.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error('PDF Export fehlgeschlagen:', error);
+  }
 }
 
 export async function exportResourcesExcel(resources: any[]) {

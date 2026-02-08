@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -39,7 +38,8 @@ import {
   Target,
   AlertCircle,
   TrendingUp,
-  Fingerprint
+  Fingerprint,
+  Eye
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -73,8 +73,10 @@ import { exportGdprExcel } from '@/lib/export-utils';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { useRouter } from 'next/navigation';
 
 export default function GdprPage() {
+  const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
@@ -234,24 +236,33 @@ export default function GdprPage() {
             </TableHeader>
             <TableBody>
               {filteredActivities.map((act) => (
-                <TableRow key={act.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => openEdit(act)}>
+                <TableRow key={act.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/gdpr/${act.id}`)}>
                   <TableCell className="py-4 px-6">
                     <div>
                       <div className="font-bold text-sm text-slate-800 group-hover:text-emerald-600 transition-colors">{act.name}</div>
                       <div className="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5"><Scale className="w-2.5 h-2.5 opacity-50" /> {act.legalBasis}</div>
                     </div>
                   </TableCell>
-                  <TableCell><div className="flex items-center gap-2 text-[10px] font-bold text-slate-600"><Building2 className="w-3 h-3 text-slate-300" /> {act.responsibleDepartment}</div></TableCell>
+                  <TableCell><div className="flex items-center gap-2 text-[10px] font-bold text-slate-600"><Building2 className="w-3.5 h-3.5 text-slate-300" /> {act.responsibleDepartment}</div></TableCell>
                   <TableCell><Badge variant="outline" className={cn("rounded-full text-[9px] font-bold h-5 px-2", act.status === 'active' ? "bg-emerald-100 text-emerald-700 border-none" : "bg-slate-100 text-slate-500 border-none")}>{act.status}</Badge></TableCell>
-                  <TableCell className="text-right px-6">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                        <DropdownMenuItem onSelect={() => openEdit(act)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-1" />
-                        <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Eintrag permanent löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => router.push(`/gdpr/${act.id}`)}>
+                        <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm" onClick={() => openEdit(act)}>
+                        <Pencil className="w-3.5 h-3.5 text-primary" />
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreHorizontal className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
+                          <DropdownMenuItem onSelect={() => router.push(`/gdpr/${act.id}`)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-emerald-600" /> Details ansehen</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEdit(act)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                          <DropdownMenuSeparator className="my-1" />
+                          <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Eintrag permanent löschen?")) deleteCollectionRecord('processingActivities', act.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -269,7 +280,7 @@ export default function GdprPage() {
                   <FileCheck className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">VVT Detailansicht</DialogTitle>
+                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">VVT bearbeiten</DialogTitle>
                   <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automatisierte TOM-Sicht • Roadmap Phase 5</DialogDescription>
                 </div>
               </div>
