@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
@@ -24,7 +25,7 @@ function calculateMatrixCriticality(feature: Partial<Feature>): { score: number,
 }
 
 /**
- * Speichert oder aktualisiert ein Merkmal.
+ * Speichert oder aktualisiert ein Datenobjekt.
  */
 export async function saveFeatureAction(feature: Feature, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   const isNew = !feature.id || feature.id === '';
@@ -49,7 +50,7 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
       await logAuditEventAction(dataSource as any, {
         tenantId: feature.tenantId,
         actorUid: actorEmail,
-        action: isNew ? `Merkmal angelegt: ${feature.name}` : `Merkmal aktualisiert: ${feature.name}`,
+        action: isNew ? `Datenobjekt angelegt: ${feature.name}` : `Datenobjekt aktualisiert: ${feature.name}`,
         entityType: 'feature',
         entityId: id,
         after: data
@@ -62,7 +63,7 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
 }
 
 /**
- * Verknüpft ein Merkmal mit einem Prozess.
+ * Verknüpft Daten mit einem Prozess.
  */
 export async function linkFeatureToProcessAction(link: Omit<FeatureProcessLink, 'id'>, dataSource: DataSource = 'mysql') {
   const id = `fproc-${Math.random().toString(36).substring(2, 9)}`;
@@ -77,7 +78,7 @@ export async function unlinkFeatureFromProcessAction(linkId: string, featureId: 
 }
 
 /**
- * Löscht ein Merkmal und alle Verknüpfungen.
+ * Löscht ein Datenobjekt und alle Verknüpfungen.
  */
 export async function deleteFeatureAction(featureId: string, dataSource: DataSource = 'mysql') {
   try {

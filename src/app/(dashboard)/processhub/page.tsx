@@ -132,9 +132,9 @@ export default function ProcessHubOverview() {
             <Workflow className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">ProcessHub</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Workflow Engine</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Strukturierte Geschäftsprozesse und Qualitätsmonitoring.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">WorkflowHub</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Prozessübersicht</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Strukturierte Geschäftsprozesse, Qualitätsmonitoring und Reifegrad.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -142,7 +142,7 @@ export default function ProcessHubOverview() {
             <Network className="w-3.5 h-3.5 mr-2" /> Prozesslandkarte
           </Button>
           <Button size="sm" className="h-9 rounded-lg font-bold text-[11px] px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={handleCreate} disabled={isCreating}>
-            {isCreating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
+            {isCreating ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
             Prozess anlegen
           </Button>
         </div>
@@ -168,7 +168,7 @@ export default function ProcessHubOverview() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-            <p className="text-[11px] font-bold text-slate-400">Lade Prozesskatalog...</p>
+            <p className="text-[11px] font-bold text-slate-400">Lade WorkflowHub...</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="py-20 text-center space-y-4">

@@ -174,7 +174,7 @@ export default function ProcessDesignerPage() {
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
-    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], customFields: {} as Record<string, string>
+    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], customFields: {} as Record<string, string>
   });
 
   // Media States
@@ -185,7 +185,9 @@ export default function ProcessDesignerPage() {
   const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
+  const { data: featureLinks, refresh: refreshFeatureLinks } = usePluggableCollection<any>('feature_process_steps');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -198,12 +200,15 @@ export default function ProcessDesignerPage() {
   useEffect(() => {
     if (selectedNodeId && currentVersion) {
       const node = currentVersion.model_json?.nodes?.find((n: any) => n.id === selectedNodeId);
+      const nodeFeatureIds = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId).map((l: any) => l.featureId) || [];
+      
       if (node) {
         setLocalNodeEdits({
           id: node.id,
           title: node.title || '',
           roleId: node.roleId || '',
           resourceIds: node.resourceIds || [],
+          featureIds: nodeFeatureIds,
           description: node.description || '',
           checklist: (node.checklist || []).join('\n'),
           tips: node.tips || '',
@@ -214,7 +219,7 @@ export default function ProcessDesignerPage() {
         });
       }
     }
-  }, [selectedNodeId, currentVersion]);
+  }, [selectedNodeId, currentVersion, featureLinks, id]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -338,6 +343,8 @@ export default function ProcessDesignerPage() {
 
   const handleSaveNodeEdits = async () => {
     if (!selectedNodeId) return;
+    
+    // 1. Process Node Model Update
     const ops: ProcessOperation[] = [{
       type: 'UPDATE_NODE',
       payload: {
@@ -351,9 +358,35 @@ export default function ProcessDesignerPage() {
         }
       }
     }];
+    
+    // 2. Feature Links Update (Simplified Sync)
+    const existingLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [];
+    const existingIds = existingLinks.map((l: any) => l.featureId);
+    
+    // Add new links
+    for (const fid of localNodeEdits.featureIds) {
+      if (!existingIds.includes(fid)) {
+        await linkFeatureToProcessAction({
+          featureId: fid,
+          processId: id as string,
+          nodeId: selectedNodeId,
+          usageType: 'Verarbeitung',
+          criticality: 'medium'
+        }, dataSource);
+      }
+    }
+    
+    // Remove old links
+    for (const link of existingLinks) {
+      if (!localNodeEdits.featureIds.includes(link.featureId)) {
+        await unlinkFeatureFromProcessAction(link.id, link.featureId, dataSource);
+      }
+    }
+
     const success = await handleApplyOps(ops);
     if (success) {
       toast({ title: "Schritt aktualisiert" });
+      refreshFeatureLinks();
       setIsStepDialogOpen(false);
     }
   };
@@ -364,6 +397,15 @@ export default function ProcessDesignerPage() {
       resourceIds: prev.resourceIds.includes(resId) 
         ? prev.resourceIds.filter(id => id !== resId) 
         : [...prev.resourceIds, resId]
+    }));
+  };
+
+  const toggleFeature = (featId: string) => {
+    setLocalNodeEdits(prev => ({
+      ...prev,
+      featureIds: prev.featureIds.includes(featId) 
+        ? prev.featureIds.filter(id => id !== featId) 
+        : [...prev.featureIds, featId]
     }));
   };
 
@@ -412,13 +454,14 @@ export default function ProcessDesignerPage() {
                 <div className="flex gap-1.5">
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
                   <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('subprocess')}>+ Prozess</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('subprocess')}>+ Referenz</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
                   {(currentVersion?.model_json?.nodes || []).map((node: any) => {
                     const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
+                    const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
                     return (
                       <div key={node.id} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-500")}>
@@ -427,7 +470,10 @@ export default function ProcessDesignerPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
-                          {node.resourceIds?.length > 0 && <p className="text-[8px] text-primary font-black uppercase mt-0.5">{node.resourceIds.length} Ressourcen</p>}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Systeme</span>}
+                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Daten</span>}
+                          </div>
                         </div>
                       </div>
                     );
@@ -442,14 +488,14 @@ export default function ProcessDesignerPage() {
                   {mediaFiles?.filter(m => m.entityId === id).length === 0 ? (
                     <div className="py-20 text-center space-y-3 opacity-20">
                       <FileStack className="w-10 h-10 mx-auto" />
-                      <p className="text-[10px] font-black uppercase">Keine Prozess-Medien</p>
+                      <p className="text-[10px] font-black uppercase">Keine Medien</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3">
                       {mediaFiles?.filter(m => m.entityId === id).map(m => (
                         <div key={m.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                            {m.fileType.includes('image') ? <ImageIcon className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                            {m.fileType.includes('image') ? <Activity className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-bold text-slate-800 truncate">{m.fileName}</p>
@@ -478,7 +524,6 @@ export default function ProcessDesignerPage() {
         </main>
       </div>
 
-      {/* Node Dialog with Media & Resource Support */}
       <Dialog open={isStepDialogOpen} onOpenChange={setIsStepDialogOpen}>
         <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b pr-10">
@@ -495,7 +540,8 @@ export default function ProcessDesignerPage() {
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none gap-6">
               <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger>
-              <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Ressourcen</TabsTrigger>
+              <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
+              <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Datenobjekte</TabsTrigger>
               <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
               <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Tätigkeit</TabsTrigger>
             </TabsList>
@@ -530,6 +576,34 @@ export default function ProcessDesignerPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{res.name}</p>
                           <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="data" className="mt-0 space-y-6">
+                  <div className="flex items-center gap-3 border-b pb-4">
+                    <div className="w-8 h-8 bg-sky-50 text-sky-600 rounded-lg flex items-center justify-center border border-sky-100"><Tag className="w-4 h-4" /></div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verarbeitete Datenobjekte</h4>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">Welche fachlichen Informationen werden hier verarbeitet?</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
+                      <div 
+                        key={feat.id} 
+                        className={cn(
+                          "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                          localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
+                        )}
+                        onClick={() => toggleFeature(feat.id)}
+                      >
+                        <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-sky-700 transition-colors">{feat.name}</p>
+                          <p className="text-[8px] text-slate-400 font-black uppercase">{feat.carrier}</p>
                         </div>
                       </div>
                     ))}

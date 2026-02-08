@@ -266,9 +266,9 @@ export default function ProcessDetailViewPage() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {dim.status === 'complete' ? (
-                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                               ) : (
-                                <HelpCircle className="w-3 h-3 text-slate-500" />
+                                <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
                               )}
                               <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">{dim.name}</span>
                             </div>
@@ -311,15 +311,15 @@ export default function ProcessDetailViewPage() {
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Verarbeitete Merkmale</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Verarbeitete Datenobjekte</h3>
                 <div className="space-y-2">
                   {processFeatures.map((f: any) => (
                     <div key={f.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/30 transition-all" onClick={() => router.push(`/features/${f.id}`)}>
                       <span className="text-[11px] font-bold text-slate-700">{f.name}</span>
-                      <ArrowUpRight className="w-3 h-3 text-slate-300 group-hover:text-primary transition-colors" />
+                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-colors" />
                     </div>
                   ))}
-                  {processFeatures.length === 0 && <p className="text-[10px] text-slate-300 italic px-1">Keine Merkmale zugeordnet</p>}
+                  {processFeatures.length === 0 && <p className="text-[10px] text-slate-300 italic px-1">Keine Datenobjekte zugeordnet</p>}
                 </div>
               </section>
 
@@ -376,18 +376,18 @@ export default function ProcessDetailViewPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                               {nodeLinks && nodeLinks.length > 0 && (
                                 <div className="space-y-2">
-                                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Merkmale</Label>
+                                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenobjekte</Label>
                                   <div className="flex flex-wrap gap-2">
                                     {nodeLinks.map((l: any) => {
                                       const f = allFeatures?.find(feat => feat.id === l.featureId);
-                                      return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Merkmal'}</Badge>;
+                                      return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Daten'}</Badge>;
                                     })}
                                   </div>
                                 </div>
                               )}
                               {nodeResources && nodeResources.length > 0 && (
                                 <div className="space-y-2">
-                                  <Label className="text-[9px] font-black uppercase text-indigo-400 tracking-widest">Systeme</Label>
+                                  <Label className="text-[9px] font-black uppercase text-indigo-400 tracking-widest">IT-Systeme</Label>
                                   <div className="flex flex-wrap gap-2">
                                     {nodeResources.map(r => (
                                       <Badge key={r.id} variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[9px] font-bold h-6 px-2">{r.name}</Badge>

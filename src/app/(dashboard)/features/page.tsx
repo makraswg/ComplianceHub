@@ -169,7 +169,7 @@ export default function FeaturesOverviewPage() {
     try {
       const res = await saveFeatureAction(featureData, dataSource, user?.email || 'system');
       if (res.success) {
-        toast({ title: selectedFeature ? "Merkmal aktualisiert" : "Merkmal angelegt" });
+        toast({ title: selectedFeature ? "Datenobjekt aktualisiert" : "Datenobjekt angelegt" });
         setIsDialogOpen(false);
         resetForm();
         refresh();
@@ -256,13 +256,13 @@ export default function FeaturesOverviewPage() {
             <ListFilter className="w-6 h-6" />
           </div>
           <div>
-            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">Governance Hub</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Merkmalsmanagement</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung und Dokumentation fachlicher Attribute.</p>
+            <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">WorkflowHub</Badge>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Datenmanagement</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung und Dokumentation fachlicher Datenobjekte und Ablageorte.</p>
           </div>
         </div>
         <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-          <Plus className="w-3.5 h-3.5 mr-2" /> Merkmal erfassen
+          <Plus className="w-3.5 h-3.5 mr-2" /> Datenobjekt erfassen
         </Button>
       </div>
 
@@ -315,16 +315,16 @@ export default function FeaturesOverviewPage() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lade Merkmale...</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lade Daten...</p>
           </div>
         ) : (
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Merkmal (Bezeichnung/Code)</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Datenobjekt (Bezeichnung/Code)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Träger</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortung</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Gesamt-Score</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Kritikalität</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -391,7 +391,7 @@ export default function FeaturesOverviewPage() {
                               <FileEdit className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
-                            <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Merkmal permanent löschen?")) deleteFeatureAction(f.id, dataSource).then(() => refresh()); }}>
+                            <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Datenobjekt permanent löschen?")) deleteFeatureAction(f.id, dataSource).then(() => refresh()); }}>
                               <Trash2 className="w-3.5 h-3.5" /> Löschen
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -415,8 +415,8 @@ export default function FeaturesOverviewPage() {
                   <ListFilter className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{selectedFeature ? 'Merkmal aktualisieren' : 'Neues Merkmal erfassen'}</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Zentrale Merkmals-Governance</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{selectedFeature ? 'Datenobjekt aktualisieren' : 'Neues Datenobjekt erfassen'}</DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Zentrale Daten-Governance</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -432,7 +432,7 @@ export default function FeaturesOverviewPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2">
                   <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. MERK_001 - Mietbeginn" />
+                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. DAT_001 - Kundennummer" />
                 </div>
                 
                 <div className="space-y-2">
@@ -449,7 +449,7 @@ export default function FeaturesOverviewPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Merkmalsträger</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Träger</Label>
                   <Select value={carrier} onValueChange={(v: any) => setCarrier(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -490,11 +490,11 @@ export default function FeaturesOverviewPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <Checkbox id="mat-auto" checked={matrixAutomatedDecision} onCheckedChange={(v: any) => setMatrixAutomatedDecision(!!v)} />
-                        <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Merkmal fließt in automatisierte Entscheidungen</Label>
+                        <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in automatisierte Entscheidungen</Label>
                       </div>
                       <div className="flex items-center gap-3">
                         <Checkbox id="mat-plan" checked={matrixPlanning} onCheckedChange={(v: any) => setMatrixPlanning(!!v)} />
-                        <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Merkmal fließt in langfristige Planung</Label>
+                        <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in langfristige Planung</Label>
                       </div>
                     </div>
                   </div>
@@ -534,7 +534,7 @@ export default function FeaturesOverviewPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Rolle (Owner)</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Owner)</Label>
                       <Select value={ownerId} onValueChange={setOwnerId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                         <SelectContent>
@@ -574,18 +574,18 @@ export default function FeaturesOverviewPage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Beschreibung</Label>
-                  <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition des Merkmals..." />
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenbeschreibung</Label>
+                  <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Datennutzung</Label>
-                  <Textarea value={purpose} onChange={e => setPurpose(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Warum wird dieses Merkmal gepflegt?" />
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Nutzung</Label>
+                  <Textarea value={purpose} onChange={e => setPurpose(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Warum werden diese Daten erhoben?" />
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Pflegehinweise / Datenqualität</Label>
-                  <Textarea value={maintenanceNotes} onChange={e => setMaintenanceNotes(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white border-primary/10" placeholder="Hinweise zur Pflege..." />
+                  <Textarea value={maintenanceNotes} onChange={e => setMaintenanceNotes(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white border-primary/10" placeholder="Hinweise zur Sicherung der Datenqualität..." />
                 </div>
               </div>
             </div>

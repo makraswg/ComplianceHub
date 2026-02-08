@@ -125,10 +125,14 @@ export default function FeatureDetailPage() {
     return Array.from(resourceIds).map(rid => allResources.find(r => r.id === rid)).filter(Boolean);
   }, [relatedProcLinks, versions, allResources]);
 
-  const linkedRisks = useMemo(() => relatedLinks.filter(l => l.targetType === 'risk').map(l => risks?.find(r => r.id === l.targetId)).filter(Boolean), [relatedLinks, risks]);
+  const linkedRisks = useMemo(() => {
+    const riskIds = relatedLinks.filter(l => l.targetType === 'risk').map(l => l.targetId);
+    if (riskIds.length === 0) return [];
+    return risks?.filter(r => riskIds.includes(r.id)) || [];
+  }, [relatedLinks, risks]);
   
   const mitigatingMeasures = useMemo(() => {
-    const riskIds = linkedRisks.map(r => r?.id).filter(Boolean);
+    const riskIds = linkedRisks.map(r => r?.id).filter(Boolean) as string[];
     if (riskIds.length === 0) return [];
     return measures?.filter(m => m.riskIds?.some(rid => riskIds.includes(rid))) || [];
   }, [linkedRisks, measures]);
@@ -180,7 +184,7 @@ export default function FeatureDetailPage() {
         usageType: selectedUsageType,
         criticality: selectedCriticality
       } as any, dataSource);
-      toast({ title: "Prozessschritt verknüpft" });
+      toast({ title: "Datenobjekt im Prozess verknüpft" });
       refreshProcLinks();
       refreshFeature();
       setSelectedProcessId('');
@@ -206,11 +210,11 @@ export default function FeatureDetailPage() {
   if (!mounted) return null;
 
   if (isFeatLoading) {
-    return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Lade Governance-Daten...</p></div>;
+    return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Lade Daten...</p></div>;
   }
 
   if (!feature) {
-    return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Merkmal nicht gefunden</h2><Button onClick={() => router.push('/features')}>Zurück zur Übersicht</Button></div>;
+    return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Datenobjekt nicht gefunden</h2><Button onClick={() => router.push('/features')}>Zurück zur Übersicht</Button></div>;
   }
 
   const dept = departments?.find(d => d.id === feature.deptId);
@@ -267,7 +271,7 @@ export default function FeatureDetailPage() {
                 </div>
                 <Separator />
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenspeicher</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenspeicher (Repository)</p>
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
                     <HardDrive className="w-4 h-4 text-indigo-500" /> {store?.name || '---'}
                   </div>
@@ -355,8 +359,8 @@ export default function FeatureDetailPage() {
                     <div className="flex items-center gap-3">
                       <Workflow className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Zugeordnete Prozessschritte</CardTitle>
-                        <CardDescription className="text-[10px] font-bold">Verwendung in operativen Abläufen.</CardDescription>
+                        <CardTitle className="text-sm font-bold">Verwendung in Prozessen</CardTitle>
+                        <CardDescription className="text-[10px] font-bold">In welchen Arbeitsschritten werden diese Daten verarbeitet?</CardDescription>
                       </div>
                     </div>
                   </div>
@@ -391,7 +395,7 @@ export default function FeatureDetailPage() {
                     })}
 
                     <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50/50 space-y-4 shadow-inner">
-                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Arbeitsschritt verknüpfen</p>
+                      <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Prozessschritt verknüpfen</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label required className="text-[9px] font-black uppercase text-slate-400">1. Prozess wählen</Label>
@@ -448,7 +452,7 @@ export default function FeatureDetailPage() {
                     <ClipboardList className="w-5 h-5 text-indigo-600" />
                     <div>
                       <CardTitle className="text-sm font-bold">Verknüpfte Aufgaben</CardTitle>
-                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmen und Klärungsbedarfe</CardDescription>
+                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmen und Klärungsbedarfe zu diesen Daten</CardDescription>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}>
@@ -496,7 +500,7 @@ export default function FeatureDetailPage() {
                       <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><Zap className="w-5 h-5" /></div>
                       <div>
                         <CardTitle className="text-base font-headline font-bold">Impact Analysis</CardTitle>
-                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Merkmalsnutzung</p>
+                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Datennutzung</p>
                       </div>
                     </div>
                     <Badge className="bg-white/10 text-white border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest shadow-sm">Active Analysis</Badge>
@@ -536,7 +540,7 @@ export default function FeatureDetailPage() {
                             <Badge variant="outline" className="text-[8px] font-black uppercase text-emerald-600 border-emerald-100 shadow-sm">{m?.status}</Badge>
                           </div>
                         ))}
-                        {mitigatingMeasures.length === 0 && <p className="text-[11px] text-slate-500 italic">Keine aktiven Kontrollen für dieses Merkmal.</p>}
+                        {mitigatingMeasures.length === 0 && <p className="text-[11px] text-slate-500 italic">Keine aktiven Kontrollen für diese Daten.</p>}
                       </div>
                     </div>
                   </div>
@@ -556,8 +560,8 @@ export default function FeatureDetailPage() {
                 <ClipboardList className="w-6 h-6" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Aufgabe für Merkmal erstellen</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Kontext: {feature.name}</DialogDescription>
+                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Aufgabe für Datenobjekt erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Referenz: {feature.name}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -599,7 +603,7 @@ export default function FeatureDetailPage() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
-                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed shadow-inner" placeholder="Beschreiben Sie die fachliche Anforderung..." />
+                <Textarea value={taskDesc} onChange={e => setDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed shadow-inner" placeholder="Beschreiben Sie die fachliche Anforderung..." />
               </div>
             </div>
           </ScrollArea>

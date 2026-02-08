@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -82,22 +83,24 @@ export default function DashboardPage() {
   const { data: auditLogs, isLoading: auditLoading } = usePluggableCollection<any>('auditEvents');
   const { data: risks, isLoading: risksLoading } = usePluggableCollection<any>('risks');
   const { data: tenants } = usePluggableCollection<any>('tenants');
+  const { data: features } = usePluggableCollection<any>('features');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const filteredData = useMemo(() => {
-    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [] };
+    if (!users || !resources || !assignments) return { users: [], resources: [], assignments: [], risks: [], features: [] };
     
     const fUsers = activeTenantId === 'all' ? users : users.filter((u: any) => u.tenantId === activeTenantId);
     const fResources = activeTenantId === 'all' ? resources : resources.filter((r: any) => r.tenantId === activeTenantId || r.tenantId === 'global' || !r.tenantId);
     const fRisks = risks?.filter((r: any) => activeTenantId === 'all' || r.tenantId === activeTenantId) || [];
+    const fFeatures = features?.filter((f: any) => activeTenantId === 'all' || f.tenantId === activeTenantId) || [];
     const userIds = new Set(fUsers.map((u: any) => u.id));
     const fAssignments = assignments.filter((a: any) => userIds.has(a.userId));
 
-    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks };
-  }, [users, resources, assignments, risks, activeTenantId]);
+    return { users: fUsers, resources: fResources, assignments: fAssignments, risks: fRisks, features: fFeatures };
+  }, [users, resources, assignments, risks, features, activeTenantId]);
 
   const riskPieData = useMemo(() => {
     if (!filteredData.risks) return [];
@@ -239,7 +242,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard id="stat-users" title="Benutzer" value={filteredData.users.length} icon={Users} label="Identitäten" color="text-blue-500" bg="bg-blue-50" loading={usersLoading} trend={2.4} help="Anzahl aller registrierten Mitarbeiter im System." />
         <StatCard id="stat-resources" title="Systeme" value={filteredData.resources.length} icon={Layers} label="IT-Assets" color="text-indigo-500" bg="bg-indigo-50" loading={resourcesLoading} trend={-1.2} help="Alle Anwendungen und Hardware-Komponenten im Katalog." />
-        <StatCard id="stat-assignments" title="Zugriffe" value={filteredData.assignments.filter(a => a.status === 'active').length} icon={ShieldCheck} label="Aktive Rechte" color="text-emerald-500" bg="bg-emerald-50" loading={assignmentsLoading} trend={5.8} help="Anzahl der aktuell gültigen Berechtigungen." />
+        <StatCard id="stat-data" title="Datenmanagement" value={filteredData.features.length} icon={LayoutDashboard} label="Datenobjekte" color="text-sky-500" bg="bg-sky-50" loading={false} trend={0.5} help="Zahl der definierten Datenobjekte und Entitäten." />
         <StatCard id="stat-risks" title="Risiken" value={filteredData.risks.length} icon={AlertTriangle} label="Gefahrenlage" color="text-orange-500" bg="bg-orange-50" loading={risksLoading} trend={-4.5} help="Identifizierte Bedrohungen für das Unternehmen." />
       </div>
 

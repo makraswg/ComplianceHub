@@ -144,7 +144,7 @@ export function AppSidebar() {
   ];
 
   const hubModules = [
-    { name: 'Merkmalsmanagement', href: '/features', icon: ListFilter },
+    { name: 'Datenmanagement', href: '/features', icon: ListFilter },
     { name: 'Prozessübersicht', href: '/processhub', icon: Workflow },
     { name: 'Prozesslandkarte', href: '/processhub/map', icon: Network },
   ];
@@ -235,7 +235,7 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Governance Hub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">WorkflowHub</p>
             {hubModules.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
