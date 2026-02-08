@@ -17,7 +17,12 @@ import {
   Database,
   KeyRound,
   ShieldAlert,
-  Save
+  Save,
+  Archive,
+  RotateCcw,
+  ShieldCheck,
+  ChevronRight,
+  Globe
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,6 +48,7 @@ import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { saveResourceAction } from '@/app/actions/resource-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -309,6 +315,13 @@ export default function ResourcesPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
+          <Badge className={cn("w-3.5 h-3.5 p-0 flex items-center justify-center", showArchived ? "bg-orange-100 text-orange-600" : "bg-emerald-100 text-emerald-600")}>
+            {showArchived ? <RotateCcw className="w-2.5 h-2.5" /> : <ShieldCheck className="w-2.5 h-2.5" />}
+          </Badge>
+          <Label htmlFor="archive-toggle" className="text-[10px] font-bold cursor-pointer text-slate-500 whitespace-nowrap">Archiv anzeigen</Label>
+          <Switch id="archive-toggle" checked={showArchived} onCheckedChange={setShowArchived} className="scale-75" />
         </div>
       </div>
 
