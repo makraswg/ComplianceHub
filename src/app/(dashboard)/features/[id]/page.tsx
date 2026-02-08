@@ -36,7 +36,9 @@ import {
   CheckCircle,
   ClipboardList,
   Target,
-  MessageSquare
+  MessageSquare,
+  Save,
+  CalendarDays
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,7 +48,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, FeatureDependency, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task
+  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,6 +59,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/app/actions/feature-actions';
 import { saveTaskAction } from '@/app/actions/task-actions';
 import { usePlatformAuth } from '@/context/auth-context';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function FeatureDetailPage() {
   const { id } = useParams();
@@ -65,6 +70,15 @@ export default function FeatureDetailPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+
+  // Task Creation State
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDesc, setTaskDesc] = useState('');
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [taskDueDate, setTaskDueDate] = useState('');
 
   // Link Form State
   const [selectedProcessId, setSelectedProcessId] = useState('');
@@ -75,7 +89,6 @@ export default function FeatureDetailPage() {
   const { data: features, isLoading: isFeatLoading, refresh: refreshFeature } = usePluggableCollection<Feature>('features');
   const { data: processLinks, refresh: refreshProcLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: links, refresh: refreshLinks } = usePluggableCollection<FeatureLink>('feature_links');
-  const { data: dependencies, refresh: refreshDeps } = usePluggableCollection<FeatureDependency>('feature_dependencies');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: risks } = usePluggableCollection<Risk>('risks');
@@ -84,6 +97,7 @@ export default function FeatureDetailPage() {
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: usageTypes } = usePluggableCollection<UsageTypeOption>('usage_type_options');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
+  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -97,6 +111,39 @@ export default function FeatureDetailPage() {
     const riskIds = linkedRisks.map(r => r?.id);
     return measures?.filter(m => m.riskIds.some(rid => riskIds.includes(rid))) || [];
   }, [linkedRisks, measures]);
+
+  const handleCreateTask = async () => {
+    if (!taskTitle || !taskAssigneeId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Titel und Verantwortlicher sind erforderlich." });
+      return;
+    }
+    setIsSavingTask(true);
+    try {
+      const res = await saveTaskAction({
+        tenantId: feature?.tenantId || activeTenantId || 'global',
+        title: taskTitle,
+        description: taskDesc,
+        priority: taskPriority,
+        assigneeId: taskAssigneeId,
+        dueDate: taskDueDate,
+        entityType: 'feature',
+        entityId: id as string,
+        creatorId: user?.id || 'system',
+        status: 'todo'
+      }, dataSource, user?.email || 'system');
+
+      if (res.success) {
+        toast({ title: "Aufgabe erstellt" });
+        setIsTaskDialogOpen(false);
+        setTaskTitle('');
+        setTaskDesc('');
+        setTaskAssigneeId('');
+        refreshTasks();
+      }
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
 
   const handleLinkProcess = async () => {
     if (!selectedProcessId || !selectedUsageType || !selectedNodeId) {
@@ -167,22 +214,10 @@ export default function FeatureDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => {
-            saveTaskAction({
-              tenantId: feature.tenantId,
-              title: `Überprüfung Merkmal: ${feature.name}`,
-              description: `Fachliche Prüfung der Definition und Nutzungskontexte erforderlich.`,
-              entityType: 'feature',
-              entityId: feature.id,
-              assigneeId: user?.id || ''
-            }, dataSource, user?.email || 'system').then(() => {
-              toast({ title: "Prüfungs-Aufgabe erstellt" });
-              refreshTasks();
-            });
-          }}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsTaskDialogOpen(true)}>
             <ClipboardList className="w-3.5 h-3.5 mr-2" /> Aufgabe erstellen
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6">
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20">
             <Zap className="w-3.5 h-3.5 mr-2" /> KI Audit
           </Button>
         </div>
@@ -236,10 +271,13 @@ export default function FeatureDetailPage() {
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {relatedTasks.filter(t => t.status !== 'done').map(t => (
-                <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:border-indigo-300 transition-all" onClick={() => router.push('/tasks')}>
+                <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 cursor-pointer hover:border-indigo-300 transition-all shadow-sm" onClick={() => router.push('/tasks')}>
                   <p className="text-[11px] font-bold text-slate-800 line-clamp-1">{t.title}</p>
                   <div className="flex items-center justify-between mt-1.5">
-                    <Badge className="bg-indigo-600 text-white border-none rounded-full text-[7px] font-black px-1.5 h-3.5">{t.status}</Badge>
+                    <Badge className={cn(
+                      "border-none rounded-full text-[7px] font-black px-1.5 h-3.5",
+                      t.priority === 'critical' ? "bg-red-600 text-white" : "bg-indigo-600 text-white"
+                    )}>{t.status}</Badge>
                     <span className="text-[8px] font-bold text-slate-400 italic">{t.dueDate || 'Keine Frist'}</span>
                   </div>
                 </div>
@@ -259,7 +297,7 @@ export default function FeatureDetailPage() {
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1">
               <TabsTrigger value="overview" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Info className="w-3.5 h-3.5" /> Überblick</TabsTrigger>
               <TabsTrigger value="context" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><GitBranch className="w-3.5 h-3.5" /> Prozess-Kontext</TabsTrigger>
-              <TabsTrigger value="tasks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><ClipboardList className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
+              <TabsTrigger value="tasks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><ClipboardList className="w-3.5 h-3.5" /> Aufgaben ({relatedTasks.length})</TabsTrigger>
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold text-primary data-[state=active]:bg-white data-[state=active]:shadow-sm"><Zap className="w-3.5 h-3.5" /> Impact-Analyse</TabsTrigger>
             </TabsList>
 
@@ -387,14 +425,14 @@ export default function FeatureDetailPage() {
                       <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmen und Klärungsbedarfe</CardDescription>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2" onClick={() => router.push('/tasks')}>
-                    Alle Aufgaben <ArrowRight className="w-3 h-3" />
+                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => setIsTaskDialogOpen(true)}>
+                    <Plus className="w-3.5 h-3.5" /> Neue Aufgabe
                   </Button>
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 gap-3">
                     {relatedTasks.map(t => (
-                      <div key={t.id} className="flex items-center justify-between p-4 bg-white border rounded-xl hover:border-indigo-300 transition-all cursor-pointer group" onClick={() => router.push('/tasks')}>
+                      <div key={t.id} className="flex items-center justify-between p-4 bg-white border rounded-xl hover:border-indigo-300 transition-all cursor-pointer group shadow-sm" onClick={() => router.push('/tasks')}>
                         <div className="flex items-center gap-4">
                           <div className={cn(
                             "w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm",
@@ -405,8 +443,8 @@ export default function FeatureDetailPage() {
                           <div>
                             <p className="text-sm font-bold text-slate-800">{t.title}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200">{t.status}</Badge>
-                              <span className="text-[9px] text-slate-400 font-medium">Zugeordnet: {t.assigneeId ? 'Verantwortlicher' : 'Offen'}</span>
+                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200">{t.status.toUpperCase()}</Badge>
+                              <span className="text-[9px] text-slate-400 font-medium">Priorität: {t.priority}</span>
                             </div>
                           </div>
                         </div>
@@ -482,6 +520,72 @@ export default function FeatureDetailPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+        <DialogContent className="max-w-xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-indigo-600 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shadow-sm">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Aufgabe für Merkmal erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Asset-Kontext: {feature.name}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 bg-white">
+            <div className="p-6 md:p-8 space-y-8">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Aufgabe</Label>
+                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="z.B. Datenqualität im Prozess prüfen..." />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
+                  <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
+                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Deadline</Label>
+                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
+                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
+                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>
+                      <SelectItem value="medium" className="text-xs font-bold">Mittel</SelectItem>
+                      <SelectItem value="high" className="text-xs font-bold">Hoch</SelectItem>
+                      <SelectItem value="critical" className="text-xs font-bold text-red-600">Kritisch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4" placeholder="Beschreiben Sie die fachliche Anforderung..." />
+              </div>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest">Abbrechen</Button>
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 gap-2 uppercase">
+              {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Aufgabe erstellen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
