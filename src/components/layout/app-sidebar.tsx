@@ -44,7 +44,8 @@ import {
   ListFilter,
   ClipboardList,
   FileStack,
-  HardDrive
+  HardDrive,
+  Map
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -161,6 +162,7 @@ export function AppSidebar() {
   ];
 
   const settingSubItems = [
+    { name: 'Daten-Landkarte', href: '/settings/data-map', icon: Network },
     { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
