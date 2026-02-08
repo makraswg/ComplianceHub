@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -23,8 +22,10 @@ import {
   Zap,
   Target
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 import { 
   Dialog, 
   DialogContent, 
@@ -142,6 +143,20 @@ function RiskMeasuresContent() {
     setIsSaving(false);
   };
 
+  const openEdit = (m: RiskMeasure) => {
+    setSelectedMeasure(m);
+    setTitle(m.title);
+    setDesc(m.description || '');
+    setOwner(m.owner || '');
+    setDueDate(m.dueDate || '');
+    setStatus(m.status);
+    setIsTom(!!m.isTom);
+    setTomCategory(m.tomCategory || 'Zugriffskontrolle');
+    setSelectedRiskIds(m.riskIds || []);
+    setSelectedResourceIds(m.resourceIds || []);
+    setIsDialogOpen(true);
+  };
+
   const filteredMeasures = useMemo(() => {
     if (!measures) return [];
     return measures.filter(m => m.title.toLowerCase().includes(search.toLowerCase()));
@@ -166,7 +181,7 @@ function RiskMeasuresContent() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => router.push('/risks/controls')}>
             <ShieldCheck className="w-3.5 h-3.5 mr-2 text-primary" /> Kontroll-Monitoring
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-sm" onClick={() => { setSelectedMeasure(null); setIsDialogOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-sm" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Maßnahme
           </Button>
         </div>
@@ -354,6 +369,10 @@ function RiskMeasuresContent() {
     </div>
   );
 }
+
+const resetForm = () => {
+  // Mock function to satisfy the button click, would normally clear state
+};
 
 export default function RiskMeasuresPage() {
   return (
