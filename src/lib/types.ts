@@ -161,6 +161,11 @@ export interface ProcessNode {
   description?: string;
   roleId?: string; 
   resourceIds?: string[];
+  featureIds?: string[]; // Added explicitly
+  subjectGroupIds?: string[]; // Added
+  dataCategoryIds?: string[]; // Added
+  predecessorIds?: string[]; // Added for logic
+  successorIds?: string[]; // Added for logic
   checklist?: string[];
   tips?: string;
   errors?: string;
@@ -298,7 +303,7 @@ export interface Feature {
   updatedAt: string;
 }
 
-export interface FeatureProcessStep {
+export interface FeatureProcessLink {
   id: string;
   featureId: string;
   processId: string;

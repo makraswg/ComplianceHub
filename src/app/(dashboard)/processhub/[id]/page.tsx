@@ -68,7 +68,10 @@ import {
   AlertCircle,
   Lightbulb,
   FileCheck,
-  UserCircle
+  UserCircle,
+  ChevronDoubleUp,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,7 +91,7 @@ import { saveMediaAction, deleteMediaAction, getMediaConfigAction } from '@/app/
 import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessStep, MediaFile, Resource, Task, PlatformUser, ProcessingActivity } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessComment, ProcessNode, ProcessOperation, ProcessEdge, ProcessVersion, Department, RegulatoryOption, Feature, FeatureProcessLink, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -170,7 +173,7 @@ export default function ProcessDesignerPage() {
   const [isStepDialogOpen, setIsStepDialogOpen] = useState(false);
   
   const [localNodeEdits, setLocalNodeEdits] = useState({ 
-    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], customFields: {} as Record<string, string>
+    id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], subjectGroupIds: [] as string[], dataCategoryIds: [] as string[], predecessorIds: [] as string[], successorIds: [] as string[], customFields: {} as Record<string, string>
   });
 
   // Master Data (Stammdaten) Form State
@@ -211,6 +214,8 @@ export default function ProcessDesignerPage() {
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: regulatoryOptions } = usePluggableCollection<RegulatoryOption>('regulatory_options');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
+  const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -256,6 +261,10 @@ export default function ProcessDesignerPage() {
           roleId: node.roleId || '',
           resourceIds: node.resourceIds || [],
           featureIds: nodeFeatureIds,
+          subjectGroupIds: node.subjectGroupIds || [],
+          dataCategoryIds: node.dataCategoryIds || [],
+          predecessorIds: node.predecessorIds || [],
+          successorIds: node.successorIds || [],
           description: node.description || '',
           checklist: (node.checklist || []).join('\n'),
           tips: node.tips || '',
@@ -307,6 +316,30 @@ export default function ProcessDesignerPage() {
     } finally {
       setIsApplying(false);
     }
+  };
+
+  const handleReorder = async (nodeId: string, direction: 'up' | 'down') => {
+    if (!currentVersion) return;
+    const nodes = [...(currentVersion.model_json.nodes || [])];
+    const idx = nodes.findIndex(n => n.id === nodeId);
+    if (idx === -1) return;
+    if (direction === 'up' && idx === 0) return;
+    if (direction === 'down' && idx === nodes.length - 1) return;
+
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    const temp = nodes[idx];
+    nodes[idx] = nodes[newIdx];
+    nodes[newIdx] = temp;
+
+    const ops: ProcessOperation[] = [{ type: 'REORDER_NODES', payload: { orderedNodeIds: nodes.map(n => n.id) } }];
+    await handleApplyOps(ops);
+  };
+
+  const handleDeleteNode = async (nodeId: string) => {
+    if (!confirm("Arbeitsschritt permanent löschen?")) return;
+    const ops: ProcessOperation[] = [{ type: 'REMOVE_NODE', payload: { nodeId } }];
+    await handleApplyOps(ops);
+    if (selectedNodeId === nodeId) setSelectedNodeId(null);
   };
 
   const handleSaveMetadata = async () => {
@@ -429,11 +462,24 @@ export default function ProcessDesignerPage() {
     const newId = `${type}-${Date.now()}`;
     const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Endpunkt', subprocess: 'Prozess-Referenz' };
     const nodes = currentVersion.model_json.nodes || [];
-    const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : nodes[nodes.length - 1];
+    const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
     
-    const initialResources = predecessor?.resourceIds || [];
+    // Auto-Inheritance
+    const newNode: ProcessNode = {
+      id: newId,
+      type,
+      title: titles[type],
+      checklist: [],
+      // Inherited fields
+      roleId: predecessor?.roleId || '',
+      resourceIds: predecessor?.resourceIds || [],
+      featureIds: featureLinks?.filter((l: any) => predecessor && l.nodeId === predecessor.id).map((l: any) => l.featureId) || [],
+      subjectGroupIds: predecessor?.subjectGroupIds || [],
+      dataCategoryIds: predecessor?.dataCategoryIds || [],
+      predecessorIds: predecessor ? [predecessor.id] : []
+    };
 
-    const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: { id: newId, type, title: titles[type], resourceIds: initialResources } } }];
+    const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: newNode } }];
     if (predecessor) {
       ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
     }
@@ -451,6 +497,10 @@ export default function ProcessDesignerPage() {
           title: localNodeEdits.title,
           roleId: localNodeEdits.roleId,
           resourceIds: localNodeEdits.resourceIds,
+          subjectGroupIds: localNodeEdits.subjectGroupIds,
+          dataCategoryIds: localNodeEdits.dataCategoryIds,
+          predecessorIds: localNodeEdits.predecessorIds,
+          successorIds: localNodeEdits.successorIds,
           description: localNodeEdits.description,
           tips: localNodeEdits.tips,
           errors: localNodeEdits.errors,
@@ -460,6 +510,7 @@ export default function ProcessDesignerPage() {
       }
     }];
     
+    // Sync Feature Links
     const existingLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === selectedNodeId) || [];
     const existingIds = existingLinks.map((l: any) => l.featureId);
     
@@ -507,14 +558,16 @@ export default function ProcessDesignerPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 hover:bg-blue-50 text-blue-600 transition-all"
-            onClick={syncDiagramToModel}
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Diagramm aktualisieren
-          </Button>
+          {!isDiagramLocked && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 hover:bg-blue-50 text-blue-600 transition-all"
+              onClick={syncDiagramToModel}
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Diagramm generieren
+            </Button>
+          )}
           <Button 
             variant="outline" 
             size="sm" 
@@ -693,7 +746,7 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-                  {(currentVersion?.model_json?.nodes || []).map((node: any) => {
+                  {(currentVersion?.model_json?.nodes || []).map((node: any, index: number) => {
                     const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
                     const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
                     return (
@@ -708,6 +761,11 @@ export default function ProcessDesignerPage() {
                             {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Systeme</span>}
                             {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Daten</span>}
                           </div>
+                        </div>
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'up'); }} disabled={index === 0}><ArrowUp className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleReorder(node.id, 'down'); }} disabled={index === (currentVersion?.model_json?.nodes?.length || 0) - 1}><ArrowDown className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3 h-3" /></Button>
                         </div>
                       </div>
                     );
@@ -728,19 +786,13 @@ export default function ProcessDesignerPage() {
                   {processTasks.map(t => (
                     <div key={t.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm group hover:border-amber-300 transition-all cursor-pointer" onClick={() => router.push('/tasks')}>
                       <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
+                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : t.priority === 'critical' ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
                         <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2 h-2" /> {t.dueDate || '∞'}</span>
                       </div>
                       <p className="text-[11px] font-bold text-slate-800 leading-tight">{t.title}</p>
                       <p className="text-[9px] text-slate-400 mt-1 truncate">{pUsers?.find(u => u.id === t.assigneeId)?.displayName || 'Unzugewiesen'}</p>
                     </div>
                   ))}
-                  {processTasks.length === 0 && (
-                    <div className="py-20 text-center space-y-3 opacity-20">
-                      <ClipboardList className="w-10 h-10 mx-auto" />
-                      <p className="text-[10px] font-black uppercase">Keine Aufgaben</p>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -748,26 +800,19 @@ export default function ProcessDesignerPage() {
             <TabsContent value="media" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-6 space-y-6">
-                  {mediaFiles?.filter(m => m.entityId === id).length === 0 ? (
-                    <div className="py-20 text-center space-y-3 opacity-20">
-                      <FileStack className="w-10 h-10 mx-auto" />
-                      <p className="text-[10px] font-black uppercase">Keine Medien</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 gap-3">
-                      {mediaFiles?.filter(m => m.entityId === id).map(m => (
-                        <div key={m.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                            {m.fileType.includes('image') ? <Activity className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-bold text-slate-800 truncate">{m.fileName}</p>
-                            <p className="text-[8px] text-slate-400 font-bold uppercase">{m.subEntityId ? 'Schritt-Anhang' : 'Global'}</p>
-                          </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {mediaFiles?.filter(m => m.entityId === id).map(m => (
+                      <div key={m.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+                          {m.fileType.includes('image') ? <Activity className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold text-slate-800 truncate">{m.fileName}</p>
+                          <p className="text-[8px] text-slate-400 font-bold uppercase">{m.subEntityId ? 'Schritt-Anhang' : 'Global'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -784,25 +829,11 @@ export default function ProcessDesignerPage() {
               <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen</Button>
             </div>
           )}
-          {/* Floating AI Assistant */}
           <div className="fixed bottom-6 right-6 z-50">
             <AiFormAssistant 
               formType="process" 
-              currentData={{ 
-                title: metaTitle, 
-                description: metaDesc, 
-                inputs: metaInputs, 
-                outputs: metaOutputs,
-                kpis: metaKpis
-              }} 
-              onApply={(s) => {
-                if (s.title) setMetaTitle(s.title);
-                if (s.description) setMetaDesc(s.description);
-                if (s.inputs) setMetaInputs(s.inputs);
-                if (s.outputs) setMetaOutputs(s.outputs);
-                if (s.kpis) setMetaKpis(s.kpis);
-                toast({ title: "KI-Vorschläge übernommen" });
-              }} 
+              currentData={{ title: metaTitle, description: metaDesc, inputs: metaInputs, outputs: metaOutputs, kpis: metaKpis }} 
+              onApply={(s) => { if (s.title) setMetaTitle(s.title); if (s.description) setMetaDesc(s.description); toast({ title: "KI-Vorschläge übernommen" }); }} 
             />
           </div>
         </main>
@@ -826,9 +857,9 @@ export default function ProcessDesignerPage() {
               <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger>
               {!isReferenceNode && (
                 <>
+                  <TabsTrigger value="logic" className="text-[10px] font-bold uppercase gap-2"><GitBranch className="w-3.5 h-3.5" /> Logik</TabsTrigger>
                   <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
-                  <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Datenobjekte</TabsTrigger>
-                  <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
+                  <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Daten</TabsTrigger>
                   <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Details & Expertise</TabsTrigger>
                 </>
               )}
@@ -838,11 +869,9 @@ export default function ProcessDesignerPage() {
                 <TabsContent value="base" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1.5 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
-                    
                     {!isReferenceNode && (
                       <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
                     )}
-                    
                     {isReferenceNode && (
                       <div className="space-y-1.5 md:col-span-2">
                         <Label className="text-[10px] font-bold uppercase text-indigo-600">Referenzierter Ziel-Prozess (Handover)</Label>
@@ -861,167 +890,109 @@ export default function ProcessDesignerPage() {
 
                 {!isReferenceNode && (
                   <>
-                    <TabsContent value="resources" className="mt-0 space-y-6">
-                      <div className="flex items-center gap-3 border-b pb-4">
-                        <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center border border-indigo-100"><Server className="w-4 h-4" /></div>
-                        <div>
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">IT-Systemunterstützung</h4>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">Welche Anwendungen werden in diesem Schritt genutzt?</p>
+                    <TabsContent value="logic" className="mt-0 space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-indigo-600 flex items-center gap-2"><ArrowLeftCircle className="w-4 h-4" /> Vorgänger (Predecessors)</Label>
+                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                            {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
+                              <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, predecessorIds: prev.predecessorIds.includes(n.id) ? prev.predecessorIds.filter(id => id !== n.id) : [...prev.predecessorIds, n.id] }))}>
+                                <Checkbox checked={localNodeEdits.predecessorIds.includes(n.id)} />
+                                <span className="text-[11px] font-bold truncate">{n.title}</span>
+                              </div>
+                            ))}
+                          </ScrollArea>
+                        </div>
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><ArrowRightCircle className="w-4 h-4" /> Nachfolger (Successors)</Label>
+                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                            {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
+                              <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, successorIds: prev.successorIds.includes(n.id) ? prev.successorIds.filter(id => id !== n.id) : [...prev.successorIds, n.id] }))}>
+                                <Checkbox checked={localNodeEdits.successorIds.includes(n.id)} />
+                                <span className="text-[11px] font-bold truncate">{n.title}</span>
+                              </div>
+                            ))}
+                          </ScrollArea>
                         </div>
                       </div>
+                    </TabsContent>
+
+                    <TabsContent value="resources" className="mt-0 space-y-6">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {resources?.filter(r => r.status !== 'archived').map(res => (
-                          <div 
-                            key={res.id} 
-                            className={cn(
-                              "p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group",
-                              localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
-                            )}
-                            onClick={() => {
-                              const rid = res.id;
-                              setLocalNodeEdits(prev => ({
-                                ...prev,
-                                resourceIds: prev.resourceIds.includes(rid) ? prev.resourceIds.filter(id => id !== rid) : [...prev.resourceIds, rid]
-                              }));
-                            }}
-                          >
-                            <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{res.name}</p>
-                              <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
-                            </div>
+                          <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
+                            <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} />
+                            <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p><p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p></div>
                           </div>
                         ))}
                       </div>
                     </TabsContent>
 
-                    <TabsContent value="data" className="mt-0 space-y-6">
-                      <div className="flex items-center gap-3 border-b pb-4">
-                        <div className="w-8 h-8 bg-sky-50 text-sky-600 rounded-lg flex items-center justify-center border border-sky-100"><Tag className="w-4 h-4" /></div>
-                        <div>
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verarbeitete Datenobjekte</h4>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">Welche fachlichen Informationen werden hier verarbeitet?</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
-                          <div 
-                            key={feat.id} 
-                            className={cn(
-                              "p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group",
-                              localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
-                            )}
-                            onClick={() => {
-                              const fid = feat.id;
-                              setLocalNodeEdits(prev => ({
-                                ...prev,
-                                featureIds: prev.featureIds.includes(fid) ? prev.featureIds.filter(id => id !== fid) : [...prev.featureIds, fid]
-                              }));
-                            }}
-                          >
-                            <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-sky-700 transition-colors">{feat.name}</p>
-                              <p className="text-[8px] text-slate-400 font-black uppercase">{feat.carrier}</p>
+                    <TabsContent value="data" className="mt-0 space-y-10">
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
+                            <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
+                              <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} />
+                              <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{feat.name}</p></div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </TabsContent>
-
-                    <TabsContent value="media" className="mt-0 space-y-8">
-                      <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-100 transition-all cursor-pointer relative">
-                        <div className={cn("w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md border", isUploading && "animate-pulse")}>
-                          {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Upload className="w-6 h-6 text-slate-400" />}
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs font-bold text-slate-800">Dateien per Drag & Drop oder Klick hochladen</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Bilder oder PDF (Max. 5MB)</p>
-                        </div>
-                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
-                      </div>
-
-                      {isOcring && (
-                        <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl animate-pulse">
-                          <BrainCircuit className="w-5 h-5 text-indigo-600" />
-                          <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">KI OCR analysiert PDF-Inhalte...</span>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {selectedNodeMedia.map(file => (
-                          <div key={file.id} className="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:border-primary/30 transition-all">
-                            {file.fileType.startsWith('image/') ? (
-                              <img src={file.fileUrl} alt={file.fileName} className="w-full aspect-video object-cover" />
-                            ) : (
-                              <div className="w-full aspect-video bg-slate-50 flex flex-col items-center justify-center gap-2">
-                                <FileText className="w-10 h-10 text-slate-300" />
-                                <Badge variant="outline" className="bg-white border-slate-200 text-[8px] font-black">PDF DOCUMENT</Badge>
+                      <Separator />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><UserCircle className="w-4 h-4" /> Betroffene Personengruppen</Label>
+                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                            {subjectGroups?.filter(g => g.status === 'active').map(g => (
+                              <div key={g.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, subjectGroupIds: prev.subjectGroupIds.includes(g.id) ? prev.subjectGroupIds.filter(id => id !== g.id) : [...prev.subjectGroupIds, g.id] }))}>
+                                <Checkbox checked={localNodeEdits.subjectGroupIds.includes(g.id)} />
+                                <span className="text-[11px] font-bold truncate">{g.name}</span>
                               </div>
-                            )}
-                            <div className="p-3 flex items-center justify-between border-t bg-white">
-                              <div className="min-w-0">
-                                <p className="text-[10px] font-bold text-slate-800 truncate">{file.fileName}</p>
-                                {file.ocrText && <p className="text-[8px] text-emerald-600 font-black uppercase flex items-center gap-1"><Zap className="w-2.5 h-2.5 fill-current" /> OCR Indexiert</p>}
+                            ))}
+                          </ScrollArea>
+                        </div>
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2"><Layers className="w-4 h-4" /> Datenkategorien (DSGVO)</Label>
+                          <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
+                            {dataCategories?.filter(c => c.status === 'active').map(c => (
+                              <div key={c.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, dataCategoryIds: prev.dataCategoryIds.includes(c.id) ? prev.dataCategoryIds.filter(id => id !== c.id) : [...prev.dataCategoryIds, c.id] }))}>
+                                <Checkbox checked={localNodeEdits.dataCategoryIds.includes(c.id)} />
+                                <span className="text-[11px] font-bold truncate">{c.name}</span>
                               </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                {file.ocrText && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"><FileSearch className="w-3.5 h-3.5" /></Button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="max-w-[250px] p-2 text-[9px] font-medium leading-relaxed bg-slate-900 border-none rounded-lg text-white">
-                                        {file.ocrText.substring(0, 200)}...
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                            ))}
+                          </ScrollArea>
+                        </div>
                       </div>
                     </TabsContent>
 
                     <TabsContent value="details" className="mt-0 space-y-10">
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
-                          <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste (Ein Punkt pro Zeile)
-                        </Label>
-                        <Textarea 
-                          value={localNodeEdits.checklist} 
-                          onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} 
-                          className="text-xs min-h-[120px] rounded-xl bg-slate-50 border-slate-200" 
-                          placeholder="Prüfschritt 1&#10;Prüfschritt 2..."
-                        />
-                      </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2">
-                            <Lightbulb className="w-3.5 h-3.5" /> Tipps & Tricks (Best Practice)
-                          </Label>
-                          <Textarea 
-                            value={localNodeEdits.tips} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} 
-                            className="text-xs min-h-[100px] rounded-xl bg-blue-50/20 border-blue-100" 
-                            placeholder="Expertisen-Wissen für dieser Schritt..."
-                          />
+                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2"><Lightbulb className="w-3.5 h-3.5" /> Tipps & Expertise</Label>
+                          <Textarea value={localNodeEdits.tips} onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-blue-50/20" />
                         </div>
                         <div className="space-y-4">
-                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2">
-                            <AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler & Risiken
-                          </Label>
-                          <Textarea 
-                            value={localNodeEdits.errors} 
-                            onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} 
-                            className="text-xs min-h-[100px] rounded-xl bg-red-50/20 border-red-100" 
-                            placeholder="Was kann hier schiefgehen?..."
-                          />
+                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2"><AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler</Label>
+                          <Textarea value={localNodeEdits.errors} onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} className="text-xs min-h-[100px] rounded-xl bg-red-50/20" />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge & Medien</Label>
+                        <div className="p-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center gap-3 bg-slate-50/50 relative">
+                          <Upload className="w-6 h-6 text-slate-400" />
+                          <p className="text-[10px] font-bold uppercase">Klicken zum Hochladen</p>
+                          <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {selectedNodeMedia.map(file => (
+                            <div key={file.id} className="p-3 bg-white border rounded-xl flex items-center justify-between">
+                              <span className="text-[10px] font-bold truncate">{file.fileName}</span>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}><Trash2 className="w-3 h-3" /></Button>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </TabsContent>
@@ -1039,7 +1010,6 @@ export default function ProcessDesignerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
         <DialogContent className="max-w-md rounded-xl p-0 overflow-hidden border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">

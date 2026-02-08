@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -52,7 +53,8 @@ import {
   AlertCircle,
   TrendingUp,
   FileCheck,
-  Save
+  Save,
+  UserCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,7 +62,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, Feature, Resource, Risk, ProcessingActivity } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, Feature, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -143,6 +145,8 @@ export default function ProcessDetailViewPage() {
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
+  const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const allProcessVersions = useMemo(() => 
@@ -268,7 +272,6 @@ export default function ProcessDetailViewPage() {
         <aside className="w-96 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-8 space-y-10">
-              {/* VVT Linking (Phase 4) */}
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2">
                   <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
@@ -295,7 +298,6 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
 
-              {/* Maturity Section */}
               {maturity && (
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
@@ -322,7 +324,6 @@ export default function ProcessDetailViewPage() {
                 </section>
               )}
 
-              {/* Risk Summary Sidebar */}
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-accent border-b pb-2 flex items-center gap-2">
                   <AlertTriangle className="w-3.5 h-3.5" /> Risiko-Profil
@@ -451,6 +452,8 @@ export default function ProcessDetailViewPage() {
                     const role = jobTitles?.find(j => j.id === node.roleId);
                     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
                     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
+                    const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
+                    const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
                     
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
@@ -471,19 +474,72 @@ export default function ProcessDetailViewPage() {
                           </CardHeader>
                           <CardContent className="p-6 space-y-6">
                             {node.description && <p className="text-sm text-slate-700 leading-relaxed">{node.description}</p>}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
-                              {nodeLinks && nodeLinks.length > 0 && (
-                                <div className="space-y-2">
-                                  <Label className="text-[9px] font-black uppercase text-slate-400">Datenobjekte</Label>
-                                  <div className="flex flex-wrap gap-2">
-                                    {nodeLinks.map((l: any) => {
-                                      const f = allFeatures?.find(feat => feat.id === l.featureId);
-                                      return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Daten'}</Badge>;
-                                    })}
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-slate-50">
+                              <div className="space-y-4">
+                                {nodeLinks && nodeLinks.length > 0 && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitete Daten</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {nodeLinks.map((l: any) => {
+                                        const f = allFeatures?.find(feat => feat.id === l.featureId);
+                                        return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Daten'}</Badge>;
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                )}
+                                
+                                {nodeGroups && nodeGroups.length > 0 && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase text-slate-400">Betroffene Personen</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {nodeGroups.map(g => (
+                                        <Badge key={g.id} variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[9px] font-bold h-6 px-2">{g.name}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-4">
+                                {nodeCategories && nodeCategories.length > 0 && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase text-slate-400">Datenkategorien</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {nodeCategories.map(c => (
+                                        <Badge key={c.id} variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 text-[9px] font-bold h-6 px-2">{c.name}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {(node.predecessorIds?.length || 0) > 0 && (
+                                  <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase text-slate-400">Vorgänger</Label>
+                                    <div className="space-y-1">
+                                      {node.predecessorIds?.map(pid => {
+                                        const pred = activeVersion.model_json.nodes.find((n: any) => n.id === pid);
+                                        return pred ? <div key={pid} className="text-[10px] font-bold text-slate-600 flex items-center gap-2"><ArrowLeftCircle className="w-3 h-3 text-slate-300" /> {pred.title}</div> : null;
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
+
+                            {node.checklist && node.checklist.length > 0 && (
+                              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                                <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2"><ListChecks className="w-3.5 h-3.5 text-primary" /> Prüfschritte</Label>
+                                <div className="space-y-2">
+                                  {node.checklist.map((item, idx) => (
+                                    <div key={idx} className="flex items-start gap-3">
+                                      <div className="w-4 h-4 rounded-md border bg-white flex items-center justify-center shrink-0 mt-0.5"><Check className="w-2.5 h-2.5 text-slate-200" /></div>
+                                      <span className="text-xs font-medium text-slate-700">{item}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       </div>
