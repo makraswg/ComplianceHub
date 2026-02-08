@@ -95,6 +95,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -175,6 +176,9 @@ export default function ProcessDesignerPage() {
   // Master Data (Stammdaten) Form State
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
+  const [metaInputs, setMetaInputs] = useState('');
+  const [metaOutputs, setMetaOutputs] = useState('');
+  const [metaKpis, setMetaKpis] = useState('');
   const [metaDeptId, setMetaDeptId] = useState('');
   const [metaFramework, setMetaFramework] = useState('');
   const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
@@ -225,6 +229,9 @@ export default function ProcessDesignerPage() {
     if (currentProcess) {
       setMetaTitle(currentProcess.title || '');
       setMetaDesc(currentProcess.description || '');
+      setMetaInputs(currentProcess.inputs || '');
+      setMetaOutputs(currentProcess.outputs || '');
+      setMetaKpis(currentProcess.kpis || '');
       setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
       setMetaFramework(currentProcess.regulatoryFramework || 'none');
       setMetaAutomation(currentProcess.automationLevel || 'manual');
@@ -308,6 +315,9 @@ export default function ProcessDesignerPage() {
       const res = await updateProcessMetadataAction(id as string, {
         title: metaTitle,
         description: metaDesc,
+        inputs: metaInputs,
+        outputs: metaOutputs,
+        kpis: metaKpis,
         responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
         regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
         automationLevel: metaAutomation,
@@ -500,6 +510,14 @@ export default function ProcessDesignerPage() {
           <Button 
             variant="outline" 
             size="sm" 
+            className="h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 hover:bg-blue-50 text-blue-600 transition-all"
+            onClick={syncDiagramToModel}
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Diagramm aktualisieren
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
             className={cn("h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 transition-all", isDiagramLocked ? "bg-slate-100 text-slate-400" : "hover:bg-amber-50 text-amber-600")}
             onClick={() => setIsDiagramLocked(!isDiagramLocked)}
           >
@@ -515,47 +533,14 @@ export default function ProcessDesignerPage() {
 
       <div className="flex-1 flex overflow-hidden h-full relative">
         <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
-          <Tabs defaultValue="steps" className="h-full flex flex-col overflow-hidden">
+          <Tabs defaultValue="meta" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
-              <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
+              <TabsTrigger value="steps" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-primary"><ClipboardList className="w-3.5 h-3.5" /> Ablauf</TabsTrigger>
               <TabsTrigger value="tasks" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-amber-600"><CheckCircle className="w-3.5 h-3.5" /> Aufgaben</TabsTrigger>
               <TabsTrigger value="media" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-indigo-600"><FileStack className="w-3.5 h-3.5" /> Medien</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
-              <div className="px-6 py-3 border-b bg-white flex items-center justify-start shrink-0">
-                <div className="flex gap-1.5">
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('subprocess')}>+ Referenz</Button>
-                </div>
-              </div>
-              <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-4 space-y-2 pb-32">
-                  {(currentVersion?.model_json?.nodes || []).map((node: any) => {
-                    const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
-                    const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
-                    return (
-                      <div key={node.id} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500")}>
-                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                          {nodeMedia > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeMedia}</div>}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Systeme</span>}
-                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Daten</span>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-6 space-y-6 pb-32">
@@ -568,12 +553,31 @@ export default function ProcessDesignerPage() {
                       <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
                       <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-[10px] font-black uppercase text-slate-400">Tags / Schlagworte</Label>
-                      <Input value={metaTags} onChange={e => setMetaTags(e.target.value)} placeholder="z.B. Finanzen, HR, Core" className="h-10 text-xs" />
-                    </div>
+
                     <Separator />
                     
+                    <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl">
+                      <h4 className="text-[10px] font-black uppercase text-indigo-700 flex items-center gap-2">
+                        <Settings2 className="w-3.5 h-3.5" /> ISO 9001:2015 Anforderungen
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Inputs (Eingaben)</Label>
+                          <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</Label>
+                          <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Leistungskennzahlen (KPIs)</Label>
+                          <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
                     <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl">
                       <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
                         <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
@@ -679,6 +683,39 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
             </TabsContent>
 
+            <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
+              <div className="px-6 py-3 border-b bg-white flex items-center justify-start shrink-0">
+                <div className="flex gap-1.5">
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('subprocess')}>+ Referenz</Button>
+                </div>
+              </div>
+              <ScrollArea className="flex-1 bg-slate-50/30">
+                <div className="p-4 space-y-2 pb-32">
+                  {(currentVersion?.model_json?.nodes || []).map((node: any) => {
+                    const nodeMedia = mediaFiles?.filter(m => m.entityId === id && m.subEntityId === node.id).length || 0;
+                    const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
+                    return (
+                      <div key={node.id} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500")}>
+                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                          {nodeMedia > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeMedia}</div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{node.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {node.resourceIds?.length > 0 && <span className="text-[7px] text-indigo-600 font-black uppercase">{node.resourceIds.length} Systeme</span>}
+                            {nodeFeats > 0 && <span className="text-[7px] text-sky-600 font-black uppercase">{nodeFeats} Daten</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
             <TabsContent value="tasks" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
                 <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Offene Punkte</h4>
@@ -747,6 +784,27 @@ export default function ProcessDesignerPage() {
               <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Schritt anlegen</Button>
             </div>
           )}
+          {/* Floating AI Assistant */}
+          <div className="fixed bottom-6 right-6 z-50">
+            <AiFormAssistant 
+              formType="process" 
+              currentData={{ 
+                title: metaTitle, 
+                description: metaDesc, 
+                inputs: metaInputs, 
+                outputs: metaOutputs,
+                kpis: metaKpis
+              }} 
+              onApply={(s) => {
+                if (s.title) setMetaTitle(s.title);
+                if (s.description) setMetaDesc(s.description);
+                if (s.inputs) setMetaInputs(s.inputs);
+                if (s.outputs) setMetaOutputs(s.outputs);
+                if (s.kpis) setMetaKpis(s.kpis);
+                toast({ title: "KI-Vorschläge übernommen" });
+              }} 
+            />
+          </div>
         </main>
       </div>
 
@@ -816,7 +874,7 @@ export default function ProcessDesignerPage() {
                           <div 
                             key={res.id} 
                             className={cn(
-                              "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                              "p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group",
                               localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
                             )}
                             onClick={() => {
@@ -850,7 +908,7 @@ export default function ProcessDesignerPage() {
                           <div 
                             key={feat.id} 
                             className={cn(
-                              "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                              "p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group",
                               localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
                             )}
                             onClick={() => {

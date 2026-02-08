@@ -203,6 +203,9 @@ export interface Process {
   vvtId?: string; 
   title: string;
   description?: string;
+  inputs?: string;
+  outputs?: string;
+  kpis?: string;
   openQuestions?: string; 
   regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';

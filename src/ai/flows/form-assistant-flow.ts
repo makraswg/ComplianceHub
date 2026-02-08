@@ -11,7 +11,7 @@ import { DataSource } from '@/lib/types';
 import OpenAI from 'openai';
 
 const FormAssistantInputSchema = z.object({
-  formType: z.enum(['resource', 'risk', 'measure', 'gdpr', 'entitlement']),
+  formType: z.enum(['resource', 'risk', 'measure', 'gdpr', 'entitlement', 'process']),
   partialData: z.any(),
   userPrompt: z.string(),
   tenantId: z.string().optional(),
@@ -36,7 +36,7 @@ Context Form Type: {{{formType}}}
 Current Data: {{{partialData}}}
 
 Based on the user's prompt and current context, suggest professional values for the missing or incomplete fields.
-Be specific, adhere to BSI IT-Grundschutz, ISO 27001 and GDPR standards.
+Be specific, adhere to BSI IT-Grundschutz, ISO 27001, ISO 9001 and GDPR standards.
 
 ANTWORT-FORMAT:
 Du MUSST eine valide JSON-Antwort in deutscher Sprache liefern:
