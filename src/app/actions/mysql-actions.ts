@@ -41,7 +41,9 @@ const collectionToTableMap: { [key: string]: string } = {
   dataCategories: 'dataCategories',
   departments: 'departments',
   jobTitles: 'jobTitles',
-  systemOwners: 'system_owners',
+  servicePartners: 'service_partners',
+  servicePartnerContacts: 'service_partner_contacts',
+  servicePartnerAreas: 'service_partner_areas',
   dataStores: 'data_stores',
   processes: 'processes',
   process_versions: 'process_versions',
@@ -54,7 +56,7 @@ const collectionToTableMap: { [key: string]: string } = {
   feature_links: 'feature_links',
   feature_dependencies: 'feature_dependencies',
   feature_process_steps: 'feature_process_steps',
-  feature_processes: 'feature_process_steps', // Alias for backward compatibility
+  feature_processes: 'feature_process_steps', 
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
   task_comments: 'task_comments',
@@ -248,7 +250,9 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'dataCategories',
       'departments',
       'jobTitles',
-      'system_owners',
+      'service_partners',
+      'service_partner_contacts',
+      'service_partner_areas',
       'data_stores',
       'processes',
       'process_versions',
@@ -271,7 +275,6 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'media'
     ];
 
-    // Deaktiviere Fremdschlüssel-Prüfungen für eine reibungslose Bereinigung
     await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
 
     for (const table of tablesToClear) {
@@ -282,7 +285,6 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       }
     }
 
-    // Re-aktiviere Fremdschlüssel-Prüfungen
     await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
 
     connection.release();
@@ -313,34 +315,5 @@ export async function updatePlatformUserPasswordAction(email: string, newPasswor
   } catch (error: any) {
     if (connection) connection.release();
     return { success: false, error: error.message };
-  }
-}
-
-/**
- * Befördert einen EAM-Benutzer zum Plattform-Administrator mit LDAP-Auth.
- */
-export async function promoteUserToAdminAction(userId: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error?: string }> {
-  try {
-    const userRes = await getCollectionData('users', dataSource);
-    const user = userRes.data?.find((u: User) => u.id === userId);
-    
-    if (!user) return { success: false, error: 'Benutzer nicht gefunden.' };
-
-    const pUserId = `puser-ldap-${user.id}`;
-    const pUserData: PlatformUser = {
-      id: pUserId,
-      email: user.email,
-      displayName: user.displayName,
-      role: 'admin',
-      tenantId: user.tenantId,
-      enabled: true,
-      createdAt: new Date().toISOString(),
-      authSource: 'ldap'
-    };
-
-    const res = await saveCollectionRecord('platformUsers', pUserId, pUserData, dataSource);
-    return res;
-  } catch (e: any) {
-    return { success: false, error: e.message };
   }
 }

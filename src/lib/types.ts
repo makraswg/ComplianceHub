@@ -38,13 +38,30 @@ export interface JobTitle {
   entitlementIds?: string[];
 }
 
-export interface SystemOwner {
+export interface ServicePartner {
   id: string;
   tenantId: string;
   name: string;
-  email: string;
-  department?: string;
+  industry?: string;
+  website?: string;
   status: 'active' | 'archived';
+  createdAt: string;
+}
+
+export interface ServicePartnerContact {
+  id: string;
+  partnerId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role?: string;
+}
+
+export interface ServicePartnerArea {
+  id: string;
+  partnerId: string;
+  name: string;
+  description?: string;
 }
 
 export interface User {
@@ -70,8 +87,8 @@ export interface Task {
   description: string;
   status: 'todo' | 'in_progress' | 'done' | 'archived';
   priority: 'low' | 'medium' | 'high' | 'critical';
-  assigneeId: string; // PlatformUser ID
-  creatorId: string; // PlatformUser ID
+  assigneeId: string; 
+  creatorId: string; 
   entityType?: 'feature' | 'process' | 'risk' | 'measure' | 'resource' | 'role' | 'assignment';
   entityId?: string;
   dueDate?: string;
@@ -109,7 +126,7 @@ export interface PlatformUser {
   email: string;
   password?: string;
   displayName: string;
-  role: string; // ID of PlatformRole or legacy role
+  role: string; 
   tenantId: string;
   enabled: boolean | number;
   createdAt: string;
@@ -125,7 +142,7 @@ export interface MediaFile {
   fileName: string;
   fileType: string;
   fileSize: number;
-  fileUrl: string; // Data URI or path
+  fileUrl: string; 
   ocrText?: string;
   createdAt: string;
   createdBy: string;
@@ -133,8 +150,8 @@ export interface MediaFile {
 
 export interface MediaConfig {
   id: string;
-  allowedTypes: string[]; // MIME types
-  maxFileSize: number; // in bytes
+  allowedTypes: string[]; 
+  maxFileSize: number; 
 }
 
 export interface ProcessNode {
@@ -183,11 +200,11 @@ export interface Process {
   id: string;
   tenantId: string;
   responsibleDepartmentId?: string;
-  vvtId?: string; // Link to VVT
+  vvtId?: string; 
   title: string;
   description?: string;
   openQuestions?: string; 
-  regulatoryFramework?: string; // Stored as JSON string or array
+  regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';
   ownerUserId: string;
   currentVersion: number;
@@ -208,16 +225,6 @@ export interface ProcessVersion {
   layout_json: ProcessLayout;
   revision: number;
   created_by_user_id: string;
-  created_at: string;
-}
-
-export interface ProcessComment {
-  id: string;
-  process_id: string;
-  node_id?: string;
-  user_id: string;
-  user_name: string;
-  text: string;
   created_at: string;
 }
 
@@ -255,22 +262,19 @@ export interface Feature {
   purpose: string;
   criticality: 'low' | 'medium' | 'high';
   criticalityScore: number;
-  // CIA Requirements
   confidentialityReq?: 'low' | 'medium' | 'high';
   integrityReq?: 'low' | 'medium' | 'high';
   availabilityReq?: 'low' | 'medium' | 'high';
-  // Matrix Criteria
   matrixFinancial: boolean | number;
   matrixLegal: boolean | number;
   matrixExternal: boolean | number;
   matrixHardToCorrect: boolean | number;
   matrixAutomatedDecision: boolean | number;
   matrixPlanning: boolean | number;
-  
   isComplianceRelevant: boolean | number;
   deptId: string; 
   ownerId?: string; 
-  dataStoreId?: string; // Links to a Resource ID where isDataRepository is true
+  dataStoreId?: string; 
   maintenanceNotes?: string;
   validFrom?: string;
   validUntil?: string;
@@ -286,35 +290,6 @@ export interface FeatureProcessStep {
   nodeId: string;
   usageType: string;
   criticality: 'low' | 'medium' | 'high';
-}
-
-export interface FeatureProcessLink {
-  id: string;
-  featureId: string;
-  processId: string;
-  usageType: string;
-  criticality: 'low' | 'medium' | 'high';
-}
-
-export interface FeatureLink {
-  id: string;
-  featureId: string;
-  targetId: string;
-  targetType: 'process_origin' | 'process_usage' | 'resource_origin' | 'resource_usage' | 'risk';
-}
-
-export interface FeatureDependency {
-  id: string;
-  featureId: string;
-  dependentFeatureId: string;
-  type: 'functional' | 'technical' | 'calculation' | 'rule';
-  description: string;
-  impact: string;
-}
-
-export interface Document {
-  id: string;
-  [key: string]: any;
 }
 
 export interface Resource {
@@ -338,7 +313,9 @@ export interface Resource {
   isInternetExposed: boolean | number;
   isBusinessCritical: boolean | number;
   isSpof: boolean | number;
-  systemOwnerId?: string; // Reference to SystemOwner
+  systemOwnerRoleId?: string; 
+  riskOwnerRoleId?: string; 
+  externalOwnerContactId?: string; 
   operatorId: string;
   riskOwner: string;
   dataOwner: string;
@@ -369,7 +346,6 @@ export interface ProcessingActivity {
   status: 'draft' | 'active' | 'archived';
   lastReviewDate: string;
   resourceIds?: string[];
-  // New Step 1 Phase 1 fields
   jointController?: boolean | number;
   jointControllerDetails?: string;
   dataProcessorId?: string;
@@ -434,33 +410,6 @@ export interface RiskControl {
   lastCheckDate?: string;
   nextCheckDate?: string;
   evidenceDetails?: string;
-}
-
-export interface AssignmentGroup {
-  id: string;
-  tenantId: string;
-  name: string;
-  description?: string;
-  status?: 'active' | 'archived';
-  userConfigs: { id: string; validFrom: string; validUntil: string | null }[];
-  entitlementConfigs: { id: string; validFrom: string; validUntil: string | null }[];
-}
-
-export interface Bundle {
-  id: string;
-  tenantId: string;
-  name: string;
-  description?: string;
-  status?: 'active' | 'archived';
-  entitlementIds: string[];
-}
-
-export interface HelpContent {
-  id: string;
-  section: string;
-  title: string;
-  content: string;
-  order: number;
 }
 
 export interface SyncJob {
@@ -572,4 +521,9 @@ export interface BookStackConfig {
   token_id: string;
   token_secret: string;
   default_book_id: string;
+}
+
+export interface Document {
+  id: string;
+  [key: string]: any;
 }

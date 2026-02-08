@@ -29,7 +29,11 @@ import {
   BadgeCheck,
   Zap,
   ArrowUp,
-  UserCircle
+  UserCircle,
+  Briefcase,
+  Building2,
+  Mail,
+  RotateLeft
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,9 +41,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, SystemOwner } from '@/lib/types';
+import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { calculateProcessMaturity } from '@/lib/process-utils';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -63,77 +68,80 @@ export default function ResourceDetailPage() {
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   const { data: features } = usePluggableCollection<Feature>('features');
-  const { data: owners } = usePluggableCollection<SystemOwner>('systemOwners');
+  const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
+  const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
+  const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
 
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
-  const currentOwner = useMemo(() => owners?.find(o => o.id === resource?.systemOwnerId), [owners, resource]);
+  const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
+  const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
+  const externalContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
+  const externalPartner = useMemo(() => partners?.find(p => p.id === externalContact?.partnerId), [partners, externalContact]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
 
-    // 1. In welchen Prozessen wird diese Ressource genutzt?
     const affectedProcesses = processes.filter(p => {
       const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
       return ver?.model_json?.nodes?.some((n: ProcessNode) => n.resourceIds?.includes(resource.id));
     });
 
-    // 2. Welche VVTs hängen an diesen Prozessen?
     const vvtIds = new Set(affectedProcesses.map(p => p.vvtId).filter(Boolean));
     const affectedVvts = vvts?.filter(v => vvtIds.has(v.id)) || [];
 
-    // 3. Welche Datenobjekte (Features) werden in diesen Prozessen verarbeitet?
-    const linkedFeatures = features?.filter(f => f.dataStoreId === resource.id) || [];
+    const featureIdsUsed = new Set<string>();
+    featureLinks?.forEach(link => {
+      if (affectedProcesses.some(p => p.id === link.processId)) {
+        featureIdsUsed.add(link.featureId);
+      }
+    });
+    const linkedFeatures = features?.filter(f => featureIdsUsed.has(f.id) || f.dataStoreId === resource.id) || [];
 
     return { processes: affectedProcesses, vvts: affectedVvts, features: linkedFeatures };
-  }, [resource, processes, versions, vvts, features]);
-
-  const riskProfile = useMemo(() => {
-    if (!resource || !risks || !measures) return { risks: [], measures: [], maxScore: 0 };
-    const resRisks = risks.filter(r => r.assetId === resource.id);
-    const resMeasures = measures.filter(m => m.resourceIds?.includes(resource.id));
-    const maxScore = resRisks.length > 0 ? Math.max(...resRisks.map(r => r.impact * r.probability)) : 0;
-    return { risks: resRisks, measures: resMeasures, maxScore };
-  }, [resource, risks, measures]);
+  }, [resource, processes, versions, vvts, features, featureLinks]);
 
   // Inheritance Logic (Maximum Principle)
   const effectiveInheritance = useMemo(() => {
     if (!impactAnalysis.features || impactAnalysis.features.length === 0) return null;
     
     const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
+    const classRankMap = { 'public': 1, 'internal': 2, 'confidential': 3, 'strictly_confidential': 4 };
     const revRankMap = { 1: 'low', 2: 'medium', 3: 'high' } as const;
+    const revClassMap = { 1: 'public', 2: 'internal', 3: 'confidential', 4: 'strictly_confidential' } as const;
 
-    let maxCrit = 1;
-    let maxC = 1;
-    let maxI = 1;
-    let maxA = 1;
+    let maxCrit = 1, maxC = 1, maxI = 1, maxA = 1, maxClass = 1;
 
     impactAnalysis.features.forEach(f => {
       maxCrit = Math.max(maxCrit, rankMap[f.criticality] || 1);
       maxC = Math.max(maxC, rankMap[f.confidentialityReq || 'low'] || 1);
       maxI = Math.max(maxI, rankMap[f.integrityReq || 'low'] || 1);
       maxA = Math.max(maxA, rankMap[f.availabilityReq || 'low'] || 1);
+      if (f.criticality === 'high') maxClass = Math.max(maxClass, 3);
+      else if (f.criticality === 'medium') maxClass = Math.max(maxClass, 2);
     });
 
     return {
       criticality: revRankMap[maxCrit as 1|2|3],
       confidentiality: revRankMap[maxC as 1|2|3],
       integrity: revRankMap[maxI as 1|2|3],
-      availability: revRankMap[maxA as 1|2|3]
+      availability: revRankMap[maxA as 1|2|3],
+      classification: revClassMap[maxClass as 1|2|3|4]
     };
   }, [impactAnalysis.features]);
 
   const hasInheritanceMismatch = useMemo(() => {
     if (!resource || !effectiveInheritance) return false;
     const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
+    const classRankMap = { 'public': 1, 'internal': 2, 'confidential': 3, 'strictly_confidential': 4 };
     
     const isUnderCrit = rankMap[resource.criticality] < rankMap[effectiveInheritance.criticality];
     const isUnderC = rankMap[resource.confidentialityReq] < rankMap[effectiveInheritance.confidentiality];
-    const isUnderI = rankMap[resource.integrityReq] < rankMap[effectiveInheritance.integrity];
-    const isUnderA = rankMap[resource.availabilityReq] < rankMap[effectiveInheritance.availability];
+    const isUnderClass = (classRankMap[resource.dataClassification as keyof typeof classRankMap] || 1) < classRankMap[effectiveInheritance.classification];
 
-    return isUnderCrit || isUnderC || isUnderI || isUnderA;
+    return isUnderCrit || isUnderC || isUnderClass;
   }, [resource, effectiveInheritance]);
 
   const handleApplyInheritance = async () => {
@@ -146,13 +154,14 @@ export default function ResourceDetailPage() {
       confidentialityReq: effectiveInheritance.confidentiality,
       integrityReq: effectiveInheritance.integrity,
       availabilityReq: effectiveInheritance.availability,
-      notes: (resource.notes || '') + `\n[Auto-Sync] Schutzbedarf am ${new Date().toLocaleDateString()} von Daten geerbt.`
+      dataClassification: effectiveInheritance.classification,
+      notes: (resource.notes || '') + `\n[Auto-Sync] Compliance-Vorschlag am ${new Date().toLocaleDateString()} von Prozess-Kontext übernommen.`
     };
 
     try {
       const res = await saveResourceAction(updatedResource, dataSource, user?.email || 'system');
       if (res.success) {
-        toast({ title: "Schutzbedarf aktualisiert", description: "Werte wurden erfolgreich von den Datenobjekten übernommen." });
+        toast({ title: "Compliance-Vorschlag übernommen", description: "Werte wurden kaskadierend von den Prozessen geerbt." });
         refreshRes();
       }
     } finally {
@@ -192,8 +201,8 @@ export default function ResourceDetailPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-slate-200" onClick={() => router.push(`/audit?search=${resource.id}`)}>
             <Activity className="w-3.5 h-3.5 mr-2" /> Audit-Historie
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95">
-            <Settings2 className="w-3.5 h-3.5 mr-2" /> Konfigurieren
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95" onClick={() => router.push('/resources')}>
+            <Settings2 className="w-3.5 h-3.5 mr-2" /> Bearbeiten
           </Button>
         </div>
       </header>
@@ -201,13 +210,12 @@ export default function ResourceDetailPage() {
       {hasInheritanceMismatch && (
         <Alert className="bg-amber-50 border-amber-200 text-amber-900 rounded-2xl shadow-sm animate-in fade-in slide-in-from-top-4">
           <Zap className="h-5 w-5 text-amber-600" />
-          <AlertTitle className="font-bold text-sm">Schutzbedarfs-Mismatch erkannt!</AlertTitle>
+          <AlertTitle className="font-bold text-sm">Governance Drift erkannt!</AlertTitle>
           <AlertDescription className="text-xs mt-1 leading-relaxed">
-            Die Sensibilität der auf diesem System gespeicherten Daten (Features) ist höher als die aktuelle Einstufung der Ressource. 
-            Empfohlene Kritikalität basierend auf Datenlast: <strong className="uppercase">{effectiveInheritance?.criticality}</strong>.
+            Die verarbeiteten Datenobjekte in den verknüpften Prozessen erfordern eine höhere Klassifizierung (<strong className="uppercase">{effectiveInheritance?.classification}</strong>). 
             <div className="mt-3">
-              <Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md shadow-amber-200 gap-2 transition-all">
-                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUp className="w-3 h-3" />} Schutzbedarf anheben
+              <Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md gap-2 transition-all">
+                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateLeft className="w-3 h-3" />} Werte übernehmen
               </Button>
             </div>
           </AlertDescription>
@@ -215,8 +223,41 @@ export default function ResourceDetailPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Left Sidebar: Key Metrics */}
         <aside className="lg:col-span-1 space-y-4">
+          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Ownership</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner (Intern)</p>
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                    <Briefcase className="w-4 h-4 text-primary" /> {systemOwnerRole?.name || '---'}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risk Owner (Intern)</p>
+                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                    <AlertTriangle className="w-4 h-4 text-orange-600" /> {riskOwnerRole?.name || '---'}
+                  </div>
+                </div>
+                {externalContact && (
+                  <div className="space-y-1 p-3 rounded-xl bg-indigo-50 border border-indigo-100 mt-4">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase">Externer Support</Badge>
+                      <p className="text-[9px] font-black uppercase text-indigo-900">{externalPartner?.name}</p>
+                    </div>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-bold text-slate-800">{externalContact.name}</p>
+                      <p className="text-[9px] text-slate-500 flex items-center gap-1"><Mail className="w-2.5 h-2.5" /> {externalContact.email}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schutzbedarf (CIA)</CardTitle>
@@ -225,75 +266,33 @@ export default function ResourceDetailPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">V</span>
-                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.confidentialityReq !== effectiveInheritance.confidentiality && "text-amber-600")}>{resource.confidentialityReq}</Badge>
+                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.confidentialityReq}</Badge>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">I</span>
-                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.integrityReq !== effectiveInheritance.integrity && "text-amber-600")}>{resource.integrityReq}</Badge>
+                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.integrityReq}</Badge>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">A</span>
-                  <Badge variant="outline" className={cn("text-[10px] font-bold border-none uppercase", effectiveInheritance && resource.availabilityReq !== effectiveInheritance.availability && "text-amber-600")}>{resource.availabilityReq}</Badge>
+                  <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.availabilityReq}</Badge>
                 </div>
               </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kritikalität</p>
-                  <div className={cn(
-                    "p-3 rounded-xl border flex items-center justify-between font-black text-xs uppercase shadow-inner",
-                    resource.criticality === 'high' ? "bg-red-50 border-red-100 text-red-700" : "bg-emerald-50 border-emerald-100 text-emerald-700"
-                  )}>
-                    {resource.criticality} <ShieldAlert className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <UserCircle className="w-4 h-4 text-primary" /> {currentOwner?.name || '---'}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border-none bg-slate-900 text-white shadow-xl overflow-hidden">
-            <CardHeader className="p-6 border-b border-white/10">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary">Compliance Pulse</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-2">
-                <div className="flex justify-between text-[10px] font-black uppercase">
-                  <span>Kontroll-Effektivität</span>
-                  <span className="text-primary">85%</span>
-                </div>
-                <Progress value={85} className="h-1.5 bg-white/10" />
-              </div>
-              <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
-                <BadgeCheck className="w-5 h-5 text-emerald-400" />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase">Audit Ready</p>
-                  <p className="text-[8px] text-slate-400 italic uppercase">Zuletzt geprüft: 12.02.2024</p>
-                </div>
+              <div className="pt-2">
+                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1">Klassifizierung</p>
+                <Badge className="w-full justify-center bg-slate-900 text-white border-none font-black text-[10px] h-6 uppercase">{resource.dataClassification?.replace('_', ' ')}</Badge>
               </div>
             </CardContent>
           </Card>
         </aside>
 
-        {/* Main Content: Tabs */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="impact" className="space-y-6">
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Zap className="w-3.5 h-3.5 text-primary" /> Impact-Analyse
-              </TabsTrigger>
-              <TabsTrigger value="risks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ShieldAlert className="w-3.5 h-3.5 text-accent" /> Risikoprofil ({riskProfile.risks.length})
+                <Zap className="w-3.5 h-3.5 text-primary" /> Impact & Datenlast
               </TabsTrigger>
               <TabsTrigger value="details" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Info className="w-3.5 h-3.5" /> Stammdaten
+                <Info className="w-3.5 h-3.5" /> Technische Daten
               </TabsTrigger>
             </TabsList>
 
@@ -304,25 +303,24 @@ export default function ResourceDetailPage() {
                     <div className="flex items-center gap-3">
                       <Workflow className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Betroffene Prozesse</CardTitle>
-                        <CardDescription className="text-[10px] font-bold">In diesen Abläufen wird das System genutzt.</CardDescription>
+                        <CardTitle className="text-sm font-bold">Betroffene Workflows</CardTitle>
+                        <CardDescription className="text-[10px] font-bold">In diesen Prozessen wird das System genutzt.</CardDescription>
                       </div>
                     </div>
                     <Badge variant="outline" className="rounded-full font-black text-[10px]">{impactAnalysis.processes.length}</Badge>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <ScrollArea className="h-[300px]">
+                    <ScrollArea className="h-[250px]">
                       <div className="divide-y divide-slate-50">
                         {impactAnalysis.processes.map(p => (
-                          <div key={p.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
+                          <div key={p.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-inner"><Workflow className="w-4 h-4" /></div>
+                              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600"><Workflow className="w-4 h-4" /></div>
                               <span className="text-xs font-bold text-slate-700">{p.title}</span>
                             </div>
                             <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" />
                           </div>
                         ))}
-                        {impactAnalysis.processes.length === 0 && <div className="p-10 text-center opacity-30 italic text-xs">Keine Prozessabhängigkeiten gefunden.</div>}
                       </div>
                     </ScrollArea>
                   </CardContent>
@@ -333,25 +331,24 @@ export default function ResourceDetailPage() {
                     <div className="flex items-center gap-3">
                       <FileCheck className="w-5 h-5 text-emerald-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Indirekte DSGVO-Zwecke</CardTitle>
-                        <CardDescription className="text-[10px] font-bold">Betroffene Verarbeitungstätigkeiten (VVT).</CardDescription>
+                        <CardTitle className="text-sm font-bold">Audit-Scope (VVT)</CardTitle>
+                        <CardDescription className="text-[10px] font-bold">Fachlich-rechtliche Verarbeitungstätigkeiten.</CardDescription>
                       </div>
                     </div>
                     <Badge variant="outline" className="rounded-full font-black text-[10px] border-emerald-100 text-emerald-700">{impactAnalysis.vvts.length}</Badge>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <ScrollArea className="h-[300px]">
+                    <ScrollArea className="h-[250px]">
                       <div className="divide-y divide-slate-50">
                         {impactAnalysis.vvts.map(v => (
-                          <div key={v.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => router.push(`/gdpr?search=${v.name}`)}>
+                          <div key={v.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/gdpr?search=${v.name}`)}>
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-inner"><FileCheck className="w-4 h-4" /></div>
+                              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600"><FileCheck className="w-4 h-4" /></div>
                               <span className="text-xs font-bold text-slate-700">{v.name}</span>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-600 transition-all" />
+                            <ChevronRight className="w-4 h-4 text-slate-300" />
                           </div>
                         ))}
-                        {impactAnalysis.vvts.length === 0 && <div className="p-10 text-center opacity-30 italic text-xs">Keine indirekten DSGVO-Bezüge.</div>}
                       </div>
                     </ScrollArea>
                   </CardContent>
@@ -359,12 +356,12 @@ export default function ResourceDetailPage() {
               </div>
 
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className={cn("text-white p-6 transition-colors", resource.isDataRepository ? "bg-indigo-900" : "bg-slate-900")}>
+                <CardHeader className="bg-slate-900 text-white p-6">
                   <div className="flex items-center gap-4">
                     <Database className="w-6 h-6 text-primary" />
                     <div>
-                      <CardTitle className="text-base font-headline font-bold uppercase">Gehostete Datenobjekte</CardTitle>
-                      <CardDescription className="text-[10px] font-bold text-slate-400 uppercase">Inhalte und Sensibilität der verarbeiteten Daten</CardDescription>
+                      <CardTitle className="text-base font-headline font-bold uppercase">Datenlast-Analyse</CardTitle>
+                      <CardDescription className="text-[10px] font-bold text-slate-400 uppercase">Verarbeitete Fach-Entitäten auf diesem System</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -374,10 +371,7 @@ export default function ResourceDetailPage() {
                       <div key={f.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-indigo-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/features/${f.id}`)}>
                         <div className="flex items-center gap-2">
                           <Tag className="w-3.5 h-3.5 text-indigo-400" />
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-700 truncate">{f.name}</p>
-                            <p className="text-[7px] font-black uppercase text-slate-400">CIA: {f.confidentialityReq?.charAt(0) || 'L'}{f.integrityReq?.charAt(0) || 'L'}{f.availabilityReq?.charAt(0) || 'L'}</p>
-                          </div>
+                          <p className="text-[11px] font-bold text-slate-700 truncate">{f.name}</p>
                         </div>
                         <Badge className={cn(
                           "text-[7px] font-black h-4 border-none",
@@ -385,102 +379,42 @@ export default function ResourceDetailPage() {
                         )}>{f.criticality.toUpperCase()}</Badge>
                       </div>
                     ))}
-                    {impactAnalysis.features.length === 0 && <p className="col-span-full text-center py-10 text-xs text-slate-400 italic font-medium uppercase tracking-widest">Keine Datenobjekte verknüpft</p>}
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="risks" className="space-y-8 animate-in fade-in duration-500">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-red-50/30 border-b p-6">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-red-900">
-                      <AlertTriangle className="w-4 h-4 text-red-600" /> Bedrohungen
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="divide-y divide-slate-50">
-                      {riskProfile.risks.map(r => (
-                        <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
-                          <div className="flex items-center gap-3">
-                            <Badge className={cn(
-                              "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
-                              (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
-                            )}>{r.impact * r.probability}</Badge>
-                            <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300" />
-                        </div>
-                      ))}
-                      {riskProfile.risks.length === 0 && <div className="p-10 text-center opacity-30 italic text-xs">Keine spezifischen Risiken erfasst.</div>}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-emerald-50/30 border-b p-6">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-900">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" /> Aktive Kontrollen (TOM)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="divide-y divide-slate-50">
-                      {riskProfile.measures.map(m => (
-                        <div key={m.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/risks/measures?search=${m.title}`)}>
-                          <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center border shadow-inner",
-                              m.isEffective ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400"
-                            )}><CheckCircle2 className="w-4 h-4" /></div>
-                            <div className="min-w-0">
-                              <p className="text-[11px] font-bold text-slate-800 truncate">{m.title}</p>
-                              {m.isTom && <span className="text-[8px] font-black text-emerald-600 uppercase">Art. 32 DSGVO</span>}
-                            </div>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300" />
-                        </div>
-                      ))}
-                      {riskProfile.measures.length === 0 && <div className="p-10 text-center opacity-30 italic text-xs">Keine Maßnahmen hinterlegt.</div>}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
             <TabsContent value="details" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <CardTitle className="text-sm font-bold">Systembeschreibung & Technischer Kontext</CardTitle>
+                  <CardTitle className="text-sm font-bold">Systemkontext & Stammdaten</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-4">
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenstandort</p>
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Technischer Standort</p>
                         <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
                           <Globe className="w-4 h-4 text-slate-400" /> {resource.dataLocation || 'Unbekannt'}
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">URL / Referenz</p>
-                        <p className="text-xs text-primary font-bold">{resource.url || '---'}</p>
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Referenz-URL</p>
+                        <p className="text-xs text-primary font-bold truncate">{resource.url || '---'}</p>
                       </div>
                     </div>
-                    <div className="space-y-4 p-6 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
-                      <h4 className="text-[9px] font-black uppercase text-slate-400 mb-2">Technischer Kontext</h4>
+                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <h4 className="text-[9px] font-black uppercase text-slate-400 mb-2">Audit-Check</h4>
                       <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">Betrieb</p><p className="text-xs font-bold">{resource.operatingModel}</p></div>
-                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">Klassifizierung</p><Badge className="text-[8px] font-black h-4 border-none bg-slate-900 text-white uppercase">{resource.dataClassification}</Badge></div>
-                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">Pers. Daten</p><Badge variant="outline" className={cn("text-[8px] font-black h-4 uppercase", resource.hasPersonalData ? "border-emerald-200 text-emerald-700" : "border-slate-200 text-slate-400")}>{resource.hasPersonalData ? 'JA' : 'NEIN'}</Badge></div>
-                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">Erstellt am</p><p className="text-xs font-bold">{resource.createdAt ? new Date(resource.createdAt).toLocaleDateString() : '---'}</p></div>
+                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">Pers. Daten</p><Badge variant="outline" className={cn("text-[8px] font-black h-4 uppercase", resource.hasPersonalData ? "border-emerald-200 text-emerald-700" : "text-slate-400")}>{resource.hasPersonalData ? 'JA' : 'NEIN'}</Badge></div>
+                        <div><p className="text-[8px] font-bold text-slate-400 uppercase">SPOF-Risiko</p><Badge variant="outline" className={cn("text-[8px] font-black h-4 uppercase", resource.isSpof ? "border-red-200 text-red-700" : "text-slate-400")}>{resource.isSpof ? 'HOCH' : 'NEIN'}</Badge></div>
                       </div>
                     </div>
                   </div>
                   <Separator />
                   <div className="space-y-2">
-                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Administratorische Notizen</p>
-                    <p className="text-xs text-slate-500 italic leading-relaxed">{resource.notes || 'Keine zusätzlichen Notizen vorhanden.'}</p>
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Zusätzliche Notizen</p>
+                    <p className="text-xs text-slate-500 italic leading-relaxed">{resource.notes || 'Keine Notizen vorhanden.'}</p>
                   </div>
                 </CardContent>
               </Card>

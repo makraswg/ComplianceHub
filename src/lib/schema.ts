@@ -46,17 +46,36 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT', 
       status: 'VARCHAR(20) DEFAULT "active"',
-      entitlementIds: 'TEXT', // JSON array of standard roles (Blueprint)
+      entitlementIds: 'TEXT', 
     }
   },
-  system_owners: {
+  service_partners: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       name: 'VARCHAR(255) NOT NULL',
-      email: 'VARCHAR(255)',
-      department: 'VARCHAR(255)',
+      industry: 'VARCHAR(255)',
+      website: 'VARCHAR(255)',
       status: 'VARCHAR(20) DEFAULT "active"',
+      createdAt: 'VARCHAR(50)',
+    }
+  },
+  service_partner_contacts: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      partnerId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      email: 'VARCHAR(255) NOT NULL',
+      phone: 'VARCHAR(50)',
+      role: 'VARCHAR(255)',
+    }
+  },
+  service_partner_areas: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      partnerId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
     }
   },
   data_stores: {
@@ -74,7 +93,7 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
-      permissions: 'LONGTEXT', // JSON object
+      permissions: 'LONGTEXT', 
     }
   },
   platformUsers: {
@@ -183,24 +202,6 @@ export const appSchema: AppSchema = {
       criticality: 'VARCHAR(20) DEFAULT "low"',
     }
   },
-  feature_links: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      featureId: 'VARCHAR(255) NOT NULL',
-      targetId: 'VARCHAR(255) NOT NULL',
-      targetType: 'VARCHAR(50) NOT NULL',
-    }
-  },
-  feature_dependencies: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      featureId: 'VARCHAR(255) NOT NULL',
-      dependentFeatureId: 'VARCHAR(255) NOT NULL',
-      type: 'VARCHAR(50) NOT NULL',
-      description: 'TEXT',
-      impact: 'TEXT',
-    }
-  },
   processes: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -235,30 +236,6 @@ export const appSchema: AppSchema = {
       created_at: 'VARCHAR(50)',
     }
   },
-  process_comments: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      process_id: 'VARCHAR(255) NOT NULL',
-      node_id: 'VARCHAR(255)',
-      user_id: 'VARCHAR(255) NOT NULL',
-      user_name: 'VARCHAR(255)',
-      text: 'TEXT NOT NULL',
-      created_at: 'VARCHAR(50)',
-    }
-  },
-  process_ops: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      process_id: 'VARCHAR(255) NOT NULL',
-      version: 'INT NOT NULL',
-      revision_before: 'INT',
-      revision_after: 'INT',
-      actor_type: 'VARCHAR(20)', 
-      actor_user_id: 'VARCHAR(255)',
-      ops_json: 'LONGTEXT',
-      created_at: 'VARCHAR(50)',
-    }
-  },
   regulatory_options: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -274,139 +251,6 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       enabled: 'BOOLEAN DEFAULT TRUE',
-    }
-  },
-  ai_sessions: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      process_id: 'VARCHAR(255) NOT NULL',
-      version: 'INT NOT NULL',
-      summary_text: 'TEXT',
-      context_json: 'TEXT',
-      updated_at: 'VARCHAR(50)',
-    }
-  },
-  ai_messages: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      process_id: 'VARCHAR(255) NOT NULL',
-      version: 'INT NOT NULL',
-      sender: 'VARCHAR(20)', 
-      message_text: 'TEXT',
-      structured_json: 'LONGTEXT', 
-      created_at: 'VARCHAR(50)',
-    }
-  },
-  process_relations: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      from_process_id: 'VARCHAR(255)',
-      to_process_id: 'VARCHAR(255)',
-      relation_type: 'VARCHAR(50)',
-      confidence: 'DECIMAL(5,2)',
-      reason_text: 'TEXT',
-      created_at: 'VARCHAR(50)',
-    }
-  },
-  bookstack_exports: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      process_id: 'VARCHAR(255)',
-      version: 'INT',
-      book_id: 'VARCHAR(50)',
-      chapter_id: 'VARCHAR(50)',
-      page_id: 'VARCHAR(50)',
-      status: 'VARCHAR(20)',
-      error_text: 'TEXT',
-      exported_at: 'VARCHAR(50)',
-      created_at: 'VARCHAR(50)',
-    }
-  },
-  dataSubjectGroups: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      status: 'VARCHAR(20) DEFAULT "active"',
-    }
-  },
-  dataCategories: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      name: 'VARCHAR(255) NOT NULL',
-      status: 'VARCHAR(20) DEFAULT "active"',
-      isGdprRelevant: 'BOOLEAN DEFAULT FALSE',
-    }
-  },
-  users: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      tenantId: 'VARCHAR(255) NOT NULL',
-      externalId: 'VARCHAR(255)',
-      displayName: 'VARCHAR(255) NOT NULL',
-      email: 'VARCHAR(255) NOT NULL',
-      department: 'VARCHAR(255)',
-      title: 'VARCHAR(255)',
-      enabled: 'BOOLEAN DEFAULT TRUE',
-      status: 'VARCHAR(20) DEFAULT "active"',
-      onboardingDate: 'VARCHAR(50)',
-      offboardingDate: 'VARCHAR(50)',
-      lastSyncedAt: 'VARCHAR(50)',
-      adGroups: 'TEXT',
-    },
-  },
-  catalogs: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      name: 'VARCHAR(255) NOT NULL',
-      version: 'VARCHAR(50)',
-      provider: 'VARCHAR(100)',
-      importedAt: 'VARCHAR(50)',
-    }
-  },
-  hazardModules: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      catalogId: 'VARCHAR(255) NOT NULL',
-      code: 'VARCHAR(50) NOT NULL',
-      title: 'VARCHAR(255) NOT NULL',
-    }
-  },
-  hazards: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      moduleId: 'VARCHAR(255) NOT NULL',
-      code: 'VARCHAR(50) NOT NULL',
-      title: 'VARCHAR(255) NOT NULL',
-      description: 'TEXT',
-      contentHash: 'VARCHAR(64)',
-    }
-  },
-  hazardMeasures: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      code: 'VARCHAR(50) NOT NULL',
-      title: 'VARCHAR(255) NOT NULL',
-      baustein: 'VARCHAR(100)',
-    }
-  },
-  hazardMeasureRelations: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      measureId: 'VARCHAR(255) NOT NULL',
-      hazardCode: 'VARCHAR(50) NOT NULL',
-    }
-  },
-  importRuns: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      catalogId: 'VARCHAR(255)',
-      timestamp: 'VARCHAR(50)',
-      status: 'VARCHAR(20)',
-      itemCount: 'INT',
-      log: 'LONGTEXT',
     }
   },
   risks: {
@@ -517,7 +361,9 @@ export const appSchema: AppSchema = {
       isInternetExposed: 'BOOLEAN DEFAULT FALSE',
       isBusinessCritical: 'BOOLEAN DEFAULT FALSE',
       isSpof: 'BOOLEAN DEFAULT FALSE',
-      systemOwnerId: 'VARCHAR(255)',
+      systemOwnerRoleId: 'VARCHAR(255)',
+      riskOwnerRoleId: 'VARCHAR(255)',
+      externalOwnerContactId: 'VARCHAR(255)',
       operatorId: 'VARCHAR(255)',
       riskOwner: 'VARCHAR(255)',
       dataOwner: 'VARCHAR(255)',
@@ -659,15 +505,6 @@ export const appSchema: AppSchema = {
       reviewedBy: 'VARCHAR(255)',
       tenantId: 'VARCHAR(255)',
       syncSource: 'VARCHAR(50)'
-    }
-  },
-  helpContent: {
-    columns: {
-      id: 'VARCHAR(255) PRIMARY KEY',
-      section: 'VARCHAR(255)',
-      title: 'VARCHAR(255)',
-      content: 'LONGTEXT',
-      order: 'INT DEFAULT 0'
     }
   },
   uiConfigs: {
