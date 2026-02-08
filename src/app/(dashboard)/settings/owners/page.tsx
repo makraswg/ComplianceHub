@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -9,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { 
   Building2, 
   Plus, 
+  PlusCircle,
   Trash2, 
   Save, 
   Loader2, 
@@ -248,8 +248,8 @@ export default function ServicePartnerSettingsPage() {
                           <p className="text-[9px] text-slate-400 font-medium truncate italic">{contact.email}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400" onClick={() => { setSelectedContact(contact); setCName(contact.name); setCEmail(contact.email); setCPhone(contact.phone || ''); setCRole(contact.role || ''); setIsContactDialogOpen(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteCollectionRecord('servicePartnerContacts', contact.id, dataSource).then(() => refreshContacts())}><Trash2 className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400" onClick={() => { setSelectedContact(contact); setCName(contact.name); setCEmail(contact.email); setCPhone(contact.phone || ''); setCRole(contact.role || ''); setIsContactDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteCollectionRecord('servicePartnerContacts', contact.id, dataSource).then(() => refreshContacts())}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
                       </div>
                     ))}
@@ -275,8 +275,8 @@ export default function ServicePartnerSettingsPage() {
                           <p className="text-[9px] text-slate-400 truncate font-medium">{area.description || 'Keine Details'}</p>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400" onClick={() => { setSelectedArea(area); setAName(area.name); setADesc(area.description || ''); setIsAreaDialogOpen(true); }}><Pencil className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteCollectionRecord('servicePartnerAreas', area.id, dataSource).then(() => refreshAreas())}><Trash2 className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400" onClick={() => { setSelectedArea(area); setAName(area.name); setADesc(area.description || ''); setIsAreaDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteCollectionRecord('servicePartnerAreas', area.id, dataSource).then(() => refreshAreas())}><Trash2 className="w-3.5 h-3.5" /></Button>
                         </div>
                       </div>
                     ))}
