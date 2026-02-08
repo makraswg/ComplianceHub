@@ -23,6 +23,7 @@ import {
   Target
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -161,6 +162,18 @@ function RiskMeasuresContent() {
     if (!measures) return [];
     return measures.filter(m => m.title.toLowerCase().includes(search.toLowerCase()));
   }, [measures, search]);
+
+  const resetForm = () => {
+    setSelectedMeasure(null);
+    setTitle('');
+    setDesc('');
+    setOwner('');
+    setDueDate('');
+    setStatus('planned');
+    setIsTom(false);
+    setSelectedRiskIds([]);
+    setSelectedResourceIds([]);
+  };
 
   if (!mounted) return null;
 
@@ -359,8 +372,8 @@ function RiskMeasuresContent() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase shadow-lg shadow-emerald-200 gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase shadow-lg shadow-emerald-200 gap-2">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
             </Button>
           </DialogFooter>
@@ -369,10 +382,6 @@ function RiskMeasuresContent() {
     </div>
   );
 }
-
-const resetForm = () => {
-  // Mock function to satisfy the button click, would normally clear state
-};
 
 export default function RiskMeasuresPage() {
   return (
