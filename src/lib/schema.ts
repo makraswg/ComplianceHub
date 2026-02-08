@@ -291,6 +291,7 @@ export const appSchema: AppSchema = {
       isResidualProbabilityOverridden: 'BOOLEAN DEFAULT FALSE',
       bruttoReason: 'TEXT',
       nettoReason: 'TEXT',
+      treatmentStrategy: 'VARCHAR(50) DEFAULT "mitigate"',
       owner: 'VARCHAR(255)',
       status: 'VARCHAR(50) DEFAULT "active"',
       acceptanceStatus: 'VARCHAR(50) DEFAULT "draft"',

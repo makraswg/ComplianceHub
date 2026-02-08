@@ -399,6 +399,7 @@ export interface Risk {
   isResidualProbabilityOverridden?: boolean | number;
   bruttoReason?: string;
   nettoReason?: string;
+  treatmentStrategy?: 'mitigate' | 'accept' | 'avoid' | 'transfer';
   owner: string;
   status: 'active' | 'mitigated' | 'accepted' | 'closed';
   acceptanceStatus?: 'draft' | 'pending' | 'approved' | 'rejected';
