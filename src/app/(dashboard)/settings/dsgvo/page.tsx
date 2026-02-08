@@ -1,10 +1,10 @@
-
 "use client";
 
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { 
   FileCheck, 
   Plus, 
@@ -123,7 +123,7 @@ export default function DsgvoSettingsPage() {
     <div className="space-y-8">
       <div className="flex justify-end">
         <button className={cn("h-8 text-[9px] font-bold uppercase gap-2 flex items-center px-3 rounded-md hover:bg-slate-100", showArchived && "text-orange-600 bg-orange-50")} onClick={() => setShowArchived(!showArchived)}>
-          {showArchived ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
+          {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
           {showArchived ? 'Aktive anzeigen' : 'Archiv anzeigen'}
         </button>
       </div>
