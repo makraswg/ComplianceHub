@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -50,7 +49,9 @@ import {
   Target,
   Server,
   AlertCircle,
-  TrendingUp
+  TrendingUp,
+  FileCheck,
+  Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -58,15 +59,16 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature, Resource, Risk } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, Feature, Resource, Risk, ProcessingActivity } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { exportDetailedProcessPdf } from '@/lib/export-utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { updateProcessMetadataAction } from '@/app/actions/process-actions';
+import { toast } from '@/hooks/use-toast';
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -122,22 +124,24 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { dataSource } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
+  const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
 
-  const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
-  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
+  const { data: vvts } = usePluggableCollection<ProcessingActivity>('processingActivities');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const allProcessVersions = useMemo(() => 
@@ -166,26 +170,18 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources?.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  // Aggregated Risks
   const risksData = useMemo(() => {
     if (!allRisks || !currentProcess || !activeVersion) return { direct: [], inherited: [], maxScore: 0 };
-    
-    // Direct risks
     const direct = allRisks.filter(r => r.processId === id);
-    
-    // Inherited risks (from resources used in steps)
     const resourceIdsUsed = new Set<string>();
     activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
       if (n.resourceIds) n.resourceIds.forEach(rid => resourceIdsUsed.add(rid));
     });
-    
     const inherited = allRisks.filter(r => r.assetId && resourceIdsUsed.has(r.assetId) && r.processId !== id);
-    
     const allRelevantRisks = [...direct, ...inherited];
     const maxScore = allRelevantRisks.length > 0 
       ? Math.max(...allRelevantRisks.map(r => r.impact * r.probability))
       : 0;
-
     return { direct, inherited, maxScore };
   }, [allRisks, currentProcess, activeVersion, id]);
 
@@ -196,12 +192,20 @@ export default function ProcessDetailViewPage() {
   }, [currentProcess, activeVersion, media, id]);
 
   const currentDept = useMemo(() => departments?.find(d => d.id === currentProcess?.responsibleDepartmentId), [departments, currentProcess]);
-  
-  const processAudit = useMemo(() => 
-    auditLogs?.filter((e: any) => e.entityId === id && e.entityType === 'process')
-      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) || [],
-    [auditLogs, id]
-  );
+  const currentVvt = useMemo(() => vvts?.find(v => v.id === currentProcess?.vvtId), [vvts, currentProcess]);
+
+  const handleUpdateVvtLink = async (vvtId: string) => {
+    setIsUpdatingVvt(true);
+    try {
+      const res = await updateProcessMetadataAction(id as string, { vvtId: vvtId === 'none' ? undefined : vvtId }, dataSource);
+      if (res.success) {
+        toast({ title: "Datenschutzzweck aktualisiert" });
+        refreshProc();
+      }
+    } finally {
+      setIsUpdatingVvt(false);
+    }
+  };
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -263,6 +267,33 @@ export default function ProcessDetailViewPage() {
         <aside className="w-96 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-8 space-y-10">
+              {/* VVT Linking (Phase 4) */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2">
+                  <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
+                </h3>
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-4 shadow-inner">
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
+                    <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
+                      <SelectTrigger className="h-10 rounded-xl bg-white border-emerald-100 text-xs font-bold">
+                        <SelectValue placeholder="Zweck auswählen..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Kein DSGVO Bezug</SelectItem>
+                        {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {currentVvt && (
+                    <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-sm space-y-2">
+                      <p className="text-[10px] font-bold text-slate-700 leading-tight line-clamp-2">{currentVvt.description}</p>
+                      <Badge className="bg-emerald-500 text-white border-none rounded-full text-[8px] font-black h-4 px-2 uppercase">Aktiv im Register</Badge>
+                    </div>
+                  )}
+                </div>
+              </section>
+
               {/* Maturity Section */}
               {maturity && (
                 <section className="space-y-4">
@@ -279,32 +310,12 @@ export default function ProcessDetailViewPage() {
                         <Activity className="w-6 h-6" />
                       </div>
                     </div>
-                    
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
                         <span className="text-slate-400">Gesamt-Score</span>
                         <span className="text-primary">{maturity.totalPercent}%</span>
                       </div>
                       <Progress value={maturity.totalPercent} className="h-2 rounded-full bg-white/5" />
-                    </div>
-
-                    <div className="space-y-3 pt-4 border-t border-white/5">
-                      {maturity.dimensions.map(dim => (
-                        <div key={dim.name} className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {dim.status === 'complete' ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                              ) : (
-                                <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                              )}
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">{dim.name}</span>
-                            </div>
-                            <span className="text-[9px] font-bold text-slate-500">{dim.score}/{dim.maxScore}</span>
-                          </div>
-                          <Progress value={(dim.score / dim.maxScore) * 100} className="h-1 rounded-full bg-white/5" />
-                        </div>
-                      ))}
                     </div>
                   </Card>
                 </section>
@@ -317,41 +328,15 @@ export default function ProcessDetailViewPage() {
                 </h3>
                 <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-4 shadow-inner">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Identifizierte Risiken</span>
-                    <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[10px] h-5">{risksData.direct.length + risksData.inherited.length}</Badge>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Gefahrenlage</span>
+                    <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[10px] h-5">{risksData.maxScore} Pkt.</Badge>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[9px] font-bold uppercase">
-                      <span className="text-slate-400">Direkt</span>
-                      <span className="text-slate-700">{risksData.direct.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[9px] font-bold uppercase">
-                      <span className="text-slate-400">Vererbt (Assets)</span>
-                      <span className="text-slate-700">{risksData.inherited.length}</span>
-                    </div>
-                  </div>
-                  <Separator className="bg-orange-200/30" />
                   <Button variant="ghost" size="sm" className="w-full text-[9px] font-black uppercase text-orange-700 hover:bg-orange-100 h-8" onClick={() => setViewMode('risks')}>Details anzeigen</Button>
                 </div>
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Stammdaten</h3>
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-4 shadow-inner">
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black uppercase text-slate-400">Abteilung</Label>
-                    <div className="flex items-center gap-2 text-slate-900"><Building2 className="w-4 h-4 text-emerald-600" /><p className="text-sm font-black uppercase">{currentDept?.name || '---'}</p></div>
-                  </div>
-                  <Separator className="bg-slate-200/50" />
-                  <div>
-                    <Label className="text-[9px] font-black uppercase text-slate-400">Beschreibung</Label>
-                    <p className="text-xs text-slate-700 leading-relaxed mt-1">{currentProcess?.description || '---'}</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> IT-Systemunterstützung</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> IT-Unterstützung</h3>
                 <div className="space-y-2">
                   {processResources.map((res: any) => (
                     <div key={res.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-between group cursor-pointer hover:border-indigo-300 transition-all" onClick={() => router.push(`/resources?search=${res.name}`)}>
@@ -359,30 +344,16 @@ export default function ProcessDetailViewPage() {
                       <Badge variant="outline" className="text-[7px] font-black uppercase h-4 px-1">{res.assetType}</Badge>
                     </div>
                   ))}
-                  {processResources.length === 0 && <p className="text-[10px] text-slate-300 italic px-1">Keine IT-Ressourcen zugeordnet</p>}
                 </div>
               </section>
 
               <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Verarbeitete Datenobjekte</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Verarbeitete Daten</h3>
                 <div className="space-y-2">
                   {processFeatures.map((f: any) => (
                     <div key={f.id} className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/30 transition-all" onClick={() => router.push(`/features/${f.id}`)}>
                       <span className="text-[11px] font-bold text-slate-700">{f.name}</span>
                       <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-colors" />
-                    </div>
-                  ))}
-                  {processFeatures.length === 0 && <p className="text-[10px] text-slate-300 italic px-1">Keine Datenobjekte zugeordnet</p>}
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Änderungshistorie</h3>
-                <div className="space-y-3">
-                  {processAudit.slice(0, 10).map((log: any) => (
-                    <div key={log.id} className="p-3 bg-slate-50 border rounded-xl space-y-1.5 hover:bg-white transition-all">
-                      <div className="flex items-center justify-between"><span className="text-[9px] font-black text-slate-900 uppercase">{log.actorUid}</span><span className="text-[8px] font-bold text-slate-400">{new Date(log.timestamp).toLocaleDateString()}</span></div>
-                      <p className="text-[10px] text-slate-600 leading-tight italic">{log.action}</p>
                     </div>
                   ))}
                 </div>
@@ -409,9 +380,6 @@ export default function ProcessDetailViewPage() {
                       <p className="text-xs text-slate-500 font-medium">Betrachtung der prozessspezifischen Gefahrenlage.</p>
                     </div>
                   </div>
-                  <Button className="bg-slate-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest h-10 px-8 rounded-xl shadow-lg" onClick={() => router.push(`/risks?search=${currentProcess?.title}`)}>
-                    Neues Risiko erfassen
-                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -423,20 +391,17 @@ export default function ProcessDetailViewPage() {
                     </CardHeader>
                     <CardContent className="p-0">
                       {risksData.direct.length === 0 ? (
-                        <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken definiert.</div>
+                        <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>
                       ) : (
                         <div className="divide-y divide-slate-50">
                           {risksData.direct.map(r => (
                             <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
                               <div className="flex items-center gap-3">
                                 <Badge className={cn(
-                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none shadow-sm",
+                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
                                   (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
                                 )}>{r.impact * r.probability}</Badge>
-                                <div>
-                                  <p className="text-[11px] font-bold text-slate-800">{r.title}</p>
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase">{r.category}</p>
-                                </div>
+                                <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
                               </div>
                               <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                             </div>
@@ -449,56 +414,30 @@ export default function ProcessDetailViewPage() {
                   <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
                     <CardHeader className="bg-indigo-50/30 border-b p-6">
                       <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900">
-                        <Layers className="w-4 h-4 text-indigo-600" /> Vererbte Risiken (IT-Systeme)
+                        <Layers className="w-4 h-4 text-indigo-600" /> Vererbte Risiken (Assets)
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                       {risksData.inherited.length === 0 ? (
-                        <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken identifiziert.</div>
+                        <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div>
                       ) : (
                         <div className="divide-y divide-slate-50">
-                          {risksData.inherited.map(r => {
-                            const sourceAsset = resources?.find(res => res.id === r.assetId);
-                            return (
-                              <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
-                                <div className="flex items-center gap-3">
-                                  <Badge className={cn(
-                                    "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none shadow-sm",
-                                    (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
-                                  )}>{r.impact * r.probability}</Badge>
-                                  <div>
-                                    <p className="text-[11px] font-bold text-slate-800">{r.title}</p>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                      <Badge variant="outline" className="text-[7px] font-black h-3.5 border-indigo-100 text-indigo-600">{sourceAsset?.name || 'Asset'}</Badge>
-                                    </div>
-                                  </div>
-                                </div>
-                                <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                          {risksData.inherited.map(r => (
+                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
+                              <div className="flex items-center gap-3">
+                                <Badge className={cn(
+                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
+                                  (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
+                                )}>{r.impact * r.probability}</Badge>
+                                <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
                               </div>
-                            );
-                          })}
+                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                            </div>
+                          ))}
                         </div>
                       )}
                     </CardContent>
                   </Card>
-                </div>
-
-                <div className="p-8 rounded-3xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary opacity-10 blur-3xl -translate-y-1/2 translate-x-1/2" />
-                  <div className="relative z-10 space-y-6">
-                    <div className="flex items-center gap-3">
-                      <ShieldCheck className="w-6 h-6 text-primary" />
-                      <h3 className="text-lg font-headline font-bold uppercase tracking-widest">Risiko-Fazit</h3>
-                    </div>
-                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                      Der Prozess weist eine maximale Risikolast von <span className="text-primary font-black">{risksData.maxScore} Punkten</span> auf. 
-                      {risksData.maxScore >= 15 
-                        ? " Dies entspricht einer kritischen Gefährdungslage. Zusätzliche Kontrollen (TOM) werden dringend empfohlen."
-                        : risksData.maxScore >= 8 
-                        ? " Die Gefährdungslage ist moderat. Bestehende Kontrollen sollten regelmäßig auf Wirksamkeit geprüft werden."
-                        : " Das Risiko-Profil ist im grünen Bereich."}
-                    </p>
-                  </div>
                 </div>
               </div>
             </ScrollArea>
@@ -512,12 +451,9 @@ export default function ProcessDetailViewPage() {
                     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
                     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
                     
-                    // Risks for this step
-                    const stepRisks = allRisks?.filter(r => r.assetId && node.resourceIds?.includes(r.assetId));
-
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
-                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm", node.type === 'start' ? "bg-white border-slate-900 text-slate-900" : "bg-white border-slate-200 text-slate-400")}>
+                        <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm bg-white")}>
                           <span className="font-headline font-bold text-lg">{i + 1}</span>
                         </div>
                         <Card className="rounded-2xl border shadow-sm overflow-hidden group hover:border-primary/20 transition-all">
@@ -529,34 +465,20 @@ export default function ProcessDetailViewPage() {
                                 {nodeResources && nodeResources.length > 0 && (
                                   <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-indigo-600"><Server className="w-3.5 h-3.5" /> {nodeResources.length} Systeme</div>
                                 )}
-                                {stepRisks && stepRisks.length > 0 && (
-                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-red-600 animate-pulse"><AlertTriangle className="w-3.5 h-3.5" /> Gefährdung erkannt</div>
-                                )}
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent className="p-6 space-y-6">
                             {node.description && <p className="text-sm text-slate-700 leading-relaxed">{node.description}</p>}
-                            
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-50">
                               {nodeLinks && nodeLinks.length > 0 && (
                                 <div className="space-y-2">
-                                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Datenobjekte</Label>
+                                  <Label className="text-[9px] font-black uppercase text-slate-400">Datenobjekte</Label>
                                   <div className="flex flex-wrap gap-2">
                                     {nodeLinks.map((l: any) => {
                                       const f = allFeatures?.find(feat => feat.id === l.featureId);
                                       return <Badge key={l.id} variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[9px] font-bold h-6 px-2">{f?.name || 'Daten'}</Badge>;
                                     })}
-                                  </div>
-                                </div>
-                              )}
-                              {nodeResources && nodeResources.length > 0 && (
-                                <div className="space-y-2">
-                                  <Label className="text-[9px] font-black uppercase text-indigo-400 tracking-widest">IT-Systeme</Label>
-                                  <div className="flex flex-wrap gap-2">
-                                    {nodeResources.map(r => (
-                                      <Badge key={r.id} variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-100 text-[9px] font-bold h-6 px-2">{r.name}</Badge>
-                                    ))}
                                   </div>
                                 </div>
                               )}
