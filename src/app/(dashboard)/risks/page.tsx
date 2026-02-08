@@ -39,7 +39,7 @@ import {
   Target,
   ExternalLink,
   ClipboardCheck,
-  ZapIcon
+  AlertCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -75,7 +75,9 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { getRiskAdvice, RiskAdvisorOutput } from '@/ai/flows/risk-advisor-flow';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function RiskDashboardContent() {
   const router = useRouter();
@@ -182,6 +184,11 @@ function RiskDashboardContent() {
       subRisksMap: subMap 
     };
   }, [risks, search, categoryFilter, activeTenantId]);
+
+  const linkedMeasures = useMemo(() => {
+    if (!selectedRisk || !allMeasures) return [];
+    return allMeasures.filter(m => m.riskIds?.includes(selectedRisk.id));
+  }, [selectedRisk, allMeasures]);
 
   const handleSaveRisk = async () => {
     if (!title) {
@@ -489,7 +496,7 @@ function RiskDashboardContent() {
                 <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                   <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
                   {risk.hazardId && (
-                    <DropdownMenuItem onSelect={() => { setSelectedRisk(risk); loadCatalogSuggestions(risk); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><ZapIcon className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => { setSelectedRisk(risk); loadCatalogSuggestions(risk); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Zap className="w-3.5 h-3.5" /> ⚡ BSI Vorschläge laden</DropdownMenuItem>
                   )}
                   <DropdownMenuItem onSelect={() => openQuickMeasure(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-emerald-600"><FileCheck className="w-3.5 h-3.5" /> Maßnahme hinzufügen</DropdownMenuItem>
                   {!isSub && (
@@ -824,7 +831,7 @@ function RiskDashboardContent() {
 
       {/* Catalog Suggestions Dialog */}
       <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white">
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-blue-600 text-white shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shadow-sm">
