@@ -52,6 +52,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { saveResourceAction } from '@/app/actions/resource-actions';
 import { toast } from '@/hooks/use-toast';
 import { usePlatformAuth } from '@/context/auth-context';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function ResourceDetailPage() {
   const { id } = useParams();
