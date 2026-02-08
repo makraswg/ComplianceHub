@@ -22,7 +22,8 @@ import {
   RotateCcw,
   ShieldCheck,
   ChevronRight,
-  Globe
+  Globe,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
