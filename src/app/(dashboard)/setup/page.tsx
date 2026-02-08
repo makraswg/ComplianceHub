@@ -284,6 +284,8 @@ export default function SetupPage() {
                           <li>Importierten Kataloge & Gefährdungen</li>
                           <li>Ressourcen & Rollendefinitionen</li>
                           <li>Alle Zuweisungen & Audit-Logs</li>
+                          <li>Aufgaben (Tickets) & Kommentare</li>
+                          <li>Medienanhänge & OCR-Daten</li>
                         </ul>
                         <div className="mt-4 italic text-[10px]">Plattform-Administratoren, Mandanten-Stammdaten und technische Konfigurationen (Jira, KI, SMTP) werden nicht gelöscht.</div>
                       </div>

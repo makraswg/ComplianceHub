@@ -54,7 +54,8 @@ const collectionToTableMap: { [key: string]: string } = {
   feature_processes: 'feature_process_steps', // Alias for backward compatibility
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
-  task_comments: 'task_comments'
+  task_comments: 'task_comments',
+  media: 'media'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -253,7 +254,8 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'feature_dependencies',
       'feature_process_steps',
       'tasks',
-      'task_comments'
+      'task_comments',
+      'media'
     ];
 
     for (const table of tablesToClear) {
