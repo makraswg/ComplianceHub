@@ -69,6 +69,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName, enabled, data]);
 
   const refresh = useCallback(() => {
+    console.log(`[Cache] Clearing entry for ${collectionName} due to refresh request.`);
     delete mysqlCache[collectionName];
     isInitialFetch.current = true;
     prevDataHash.current = "";
@@ -92,14 +93,14 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     const startPolling = () => {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
       pollingInterval.current = setInterval(() => {
-        if (document.visibilityState === 'visible') {
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
           fetchData(true);
         }
       }, 30000); 
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true);
         startPolling();
       } else if (pollingInterval.current) {
@@ -108,11 +109,15 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     };
 
     startPolling();
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
       if (pollingInterval.current) clearInterval(pollingInterval.current);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [enabled, version, fetchData]);
 

@@ -58,7 +58,6 @@ const collectionToTableMap: { [key: string]: string } = {
   feature_links: 'feature_links',
   feature_dependencies: 'feature_dependencies',
   feature_process_steps: 'feature_process_steps',
-  feature_processes: 'feature_process_steps', 
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
   task_comments: 'task_comments',
@@ -139,6 +138,10 @@ export async function getCollectionData(collectionName: string, dataSource: Data
 }
 
 export async function saveCollectionRecord(collectionName: string, id: string, data: any, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
+  if (dataSource === 'mock') {
+    console.warn(`[Mock] Save requested for ${collectionName}/${id}. Note: Mock changes are not persisted.`);
+    return { success: true, error: null };
+  }
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
@@ -204,6 +207,12 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 }
 
 export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
+  console.log(`[Backend] Delete requested: ${collectionName} with ID: ${id} via ${dataSource}`);
+  
+  if (dataSource === 'mock') {
+    return { success: true, error: null };
+  }
+  
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
@@ -211,16 +220,24 @@ export async function deleteCollectionRecord(collectionName: string, id: string,
       return { success: true, error: null };
     } catch (e: any) { return { success: false, error: e.message }; }
   }
+  
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: 'Invalid table' };
+  if (!tableName) return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
+  
   let connection;
   try {
     connection = await getMysqlConnection();
-    await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
+    const [result]: any = await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
     connection.release();
+    
+    if (result.affectedRows === 0) {
+      console.warn(`[MySQL] Delete executed but 0 rows affected for ID ${id} in ${tableName}`);
+    }
+    
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
+    console.error(`[MySQL] Delete failed for ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }

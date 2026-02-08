@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -32,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export default function ResourceOptionsPage() {
   const { dataSource } = useSettings();
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
   // Asset Type State
   const [newTypeName, setNewTypeName] = useState('');
@@ -103,29 +105,33 @@ export default function ResourceOptionsPage() {
   const handleDelete = async (coll: string, id: string) => {
     if (!confirm("Eintrag permanent entfernen?")) return;
     
+    setIsDeleting(id);
     try {
+      console.log(`[Frontend] Requesting delete for ${coll} with ID: ${id}`);
       const res = await deleteCollectionRecord(coll, id, dataSource);
-      if (res.success) {
-        toast({ title: "Eintrag gelöscht" });
-        if (coll === 'assetTypeOptions') {
-          setTimeout(() => refreshTypes(), 100);
-        } else {
-          setTimeout(() => refreshModels(), 100);
-        }
+      
+      if (res && res.success) {
+        toast({ title: "Eintrag erfolgreich gelöscht" });
+        // Force refresh
+        if (coll === 'assetTypeOptions') refreshTypes();
+        else refreshModels();
       } else {
+        const errorMsg = res?.error || "Die Datenbank hat die Löschung verweigert.";
         toast({ 
           variant: "destructive", 
-          title: "Löschen fehlgeschlagen", 
-          description: res.error || "Die Datenbank hat die Anfrage abgelehnt." 
+          title: "Löschvorgang fehlgeschlagen", 
+          description: errorMsg 
         });
       }
     } catch (e: any) {
-      console.error("Delete error:", e);
+      console.error("Critical delete error in component:", e);
       toast({ 
         variant: "destructive", 
-        title: "Systemfehler", 
-        description: e.message || "Ein unerwarteter Fehler ist aufgetreten." 
+        title: "Systemfehler beim Löschen", 
+        description: e.message || "Ein unerwarteter Kommunikationsfehler ist aufgetreten." 
       });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -174,7 +180,15 @@ export default function ResourceOptionsPage() {
                           <Switch checked={!!opt.enabled} onCheckedChange={() => toggleEnabled('assetTypeOptions', opt)} />
                           <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{opt.name}</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete('assetTypeOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" 
+                          disabled={isDeleting === opt.id}
+                          onClick={() => handleDelete('assetTypeOptions', opt.id)}
+                        >
+                          {isDeleting === opt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </Button>
                       </div>
                     ))}
                     {(!assetTypes || assetTypes.length === 0) && !typesLoading && (
@@ -208,7 +222,15 @@ export default function ResourceOptionsPage() {
                           <Switch checked={!!opt.enabled} onCheckedChange={() => toggleEnabled('operatingModelOptions', opt)} />
                           <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{opt.name}</span>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" onClick={() => handleDelete('operatingModelOptions', opt.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" 
+                          disabled={isDeleting === opt.id}
+                          onClick={() => handleDelete('operatingModelOptions', opt.id)}
+                        >
+                          {isDeleting === opt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </Button>
                       </div>
                     ))}
                     {(!operatingModels || operatingModels.length === 0) && !modelsLoading && (
