@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -310,7 +311,7 @@ export default function UnifiedOrganizationPage() {
       if (res.success) {
         setIsEditorOpen(false);
         refreshJobs();
-        toast({ title: "Stelle gespeichert" });
+        toast({ title: "Rollenprofil gespeichert" });
       }
     } finally {
       setIsSavingJob(false);
@@ -332,7 +333,7 @@ export default function UnifiedOrganizationPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Organisationsstruktur</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten & Stellenplan</h1>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten & Rollenplan</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Blueprints.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
@@ -357,7 +358,7 @@ export default function UnifiedOrganizationPage() {
             <div className="relative group max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <Input 
-                placeholder="Nach Name, Abteilung oder Stelle suchen..." 
+                placeholder="Nach Name, Abteilung oder Rolle suchen..." 
                 className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -422,7 +423,7 @@ export default function UnifiedOrganizationPage() {
                                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept.name}</h4>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
-                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3" /> Stelle</Button>
+                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3" /> Rolle</Button>
                                 <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
                               </div>
                             </div>
@@ -444,7 +445,7 @@ export default function UnifiedOrganizationPage() {
                                 {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
                                   <div className="col-span-full pt-2">
                                     <div className="flex gap-2 p-2 bg-white rounded-lg border-2 border-primary shadow-sm">
-                                      <Input autoFocus placeholder="Name der Stelle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none text-[11px] font-bold" />
+                                      <Input autoFocus placeholder="Name der Rolle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none text-[11px] font-bold" />
                                       <Button size="sm" className="h-8 px-4 font-bold text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
                                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
                                     </div>
@@ -518,7 +519,7 @@ export default function UnifiedOrganizationPage() {
                 <Briefcase className="w-6 h-6" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Stellenprofil & Blueprint</DialogTitle>
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Rollenprofil & Blueprint</DialogTitle>
                 <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Definiert Standard-Rechte für: {jobName}</DialogDescription>
               </div>
             </div>
@@ -527,18 +528,18 @@ export default function UnifiedOrganizationPage() {
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary">Beschreibung</TabsTrigger>
-                <TabsTrigger value="rbac" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Standard-Rollen (RBAC)</TabsTrigger>
+                <TabsTrigger value="rbac" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Standard-Systemrollen (RBAC)</TabsTrigger>
               </TabsList>
             </div>
             <ScrollArea className="flex-1 bg-slate-50/30">
               <div className="p-8 space-y-10">
                 <TabsContent value="base" className="mt-0 space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung der Stelle</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung der Rolle</Label>
                     <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-12 font-bold text-sm rounded-xl border-slate-200" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Stellenbeschreibung (ISO 9001 Kontext)</Label>
+                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Rollenbeschreibung (ISO 9001 Kontext)</Label>
                     <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] p-5 rounded-2xl text-xs font-medium leading-relaxed bg-white shadow-inner" placeholder="Was sind die Hauptaufgaben und Verantwortlichkeiten?..." />
                   </div>
                 </TabsContent>
@@ -547,7 +548,7 @@ export default function UnifiedOrganizationPage() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 uppercase">Berechtigungs-Blueprint</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">Wählen Sie Rollen, die ein Mitarbeiter in dieser Position automatisch erhalten soll.</p>
+                      <p className="text-[10px] text-slate-500 font-medium">Wählen Sie Systemrollen, die ein Mitarbeiter in diesem Rollenprofil automatisch erhalten soll.</p>
                     </div>
                     <div className="relative group">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />

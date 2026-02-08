@@ -35,7 +35,11 @@ import {
   Mail,
   RotateCcw,
   Globe,
-  ShieldAlert
+  ShieldAlert,
+  Plus,
+  Pencil,
+  Trash2,
+  Save
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -43,7 +47,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department } from '@/lib/types';
+import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department, Entitlement } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -51,9 +55,17 @@ import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { saveResourceAction } from '@/app/actions/resource-actions';
+import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { usePlatformAuth } from '@/context/auth-context';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 export default function ResourceDetailPage() {
   const { id } = useParams();
@@ -62,6 +74,16 @@ export default function ResourceDetailPage() {
   const { activeTenantId, dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [isInheriting, setIsInheriting] = useState(false);
+
+  // Role Management State
+  const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
+  const [isSavingRole, setIsSavingRole] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Entitlement | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [roleDesc, setRoleDesc] = useState('');
+  const [roleRiskLevel, setRoleRiskLevel] = useState<'low' | 'medium' | 'high'>('low');
+  const [roleIsAdmin, setRoleIsAdmin] = useState(false);
+  const [roleMapping, setRoleMapping] = useState('');
 
   // Data
   const { data: resources, isLoading: isResLoading, refresh: refreshRes } = usePluggableCollection<Resource>('resources');
@@ -77,10 +99,12 @@ export default function ResourceDetailPage() {
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
+  const { data: entitlements, refresh: refreshRoles } = usePluggableCollection<Entitlement>('entitlements');
 
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
+  const resourceRoles = useMemo(() => entitlements?.filter(e => e.resourceId === id) || [], [entitlements, id]);
   
   // Resolved Internal System Owner
   const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
@@ -179,6 +203,53 @@ export default function ResourceDetailPage() {
     } finally {
       setIsInheriting(false);
     }
+  };
+
+  const resetRoleForm = () => {
+    setSelectedRole(null);
+    setRoleName('');
+    setRoleDesc('');
+    setRoleRiskLevel('low');
+    setRoleIsAdmin(false);
+    setRoleMapping('');
+  };
+
+  const handleSaveRole = async () => {
+    if (!roleName || !resource) return;
+    setIsSavingRole(true);
+    const roleId = selectedRole?.id || `ent-${Math.random().toString(36).substring(2, 9)}`;
+    const roleData: Entitlement = {
+      ...selectedRole,
+      id: roleId,
+      resourceId: resource.id,
+      name: roleName,
+      description: roleDesc,
+      riskLevel: roleRiskLevel,
+      isAdmin: roleIsAdmin,
+      externalMapping: roleMapping,
+      tenantId: resource.tenantId
+    };
+
+    try {
+      const res = await saveCollectionRecord('entitlements', roleId, roleData, dataSource);
+      if (res.success) {
+        toast({ title: selectedRole ? "Rolle aktualisiert" : "Rolle angelegt" });
+        setIsRoleDialogOpen(false);
+        refreshRoles();
+      }
+    } finally {
+      setIsSavingRole(false);
+    }
+  };
+
+  const openRoleEdit = (role: Entitlement) => {
+    setSelectedRole(role);
+    setRoleName(role.name);
+    setRoleDesc(role.description || '');
+    setRoleRiskLevel(role.riskLevel as any || 'low');
+    setRoleIsAdmin(!!role.isAdmin);
+    setRoleMapping(role.externalMapping || '');
+    setIsRoleDialogOpen(true);
   };
 
   if (!mounted) return null;
@@ -314,8 +385,11 @@ export default function ResourceDetailPage() {
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="impact" className="space-y-6">
+          <Tabs defaultValue="roles" className="space-y-6">
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
+              <TabsTrigger value="roles" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Rollen & Berechtigungen
+              </TabsTrigger>
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Zap className="w-3.5 h-3.5 text-primary" /> Impact & Datenlast
               </TabsTrigger>
@@ -323,6 +397,63 @@ export default function ResourceDetailPage() {
                 <Info className="w-3.5 h-3.5" /> Technische Daten
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="roles" className="space-y-6 animate-in fade-in duration-500">
+              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <div>
+                      <CardTitle className="text-sm font-bold">Systemrollen</CardTitle>
+                      <CardDescription className="text-[10px] font-bold uppercase">Berechtigungsprofile für dieses IT-System</CardDescription>
+                    </div>
+                  </div>
+                  <Button size="sm" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 bg-primary text-white shadow-sm" onClick={() => { resetRoleForm(); setIsRoleDialogOpen(true); }}>
+                    <Plus className="w-3.5 h-3.5" /> Rolle hinzufügen
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-50/30">
+                      <TableRow>
+                        <TableHead className="py-3 px-6 font-bold text-[10px] uppercase text-slate-400">Rolle</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Risiko</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Typ</TableHead>
+                        <TableHead className="text-right px-6 font-bold text-[10px] uppercase text-slate-400">Aktionen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resourceRoles.map(role => (
+                        <TableRow key={role.id} className="group hover:bg-slate-50 border-b last:border-0">
+                          <TableCell className="py-4 px-6">
+                            <div className="font-bold text-xs text-slate-800">{role.name}</div>
+                            <div className="text-[9px] text-slate-400 font-medium truncate max-w-xs">{role.description || 'Keine Beschreibung'}</div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={cn(
+                              "text-[8px] font-black h-4 border-none",
+                              role.riskLevel === 'high' ? "bg-red-50 text-red-600" : role.riskLevel === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                            )}>{role.riskLevel?.toUpperCase()}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {role.isAdmin ? <Badge className="bg-red-600 text-white border-none rounded-full h-4 px-1.5 text-[7px] font-black">ADMIN</Badge> : <Badge variant="outline" className="text-[7px] font-bold text-slate-400 h-4 px-1.5">Standard</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right px-6">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => openRoleEdit(role)}><Pencil className="w-3.5 h-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100" onClick={() => { if(confirm("Rolle permanent löschen?")) deleteCollectionRecord('entitlements', role.id, dataSource).then(() => refreshRoles()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {resourceRoles.length === 0 && (
+                        <TableRow><TableCell colSpan={4} className="py-12 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Rollen definiert</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="impact" className="space-y-8 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -450,6 +581,60 @@ export default function ResourceDetailPage() {
           </Tabs>
         </div>
       </div>
+
+      {/* Role Management Dialog */}
+      <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+        <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-lg border border-white/10">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">{selectedRole ? 'Systemrolle bearbeiten' : 'Neue Systemrolle'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">{resource.name}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rollenbezeichnung</Label>
+              <Input value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="z.B. IT-Admin, Read-Only..." className="rounded-xl h-11 border-slate-200 font-bold" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Risiko-Level</Label>
+                <Select value={roleRiskLevel} onValueChange={(v: any) => setRoleRiskLevel(v)}>
+                  <SelectTrigger className="rounded-xl h-11 border-slate-200"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Niedrig</SelectItem>
+                    <SelectItem value="medium">Mittel</SelectItem>
+                    <SelectItem value="high">Hoch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border mt-6">
+                <Label className="text-[10px] font-bold uppercase text-slate-500">Admin-Rechte</Label>
+                <Switch checked={roleIsAdmin} onCheckedChange={setRoleIsAdmin} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Beschreibung</Label>
+              <Textarea value={roleDesc} onChange={e => setRoleDesc(e.target.value)} className="min-h-[80px] rounded-xl text-xs" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Technisches Mapping (External ID)</Label>
+              <Input value={roleMapping} onChange={e => setRoleMapping(e.target.value)} placeholder="role_admin_prod" className="rounded-xl h-11 border-slate-200 font-mono text-xs" />
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsRoleDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={handleSaveRole} disabled={isSavingRole || !roleName} className="rounded-xl h-11 px-8 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              {isSavingRole ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

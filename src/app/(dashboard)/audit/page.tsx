@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
@@ -61,6 +62,22 @@ export default function AuditLogPage() {
     return tenant ? tenant.slug : id;
   };
 
+  const getEntityLabel = (type: string) => {
+    const map: Record<string, string> = {
+      'user': 'Identität',
+      'resource': 'System',
+      'entitlement': 'Systemrolle',
+      'assignment': 'Zuweisung',
+      'jobTitles': 'Rollenprofil',
+      'bundle': 'Onboarding-Paket',
+      'group': 'Zuweisungsgruppe',
+      'risk': 'Risiko',
+      'process': 'Prozess',
+      'feature': 'Datenobjekt'
+    };
+    return map[type] || type;
+  };
+
   const filteredLogs = useMemo(() => {
     if (!auditLogs) return [];
     
@@ -91,7 +108,7 @@ export default function AuditLogPage() {
       'Mandant': getTenantSlug(log.tenantId),
       'Akteur': log.actorUid,
       'Aktion': log.action,
-      'Entität Typ': log.entityType,
+      'Entität Typ': getEntityLabel(log.entityType),
       'Entität ID': log.entityId
     }));
     exportToExcel(data, "AuditLog_".concat(new Date().toISOString().split('T')[0]));
@@ -108,7 +125,7 @@ export default function AuditLogPage() {
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">System Ledger</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Audit Log</h1>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Audit Log</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Lückenlose Protokollierung aller Änderungen.</p>
           </div>
         </div>
@@ -156,11 +173,12 @@ export default function AuditLogPage() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="hover:bg-transparent border-b">
-                  <TableHead className="py-4 px-6 font-bold text-[10px] text-slate-400">Zeitpunkt</TableHead>
-                  <TableHead className="font-bold text-[10px] text-slate-400">Mandant</TableHead>
-                  <TableHead className="font-bold text-[10px] text-slate-400">Akteur</TableHead>
-                  <TableHead className="font-bold text-[10px] text-slate-400">Aktion</TableHead>
-                  <TableHead className="text-right px-6 font-bold text-[10px] text-slate-400">Details</TableHead>
+                  <TableHead className="py-4 px-6 font-bold text-[10px] text-slate-400 uppercase">Zeitpunkt</TableHead>
+                  <TableHead className="font-bold text-[10px] text-slate-400 uppercase">Mandant</TableHead>
+                  <TableHead className="font-bold text-[10px] text-slate-400 uppercase">Akteur</TableHead>
+                  <TableHead className="font-bold text-[10px] text-slate-400 uppercase">Aktion</TableHead>
+                  <TableHead className="font-bold text-[10px] text-slate-400 uppercase">Typ</TableHead>
+                  <TableHead className="text-right px-6 font-bold text-[10px] text-slate-400 uppercase">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -173,13 +191,13 @@ export default function AuditLogPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
+                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5 uppercase">
                         {getTenantSlug(log.tenantId)}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-bold text-primary">
+                        <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center text-[10px] font-bold text-primary shadow-inner">
                           {log.actorUid?.charAt(0)}
                         </div>
                         <span className="font-bold text-xs truncate max-w-[120px]">{log.actorUid}</span>
@@ -187,6 +205,9 @@ export default function AuditLogPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs font-bold leading-relaxed block max-w-sm group-hover:text-primary transition-colors">{log.action}</span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-[8px] font-black uppercase border-none bg-slate-100 text-slate-500 h-4">{getEntityLabel(log.entityType)}</Badge>
                     </TableCell>
                     <TableCell className="text-right px-6">
                       <Button 
@@ -225,26 +246,26 @@ export default function AuditLogPage() {
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">Akteur</p>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 shadow-inner">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1 uppercase">Akteur</p>
                   <p className="text-xs font-bold truncate">{selectedLog?.actorUid}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">Mandant</p>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 shadow-inner">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1 uppercase">Mandant</p>
                   <p className="text-xs font-bold text-primary">{getTenantSlug(selectedLog?.tenantId)}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="text-[9px] font-bold text-slate-400 mb-1">Zeitpunkt</p>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 shadow-inner">
+                  <p className="text-[9px] font-bold text-slate-400 mb-1 uppercase">Zeitpunkt</p>
                   <p className="text-xs font-bold">{selectedLog?.timestamp && new Date(selectedLog.timestamp).toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <h4 className="text-[9px] font-bold text-slate-400 flex items-center gap-1.5 ml-1">
+                  <h4 className="text-[9px] font-black uppercase text-slate-400 flex items-center gap-1.5 ml-1">
                     <FileJson className="w-3 h-3 text-slate-300" /> Vorher
                   </h4>
-                  <div className="rounded-xl bg-slate-50 p-4 h-60 border border-slate-100">
+                  <div className="rounded-xl bg-slate-50 p-4 h-60 border border-slate-100 shadow-inner">
                     <ScrollArea className="h-full w-full">
                       <pre className="text-[10px] font-mono text-slate-500 leading-relaxed">
                         {selectedLog?.before ? JSON.stringify(selectedLog.before, null, 2) : "--- Keine Daten ---"}
@@ -253,10 +274,10 @@ export default function AuditLogPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <h4 className="text-[9px] font-bold text-emerald-600 flex items-center gap-1.5 ml-1">
+                  <h4 className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1.5 ml-1">
                     <ArrowRight className="w-3 h-3" /> Nachher
                   </h4>
-                  <div className="rounded-xl bg-emerald-50/20 p-4 h-60 border border-emerald-100">
+                  <div className="rounded-xl bg-emerald-50/20 p-4 h-60 border border-emerald-100 shadow-inner">
                     <ScrollArea className="h-full w-full">
                       <pre className="text-[10px] font-mono text-emerald-900 leading-relaxed">
                         {selectedLog?.after ? JSON.stringify(selectedLog.after, null, 2) : "--- Keine Daten ---"}
@@ -269,7 +290,7 @@ export default function AuditLogPage() {
           </ScrollArea>
 
           <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
-            <Button size="sm" onClick={() => setSelectedLog(null)} className="w-full sm:w-auto rounded-md h-10 px-8 font-bold text-xs shadow-sm">Schließen</Button>
+            <Button size="sm" onClick={() => setSelectedLog(null)} className="w-full sm:w-auto rounded-xl h-10 px-8 font-bold text-xs shadow-lg uppercase tracking-widest">Schließen</Button>
           </div>
         </DialogContent>
       </Dialog>

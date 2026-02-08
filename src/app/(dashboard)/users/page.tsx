@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -399,6 +400,17 @@ export default function UsersPage() {
             <div className="space-y-2">
               <Label className="text-[11px] font-bold text-slate-400 ml-1">Abteilung</Label>
               <Input value={department} onChange={e => setDepartment(e.target.value)} className="rounded-md h-11 border-slate-200" />
+            </div>
+            <div className="space-y-2">
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
+              <Select value={userTitle} onValueChange={setUserTitle}>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                <SelectContent>
+                  {jobTitles?.filter((j: any) => tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
+                    <SelectItem key={j.id} value={j.name}>{j.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>

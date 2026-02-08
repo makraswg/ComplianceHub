@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -32,7 +33,8 @@ import {
   Check,
   ArrowRight,
   Briefcase,
-  Ticket
+  Ticket,
+  Mail
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -245,7 +247,7 @@ export default function LifecyclePage() {
 
   const startOnboarding = async () => {
     if (!newUserName || !newUserEmail || (!selectedBundleId && !selectedJobId)) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name, E-Mail und entweder Paket oder Stelle sind erforderlich." });
+      toast({ variant: "destructive", title: "Fehler", description: "Name, E-Mail und entweder Paket oder Rolle sind erforderlich." });
       return;
     }
     
@@ -285,7 +287,7 @@ export default function LifecyclePage() {
       jiraDescription += `- Name: ${newUserName}\n`;
       jiraDescription += `- E-Mail: ${newUserEmail}\n`;
       jiraDescription += `- Eintrittsdatum: ${onboardingDate}\n`;
-      jiraDescription += `- Position/Stelle: ${job?.name || 'Keine Angabe'}\n\n`;
+      jiraDescription += `- Rollenprofil: ${job?.name || 'Keine Angabe'}\n\n`;
       
       jiraDescription += `GEWÄHLTE PROFILE:\n`;
       if (bundle) jiraDescription += `- Paket: ${bundle.name}\n`;
@@ -429,10 +431,10 @@ export default function LifecyclePage() {
                           <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-slate-50/50" />
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Job Profil</Label>
+                          <Label className="text-[9px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Rollenprofil</Label>
                           <Select value={selectedJobId || ''} onValueChange={setSelectedJobId}>
                             <SelectTrigger className="h-11 rounded-xl border-slate-200 bg-white">
-                              <SelectValue placeholder="Stelle wählen..." />
+                              <SelectValue placeholder="Rolle wählen..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
                               {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
@@ -462,8 +464,8 @@ export default function LifecyclePage() {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Rollenpaket auswählen</Label>
-                    <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 h-4 uppercase">Zusatz-Optionen</Badge>
+                    <Label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-widest">Zusatz-Rollenpaket wählen</Label>
+                    <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black px-2 h-4 uppercase">Optionen</Badge>
                   </div>
                   <ScrollArea className="h-[320px] rounded-2xl border border-slate-100 bg-slate-50/30 p-2 shadow-inner">
                     <div className="grid grid-cols-1 gap-2">
@@ -569,7 +571,7 @@ export default function LifecyclePage() {
                 <TableRow className="hover:bg-transparent border-b">
                   <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Rollenpaket</TableHead>
                   <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
-                  <TableHead className="font-bold text-[11px] text-slate-400 text-center">Rollen</TableHead>
+                  <TableHead className="font-bold text-[11px] text-slate-400 text-center">Inhalt</TableHead>
                   <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
@@ -594,7 +596,7 @@ export default function LifecyclePage() {
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline" className="rounded-full bg-slate-50 text-slate-600 border-none font-bold text-[10px] h-5 px-2">
-                        {bundle.entitlementIds?.length || 0}
+                        {bundle.entitlementIds?.length || 0} Rollen
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right px-6">
@@ -641,7 +643,7 @@ export default function LifecyclePage() {
               </div>
               <div>
                 <DialogTitle className="text-lg font-bold">{selectedBundle ? 'Onboarding-Paket bearbeiten' : 'Neues Paket definieren'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Vordefinierte Rollenzuweisungen für neue Mitarbeiter</DialogDescription>
+                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Vordefinierte Systemrollen für neue Mitarbeiter</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -663,7 +665,7 @@ export default function LifecyclePage() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
-                      <Layers className="w-4 h-4" /> Rollen auswählen ({selectedEntitlementIds.length} gewählt)
+                      <Layers className="w-4 h-4" /> Systemrollen auswählen ({selectedEntitlementIds.length} gewählt)
                     </Label>
                     <p className="text-[10px] text-slate-400 mt-0.5">Diese Rollen werden bei Aktivierung des Pakets automatisch zugewiesen.</p>
                   </div>
@@ -705,8 +707,8 @@ export default function LifecyclePage() {
                         <div className="min-w-0">
                           <p className="text-[11px] font-bold text-slate-800 dark:text-slate-100 truncate">{ent.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[8px] font-bold text-slate-400 truncate max-w-[80px]">{res?.name}</span>
-                            {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[7px] font-bold h-3 px-1">Admin</Badge>}
+                            <span className="text-[8px] font-black uppercase text-slate-400">{res?.name}</span>
+                            {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full h-3 px-1 text-[6px] font-black">Admin</Badge>}
                           </div>
                         </div>
                       </div>
