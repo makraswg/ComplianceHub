@@ -6,7 +6,7 @@ import { logAuditEventAction } from './audit-actions';
 
 /**
  * Generiert eine massive Menge an vernetzten Demo-Daten für eine Wohnungsbaugesellschaft.
- * Erzeugt über 400 Datensätze inklusive BSI-Risikoketten, TOMs und Prozess-Handovers.
+ * Erzeugt über 450 Datensätze inklusive BSI-Risikoketten, TOMs, Prozess-Handovers und Audit-Historie.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -14,17 +14,24 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     const today = now.split('T')[0];
     const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+    // Hilfsfunktion für zeitversetzte Timestamps
+    const offsetDate = (days: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return d.toISOString();
+    };
+
     // --- 1. MANDANTEN ---
     const t1Id = 't-wohnbau-01';
     const t2Id = 't-handwerk-01';
 
     await saveCollectionRecord('tenants', t1Id, {
-      id: t1Id, name: 'Wohnbau Nord GmbH', slug: 'wohnbau-nord', status: 'active', region: 'EU-DSGVO', createdAt: now,
+      id: t1Id, name: 'Wohnbau Nord GmbH', slug: 'wohnbau-nord', status: 'active', region: 'EU-DSGVO', createdAt: offsetDate(30),
       companyDescription: 'Mittelständische Wohnungsbaugesellschaft mit ca. 5.000 Wohneinheiten. Fokus auf Mietverwaltung, WEG-Verwaltung und soziale Stadtentwicklung.'
     }, dataSource);
 
     await saveCollectionRecord('tenants', t2Id, {
-      id: t2Id, name: 'Service-Handwerk Nord GmbH', slug: 'handwerk-nord', status: 'active', region: 'EU-DSGVO', createdAt: now,
+      id: t2Id, name: 'Service-Handwerk Nord GmbH', slug: 'handwerk-nord', status: 'active', region: 'EU-DSGVO', createdAt: offsetDate(30),
       companyDescription: 'Tochtergesellschaft für Instandhaltung. Spezialisiert auf SHK, Elektro und Kleinstreparaturen.'
     }, dataSource);
 
@@ -64,7 +71,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     ];
     for (const r of resourcesData) {
       await saveCollectionRecord('resources', r.id, { 
-        ...r, tenantId: t1Id, status: 'active', createdAt: now, 
+        ...r, tenantId: t1Id, status: 'active', createdAt: offsetDate(25), 
         confidentialityReq: r.criticality, integrityReq: r.criticality, availabilityReq: r.criticality,
         dataClassification: r.criticality === 'high' ? 'confidential' : 'internal'
       }, dataSource);
@@ -87,7 +94,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'f-gehalt', name: 'Gehaltsdaten', carrier: 'geschaeftspartner', criticality: 'high', deptId: 'd-hr', dataStoreId: 'res-ad' }
     ];
     for (const f of featuresData) {
-      await saveCollectionRecord('features', f.id, { ...f, tenantId: t1Id, status: 'active', createdAt: now, updatedAt: now, isComplianceRelevant: true, criticalityScore: 4, confidentialityReq: 'high', integrityReq: 'high', availabilityReq: 'medium' }, dataSource);
+      await saveCollectionRecord('features', f.id, { ...f, tenantId: t1Id, status: 'active', createdAt: offsetDate(20), updatedAt: now, isComplianceRelevant: true, criticalityScore: 4, confidentialityReq: 'high', integrityReq: 'high', availabilityReq: 'medium' }, dataSource);
     }
 
     // --- 7. PROZESSE & VVT (DIE GOLDENE KETTE) ---
@@ -110,7 +117,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
       await saveCollectionRecord('processes', p.id, {
         id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
-        responsibleDepartmentId: p.dept, vvtId: vvtId, createdAt: now, updatedAt: now,
+        responsibleDepartmentId: p.dept, vvtId: vvtId, createdAt: offsetDate(15), updatedAt: now,
         automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily'
       }, dataSource);
 
@@ -126,7 +133,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         id: `ver-${p.id}-1`, process_id: p.id, version: 1, 
         model_json: { nodes, edges: [{id:'e1',source:'start',target:'step1'}, {id:'e2',source:'step1',target:'step2'}, {id:'e3',source:'step2',target:'step3'}, {id:'e4',source:'step3',target:'end'}] },
         layout_json: { positions: {start:{x:50,y:100},step1:{x:200,y:100},step2:{x:400,y:100},step3:{x:600,y:100},end:{x:800,y:100}} },
-        revision: 1, created_at: now
+        revision: 1, created_at: offsetDate(15)
       }, dataSource);
 
       for (const fid of p.features) {
@@ -155,7 +162,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       const riskData: Risk = {
         id: riskId, tenantId: t1Id, title: `${rDef.code}: ${rDef.title}`, 
         category: 'IT-Sicherheit', impact: rDef.impact, probability: rDef.prob, 
-        status: 'active', assetId: rDef.asset, createdAt: now, owner: 'CISO',
+        status: 'active', assetId: rDef.asset, createdAt: offsetDate(10), owner: 'CISO',
         description: `Gefährdung gemäß BSI Kompendium Edition 2023 für Asset ${rDef.asset}.`
       };
       await saveCollectionRecord('risks', riskId, riskData, dataSource);
@@ -181,7 +188,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       await saveCollectionRecord('riskControls', ctrlId, ctrlData, dataSource);
     }
 
-    // --- 9. BENUTZER & HISTORIE ---
+    // --- 9. BENUTZER & ASSIGNMENTS ---
     const usersCount = 15;
     for (let i = 1; i <= usersCount; i++) {
       const uId = `u-demo-${i}`;
@@ -189,23 +196,53 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       await saveCollectionRecord('users', uId, {
         id: uId, tenantId: t1Id, displayName: name, email: `user${i}@wohnbau-nord.local`,
         enabled: true, title: 'Immobilienkaufmann', department: 'Bestandsmanagement', 
-        lastSyncedAt: now, adGroups: ['G_WODIS_USER', 'G_M365_STANDARD']
+        lastSyncedAt: offsetDate(5), adGroups: ['G_WODIS_USER', 'G_M365_STANDARD']
       }, dataSource);
 
       const assId = `ass-demo-${uId}`;
       await saveCollectionRecord('assignments', assId, {
         id: assId, userId: uId, entitlementId: 'e-wodis-user', status: 'active', tenantId: t1Id,
-        grantedBy: 'Onboarding-Wizard', grantedAt: now, validFrom: today, lastReviewedAt: today
+        grantedBy: 'Onboarding-Wizard', grantedAt: offsetDate(5), validFrom: today, lastReviewedAt: today
+      }, dataSource);
+    }
+
+    // --- 10. AUDIT LOG (SYSTEM LEDGER) ---
+    const auditLogs = [
+      { actor: 'admin@compliance-hub.local', action: 'Datenquelle initialisiert (MySQL)', type: 'system', entity: 'database', days: 14 },
+      { actor: 'admin@compliance-hub.local', action: 'BSI Kompendium 2023 importiert', type: 'catalog', entity: 'bsi-2023', days: 13 },
+      { actor: 'admin@compliance-hub.local', action: 'Mandant Wohnbau Nord GmbH angelegt', type: 'tenant', entity: t1Id, days: 12 },
+      { actor: 'it-leitung@wohnbau-nord.local', action: 'Asset registriert: Aareon Wodis Sigma', type: 'resource', entity: 'res-wodis', days: 11 },
+      { actor: 'ciso@wohnbau-nord.local', action: 'Risikoanalyse für ERP-Schnittstelle abgeschlossen', type: 'risk', entity: 'rk-bsi-G_0_14', days: 10 },
+      { actor: 'hr@wohnbau-nord.local', action: 'Mitarbeiter 1 onboarding abgeschlossen', type: 'user', entity: 'u-demo-1', days: 5 },
+      { actor: 'onboarding-wizard', action: 'Zuweisung erteilt: Wodis Standard-Anwender', type: 'assignment', entity: 'ass-demo-u-demo-1', days: 5 },
+      { actor: 'system-job', action: 'LDAP-Sync erfolgreich (15 Identitäten)', type: 'sync-job', entity: 'job-ldap-sync', days: 1 },
+      { actor: 'it-admin@wohnbau-nord.local', action: 'Blueprint angepasst: Immobilienkaufmann', type: 'jobTitles', entity: 'j-immo-kfm', days: 2 },
+      { actor: 'ciso@wohnbau-nord.local', action: 'Kontroll-Prüfung durchgeführt: Backup-Integrität', type: 'riskControl', entity: 'ctrl-rk-bsi-G_0_45', days: 0 }
+    ];
+
+    for (const log of auditLogs) {
+      const eventId = `audit-demo-${Math.random().toString(36).substring(2, 7)}`;
+      await saveCollectionRecord('auditEvents', eventId, {
+        id: eventId,
+        tenantId: 'global',
+        actorUid: log.actor,
+        action: log.action,
+        entityType: log.type,
+        entityId: log.entity,
+        timestamp: offsetDate(log.days),
+        before: { status: 'old' },
+        after: { status: 'new', updated: true }
       }, dataSource);
     }
 
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Seeding V4 (Maximum Fidelity) abgeschlossen.',
+      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Seeding V4 (Maximum Fidelity) inklusive Audit-Historie abgeschlossen.',
       entityType: 'system', entityId: 'seed-v4'
     });
 
-    return { success: true, message: "Enterprise Ökosystem V4 generiert. BSI-Risiken, TOMs und Kontroll-Historie sind vollständig vernetzt." };
+    return { success: true, message: "Enterprise Ökosystem V4 generiert. 450+ Datensätze inklusive Audit-Log und BSI-Ketten sind nun verfügbar." };
   } catch (e: any) {
+    console.error("Seeding Error:", e);
     return { success: false, error: e.message };
   }
 }
