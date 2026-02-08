@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -21,13 +20,14 @@ import {
   X,
   ArrowRightCircle,
   Eye,
-  Map as MapIcon
+  Map as MapIcon,
+  Building2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { useRouter } from 'next/navigation';
-import { Process, ProcessVersion } from '@/lib/types';
+import { Process, ProcessVersion, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -35,6 +35,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function generateMapXml(processes: Process[], relations: { fromId: string; toId: string; label: string }[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -79,10 +80,13 @@ export default function ProcessMapPage() {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('cards');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [deptFilter, setDeptFilter] = useState('all');
   const [selectedProcessIds, setSelectedProcessIds] = useState<string[]>([]);
 
   const { data: processes, isLoading: isProcLoading } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
+  const { data: departments } = usePluggableCollection<Department>('departments');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -109,9 +113,11 @@ export default function ProcessMapPage() {
     return processes.filter(p => {
       const matchTenant = activeTenantId === 'all' || p.tenantId === activeTenantId;
       const matchSearch = p.title.toLowerCase().includes(search.toLowerCase());
-      return matchTenant && matchSearch;
+      const matchStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchDept = deptFilter === 'all' || p.responsibleDepartmentId === deptFilter;
+      return matchTenant && matchSearch && matchStatus && matchDept;
     });
-  }, [processes, search, activeTenantId]);
+  }, [processes, search, statusFilter, deptFilter, activeTenantId]);
 
   const mapProcesses = useMemo(() => {
     if (selectedProcessIds.length === 0) return filteredProcesses;
@@ -171,10 +177,10 @@ export default function ProcessMapPage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden h-[calc(100vh-220px)] border rounded-2xl bg-white dark:bg-slate-950 shadow-sm">
-        <aside className="w-80 border-r bg-slate-50/50 dark:bg-slate-900/50 flex flex-col shrink-0">
-          <div className="p-6 space-y-6">
-            <div className="space-y-4">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Suchen & Filtern</Label>
+        <aside className="w-80 border-r bg-slate-50/50 dark:bg-slate-900/50 flex flex-col shrink-0 overflow-hidden">
+          <div className="p-6 space-y-6 flex-1 flex flex-col min-h-0">
+            <div className="space-y-4 shrink-0">
+              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Suchen & Filtern</Label>
               <div className="relative group">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
                 <Input 
@@ -184,17 +190,41 @@ export default function ProcessMapPage() {
                   onChange={e => setSearch(e.target.value)}
                 />
               </div>
+              
+              <div className="grid grid-cols-1 gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9 text-[10px] font-bold uppercase bg-white border-slate-200">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Status</SelectItem>
+                    <SelectItem value="draft">Entwurf</SelectItem>
+                    <SelectItem value="published">Freigegeben</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={deptFilter} onValueChange={setDeptFilter}>
+                  <SelectTrigger className="h-9 text-[10px] font-bold uppercase bg-white border-slate-200">
+                    <SelectValue placeholder="Abteilung" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Abteilungen</SelectItem>
+                    {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center justify-between">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Selektive Auswahl</Label>
+            <div className="space-y-4 pt-4 border-t flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between shrink-0">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Auswahl ({selectedProcessIds.length})</Label>
                 {selectedProcessIds.length > 0 && (
-                  <Button variant="ghost" size="sm" className="h-6 text-[8px] font-bold uppercase text-red-600 px-2" onClick={() => setSelectedProcessIds([])}>Reset</Button>
+                  <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-red-600 px-2" onClick={() => setSelectedProcessIds([])}>Reset</Button>
                 )}
               </div>
-              <ScrollArea className="h-[40vh]">
-                <div className="space-y-1.5">
+              <ScrollArea className="flex-1 -mx-2 px-2">
+                <div className="space-y-1.5 pb-10">
                   {filteredProcesses.map(proc => (
                     <div 
                       key={proc.id} 
@@ -213,12 +243,15 @@ export default function ProcessMapPage() {
                       </div>
                     </div>
                   ))}
+                  {filteredProcesses.length === 0 && (
+                    <div className="py-10 text-center opacity-30 italic text-[10px]">Keine Prozesse im Filter</div>
+                  )}
                 </div>
               </ScrollArea>
             </div>
           </div>
           
-          <div className="mt-auto p-6 bg-white border-t">
+          <div className="mt-auto p-6 bg-white border-t shrink-0">
             <div className="p-4 bg-slate-50 border border-dashed border-slate-200 text-center space-y-2 rounded-2xl shadow-inner">
               <p className="text-[10px] font-bold uppercase text-slate-400">Netzwerk-Statistik</p>
               <div className="grid grid-cols-2 gap-4">
@@ -229,7 +262,7 @@ export default function ProcessMapPage() {
           </div>
         </aside>
 
-        <main className="flex-1 bg-slate-100 relative overflow-hidden">
+        <main className="flex-1 bg-slate-100 dark:bg-slate-950 relative overflow-hidden">
           {activeTab === 'cards' ? (
             <ScrollArea className="h-full p-8">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20">

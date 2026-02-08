@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -29,7 +28,8 @@ import {
   Eye,
   FileEdit,
   Activity,
-  Zap
+  Zap,
+  Building2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -38,7 +38,7 @@ import { useRouter } from 'next/navigation';
 import { createProcessAction, deleteProcessAction } from '@/app/actions/process-actions';
 import { usePlatformAuth } from '@/context/auth-context';
 import { toast } from '@/hooks/use-toast';
-import { Process, ProcessVersion } from '@/lib/types';
+import { Process, ProcessVersion, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import {
@@ -60,12 +60,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ProcessHubOverview() {
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
+  
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [deptFilter, setDeptFilter] = useState('all');
+  
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -74,6 +79,7 @@ export default function ProcessHubOverview() {
   const { data: processes, isLoading, refresh } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: media } = usePluggableCollection<any>('media');
+  const { data: departments } = usePluggableCollection<Department>('departments');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -84,7 +90,7 @@ export default function ProcessHubOverview() {
     }
     setIsCreating(true);
     try {
-      const res = await createProcessAction(activeTenantId, "Neuer Prozess", user.id, dataSource);
+      const res = await createProcessAction(activeTenantId, "Neuer Prozess", '', dataSource);
       if (res.success) {
         toast({ title: "Prozess angelegt" });
         router.push(`/processhub/${res.processId}`);
@@ -118,9 +124,11 @@ export default function ProcessHubOverview() {
     return processes.filter(p => {
       const matchesTenant = activeTenantId === 'all' || p.tenantId === activeTenantId;
       const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase());
-      return matchesTenant && matchesSearch;
+      const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
+      const matchesDept = deptFilter === 'all' || p.responsibleDepartmentId === deptFilter;
+      return matchesTenant && matchesSearch && matchesStatus && matchesDept;
     });
-  }, [processes, search, activeTenantId]);
+  }, [processes, search, statusFilter, deptFilter, activeTenantId]);
 
   if (!mounted) return null;
 
@@ -142,7 +150,7 @@ export default function ProcessHubOverview() {
             <Network className="w-3.5 h-3.5 mr-2" /> Prozesslandkarte
           </Button>
           <Button size="sm" className="h-9 rounded-lg font-bold text-[11px] px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={handleCreate} disabled={isCreating}>
-            {isCreating ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
+            {isCreating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Plus className="w-3.5 h-3.5 mr-2" />}
             Prozess anlegen
           </Button>
         </div>
@@ -158,9 +166,33 @@ export default function ProcessHubOverview() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2 px-3 h-9 border rounded-lg bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[10px] font-bold text-slate-500 whitespace-nowrap italic">Katalog aktiv</span>
+        
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 h-9 shrink-0">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[120px]">
+              <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Alle Status</SelectItem>
+              <SelectItem value="draft" className="text-xs">Entwurf</SelectItem>
+              <SelectItem value="published" className="text-xs">Freigegeben</SelectItem>
+              <SelectItem value="archived" className="text-xs">Archiv</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 my-auto mx-1" />
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
+            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px]">
+              <Building2 className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Abteilung" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">Alle Abteilungen</SelectItem>
+              {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
+                <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -182,8 +214,9 @@ export default function ProcessHubOverview() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Bezeichnung</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Reifegrad (Maturity)</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Version</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Abteilung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Reifegrad</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Status</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Geändert</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
@@ -193,6 +226,7 @@ export default function ProcessHubOverview() {
                 const version = versions?.find(v => v.process_id === p.id && v.version === p.currentVersion);
                 const pMedia = media?.filter((m: any) => m.entityId === p.id).length || 0;
                 const maturity = calculateProcessMaturity(p, version, pMedia);
+                const dept = departments?.find(d => d.id === p.responsibleDepartmentId);
 
                 return (
                   <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
@@ -210,10 +244,15 @@ export default function ProcessHubOverview() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                        <Building2 className="w-3.5 h-3.5 text-slate-300" /> {dept?.name || '---'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div className="w-full max-w-[140px] space-y-1.5">
+                            <div className="w-full max-w-[140px] space-y-1.5 mx-auto">
                               <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-tighter">
                                 <span className="text-primary">{maturity.levelLabel}</span>
                                 <span className="text-slate-400">{maturity.totalPercent}%</span>
@@ -242,7 +281,10 @@ export default function ProcessHubOverview() {
                       </TooltipProvider>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border">V{p.currentVersion || 1}.0</span>
+                      <Badge variant="outline" className={cn(
+                        "rounded-full text-[9px] font-bold px-2 h-5 border-none",
+                        p.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                      )}>{p.status.toUpperCase()}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
@@ -250,7 +292,7 @@ export default function ProcessHubOverview() {
                         {p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '---'}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right px-6">
+                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1.5">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-white shadow-sm opacity-0 group-hover:opacity-100 transition-all" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${p.id}`); }}>
                           <Eye className="w-4 h-4 text-slate-400" />
