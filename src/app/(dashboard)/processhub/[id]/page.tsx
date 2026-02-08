@@ -481,6 +481,8 @@ export default function ProcessDesignerPage() {
 
   if (!mounted) return null;
 
+  const isReferenceNode = localNodeEdits.type === 'subprocess' || localNodeEdits.type === 'end';
+
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
       <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
@@ -536,8 +538,8 @@ export default function ProcessDesignerPage() {
                     const nodeFeats = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id).length || 0;
                     return (
                       <div key={node.id} className={cn("group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => { setSelectedNodeId(node.id); setIsStepDialogOpen(true); }}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-slate-50 text-slate-500")}>
-                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border relative", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-slate-50 text-slate-500")}>
+                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                           {nodeMedia > 0 && <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white rounded-full flex items-center justify-center text-[8px] font-bold border border-white">{nodeMedia}</div>}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -681,7 +683,7 @@ export default function ProcessDesignerPage() {
               <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
                 <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Offene Punkte</h4>
                 <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-primary gap-1" onClick={() => { setTaskTitle(''); setIsTaskDialogOpen(true); }}>
-                  <Plus className="w-3 h-3" /> Hinzufügen
+                  <Plus className="w-3.5 h-3.5" /> Hinzufügen
                 </Button>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -752,31 +754,38 @@ export default function ProcessDesignerPage() {
         <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-white border-b pr-10">
             <div className="flex items-center gap-5">
-              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-primary/10 text-primary")}>
-                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center", localNodeEdits.type === 'decision' ? "bg-amber-50 text-amber-600" : localNodeEdits.type === 'subprocess' ? "bg-indigo-50 text-indigo-600" : "bg-primary/10 text-primary")}>
+                {localNodeEdits.type === 'decision' ? <GitBranch className="w-6 h-6" /> : localNodeEdits.type === 'subprocess' ? <Network className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{localNodeEdits.title || 'Schritt bearbeiten'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Arbeitsschritt-Dokumentation</DialogDescription>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{isReferenceNode ? 'Prozess-Verknüpfung' : 'Arbeitsschritt-Dokumentation'}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
             <TabsList className="bg-slate-50 border-b h-11 px-6 justify-start rounded-none gap-6">
               <TabsTrigger value="base" className="text-[10px] font-bold uppercase gap-2">Stammdaten</TabsTrigger>
-              <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
-              <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Datenobjekte</TabsTrigger>
-              <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
-              <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Details & Expertise</TabsTrigger>
+              {!isReferenceNode && (
+                <>
+                  <TabsTrigger value="resources" className="text-[10px] font-bold uppercase gap-2"><Server className="w-3.5 h-3.5" /> IT-Systeme</TabsTrigger>
+                  <TabsTrigger value="data" className="text-[10px] font-bold uppercase gap-2"><Tag className="w-3.5 h-3.5" /> Datenobjekte</TabsTrigger>
+                  <TabsTrigger value="media" className="text-[10px] font-bold uppercase gap-2"><FileStack className="w-3.5 h-3.5" /> Anhänge</TabsTrigger>
+                  <TabsTrigger value="details" className="text-[10px] font-bold uppercase gap-2">Details & Expertise</TabsTrigger>
+                </>
+              )}
             </TabsList>
             <ScrollArea className="flex-1">
               <div className="p-8 space-y-10">
                 <TabsContent value="base" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
-                    <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div className="space-y-1.5 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={localNodeEdits.title} onChange={e => setLocalNodeEdits({...localNodeEdits, title: e.target.value})} className="h-11 font-bold rounded-xl" /></div>
                     
-                    {(localNodeEdits.type === 'subprocess' || localNodeEdits.type === 'end') && (
+                    {!isReferenceNode && (
+                      <div className="space-y-1.5"><Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label><Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select></div>
+                    )}
+                    
+                    {isReferenceNode && (
                       <div className="space-y-1.5 md:col-span-2">
                         <Label className="text-[10px] font-bold uppercase text-indigo-600">Referenzierter Ziel-Prozess (Handover)</Label>
                         <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
@@ -789,173 +798,177 @@ export default function ProcessDesignerPage() {
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kurzbeschreibung der Tätigkeit</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[100px] rounded-xl" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kurzbeschreibung</Label><Textarea value={localNodeEdits.description} onChange={e => setLocalNodeEdits({...localNodeEdits, description: e.target.value})} className="text-xs min-h-[100px] rounded-xl" /></div>
                 </TabsContent>
 
-                <TabsContent value="resources" className="mt-0 space-y-6">
-                  <div className="flex items-center gap-3 border-b pb-4">
-                    <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center border border-indigo-100"><Server className="w-4 h-4" /></div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">IT-Systemunterstützung</h4>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Welche Anwendungen werden in diesem Schritt genutzt?</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {resources?.filter(r => r.status !== 'archived').map(res => (
-                      <div 
-                        key={res.id} 
-                        className={cn(
-                          "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
-                          localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
-                        )}
-                        onClick={() => {
-                          const rid = res.id;
-                          setLocalNodeEdits(prev => ({
-                            ...prev,
-                            resourceIds: prev.resourceIds.includes(rid) ? prev.resourceIds.filter(id => id !== rid) : [...prev.resourceIds, rid]
-                          }));
-                        }}
-                      >
-                        <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{res.name}</p>
-                          <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
+                {!isReferenceNode && (
+                  <>
+                    <TabsContent value="resources" className="mt-0 space-y-6">
+                      <div className="flex items-center gap-3 border-b pb-4">
+                        <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center border border-indigo-100"><Server className="w-4 h-4" /></div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">IT-Systemunterstützung</h4>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">Welche Anwendungen werden in diesem Schritt genutzt?</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="data" className="mt-0 space-y-6">
-                  <div className="flex items-center gap-3 border-b pb-4">
-                    <div className="w-8 h-8 bg-sky-50 text-sky-600 rounded-lg flex items-center justify-center border border-sky-100"><Tag className="w-4 h-4" /></div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verarbeitete Datenobjekte</h4>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Welche fachlichen Informationen werden hier verarbeitet?</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
-                      <div 
-                        key={feat.id} 
-                        className={cn(
-                          "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
-                          localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
-                        )}
-                        onClick={() => {
-                          const fid = feat.id;
-                          setLocalNodeEdits(prev => ({
-                            ...prev,
-                            featureIds: prev.featureIds.includes(fid) ? prev.featureIds.filter(id => id !== fid) : [...prev.featureIds, fid]
-                          }));
-                        }}
-                      >
-                        <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-sky-700 transition-colors">{feat.name}</p>
-                          <p className="text-[8px] text-slate-400 font-black uppercase">{feat.carrier}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="media" className="mt-0 space-y-8">
-                  <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-100 transition-all cursor-pointer relative">
-                    <div className={cn("w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md border", isUploading && "animate-pulse")}>
-                      {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Upload className="w-6 h-6 text-slate-400" />}
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs font-bold text-slate-800">Dateien per Drag & Drop oder Klick hochladen</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Bilder oder PDF (Max. 5MB)</p>
-                    </div>
-                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
-                  </div>
-
-                  {isOcring && (
-                    <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl animate-pulse">
-                      <BrainCircuit className="w-5 h-5 text-indigo-600" />
-                      <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">KI OCR analysiert PDF-Inhalte...</span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {selectedNodeMedia.map(file => (
-                      <div key={file.id} className="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:border-primary/30 transition-all">
-                        {file.fileType.startsWith('image/') ? (
-                          <img src={file.fileUrl} alt={file.fileName} className="w-full aspect-video object-cover" />
-                        ) : (
-                          <div className="w-full aspect-video bg-slate-50 flex flex-col items-center justify-center gap-2">
-                            <FileText className="w-10 h-10 text-slate-300" />
-                            <Badge variant="outline" className="bg-white border-slate-200 text-[8px] font-black">PDF DOCUMENT</Badge>
-                          </div>
-                        )}
-                        <div className="p-3 flex items-center justify-between border-t bg-white">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-bold text-slate-800 truncate">{file.fileName}</p>
-                            {file.ocrText && <p className="text-[8px] text-emerald-600 font-black uppercase flex items-center gap-1"><Zap className="w-2.5 h-2.5 fill-current" /> OCR Indexiert</p>}
-                          </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                            {file.ocrText && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"><FileSearch className="w-3.5 h-3.5" /></Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-[250px] p-2 text-[9px] font-medium leading-relaxed bg-slate-900 border-none rounded-lg text-white">
-                                    {file.ocrText.substring(0, 200)}...
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {resources?.filter(r => r.status !== 'archived').map(res => (
+                          <div 
+                            key={res.id} 
+                            className={cn(
+                              "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                              localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-300"
                             )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            onClick={() => {
+                              const rid = res.id;
+                              setLocalNodeEdits(prev => ({
+                                ...prev,
+                                resourceIds: prev.resourceIds.includes(rid) ? prev.resourceIds.filter(id => id !== rid) : [...prev.resourceIds, rid]
+                              }));
+                            }}
+                          >
+                            <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{res.name}</p>
+                              <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
+                            </div>
                           </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="data" className="mt-0 space-y-6">
+                      <div className="flex items-center gap-3 border-b pb-4">
+                        <div className="w-8 h-8 bg-sky-50 text-sky-600 rounded-lg flex items-center justify-center border border-sky-100"><Tag className="w-4 h-4" /></div>
+                        <div>
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verarbeitete Datenobjekte</h4>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">Welche fachlichen Informationen werden hier verarbeitet?</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </TabsContent>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
+                          <div 
+                            key={feat.id} 
+                            className={cn(
+                              "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm group",
+                              localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20 ring-2 ring-sky-500/10" : "bg-white border-slate-100 hover:border-slate-300"
+                            )}
+                            onClick={() => {
+                              const fid = feat.id;
+                              setLocalNodeEdits(prev => ({
+                                ...prev,
+                                featureIds: prev.featureIds.includes(fid) ? prev.featureIds.filter(id => id !== fid) : [...prev.featureIds, fid]
+                              }));
+                            }}
+                          >
+                            <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] font-bold text-slate-800 truncate group-hover:text-sky-700 transition-colors">{feat.name}</p>
+                              <p className="text-[8px] text-slate-400 font-black uppercase">{feat.carrier}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
 
-                <TabsContent value="details" className="mt-0 space-y-10">
-                  <div className="space-y-4">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
-                      <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste (Ein Punkt pro Zeile)
-                    </Label>
-                    <Textarea 
-                      value={localNodeEdits.checklist} 
-                      onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} 
-                      className="text-xs min-h-[120px] rounded-xl bg-slate-50 border-slate-200" 
-                      placeholder="Prüfschritt 1&#10;Prüfschritt 2..."
-                    />
-                  </div>
+                    <TabsContent value="media" className="mt-0 space-y-8">
+                      <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-4 bg-slate-50/50 hover:bg-slate-100 transition-all cursor-pointer relative">
+                        <div className={cn("w-14 h-14 bg-white rounded-xl flex items-center justify-center shadow-md border", isUploading && "animate-pulse")}>
+                          {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <Upload className="w-6 h-6 text-slate-400" />}
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-bold text-slate-800">Dateien per Drag & Drop oder Klick hochladen</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">Bilder oder PDF (Max. 5MB)</p>
+                        </div>
+                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2">
-                        <Lightbulb className="w-3.5 h-3.5" /> Tipps & Tricks (Best Practice)
-                      </Label>
-                      <Textarea 
-                        value={localNodeEdits.tips} 
-                        onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} 
-                        className="text-xs min-h-[100px] rounded-xl bg-blue-50/20 border-blue-100" 
-                        placeholder="Expertisen-Wissen für dieser Schritt..."
-                      />
-                    </div>
-                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2">
-                        <AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler & Risiken
-                      </Label>
-                      <Textarea 
-                        value={localNodeEdits.errors} 
-                        onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} 
-                        className="text-xs min-h-[100px] rounded-xl bg-red-50/20 border-red-100" 
-                        placeholder="Was kann hier schiefgehen?..."
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
+                      {isOcring && (
+                        <div className="flex items-center gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl animate-pulse">
+                          <BrainCircuit className="w-5 h-5 text-indigo-600" />
+                          <span className="text-[10px] font-black uppercase text-indigo-700 tracking-widest">KI OCR analysiert PDF-Inhalte...</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {selectedNodeMedia.map(file => (
+                          <div key={file.id} className="group relative rounded-2xl border bg-white overflow-hidden shadow-sm hover:border-primary/30 transition-all">
+                            {file.fileType.startsWith('image/') ? (
+                              <img src={file.fileUrl} alt={file.fileName} className="w-full aspect-video object-cover" />
+                            ) : (
+                              <div className="w-full aspect-video bg-slate-50 flex flex-col items-center justify-center gap-2">
+                                <FileText className="w-10 h-10 text-slate-300" />
+                                <Badge variant="outline" className="bg-white border-slate-200 text-[8px] font-black">PDF DOCUMENT</Badge>
+                              </div>
+                            )}
+                            <div className="p-3 flex items-center justify-between border-t bg-white">
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-800 truncate">{file.fileName}</p>
+                                {file.ocrText && <p className="text-[8px] text-emerald-600 font-black uppercase flex items-center gap-1"><Zap className="w-2.5 h-2.5 fill-current" /> OCR Indexiert</p>}
+                              </div>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                {file.ocrText && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-600"><FileSearch className="w-3.5 h-3.5" /></Button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[250px] p-2 text-[9px] font-medium leading-relaxed bg-slate-900 border-none rounded-lg text-white">
+                                        {file.ocrText.substring(0, 200)}...
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={() => deleteMediaAction(file.id, file.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia())}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="details" className="mt-0 space-y-10">
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 flex items-center gap-2">
+                          <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Operative Checkliste (Ein Punkt pro Zeile)
+                        </Label>
+                        <Textarea 
+                          value={localNodeEdits.checklist} 
+                          onChange={e => setLocalNodeEdits({...localNodeEdits, checklist: e.target.value})} 
+                          className="text-xs min-h-[120px] rounded-xl bg-slate-50 border-slate-200" 
+                          placeholder="Prüfschritt 1&#10;Prüfschritt 2..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-blue-600 flex items-center gap-2">
+                            <Lightbulb className="w-3.5 h-3.5" /> Tipps & Tricks (Best Practice)
+                          </Label>
+                          <Textarea 
+                            value={localNodeEdits.tips} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, tips: e.target.value})} 
+                            className="text-xs min-h-[100px] rounded-xl bg-blue-50/20 border-blue-100" 
+                            placeholder="Expertisen-Wissen für dieser Schritt..."
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-2">
+                            <AlertCircle className="w-3.5 h-3.5" /> Häufige Fehler & Risiken
+                          </Label>
+                          <Textarea 
+                            value={localNodeEdits.errors} 
+                            onChange={e => setLocalNodeEdits({...localNodeEdits, errors: e.target.value})} 
+                            className="text-xs min-h-[100px] rounded-xl bg-red-50/20 border-red-100" 
+                            placeholder="Was kann hier schiefgehen?..."
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </>
+                )}
               </div>
             </ScrollArea>
           </Tabs>
