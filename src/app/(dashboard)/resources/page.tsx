@@ -34,7 +34,8 @@ import {
   FileEdit,
   Activity,
   Info,
-  HardDrive
+  HardDrive,
+  HelpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -354,7 +355,7 @@ export default function ResourcesPage() {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4 text-slate-400" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4" text-slate-400 /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                           <DropdownMenuItem onSelect={() => openEdit(res)} className="rounded-lg py-2 gap-2 text-xs font-bold"><FileEdit className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
@@ -459,12 +460,34 @@ export default function ResourcesPage() {
                   </div>
 
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" /> Schutzbedarfsfeststellung (CIA)
-                    </h4>
+                    <div className="flex items-center gap-2 border-b pb-3">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarfsfeststellung (CIA)</h4>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs p-3 text-[10px] leading-relaxed">
+                            Die Schutzbedarfsfeststellung bewertet die Bedeutung von Informationen für die Organisation. 
+                            <strong>V (Vertraulichkeit)</strong>: Schutz vor unbefugter Preisgabe. 
+                            <strong>I (Integrität)</strong>: Schutz vor unbefugter Änderung. 
+                            <strong>A (Verfügbarkeit)</strong>: Gewährleistung der Nutzbarkeit.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="w-3 h-3 text-slate-300" /></TooltipTrigger>
+                              <TooltipContent className="text-[9px]">Gering: Info ist intern. Hoch: Streng geheim / existenzbedrohend bei Leak.</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -473,7 +496,15 @@ export default function ResourcesPage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="w-3 h-3 text-slate-300" /></TooltipTrigger>
+                              <TooltipContent className="text-[9px]">Gering: Fehler sind ärgerlich. Hoch: Manipulation führt zu Fehlentscheidungen oder hohen Verlusten.</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -482,7 +513,15 @@ export default function ResourcesPage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Info className="w-3 h-3 text-slate-300" /></TooltipTrigger>
+                              <TooltipContent className="text-[9px]">Gering: Ausfall für 1-2 Tage okay. Hoch: Echtzeit-Nutzung zwingend erforderlich (Stillstand).</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                         <Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -495,7 +534,15 @@ export default function ResourcesPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-slate-300" /></TooltipTrigger>
+                            <TooltipContent className="text-[9px] max-w-[200px]">Einstufung nach Sensibilität. Öffentlich (kein Schaden), Intern (Standard), Vertraulich (Schaden bei Leak), Streng Vertraulich (Kritischer Schaden).</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -507,7 +554,15 @@ export default function ResourcesPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Kritikalität</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Kritikalität</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-slate-300" /></TooltipTrigger>
+                            <TooltipContent className="text-[9px] max-w-[200px]">Wie wichtig ist dieses System für den Unternehmenserfolg? Hoch: System ist geschäftskritisch.</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <Select value={criticality} onValueChange={(v:any) => setCriticality(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
                         <SelectContent>
