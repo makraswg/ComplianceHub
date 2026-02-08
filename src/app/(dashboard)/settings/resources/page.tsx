@@ -2,18 +2,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { 
   Plus, 
   Trash2, 
-  Save, 
   Loader2, 
-  Archive, 
-  RotateCcw,
   Settings2,
-  Layers,
-  Server,
-  Workflow,
   Filter
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,16 +22,26 @@ import { AssetTypeOption, OperatingModelOption } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function ResourceOptionsPage() {
   const { dataSource } = useSettings();
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
-  // Asset Type State
-  const [newTypeName, setNewTypeName] = useState('');
+  // Confirmation state
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{ coll: string, id: string, label: string } | null>(null);
   
-  // Operating Model State
+  const [newTypeName, setNewTypeName] = useState('');
   const [newModelName, setNewModelName] = useState('');
 
   const { data: assetTypes, refresh: refreshTypes, isLoading: typesLoading } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
@@ -102,33 +105,33 @@ export default function ResourceOptionsPage() {
     }
   };
 
-  const handleDelete = async (coll: string, id: string) => {
-    if (!confirm("Eintrag permanent entfernen?")) return;
+  const executeDelete = async () => {
+    if (!deleteConfirmTarget) return;
     
+    const { coll, id, label } = deleteConfirmTarget;
     setIsDeleting(id);
+    setDeleteConfirmTarget(null); // Close dialog immediately
+
     try {
       console.log(`[Frontend] Requesting delete for ${coll} with ID: ${id}`);
       const res = await deleteCollectionRecord(coll, id, dataSource);
       
       if (res && res.success) {
-        toast({ title: "Eintrag erfolgreich gelöscht" });
-        // Force refresh
+        toast({ title: `"${label}" wurde erfolgreich gelöscht.` });
         if (coll === 'assetTypeOptions') refreshTypes();
         else refreshModels();
       } else {
-        const errorMsg = res?.error || "Die Datenbank hat die Löschung verweigert.";
         toast({ 
           variant: "destructive", 
           title: "Löschvorgang fehlgeschlagen", 
-          description: errorMsg 
+          description: res?.error || "Die Datenbank hat die Löschung verweigert." 
         });
       }
     } catch (e: any) {
-      console.error("Critical delete error in component:", e);
       toast({ 
         variant: "destructive", 
-        title: "Systemfehler beim Löschen", 
-        description: e.message || "Ein unerwarteter Kommunikationsfehler ist aufgetreten." 
+        title: "Systemfehler", 
+        description: e.message || "Ein unerwarteter Fehler ist aufgetreten." 
       });
     } finally {
       setIsDeleting(null);
@@ -185,7 +188,7 @@ export default function ResourceOptionsPage() {
                           size="icon" 
                           className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" 
                           disabled={isDeleting === opt.id}
-                          onClick={() => handleDelete('assetTypeOptions', opt.id)}
+                          onClick={() => setDeleteConfirmTarget({ coll: 'assetTypeOptions', id: opt.id, label: opt.name })}
                         >
                           {isDeleting === opt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </Button>
@@ -227,7 +230,7 @@ export default function ResourceOptionsPage() {
                           size="icon" 
                           className="h-8 w-8 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all" 
                           disabled={isDeleting === opt.id}
-                          onClick={() => handleDelete('operatingModelOptions', opt.id)}
+                          onClick={() => setDeleteConfirmTarget({ coll: 'operatingModelOptions', id: opt.id, label: opt.name })}
                         >
                           {isDeleting === opt.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                         </Button>
@@ -243,6 +246,31 @@ export default function ResourceOptionsPage() {
           </CardContent>
         </Tabs>
       </Card>
+
+      {/* Modern Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmTarget} onOpenChange={(v) => !v && setDeleteConfirmTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
+          <AlertDialogHeader>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Eintrag unwiderruflich löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
+              Möchten Sie <strong>"{deleteConfirmTarget?.label}"</strong> wirklich permanent entfernen? <br/>
+              Dieser Vorgang kann nicht rückgängig gemacht werden.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={executeDelete} 
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
+            >
+              Permanent löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

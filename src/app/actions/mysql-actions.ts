@@ -41,10 +41,10 @@ const collectionToTableMap: { [key: string]: string } = {
   dataCategories: 'dataCategories',
   departments: 'departments',
   jobTitles: 'jobTitles',
-  servicePartners: 'service_partners',
-  servicePartnerContacts: 'service_partner_contacts',
-  servicePartnerAreas: 'service_partner_areas',
-  dataStores: 'data_stores',
+  service_partners: 'service_partners',
+  service_partner_contacts: 'service_partner_contacts',
+  service_partner_areas: 'service_partner_areas',
+  data_stores: 'data_stores',
   assetTypeOptions: 'asset_type_options',
   operatingModelOptions: 'operating_model_options',
   processes: 'processes',
@@ -139,7 +139,6 @@ export async function getCollectionData(collectionName: string, dataSource: Data
 
 export async function saveCollectionRecord(collectionName: string, id: string, data: any, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
   if (dataSource === 'mock') {
-    console.warn(`[Mock] Save requested for ${collectionName}/${id}. Note: Mock changes are not persisted.`);
     return { success: true, error: null };
   }
   if (dataSource === 'firestore') {
@@ -207,9 +206,10 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 }
 
 export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
-  console.log(`[Backend] Delete requested: ${collectionName} with ID: ${id} via ${dataSource}`);
+  console.log(`[SERVER-ACTION] deleteCollectionRecord: START - Collection: ${collectionName}, ID: ${id}, Source: ${dataSource}`);
   
   if (dataSource === 'mock') {
+    console.log(`[SERVER-ACTION] deleteCollectionRecord: MOCK MODE - Bypassing real delete.`);
     return { success: true, error: null };
   }
   
@@ -217,27 +217,44 @@ export async function deleteCollectionRecord(collectionName: string, id: string,
     try {
       const { firestore } = initializeFirebase();
       await deleteDoc(doc(firestore, collectionName, id));
+      console.log(`[SERVER-ACTION] deleteCollectionRecord: FIRESTORE SUCCESS`);
       return { success: true, error: null };
-    } catch (e: any) { return { success: false, error: e.message }; }
+    } catch (e: any) { 
+      console.error(`[SERVER-ACTION] deleteCollectionRecord: FIRESTORE ERROR`, e);
+      return { success: false, error: e.message }; 
+    }
   }
   
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
+  if (!tableName) {
+    console.error(`[SERVER-ACTION] deleteCollectionRecord: MAPPING ERROR - No table found for ${collectionName}`);
+    return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
+  }
   
   let connection;
   try {
+    console.log(`[SERVER-ACTION] deleteCollectionRecord: MYSQL ATTEMPT - Table: ${tableName}, ID: ${id}`);
     connection = await getMysqlConnection();
+    
+    // Explicit check for foreign key constraints if it's a settings option
+    if (tableName === 'asset_type_options' || tableName === 'operating_model_options') {
+      // Small check to see if it's used
+      const [usage]: any = await connection.execute(`SELECT COUNT(*) as count FROM resources WHERE ${tableName === 'asset_type_options' ? 'assetType' : 'operatingModel'} = (SELECT name FROM \`${tableName}\` WHERE id = ?)`, [id]);
+      if (usage[0].count > 0) {
+        console.warn(`[SERVER-ACTION] deleteCollectionRecord: PROTECTED - Item still in use by ${usage[0].count} resources.`);
+        connection.release();
+        return { success: false, error: "Löschen nicht möglich: Diese Option wird aktuell noch von IT-Ressourcen verwendet." };
+      }
+    }
+
     const [result]: any = await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
     connection.release();
     
-    if (result.affectedRows === 0) {
-      console.warn(`[MySQL] Delete executed but 0 rows affected for ID ${id} in ${tableName}`);
-    }
-    
+    console.log(`[SERVER-ACTION] deleteCollectionRecord: MYSQL SUCCESS. Affected rows: ${result.affectedRows}`);
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
-    console.error(`[MySQL] Delete failed for ${tableName}:`, error);
+    console.error(`[SERVER-ACTION] deleteCollectionRecord: MYSQL ERROR for ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }
