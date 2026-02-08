@@ -6,7 +6,7 @@ import { logAuditEventAction } from './audit-actions';
 
 /**
  * Generiert eine massive Menge an Demo-Daten für eine Wohnungsbaugesellschaft.
- * Erzeugt über 250 Datensätze über alle Module hinweg.
+ * Erzeugt über 300 Datensätze über alle Module hinweg inklusive Prozessketten.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -114,39 +114,58 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       }, dataSource);
     }
 
-    // --- 7. PROZESSE (20 STÜCK) ---
-    const processTitles = [
-      'Interessentenmanagement', 'Mietvertragsabschluss', 'Wohnungsübergabe', 'Mietanpassung VPI', 
-      'Betriebskostenabrechnung', 'Kündigungsbearbeitung', 'Wohnungsabnahme', 'Kautionsabrechnung',
-      'Instandhaltung Kleinstreparaturen', 'Versicherungsschaden-Meldung', 'Großmodernisierungs-Planung', 
-      'WEG-Eigentümerversammlung', 'Hausgeldabrechnung', 'Kreditorenbuchhaltung', 'Mahnwesen',
-      'Mitarbeiter-Onboarding', 'Jährliche Unterweisung', 'IT-Sicherungskontrolle', 'Beschwerdemanagement', 
-      'Stammdatenpflege Objekte'
+    // --- 7. PROZESSE (ERWEITERT MIT HANDOVERS) ---
+    const processDefinitions = [
+      { id: 'proc-int-mgmt', title: 'Interessentenmanagement', dept: 'd-best', next: 'proc-miet-vert' },
+      { id: 'proc-miet-vert', title: 'Mietvertragsabschluss', dept: 'd-best', next: 'proc-wohn-ueber' },
+      { id: 'proc-wohn-ueber', title: 'Wohnungsübergabe', dept: 'd-best', next: 'proc-obj-stamm' },
+      { id: 'proc-obj-stamm', title: 'Stammdatenpflege Objekte', dept: 'd-best' },
+      { id: 'proc-vpi-anp', title: 'Mietanpassung VPI', dept: 'd-best' },
+      { id: 'proc-bk-abr', title: 'Betriebskostenabrechnung', dept: 'd-fibu' },
+      { id: 'proc-kuend', title: 'Kündigungsbearbeitung', dept: 'd-best', next: 'proc-wohn-abn' },
+      { id: 'proc-wohn-abn', title: 'Wohnungsabnahme', dept: 'd-tech', next: 'proc-kaut-abr' },
+      { id: 'proc-kaut-abr', title: 'Kautionsabrechnung', dept: 'd-fibu' },
+      { id: 'proc-maengel', title: 'Mängelanzeige (Mieter)', dept: 'd-best', next: 'proc-inst-kl' },
+      { id: 'proc-inst-kl', title: 'Instandhaltung Kleinstreparaturen', dept: 'd-tech', next: 'proc-kred-buch' },
+      { id: 'proc-kred-buch', title: 'Kreditorenbuchhaltung', dept: 'd-fibu' },
+      { id: 'proc-mahn', title: 'Mahnwesen', dept: 'd-fibu' },
+      { id: 'proc-onb', title: 'Mitarbeiter-Onboarding', dept: 'd-hr' },
+      { id: 'proc-unt', title: 'Jährliche Unterweisung', dept: 'd-hr' },
+      { id: 'proc-it-sec', title: 'IT-Sicherungskontrolle', dept: 'd-it' },
+      { id: 'proc-it-pw', title: 'IT-Passwort Reset', dept: 'd-it' },
+      { id: 'proc-beschw', title: 'Beschwerdemanagement', dept: 'd-best' },
+      { id: 'proc-weg-ev', title: 'WEG-Eigentümerversammlung', dept: 'd-weg' },
+      { id: 'proc-weg-abr', title: 'Hausgeldabrechnung', dept: 'd-weg' },
+      { id: 'proc-modern', title: 'Großmodernisierungs-Planung', dept: 'd-tech' }
     ];
 
-    for (let i = 0; i < processTitles.length; i++) {
-      const pId = `proc-demo-${i + 1}`;
-      const vvtId = `vvt-demo-${i + 1}`;
-      const title = processTitles[i];
+    for (const p of processDefinitions) {
+      const vvtId = `vvt-${p.id}`;
       
-      await saveCollectionRecord('processes', pId, {
-        id: pId, tenantId: t1Id, title, status: 'published', currentVersion: 1,
-        responsibleDepartmentId: i < 8 ? 'd-best' : i < 13 ? 'd-tech' : i < 15 ? 'd-fibu' : 'd-it',
-        vvtId: vvtId, automationLevel: 'partial', createdAt: now, updatedAt: now
+      await saveCollectionRecord('processes', p.id, {
+        id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
+        responsibleDepartmentId: p.dept, vvtId: vvtId, automationLevel: 'partial', createdAt: now, updatedAt: now
       }, dataSource);
 
       await saveCollectionRecord('processingActivities', vvtId, {
-        id: vvtId, tenantId: t1Id, name: `VVT: ${title}`, status: 'active', version: '1.0',
-        responsibleDepartment: 'Bestandsmanagement', legalBasis: 'Art. 6 Abs. 1 lit. b', description: `Verarbeitung im Rahmen von ${title}.`,
+        id: vvtId, tenantId: t1Id, name: `VVT: ${p.title}`, status: 'active', version: '1.0',
+        responsibleDepartment: departmentsData.find(d => d.id === p.dept)?.name || 'Bestand',
+        legalBasis: 'Art. 6 Abs. 1 lit. b', description: `Verarbeitung im Rahmen von ${p.title}.`,
         retentionPeriod: '10 Jahre', lastReviewDate: today
       }, dataSource);
 
-      // Simple version record for each process
       const model = {
         nodes: [
           { id: 'start', type: 'start', title: 'Start' },
-          { id: 'step1', type: 'step', title: 'Erfassung', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
-          { id: 'step2', type: 'step', title: 'Prüfung', roleId: 'j-immo-lead', resourceIds: ['res-archiv'] },
+          { id: 'step1', type: 'step', title: 'Erfassung/Prüfung', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
+          { 
+            id: 'step2', 
+            type: p.next ? 'subprocess' : 'step', 
+            title: p.next ? 'Übergabe Folgeprozess' : 'Dokumentation', 
+            roleId: 'j-immo-lead', 
+            resourceIds: ['res-archiv'],
+            targetProcessId: p.next || undefined
+          },
           { id: 'end', type: 'end', title: 'Abschluss' }
         ],
         edges: [
@@ -158,8 +177,9 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         isoFields: {},
         customFields: {}
       };
-      await saveCollectionRecord('process_versions', `ver-${pId}-1`, {
-        id: `ver-${pId}-1`, process_id: pId, version: 1, model_json: model, 
+
+      await saveCollectionRecord('process_versions', `ver-${p.id}-1`, {
+        id: `ver-${p.id}-1`, process_id: p.id, version: 1, model_json: model, 
         layout_json: { positions: { start: {x:50,y:50}, step1: {x:250,y:50}, step2: {x:450,y:50}, end: {x:650,y:50} } },
         revision: 1, created_at: now, created_by_user_id: 'system'
       }, dataSource);
@@ -187,7 +207,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }
 
     // --- 10. BENUTZER & IAM HISTORIE ---
-    const names = ['Max', 'Erika', 'Bernd', 'Sabine', 'Klaus', 'Julia', 'Stefan', 'Monika', 'Peter', 'Petra', 'Uwe', 'Inge', 'Ralf', 'Tanja', 'Dirk', 'Heike', 'Sven', 'Anja', 'Frank', 'Beate'];
+    const names = ['Max', 'Erika', 'Bernd', 'Sabine', 'Klaus', 'Julia', 'Stefan', 'Monika', 'Peter', 'Petra', 'Uwe', 'Inge', 'Ralf', 'Tanja', 'Dirk', 'Heike', 'Sven', 'Anja', 'Frank', 'Beate', 'Thomas', 'Sandra', 'Nicole', 'Markus'];
     for (let i = 0; i < names.length; i++) {
       const uId = `u-demo-${i + 1}`;
       const name = `${names[i]} Muster-${i + 1}`;
@@ -199,7 +219,6 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         lastSyncedAt: now, onboardingDate: '2023-01-01'
       }, dataSource);
 
-      // Create history (Assignments)
       const assId = `ass-hist-${uId}`;
       await saveCollectionRecord('assignments', assId, {
         id: assId, tenantId: t1Id, userId: uId, entitlementId: entitlementsData[i % entitlementsData.length].id,
@@ -209,11 +228,11 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }
 
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Deep-Seeding (Wohnbau Nord) abgeschlossen. >250 Objekte generiert.',
+      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise Deep-Seeding (Wohnbau Nord v2) abgeschlossen. >300 Objekte generiert.',
       entityType: 'system', entityId: 'deep-seeding'
     });
 
-    return { success: true, message: "Enterprise Szenario erfolgreich geladen. 20 Prozesse, 20+ Nutzer und vollständige GRC-Ketten erstellt." };
+    return { success: true, message: "Enterprise Szenario erfolgreich geladen. Verkettete Prozesse (Golden Chain) und vollständige GRC-Ketten erstellt." };
   } catch (e: any) {
     console.error("Deep Seeding failed:", e);
     return { success: false, error: e.message };
