@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,9 @@ import {
   Zap,
   PlusCircle,
   FileCheck,
-  ChevronRight
+  ChevronRight,
+  CornerDownRight,
+  Split
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -72,6 +74,7 @@ function RiskDashboardContent() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
+  const derivationLock = useRef(false);
   
   // UI States
   const [search, setSearch] = useState(searchParams.get('search') || '');
@@ -93,6 +96,7 @@ function RiskDashboardContent() {
   // Form State
   const [title, setTitle] = useState('');
   const [assetId, setAssetId] = useState('');
+  const [parentId, setParentId] = useState('none');
   const [category, setCategory] = useState('IT-Sicherheit');
   const [impact, setImpact] = useState('3');
   const [probability, setProbability] = useState('3');
@@ -116,27 +120,43 @@ function RiskDashboardContent() {
   useEffect(() => { 
     setMounted(true); 
     const deriveFrom = searchParams.get('derive');
-    if (deriveFrom && hazards) {
+    if (deriveFrom && hazards && !derivationLock.current) {
       const hazard = hazards.find(h => h.id === deriveFrom);
       if (hazard) {
+        derivationLock.current = true;
         resetForm();
         setTitle(`Risiko: ${hazard.title}`);
         setDescription(hazard.description);
         setCategory('IT-Sicherheit');
         setHazardId(hazard.id);
         setIsRiskDialogOpen(true);
+        // Clear the param to prevent loops
+        router.replace('/risks', { scroll: false });
       }
     }
-  }, [searchParams, hazards]);
+  }, [searchParams, hazards, router]);
 
-  const filteredRisks = useMemo(() => {
-    if (!risks) return [];
-    return risks.filter(r => {
+  const { topLevelRisks, subRisksMap } = useMemo(() => {
+    if (!risks) return { topLevelRisks: [], subRisksMap: {} };
+    
+    const filtered = risks.filter(r => {
       const matchesTenant = activeTenantId === 'all' || r.tenantId === activeTenantId;
       const matchesCategory = categoryFilter === 'all' || r.category === categoryFilter;
       const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase());
       return matchesTenant && matchesCategory && matchesSearch;
-    }).sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability));
+    });
+
+    const top = filtered.filter(r => !r.parentId || r.parentId === 'none' || r.parentId === '');
+    const subMap: Record<string, Risk[]> = {};
+    filtered.filter(r => r.parentId && r.parentId !== 'none' && r.parentId !== '').forEach(r => {
+      if (!subMap[r.parentId!]) subMap[r.parentId!] = [];
+      subMap[r.parentId!].push(r);
+    });
+
+    return { 
+      topLevelRisks: top.sort((a, b) => (b.impact * b.probability) - (a.impact * a.probability)), 
+      subRisksMap: subMap 
+    };
   }, [risks, search, categoryFilter, activeTenantId]);
 
   const linkedMeasures = useMemo(() => {
@@ -159,6 +179,7 @@ function RiskDashboardContent() {
       tenantId: targetTenantId,
       assetId: assetId === 'none' ? undefined : assetId,
       hazardId: hazardId || undefined,
+      parentId: parentId === 'none' ? undefined : parentId,
       title,
       category,
       impact: parseInt(impact),
@@ -263,6 +284,7 @@ function RiskDashboardContent() {
     setSelectedRisk(null);
     setTitle('');
     setAssetId('');
+    setParentId('none');
     setCategory('IT-Sicherheit');
     setImpact('3');
     setProbability('3');
@@ -277,6 +299,7 @@ function RiskDashboardContent() {
     setSelectedRisk(risk);
     setTitle(risk.title);
     setAssetId(risk.assetId || 'none');
+    setParentId(risk.parentId || 'none');
     setCategory(risk.category);
     setImpact(risk.impact.toString());
     setProbability(risk.probability.toString());
@@ -306,6 +329,82 @@ function RiskDashboardContent() {
 
   if (!mounted) return null;
 
+  const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
+    const score = risk.impact * risk.probability;
+    const asset = resources?.find(r => r.id === risk.assetId);
+    
+    return (
+      <>
+        <TableRow key={risk.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", isSub && "bg-slate-50/30")} onClick={() => openEdit(risk)}>
+          <TableCell className="py-4 px-6">
+            <div className="flex items-start gap-3">
+              {isSub ? (
+                <div className="w-8 flex justify-center pt-1 shrink-0 text-slate-300">
+                  <CornerDownRight className="w-4 h-4" />
+                </div>
+              ) : null}
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
+                score >= 15 ? "bg-red-50 text-red-600 border-red-100" : score >= 8 ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-emerald-50 text-emerald-600 border-emerald-100"
+              )}>
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold text-sm text-slate-800 group-hover:text-accent transition-colors">{risk.title}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {asset && <span className="text-[9px] text-slate-400 font-bold flex items-center gap-1.5"><Layers className="w-3 h-3 opacity-50" /> {asset.name}</span>}
+                  {isSub && <Badge className="h-3 px-1 text-[7px] bg-slate-200 text-slate-600 border-none font-black uppercase">Sub-Risiko</Badge>}
+                </div>
+              </div>
+            </div>
+          </TableCell>
+          <TableCell className="text-center">
+            <Badge className={cn(
+              "rounded-md font-bold text-[10px] h-6 min-w-[32px] justify-center shadow-sm border-none", 
+              score >= 15 ? "bg-red-600 text-white" : score >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
+            )}>{score}</Badge>
+          </TableCell>
+          <TableCell className="p-4">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
+          </TableCell>
+          <TableCell>
+            <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-400 px-2 h-5 uppercase">
+              {risk.status}
+            </Badge>
+          </TableCell>
+          <TableCell className="p-4 px-6 text-right" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-end items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(risk)}>
+                <Pencil className="w-3.5 h-3.5 text-slate-400" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm">
+                    <MoreVertical className="w-4 h-4 text-slate-400" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
+                  <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                  {!isSub && (
+                    <DropdownMenuItem onSelect={() => { resetForm(); setParentId(risk.id); setIsRiskDialogOpen(true); }} className="rounded-lg py-2 gap-2 text-xs font-bold text-blue-600"><Split className="w-3.5 h-3.5" /> Sub-Risiko hinzufügen</DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={() => openTaskDialog(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600"><ClipboardList className="w-3.5 h-3.5" /> Aufgabe erstellen</DropdownMenuItem>
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
+                    <Trash2 className="w-3.5 h-3.5" /> Löschen
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </TableCell>
+        </TableRow>
+        {subRisksMap[risk.id]?.map(sub => (
+          <RiskRow key={sub.id} risk={sub} isSub={true} />
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
@@ -320,7 +419,7 @@ function RiskDashboardContent() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => exportRisksExcel(filteredRisks, resources || [])}>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 transition-all active:scale-95" onClick={() => exportRisksExcel(risks || [], resources || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel Export
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push('/risks/catalog')} className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-all active:scale-95">
@@ -377,64 +476,19 @@ function RiskDashboardContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredRisks.map((risk) => {
-                const score = risk.impact * risk.probability;
-                const asset = resources?.find(r => r.id === risk.assetId);
-                return (
-                  <TableRow key={risk.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => openEdit(risk)}>
-                    <TableCell className="py-4 px-6">
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
-                          score >= 15 ? "bg-red-50 text-red-600 border-red-100" : score >= 8 ? "bg-orange-50 text-orange-600 border-orange-100" : "bg-emerald-50 text-emerald-600 border-emerald-100"
-                        )}>
-                          <AlertTriangle className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-sm text-slate-800 group-hover:text-accent transition-colors">{risk.title}</div>
-                          {asset && <p className="text-[9px] text-slate-400 font-bold mt-0.5 flex items-center gap-1.5"><Layers className="w-3 h-3 opacity-50" /> {asset.name}</p>}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge className={cn(
-                        "rounded-md font-bold text-[10px] h-6 min-w-[32px] justify-center shadow-sm border-none", 
-                        score >= 15 ? "bg-red-600 text-white" : score >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
-                      )}>{score}</Badge>
-                    </TableCell>
-                    <TableCell className="p-4">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-400 px-2 h-5 uppercase">
-                        {risk.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="p-4 px-6 text-right" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(risk)}>
-                          <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm">
-                              <MoreVertical className="w-4 h-4 text-slate-400" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                            <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => openTaskDialog(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600"><ClipboardList className="w-3.5 h-3.5" /> Aufgabe erstellen</DropdownMenuItem>
-                            <DropdownMenuSeparator className="my-1" />
-                            <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
-                              <Trash2 className="w-3.5 h-3.5" /> Löschen
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {topLevelRisks.map((risk) => (
+                <RiskRow key={risk.id} risk={risk} />
+              ))}
+              {topLevelRisks.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-20 text-center space-y-4">
+                    <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto border border-dashed border-slate-200 opacity-50">
+                      <Layers className="w-8 h-8 text-slate-300" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-400">Keine Risiken gefunden</p>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}
@@ -497,6 +551,19 @@ function RiskDashboardContent() {
                           <SelectItem value="none">Kein spezifisches Asset (Global)</SelectItem>
                           {resources?.filter(res => activeTenantId === 'all' || res.tenantId === activeTenantId || res.tenantId === 'global').map(res => (
                             <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Übergeordnetes Risiko (Eltern)</Label>
+                      <Select value={parentId} onValueChange={setParentId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="none">Kein (Top-Level Risiko)</SelectItem>
+                          {risks?.filter(r => r.id !== selectedRisk?.id && (!r.parentId || r.parentId === 'none')).map(r => (
+                            <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -702,7 +769,7 @@ function RiskDashboardContent() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
-                  <Select value={taskPriority} onValueChange={(v: any) => setPriority(v)}>
+                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>
