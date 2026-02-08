@@ -21,15 +21,21 @@ import {
   Workflow,
   Info,
   KeyRound,
-  Pencil,
-  Trash2,
-  Lock,
-  UserCircle
+  Pencil, 
+  Trash2, 
+  Lock, 
+  UserCircle,
+  Briefcase,
+  ChevronRight,
+  CalendarDays,
+  AlertTriangle,
+  Target
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { Entitlement, Resource, User, Assignment, Bundle, AssignmentGroup, JobTitle, Department } from '@/lib/types';
@@ -64,7 +70,7 @@ export default function RoleDetailPage() {
     return roleAssignments.map(a => {
       const user = users.find(u => u.id === a.userId);
       return { ...user, assignment: a };
-    }).filter(u => u.id);
+    }).filter(u => !!u.id);
   }, [assignments, users, id]);
 
   const usageInPackages = useMemo(() => {
