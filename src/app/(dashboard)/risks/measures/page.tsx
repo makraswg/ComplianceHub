@@ -298,7 +298,7 @@ function RiskMeasuresContent() {
               })}
             </TableBody>
           </Table>
-        </div>
+        )}
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -307,7 +307,7 @@ function RiskMeasuresContent() {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
-                  <FileCheck className="w-6 h-6" />
+                  <ClipboardCheck className="w-6 h-6" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedMeasure ? 'Maßnahme aktualisieren' : 'Neue Maßnahme planen'}</DialogTitle>
