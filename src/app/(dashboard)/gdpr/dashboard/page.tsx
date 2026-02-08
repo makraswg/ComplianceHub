@@ -26,7 +26,8 @@ import {
   Info,
   BrainCircuit,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Network
 } from 'lucide-react';
 import { 
   PieChart, 
