@@ -47,7 +47,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, FeatureDependency, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser
+  Department, JobTitle, FeatureProcessLink, UsageTypeOption, ProcessVersion, Task, PlatformUser, FeatureProcessStep
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -107,7 +107,6 @@ export default function FeatureDetailPage() {
 
   const linkedRisks = useMemo(() => relatedLinks.filter(l => l.targetType === 'risk').map(l => risks?.find(r => r.id === l.targetId)).filter(Boolean), [relatedLinks, risks]);
   
-  // FIXED: Added optional chaining and null check for riskIds to prevent crash
   const mitigatingMeasures = useMemo(() => {
     const riskIds = linkedRisks.map(r => r?.id).filter(Boolean);
     if (riskIds.length === 0) return [];
@@ -523,17 +522,17 @@ export default function FeatureDetailPage() {
         </div>
       </div>
 
-      {/* Task Creation Dialog */}
+      {/* Task Creation Dialog - FIXED LAYOUT to match tasks/page.tsx */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-indigo-600 text-white shrink-0 pr-10">
+        <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
             <div className="flex items-center gap-5">
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white border border-white/10 shadow-sm">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/10 shadow-sm">
                 <ClipboardList className="w-6 h-6" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Aufgabe für Merkmal erstellen</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Asset-Kontext: {feature.name}</DialogDescription>
+                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Aufgabe für Merkmal erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Kontext: {feature.name}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -575,14 +574,14 @@ export default function FeatureDetailPage() {
 
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
-                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4" placeholder="Beschreiben Sie die fachliche Anforderung..." />
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed" placeholder="Beschreiben Sie die fachliche Anforderung..." />
               </div>
             </div>
           </ScrollArea>
 
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest">Abbrechen</Button>
-            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 gap-2 uppercase">
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 gap-2 uppercase active:scale-95 transition-all">
               {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Aufgabe erstellen
             </Button>
           </DialogFooter>

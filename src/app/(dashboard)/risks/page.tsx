@@ -23,7 +23,9 @@ import {
   Save,
   User as UserIcon,
   Shield,
-  Info
+  Info,
+  ClipboardList,
+  CalendarDays
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -31,7 +33,7 @@ import { useSettings } from '@/context/settings-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { exportRisksExcel } from '@/lib/export-utils';
-import { Risk, Resource, Hazard } from '@/lib/types';
+import { Risk, Resource, Hazard, Task, PlatformUser } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Dialog, 
@@ -52,6 +54,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
+import { saveTaskAction } from '@/app/actions/task-actions';
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -70,6 +73,16 @@ function RiskDashboardContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
 
+  // Task Creation States
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDesc, setTaskDesc] = useState('');
+  const [taskAssigneeId, setTaskAssigneeId] = useState('');
+  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskTargetRisk, setTaskTargetRisk] = useState<Risk | null>(null);
+
   // Form State
   const [title, setTitle] = useState('');
   const [assetId, setAssetId] = useState('');
@@ -83,6 +96,7 @@ function RiskDashboardContent() {
   const { data: risks, isLoading, refresh } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: hazards } = usePluggableCollection<Hazard>('hazards');
+  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
 
   useEffect(() => { 
     setMounted(true); 
@@ -146,6 +160,38 @@ function RiskDashboardContent() {
     }
   };
 
+  const handleCreateTask = async () => {
+    if (!taskTitle || !taskAssigneeId || !taskTargetRisk) {
+      toast({ variant: "destructive", title: "Fehler", description: "Titel und Verantwortlicher sind erforderlich." });
+      return;
+    }
+    setIsSavingTask(true);
+    try {
+      const res = await saveTaskAction({
+        tenantId: taskTargetRisk.tenantId || activeTenantId || 'global',
+        title: taskTitle,
+        description: taskDesc,
+        priority: taskPriority,
+        assigneeId: taskAssigneeId,
+        dueDate: taskDueDate,
+        entityType: 'risk',
+        entityId: taskTargetRisk.id,
+        creatorId: user?.id || 'system',
+        status: 'todo'
+      }, dataSource, user?.email || 'system');
+
+      if (res.success) {
+        toast({ title: "Aufgabe erstellt" });
+        setIsTaskDialogOpen(false);
+        setTaskTitle('');
+        setTaskDesc('');
+        setTaskAssigneeId('');
+      }
+    } finally {
+      setIsSavingTask(false);
+    }
+  };
+
   const resetForm = () => {
     setSelectedRisk(null);
     setTitle('');
@@ -169,6 +215,13 @@ function RiskDashboardContent() {
     setOwner(risk.owner || '');
     setStatus(risk.status);
     setIsRiskDialogOpen(true);
+  };
+
+  const openTaskDialog = (risk: Risk) => {
+    setTaskTargetRisk(risk);
+    setTaskTitle(`Maßnahme für Risiko: ${risk.title}`);
+    setTaskDesc(`Detaillierte Klärung und Absicherung für das Risiko-Szenario.`);
+    setIsTaskDialogOpen(true);
   };
 
   const applyAiSuggestions = (s: any) => {
@@ -278,9 +331,9 @@ function RiskDashboardContent() {
                         score >= 15 ? "bg-red-50 text-red-600" : score >= 8 ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
                       )}>{score}</Badge>
                     </TableCell>
-                    <td className="p-4">
+                    <TableCell className="p-4">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">{risk.category}</span>
-                    </td>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-400 px-2 h-5 uppercase">
                         {risk.status}
@@ -293,12 +346,14 @@ function RiskDashboardContent() {
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white opacity-0 group-hover:opacity-100 transition-all shadow-sm">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm">
                               <MoreVertical className="w-4 h-4 text-slate-400" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                             <DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openTaskDialog(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold text-indigo-600"><ClipboardList className="w-3.5 h-3.5" /> Aufgabe erstellen</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
                             <DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}>
                               <Trash2 className="w-3.5 h-3.5" /> Löschen
                             </DropdownMenuItem>
@@ -454,6 +509,72 @@ function RiskDashboardContent() {
             <Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white transition-all">Abbrechen</Button>
             <Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-accent hover:bg-accent/90 text-white shadow-lg transition-all active:scale-95 gap-2">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Risiko speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Standardized Task Creation Dialog */}
+      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/10 shadow-sm">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Aufgabe für Risiko erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Referenz: {taskTargetRisk?.title}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1 bg-white">
+            <div className="p-6 md:p-8 space-y-8">
+              <div className="space-y-2">
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Aufgabe</Label>
+                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
+                  <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
+                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Deadline</Label>
+                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Priorität</Label>
+                  <Select value={taskPriority} onValueChange={(v: any) => setTaskPriority(v)}>
+                    <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="low" className="text-xs font-bold">Niedrig</SelectItem>
+                      <SelectItem value="medium" className="text-xs font-bold">Mittel</SelectItem>
+                      <SelectItem value="high" className="text-xs font-bold">Hoch</SelectItem>
+                      <SelectItem value="critical" className="text-xs font-bold text-red-600">Kritisch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Anweisungen / Details</Label>
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] text-xs font-medium border-slate-200 bg-slate-50/30 p-4 leading-relaxed" placeholder="Genaue Beschreibung der Maßnahme..." />
+              </div>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest">Abbrechen</Button>
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg gap-2 uppercase active:scale-95 transition-all">
+              {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Aufgabe erstellen
             </Button>
           </DialogFooter>
         </DialogContent>
