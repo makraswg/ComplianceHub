@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -22,7 +21,8 @@ import {
   Save,
   Info,
   BadgeCheck,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -255,7 +255,7 @@ export default function RiskControlsPage() {
               <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
                 <ShieldCheck className="w-6 h-6" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedControl ? 'Prüfprozess aktualisieren' : 'Neue Prüfung planen'}</DialogTitle>
                 <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Operative Governance-Instanz</DialogDescription>
               </div>
