@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -107,9 +106,12 @@ export default function FeatureDetailPage() {
   const relatedTasks = useMemo(() => tasks?.filter(t => t.entityId === id && t.entityType === 'feature') || [], [tasks, id]);
 
   const linkedRisks = useMemo(() => relatedLinks.filter(l => l.targetType === 'risk').map(l => risks?.find(r => r.id === l.targetId)).filter(Boolean), [relatedLinks, risks]);
+  
+  // FIXED: Added optional chaining and null check for riskIds to prevent crash
   const mitigatingMeasures = useMemo(() => {
-    const riskIds = linkedRisks.map(r => r?.id);
-    return measures?.filter(m => m.riskIds.some(rid => riskIds.includes(rid))) || [];
+    const riskIds = linkedRisks.map(r => r?.id).filter(Boolean);
+    if (riskIds.length === 0) return [];
+    return measures?.filter(m => m.riskIds?.some(rid => riskIds.includes(rid))) || [];
   }, [linkedRisks, measures]);
 
   const handleCreateTask = async () => {
@@ -368,7 +370,7 @@ export default function FeatureDetailPage() {
                       <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Arbeitsschritt verknüpfen</p>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">1. Prozess wählen</Label>
+                          <Label required className="text-[9px] font-black uppercase text-slate-400">1. Prozess wählen</Label>
                           <Select value={selectedProcessId} onValueChange={(val) => { setSelectedProcessId(val); setSelectedNodeId(''); }}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Prozess..." /></SelectTrigger>
                             <SelectContent>
@@ -377,7 +379,7 @@ export default function FeatureDetailPage() {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">2. Arbeitsschritt wählen</Label>
+                          <Label required className="text-[9px] font-black uppercase text-slate-400">2. Arbeitsschritt wählen</Label>
                           <Select value={selectedNodeId} onValueChange={setSelectedNodeId} disabled={!selectedProcessId}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Schritt..." /></SelectTrigger>
                             <SelectContent>
@@ -386,7 +388,7 @@ export default function FeatureDetailPage() {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">3. Nutzungstyp</Label>
+                          <Label required className="text-[9px] font-black uppercase text-slate-400">3. Nutzungstyp</Label>
                           <Select value={selectedUsageType} onValueChange={setSelectedUsageType}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Nutzungstyp..." /></SelectTrigger>
                             <SelectContent>
@@ -395,7 +397,7 @@ export default function FeatureDetailPage() {
                           </Select>
                         </div>
                         <div className="space-y-1.5">
-                          <Label className="text-[9px] font-black uppercase text-slate-400">4. Kritikalität</Label>
+                          <Label required className="text-[9px] font-black uppercase text-slate-400">4. Kritikalität</Label>
                           <Select value={selectedCriticality} onValueChange={(v: any) => setSelectedCriticality(v)}>
                             <SelectTrigger className="rounded-xl h-10 border-slate-200 bg-white"><SelectValue placeholder="Kritikalität..." /></SelectTrigger>
                             <SelectContent>
@@ -539,13 +541,13 @@ export default function FeatureDetailPage() {
           <ScrollArea className="flex-1 bg-white">
             <div className="p-6 md:p-8 space-y-8">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Aufgabe</Label>
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Titel der Aufgabe</Label>
                 <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="z.B. Datenqualität im Prozess prüfen..." />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortlicher</Label>
                   <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
                     <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                     <SelectContent className="rounded-xl">
