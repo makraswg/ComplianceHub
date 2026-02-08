@@ -328,6 +328,7 @@ export interface Resource {
   systemOwnerRoleId?: string; 
   riskOwnerRoleId?: string; 
   externalOwnerContactId?: string; 
+  externalOwnerAreaId?: string;
   operatorId: string;
   riskOwner: string;
   dataOwner: string;

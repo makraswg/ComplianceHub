@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -41,7 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, ServicePartnerContact, Process, ProcessVersion, ProcessNode, Feature, FeatureProcessStep, AssetTypeOption, OperatingModelOption } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, ServicePartnerContact, Process, ProcessVersion, ProcessNode, Feature, FeatureProcessStep, AssetTypeOption, OperatingModelOption, ServicePartnerArea } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -103,6 +104,7 @@ export default function ResourcesPage() {
   const [systemOwnerType, setSystemOwnerType] = useState<'internal' | 'external'>('internal');
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
   const [externalOwnerContactId, setExternalOwnerContactId] = useState('');
+  const [externalOwnerAreaId, setExternalOwnerAreaId] = useState('');
   
   // Risk Owner (ALWAYS INTERNAL)
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
@@ -115,6 +117,7 @@ export default function ResourcesPage() {
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
+  const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: features } = usePluggableCollection<Feature>('features');
@@ -194,6 +197,7 @@ export default function ResourcesPage() {
     setSystemOwnerType('internal');
     setSystemOwnerRoleId('');
     setExternalOwnerContactId('');
+    setExternalOwnerAreaId('');
     setRiskOwnerRoleId('');
     setNotes('');
     setUrl('');
@@ -226,11 +230,17 @@ export default function ResourcesPage() {
       dataLocation,
       systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       externalOwnerContactId: systemOwnerType === 'external' && externalOwnerContactId !== 'none' ? externalOwnerContactId : undefined,
+      externalOwnerAreaId: systemOwnerType === 'external' && externalOwnerAreaId !== 'none' ? externalOwnerAreaId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
       notes,
       url,
       status: selectedResource?.status || 'active',
-      createdAt: selectedResource?.createdAt || new Date().toISOString()
+      createdAt: selectedResource?.createdAt || new Date().toISOString(),
+      operatorId: '',
+      riskOwner: '',
+      dataOwner: '',
+      mfaType: 'none',
+      authMethod: 'direct'
     } as Resource;
 
     try {
@@ -261,9 +271,10 @@ export default function ResourcesPage() {
     setIsDataRepository(!!res.isDataRepository);
     setDataLocation(res.dataLocation || '');
     
-    setSystemOwnerType(res.externalOwnerContactId ? 'external' : 'internal');
+    setSystemOwnerType(res.externalOwnerContactId || res.externalOwnerAreaId ? 'external' : 'internal');
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
     setExternalOwnerContactId(res.externalOwnerContactId || 'none');
+    setExternalOwnerAreaId(res.externalOwnerAreaId || 'none');
     
     setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
 
@@ -300,17 +311,39 @@ export default function ResourcesPage() {
     <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-2">
-          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black">EXTERN</Badge>
-          <SelectValue placeholder="Partner wählen..." />
+          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black">KONTAKT</Badge>
+          <SelectValue placeholder="Ansprechpartner wählen..." />
         </div>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="none">Kein externer Support</SelectItem>
+        <SelectItem value="none">Kein spezifischer Kontakt</SelectItem>
         {partners?.map(p => (
           <div key={p.id}>
             <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 bg-slate-50">{p.name}</div>
             {contacts?.filter(c => c.partnerId === p.id).map(contact => (
               <SelectItem key={contact.id} value={contact.id} className="pl-4">{contact.name} ({contact.email})</SelectItem>
+            ))}
+          </div>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const PartnerAreaSelect = ({ value, onValueChange }: { value: string, onValueChange: (val: string) => void }) => (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black">BEREICH</Badge>
+          <SelectValue placeholder="Fachbereich wählen..." />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Kein spezifischer Fachbereich</SelectItem>
+        {partners?.map(p => (
+          <div key={p.id}>
+            <div className="px-2 py-1.5 text-[8px] font-black uppercase text-slate-400 bg-slate-50">{p.name}</div>
+            {areas?.filter(a => a.partnerId === p.id).map(area => (
+              <SelectItem key={area.id} value={area.id} className="pl-4">{area.name}</SelectItem>
             ))}
           </div>
         ))}
@@ -386,7 +419,8 @@ export default function ResourcesPage() {
             <TableBody>
               {filteredResources.map((res) => {
                 const internalOwner = jobs?.find(j => j.id === res.systemOwnerRoleId);
-                const externalOwner = contacts?.find(c => c.id === res.externalOwnerContactId);
+                const externalContact = contacts?.find(c => c.id === res.externalOwnerContactId);
+                const externalArea = areas?.find(a => a.id === res.externalOwnerAreaId);
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -410,10 +444,15 @@ export default function ResourcesPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {externalOwner ? (
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase">EXTERN</Badge>
-                          <span className="text-[10px] font-bold text-slate-600">{externalOwner.name}</span>
+                      {externalContact || externalArea ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase">EXTERN</Badge>
+                            <span className="text-[10px] font-bold text-slate-600">{externalContact?.name || 'Fachbereich'}</span>
+                          </div>
+                          {externalArea && (
+                            <span className="text-[8px] font-black uppercase text-indigo-400 pl-6">{externalArea.name}</span>
+                          )}
                         </div>
                       ) : internalOwner ? (
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
@@ -605,9 +644,15 @@ export default function ResourcesPage() {
                             </Select>
                           </div>
                         ) : (
-                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Externen Kontakt auswählen</Label>
-                            <PartnerContactSelect value={externalOwnerContactId} onValueChange={setExternalOwnerContactId} />
+                          <div className="space-y-4 animate-in fade-in slide-in-from-top-1">
+                            <div className="space-y-2">
+                              <Label className="text-[9px] font-black uppercase text-slate-400">Externen Kontakt auswählen</Label>
+                              <PartnerContactSelect value={externalOwnerContactId} onValueChange={setExternalOwnerContactId} />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortlicher Fachbereich</Label>
+                              <PartnerAreaSelect value={externalOwnerAreaId} onValueChange={setExternalOwnerAreaId} />
+                            </div>
                           </div>
                         )}
                       </div>

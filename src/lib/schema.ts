@@ -378,6 +378,7 @@ export const appSchema: AppSchema = {
       systemOwnerRoleId: 'VARCHAR(255)',
       riskOwnerRoleId: 'VARCHAR(255)',
       externalOwnerContactId: 'VARCHAR(255)',
+      externalOwnerAreaId: 'VARCHAR(255)',
       operatorId: 'VARCHAR(255)',
       riskOwner: 'VARCHAR(255)',
       dataOwner: 'VARCHAR(255)',
