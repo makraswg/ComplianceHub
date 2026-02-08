@@ -49,7 +49,9 @@ import {
   TrendingUp,
   FileCheck,
   Save,
-  UserCircle
+  UserCircle,
+  ArrowUp,
+  ClipboardCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -60,7 +62,7 @@ import { useSettings } from '@/context/settings-context';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, Feature, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
@@ -143,6 +145,11 @@ export default function ProcessDetailViewPage() {
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
+  const currentDept = useMemo(() => 
+    departments?.find(d => d.id === currentProcess?.responsibleDepartmentId),
+    [departments, currentProcess]
+  );
+
   const allProcessVersions = useMemo(() => 
     versions?.filter((v: any) => v.process_id === id).sort((a: any, b: any) => b.version - a.version) || [],
     [versions, id]
