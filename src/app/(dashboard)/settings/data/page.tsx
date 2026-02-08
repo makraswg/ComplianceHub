@@ -4,20 +4,27 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileCode, Upload, Loader2, Database, Info, History } from 'lucide-react';
+import { FileCode, Upload, Loader2, Database, Info, History, FileText, FileJson, Zap } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { runBsiCrossTableImportAction } from '@/app/actions/bsi-cross-table-actions';
+import { runBsiXmlImportAction } from '@/app/actions/bsi-import-actions';
 import { ImportRun } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 
 export default function DataImportSettingsPage() {
   const { dataSource } = useSettings();
   const [isExcelImporting, setIsExcelImporting] = useState(false);
+  const [isXmlImporting, setIsXmlImporting] = useState(false);
+
+  // XML Import Fields
+  const [xmlCatalogName, setXmlCatalogName] = useState('IT-Grundschutz Kompendium');
+  const [xmlVersion, setXmlVersion] = useState('2023');
 
   const { data: importRuns, refresh } = usePluggableCollection<ImportRun>('importRuns');
 
@@ -27,15 +34,51 @@ export default function DataImportSettingsPage() {
     setIsExcelImporting(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const base64 = (event.target?.result as string).split(',')[1];
-      const res = await runBsiCrossTableImportAction(base64, dataSource);
-      if (res.success) {
-        toast({ title: "Kreuztabellen importiert" });
-        refresh();
+      try {
+        const base64 = (event.target?.result as string).split(',')[1];
+        const res = await runBsiCrossTableImportAction(base64, dataSource);
+        if (res.success) {
+          toast({ title: "Kreuztabellen importiert", description: res.message });
+          refresh();
+        } else {
+          toast({ variant: "destructive", title: "Import fehlgeschlagen", description: res.message });
+        }
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Systemfehler", description: err.message });
+      } finally {
+        setIsExcelImporting(false);
       }
-      setIsExcelImporting(false);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleXmlImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsXmlImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const xmlContent = event.target?.result as string;
+        const res = await runBsiXmlImportAction({
+          catalogName: xmlCatalogName,
+          version: xmlVersion,
+          xmlContent
+        }, dataSource);
+        
+        if (res.success) {
+          toast({ title: "Katalog importiert", description: res.message });
+          refresh();
+        } else {
+          toast({ variant: "destructive", title: "XML Fehler", description: res.message });
+        }
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Systemfehler", description: err.message });
+      } finally {
+        setIsXmlImporting(false);
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -52,24 +95,70 @@ export default function DataImportSettingsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-8 space-y-10">
-          <div className="p-10 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-6 bg-slate-50/50 dark:bg-slate-950/50 transition-all hover:bg-slate-100/50">
-            <div className="w-16 h-16 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-md border border-slate-100 dark:border-slate-800">
-              <Upload className="w-8 h-8 text-primary opacity-40" />
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-sm font-black uppercase text-slate-800 dark:text-slate-100">BSI Kreuztabellen hochladen</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest max-w-sm">Unterstützt .XLSX Formate für die Verknüpfung von Gefährdungen und Maßnahmen.</p>
-            </div>
-            <Input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="max-w-xs h-11 rounded-lg border-slate-200 cursor-pointer" />
-          </div>
+        <CardContent className="p-8 space-y-12">
           
-          {isExcelImporting && (
-            <div className="flex items-center justify-center gap-3 p-4 bg-primary/5 rounded-xl border border-primary/10 animate-pulse">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <span className="text-[10px] font-black uppercase text-primary tracking-[0.2em]">Verarbeite Excel-Daten...</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* XML Catalog Import */}
+            <div className="p-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col gap-6 bg-slate-50/30 dark:bg-slate-950/50 transition-all hover:border-primary/30">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm border">
+                  <FileJson className="w-6 h-6 text-primary opacity-60" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase text-slate-800 dark:text-slate-100">Gefährdungskatalog (XML)</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">BSI DocBook 5 Format</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Bezeichnung</Label>
+                  <Input value={xmlCatalogName} onChange={e => setXmlCatalogName(e.target.value)} className="h-9 rounded-lg text-xs" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Edition</Label>
+                  <Input value={xmlVersion} onChange={e => setXmlVersion(e.target.value)} className="h-9 rounded-lg text-xs" />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] font-bold uppercase text-slate-500">Katalog-Datei auswählen</Label>
+                <Input type="file" accept=".xml" onChange={handleXmlImport} className="h-11 rounded-lg border-slate-200 cursor-pointer bg-white" />
+              </div>
+
+              {isXmlImporting && (
+                <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/10 animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-[9px] font-black uppercase text-primary tracking-widest">XML Analyse läuft...</span>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* Excel Cross Table Import */}
+            <div className="p-8 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col gap-6 bg-slate-50/30 dark:bg-slate-950/50 transition-all hover:border-emerald-500/30">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-xl flex items-center justify-center shadow-sm border">
+                  <FileText className="w-6 h-6 text-emerald-600 opacity-60" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase text-slate-800 dark:text-slate-100">BSI Kreuztabellen (Excel)</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Mapping Gefährdung ↔ Maßnahme</p>
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col justify-end space-y-3">
+                <Label className="text-[10px] font-bold uppercase text-slate-500">Excel-Datei auswählen</Label>
+                <Input type="file" accept=".xlsx,.xls" onChange={handleExcelImport} className="h-11 rounded-lg border-slate-200 cursor-pointer bg-white" />
+              </div>
+
+              {isExcelImporting && (
+                <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100 animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                  <span className="text-[9px] font-black uppercase text-emerald-600 tracking-widest">Excel Verarbeitung...</span>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
@@ -89,7 +178,7 @@ export default function DataImportSettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {importRuns?.slice(0, 8).map(run => (
+                  {importRuns?.slice(0, 10).map(run => (
                     <TableRow key={run.id} className="text-xs group hover:bg-slate-50 transition-colors border-slate-100 dark:border-slate-800">
                       <TableCell className="py-4 px-6 font-bold text-slate-700 dark:text-slate-300">
                         {new Date(run.timestamp).toLocaleString()}
