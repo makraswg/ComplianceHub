@@ -74,7 +74,8 @@ function normalizeRecord(item: any, tableName: string) {
     ai_sessions: ['context_json'],
     ai_messages: ['structured_json'],
     platformRoles: ['permissions'],
-    processes: ['regulatoryFramework']
+    processes: ['regulatoryFramework'],
+    jobTitles: ['entitlementIds']
   };
 
   if (jsonFields[tableName]) {
@@ -159,7 +160,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       ai_sessions: ['context_json'],
       ai_messages: ['structured_json'],
       platformRoles: ['permissions'],
-      processes: ['regulatoryFramework']
+      processes: ['regulatoryFramework'],
+      jobTitles: ['entitlementIds']
     };
 
     if (jsonFields[tableName]) {

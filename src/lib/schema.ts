@@ -46,6 +46,7 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT', 
       status: 'VARCHAR(20) DEFAULT "active"',
+      entitlementIds: 'TEXT', // JSON array of standard roles (Blueprint)
     }
   },
   data_stores: {

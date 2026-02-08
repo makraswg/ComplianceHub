@@ -35,6 +35,7 @@ export interface JobTitle {
   name: string;
   description?: string; 
   status: 'active' | 'archived';
+  entitlementIds?: string[];
 }
 
 export interface User {

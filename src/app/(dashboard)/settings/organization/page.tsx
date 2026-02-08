@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,13 @@ import {
   Settings2,
   AlertTriangle,
   Link as LinkIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Network,
+  ChevronRight,
+  Maximize2,
+  RefreshCw,
+  ShieldCheck,
+  Shield
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -34,7 +40,7 @@ import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
-import { Tenant, Department, JobTitle } from '@/lib/types';
+import { Tenant, Department, JobTitle, Entitlement, Resource } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,13 +56,56 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
+/**
+ * Generates XML for mxGraph representing the organization tree.
+ */
+function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
+  let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
+  
+  const NODE_W = 180;
+  const NODE_H = 60;
+  const GAP_X = 250;
+  const GAP_Y = 120;
+
+  tenants.forEach((tenant, tIdx) => {
+    const tX = 50;
+    const tY = 50 + (tIdx * 400);
+    xml += `<mxCell id="${tenant.id}" value="${tenant.name}" style="rounded=1;fillColor=#0f172a;strokeColor=#1e293b;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1"><mxGeometry x="${tX}" y="${tY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
+
+    const tDepts = depts.filter(d => d.tenantId === tenant.id);
+    tDepts.forEach((dept, dIdx) => {
+      const dX = tX + GAP_X;
+      const dY = tY + (dIdx * 150);
+      xml += `<mxCell id="${dept.id}" value="${dept.name}" style="rounded=1;fillColor=#f0fdf4;strokeColor=#166534;fontColor=#166534;fontStyle=1;fontSize=11;" vertex="1" parent="1"><mxGeometry x="${dX}" y="${dY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="edge-t-d-${dept.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94a3b8;strokeWidth=1.5;endArrow=none;" edge="1" parent="1" source="${tenant.id}" target="${dept.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+
+      const dJobs = jobs.filter(j => j.departmentId === dept.id);
+      dJobs.forEach((job, jIdx) => {
+        const jX = dX + GAP_X;
+        const jY = dY + (jIdx * 70);
+        xml += `<mxCell id="${job.id}" value="${job.name}" style="rounded=1;fillColor=#ffffff;strokeColor=#3b82f6;fontColor=#1e40af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${jX}" y="${jY}" width="${NODE_W}" height="40" as="geometry"/></mxCell>`;
+        xml += `<mxCell id="edge-d-j-${job.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#cbd5e1;strokeWidth=1;endArrow=none;" edge="1" parent="1" source="${dept.id}" target="${job.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      });
+    });
+  });
+
+  xml += `</root></mxGraphModel>`;
+  return xml;
+}
 
 export default function UnifiedOrganizationPage() {
   const { dataSource } = useSettings();
   const { user } = usePlatformAuth();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [activeTab, setActiveTab] = useState('list');
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
+  const [isIframeReady, setIsIframeReady] = useState(false);
   
   // Selection
   const [activeAddParent, setActiveAddParent] = useState<{ id: string, type: 'tenant' | 'dept' } | null>(null);
@@ -72,12 +121,14 @@ export default function UnifiedOrganizationPage() {
   const [tenantLogoUrl, setTenantLogoUrl] = useState('');
   const [isSavingTenant, setIsSavingTenant] = useState(false);
 
-  // Job Editor
+  // Job Editor (RBAC Blueprint)
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
   const [jobName, setJobName] = useState('');
   const [jobDesc, setJobDesc] = useState('');
+  const [jobEntitlementIds, setJobEntitlementIds] = useState<string[]>([]);
   const [isSavingJob, setIsSavingJob] = useState(false);
+  const [roleSearch, setRoleSearch] = useState('');
 
   // Delete State
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string } | null>(null);
@@ -86,6 +137,8 @@ export default function UnifiedOrganizationPage() {
   const { data: tenants, refresh: refreshTenants, isLoading: tenantsLoading } = usePluggableCollection<Tenant>('tenants');
   const { data: departments, refresh: refreshDepts, isLoading: deptsLoading } = usePluggableCollection<Department>('departments');
   const { data: jobTitles, refresh: refreshJobs, isLoading: jobsLoading } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
@@ -119,6 +172,29 @@ export default function UnifiedOrganizationPage() {
       });
   }, [tenants, departments, jobTitles, search, showArchived]);
 
+  const syncChart = useCallback(() => {
+    if (!iframeRef.current || !isIframeReady) return;
+    const xml = generateOrgChartXml(tenants || [], departments || [], jobTitles || []);
+    iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
+    setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
+  }, [tenants, departments, jobTitles, isIframeReady]);
+
+  useEffect(() => {
+    const handleMessage = (evt: MessageEvent) => {
+      if (!evt.data || typeof evt.data !== 'string') return;
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.event === 'init') setIsIframeReady(true);
+      } catch (e) {}
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'chart' && isIframeReady) syncChart();
+  }, [activeTab, isIframeReady, syncChart]);
+
   const handleCreateTenant = async () => {
     if (!tenantName || !tenantSlug) return;
     setIsSavingTenant(true);
@@ -146,10 +222,8 @@ export default function UnifiedOrganizationPage() {
           action: isNew ? `Mandant erstellt: ${tenantName}` : `Mandant aktualisiert: ${tenantName}`,
           entityType: 'tenant',
           entityId: id,
-          before: isNew ? null : editingTenant,
           after: data
         });
-
         setIsTenantDialogOpen(false);
         refreshTenants();
         toast({ title: "Mandant gespeichert" });
@@ -166,28 +240,12 @@ export default function UnifiedOrganizationPage() {
     if (activeAddParent.type === 'tenant') {
       const deptData = { id, tenantId: activeAddParent.id, name: newName, status: 'active' };
       await saveCollectionRecord('departments', id, deptData, dataSource);
-      await logAuditEventAction(dataSource, {
-        tenantId: activeAddParent.id,
-        actorUid: user?.email || 'system',
-        action: `Abteilung erstellt: ${newName}`,
-        entityType: 'department',
-        entityId: id,
-        after: deptData
-      });
       refreshDepts();
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (!dept) return;
       const jobData = { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' };
       await saveCollectionRecord('jobTitles', id, jobData, dataSource);
-      await logAuditEventAction(dataSource, {
-        tenantId: dept.tenantId,
-        actorUid: user?.email || 'system',
-        action: `Stelle erstellt: ${newName} (Abt: ${dept.name})`,
-        entityType: 'jobTitle',
-        entityId: id,
-        after: jobData
-      });
       refreshJobs();
     }
     setNewName('');
@@ -199,15 +257,6 @@ export default function UnifiedOrganizationPage() {
     const updated = { ...item, status: newStatus };
     const res = await saveCollectionRecord(coll, item.id, updated, dataSource);
     if (res.success) {
-      await logAuditEventAction(dataSource, {
-        tenantId: item.tenantId || item.id || 'global',
-        actorUid: user?.email || 'system',
-        action: `${newStatus === 'archived' ? 'Archivierung' : 'Reaktivierung'}: ${item.name}`,
-        entityType: coll.slice(0, -1), // simplified
-        entityId: item.id,
-        after: updated
-      });
-
       if (coll === 'tenants') refreshTenants();
       if (coll === 'departments') refreshDepts();
       if (coll === 'jobTitles') refreshJobs();
@@ -221,14 +270,6 @@ export default function UnifiedOrganizationPage() {
     try {
       const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
       if (res.success) {
-        await logAuditEventAction(dataSource, {
-          tenantId: 'global',
-          actorUid: user?.email || 'system',
-          action: `Permanente Löschung: ${deleteTarget.label} (${deleteTarget.type})`,
-          entityType: deleteTarget.type,
-          entityId: deleteTarget.id
-        });
-
         toast({ title: "Eintrag permanent gelöscht" });
         if (deleteTarget.type === 'tenants') refreshTenants();
         if (deleteTarget.type === 'departments') refreshDepts();
@@ -254,6 +295,7 @@ export default function UnifiedOrganizationPage() {
     setEditingJob(job);
     setJobName(job.name);
     setJobDesc(job.description || '');
+    setJobEntitlementIds(job.entitlementIds || []);
     setIsEditorOpen(true);
   };
 
@@ -261,19 +303,9 @@ export default function UnifiedOrganizationPage() {
     if (!editingJob) return;
     setIsSavingJob(true);
     try {
-      const updatedJob = { ...editingJob, name: jobName, description: jobDesc };
+      const updatedJob = { ...editingJob, name: jobName, description: jobDesc, entitlementIds: jobEntitlementIds };
       const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
       if (res.success) {
-        await logAuditEventAction(dataSource, {
-          tenantId: editingJob.tenantId,
-          actorUid: user?.email || 'system',
-          action: `Stelle aktualisiert: ${jobName}`,
-          entityType: 'jobTitle',
-          entityId: editingJob.id,
-          before: editingJob,
-          after: updatedJob
-        });
-
         setIsEditorOpen(false);
         refreshJobs();
         toast({ title: "Stelle gespeichert" });
@@ -283,264 +315,280 @@ export default function UnifiedOrganizationPage() {
     }
   };
 
+  const filteredEntitlements = useMemo(() => {
+    if (!entitlements || !editingJob) return [];
+    return entitlements.filter(e => {
+      const res = resources?.find(r => r.id === e.resourceId);
+      if (res?.tenantId !== 'global' && res?.tenantId !== editingJob.tenantId) return false;
+      const s = roleSearch.toLowerCase();
+      return e.name.toLowerCase().includes(s) || res?.name.toLowerCase().includes(s);
+    });
+  }, [entitlements, resources, editingJob, roleSearch]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Organisationsstruktur</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Mandanten & Stellenplan</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Zentrale Verwaltung der Standorte, Abteilungen und Rollenprofile.</p>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten & Stellenplan</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Blueprints.</p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            className={cn("h-9 rounded-md font-bold text-xs", showArchived && "text-orange-600 bg-orange-50")} 
-            onClick={() => setShowArchived(!showArchived)}
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
+          <button 
+            className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'list' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setActiveTab('list')}
           >
-            {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
-            {showArchived ? 'Aktive Ansicht' : 'Archiv'}
-          </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setTenantRegion('EU-DSGVO'); setTenantDescription(''); setTenantLogoUrl(''); setIsTenantDialogOpen(true); }}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant
-          </Button>
+            Liste
+          </button>
+          <button 
+            className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'chart' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")}
+            onClick={() => setActiveTab('chart')}
+          >
+            Stammbaum
+          </button>
         </div>
       </div>
 
-      <div className="relative group max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-        <Input 
-          placeholder="Nach Name, Abteilung oder Stelle suchen..." 
-          className="pl-9 h-10 rounded-md border-slate-200 bg-white"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="space-y-4">
-        {(tenantsLoading || deptsLoading || jobsLoading) ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-            <p className="text-[10px] font-bold text-slate-400">Lade Struktur...</p>
+      {activeTab === 'list' ? (
+        <div className="space-y-6 animate-in fade-in">
+          <div className="flex items-center justify-between">
+            <div className="relative group max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Input 
+                placeholder="Nach Name, Abteilung oder Stelle suchen..." 
+                className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className={cn("h-9 rounded-md font-bold text-xs", showArchived && "text-orange-600 bg-orange-50")} 
+                onClick={() => setShowArchived(!showArchived)}
+              >
+                {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
+                {showArchived ? 'Aktive Ansicht' : 'Archiv'}
+              </Button>
+              <Button size="sm" className="h-9 rounded-md font-bold text-xs shadow-lg shadow-primary/10" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
+                <Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant
+              </Button>
+            </div>
           </div>
-        ) : filteredData.length === 0 ? (
-          <div className="py-20 text-center border-2 border-dashed rounded-xl bg-white/50">
-            <p className="text-xs font-bold text-slate-400">Keine Mandanten oder Übereinstimmungen gefunden.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4">
-            {filteredData.map(tenant => (
-              <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/80 dark:bg-slate-900/80 border-b p-4 px-6 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm border border-primary/10 overflow-hidden">
-                      {tenant.logoUrl ? (
-                        <img src={tenant.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" />
-                      ) : (
-                        <Building2 className="w-5 h-5" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-base font-bold text-slate-900 dark:text-white">{tenant.name}</CardTitle>
-                        <Badge variant="outline" className="text-[8px] font-bold h-4 px-1">{tenant.region}</Badge>
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-bold">{tenant.slug}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => openTenantEdit(tenant)}>
-                      <Settings2 className="w-3.5 h-3.5" /> Details
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
-                      <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
-                      <Archive className="w-3.5 h-3.5" />
-                    </Button>
-                    {isSuperAdmin && (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => setDeleteTarget({ id: tenant.id, type: 'tenants', label: tenant.name })}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {tenant.departments.map(dept => (
-                      <div key={dept.id} className="group/dept">
-                        <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/30">
-                              <Layers className="w-4 h-4" />
-                            </div>
-                            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept.name}</h4>
-                          </div>
-                          <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
-                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}>
-                              <Plus className="w-3 h-3" /> Stelle
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
-                              <Archive className="w-3.5 h-3.5" />
-                            </Button>
-                            {isSuperAdmin && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-red-300 hover:text-red-600" onClick={() => setDeleteTarget({ id: dept.id, type: 'departments', label: dept.name })}>
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
 
-                        <div className="bg-slate-50/30 dark:bg-slate-900/30 px-8 pb-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 border-slate-100 dark:border-slate-800 ml-4">
-                            {dept.jobs.map(job => (
-                              <div key={job.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-lg border shadow-sm group/job hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{job.name}</p>
-                                </div>
-                                <div className="flex gap-1 opacity-0 group-hover/job:opacity-100">
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300" onClick={(e) => { e.stopPropagation(); handleStatusChange('jobTitles', job, job.status === 'active' ? 'archived' : 'active'); }}><Archive className="w-3.5 h-3.5" /></Button>
-                                  {isSuperAdmin && (
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-300 hover:text-red-600" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: job.id, type: 'jobTitles', label: job.name }); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                            {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
-                              <div className="col-span-full pt-2">
-                                <div className="flex gap-2 p-2 bg-white dark:bg-slate-950 rounded-lg border-2 border-primary shadow-sm">
-                                  <Input autoFocus placeholder="Name der Stelle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
-                                  <Button size="sm" className="h-8 px-4 rounded-md font-bold text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {activeAddParent?.id === tenant.id && activeAddParent.type === 'tenant' && (
-                      <div className="p-4 px-8 bg-primary/5 border-y border-primary/10">
-                        <div className="flex items-center gap-3">
-                          <Input autoFocus placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-slate-950 text-xs font-bold" />
-                          <Button size="sm" className="h-10 px-6 rounded-md font-bold text-[10px]" onClick={handleCreateSub}>Erstellen</Button>
-                          <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tenant Dialog */}
-      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/10">
-                <Building2 className="w-5 h-5" />
+          <div className="space-y-4">
+            {(tenantsLoading || deptsLoading || jobsLoading) ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
+                <p className="text-[10px] font-bold text-slate-400">Lade Struktur...</p>
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                {editingTenant ? 'Mandant konfigurieren' : 'Neuer Mandant'}
-              </DialogTitle>
+            ) : filteredData.length === 0 ? (
+              <div className="py-20 text-center border-2 border-dashed rounded-xl bg-white/50">
+                <p className="text-xs font-bold text-slate-400">Keine Mandanten oder Übereinstimmungen gefunden.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {filteredData.map(tenant => (
+                  <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+                    <CardHeader className="bg-slate-50/80 dark:bg-slate-900/80 border-b p-4 px-6 flex flex-row items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm border border-primary/10">
+                          {tenant.logoUrl ? <img src={tenant.logoUrl} alt="Logo" className="w-full h-full object-contain p-1" /> : <Building2 className="w-5 h-5" />}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <CardTitle className="text-base font-bold text-slate-900 dark:text-white">{tenant.name}</CardTitle>
+                            <Badge variant="outline" className="text-[8px] font-bold h-4 px-1">{tenant.region}</Badge>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-bold">{tenant.slug}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => openTenantEdit(tenant)}><Settings2 className="w-3.5 h-3.5" /> Details</Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}><PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung</Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {tenant.departments.map(dept => (
+                          <div key={dept.id} className="group/dept">
+                            <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100"><Layers className="w-4 h-4" /></div>
+                                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept.name}</h4>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
+                                <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-emerald-600 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3" /> Stelle</Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                              </div>
+                            </div>
+                            <div className="bg-slate-50/30 px-8 pb-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 border-slate-100 dark:border-slate-800 ml-4">
+                                {dept.jobs.map(job => (
+                                  <div key={job.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-lg border shadow-sm group/job hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{job.name}</p>
+                                      {job.entitlementIds?.length > 0 && <Badge className="bg-blue-50 text-blue-600 border-none rounded-full h-3.5 px-1 text-[7px] font-black">{job.entitlementIds.length}</Badge>}
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover/job:opacity-100">
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                                      {isSuperAdmin && <Button variant="ghost" size="icon" className="h-6 w-6 text-red-300 hover:text-red-600" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: job.id, type: 'jobTitles', label: job.name }); }}><Trash2 className="w-3.5 h-3.5" /></Button>}
+                                    </div>
+                                  </div>
+                                ))}
+                                {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
+                                  <div className="col-span-full pt-2">
+                                    <div className="flex gap-2 p-2 bg-white rounded-lg border-2 border-primary shadow-sm">
+                                      <Input autoFocus placeholder="Name der Stelle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none text-[11px] font-bold" />
+                                      <Button size="sm" className="h-8 px-4 font-bold text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] relative overflow-hidden shadow-inner animate-in fade-in">
+          <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-xl p-1.5 flex flex-col gap-1.5">
+            <TooltipProvider>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-lg hover:bg-slate-100"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left">Neu zeichnen</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-lg hover:bg-slate-100"><Maximize2 className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left">Zentrieren</TooltipContent></Tooltip>
+            </TooltipProvider>
+          </div>
+          <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
+          {(!isIframeReady) && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
+              <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
+              <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Lade Stammbaum...</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Job Editor Dialog (RBAC Blueprint) */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-4xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white h-[90vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
+                <Briefcase className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Stellenprofil & Blueprint</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Definiert Standard-Rechte für: {jobName}</DialogDescription>
+              </div>
             </div>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh]">
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">Unternehmensname</Label>
-                  <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-md h-11 border-slate-200 dark:border-slate-800" placeholder="z.B. Acme Corp" />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">System-Alias (Slug)</Label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                    <Input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-md h-11 pl-9 border-slate-200 dark:border-slate-800 font-mono text-sm" placeholder="acme-holding" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">Regulatorischer Rahmen</Label>
-                  <Select value={tenantRegion} onValueChange={setTenantRegion}>
-                    <SelectTrigger className="rounded-md h-11 border-slate-200 dark:border-slate-800">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EU-DSGVO">Europa (GDPR / DSGVO)</SelectItem>
-                      <SelectItem value="BSI-IT-Grundschutz">Deutschland (BSI Grundschutz)</SelectItem>
-                      <SelectItem value="NIST-USA">USA (NIST / HIPAA)</SelectItem>
-                      <SelectItem value="ISO-GLOBAL">International (ISO 27001)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400">Unternehmenslogo (URL)</Label>
-                  <div className="relative">
-                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
-                    <Input value={tenantLogoUrl} onChange={e => setTenantLogoUrl(e.target.value)} className="rounded-md h-11 pl-9 border-slate-200 dark:border-slate-800" placeholder="https://..." />
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <Label className="text-[11px] font-bold text-slate-400 flex items-center gap-2">
-                  <BrainCircuit className="w-4 h-4 text-primary" /> KI-Kontext (Unternehmensbeschreibung)
-                </Label>
-                <Textarea 
-                  value={tenantDescription} 
-                  onChange={e => setTenantDescription(e.target.value)}
-                  placeholder="Beschreiben Sie Branche, Größe und Compliance-Ziele für die KI..."
-                  className="min-h-[120px] rounded-lg border-slate-200 dark:border-slate-800 text-xs leading-relaxed"
-                />
-              </div>
+          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 border-b shrink-0 bg-white">
+              <TabsList className="h-12 bg-transparent gap-8 p-0">
+                <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary">Beschreibung</TabsTrigger>
+                <TabsTrigger value="rbac" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Standard-Rollen (RBAC)</TabsTrigger>
+              </TabsList>
             </div>
-          </ScrollArea>
-          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleCreateTenant} disabled={isSavingTenant || !tenantName} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              {isSavingTenant ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
+            <ScrollArea className="flex-1 bg-slate-50/30">
+              <div className="p-8 space-y-10">
+                <TabsContent value="base" className="mt-0 space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung der Stelle</Label>
+                    <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-12 font-bold text-sm rounded-xl border-slate-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Stellenbeschreibung (ISO 9001 Kontext)</Label>
+                    <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] p-5 rounded-2xl text-xs font-medium leading-relaxed bg-white shadow-inner" placeholder="Was sind die Hauptaufgaben und Verantwortlichkeiten?..." />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="rbac" className="mt-0 space-y-8">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 uppercase">Berechtigungs-Blueprint</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Wählen Sie Rollen, die ein Mitarbeiter in dieser Position automatisch erhalten soll.</p>
+                    </div>
+                    <div className="relative group">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                      <Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[10px] rounded-lg w-full md:w-64" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {filteredEntitlements.map(ent => {
+                      const res = resources?.find(r => r.id === ent.resourceId);
+                      const isSelected = jobEntitlementIds.includes(ent.id);
+                      return (
+                        <div 
+                          key={ent.id} 
+                          className={cn(
+                            "p-4 border rounded-2xl flex items-center gap-4 cursor-pointer transition-all shadow-sm group",
+                            isSelected ? "border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-200"
+                          )}
+                          onClick={() => setJobEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}
+                        >
+                          <Checkbox checked={isSelected} className="rounded-md h-4 w-4" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[8px] font-black uppercase text-slate-400">{res?.name}</span>
+                              {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full h-3 px-1 text-[6px] font-black">ADMIN</Badge>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </Tabs>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white shadow-lg font-bold text-[10px] uppercase gap-2 active:scale-95 transition-all">
+              {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Profil speichern
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Job Editor Dialog */}
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-lg w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
+      {/* Tenant Dialog */}
+      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                <Briefcase className="w-5 h-5" />
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/10">
+                <Building2 className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Stelle bearbeiten</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-slate-900">{editingTenant ? 'Mandant konfigurieren' : 'Neuer Mandant'}</DialogTitle>
             </div>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Bezeichnung</Label>
-                <Input value={jobName} onChange={e => setJobName(e.target.value)} className="rounded-md h-11 font-bold text-sm border-slate-200 dark:border-slate-800" />
+                <Label className="text-[11px] font-bold text-slate-400">Unternehmensname</Label>
+                <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-md h-11 border-slate-200" placeholder="z.B. Acme Corp" />
               </div>
               <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Stellenbeschreibung</Label>
-                <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] rounded-lg p-4 text-xs leading-relaxed border-slate-200 dark:border-slate-800" placeholder="Aufgaben & Kompetenzen..." />
-              </div>
-              <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg flex items-start gap-3 border border-blue-100 dark:border-blue-900/30">
-                <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-500 italic leading-relaxed">Diese Info nutzt die KI für Least-Privilege Checks.</p>
+                <Label className="text-[11px] font-bold text-slate-400">System-Alias (Slug)</Label>
+                <Input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-md h-11 border-slate-200 font-mono text-sm" placeholder="acme-holding" />
               </div>
             </div>
-          </ScrollArea>
-          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
+            <Button onClick={handleCreateTenant} disabled={isSavingTenant || !tenantName} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+              {isSavingTenant ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -550,26 +598,13 @@ export default function UnifiedOrganizationPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
         <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-            </div>
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
-              Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
-              <br/><br/>
-              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle verknüpften Unterelemente (Abteilungen, Stellen) werden ebenfalls gelöscht.
-            </AlertDialogDescription>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={executeDelete} 
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2"
-            >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              Permanent löschen
-            </AlertDialogAction>
+            <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2">{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
