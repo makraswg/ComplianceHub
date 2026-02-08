@@ -228,6 +228,7 @@ export interface DataStore {
   name: string;
   description?: string;
   status: 'active' | 'archived';
+  ownerRoleId?: string;
 }
 
 export interface Feature {

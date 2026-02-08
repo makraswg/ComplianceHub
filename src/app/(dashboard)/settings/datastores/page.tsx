@@ -16,18 +16,20 @@ import {
   RotateCcw,
   Search,
   Database,
-  Info
+  Info,
+  Briefcase
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { DataStore } from '@/lib/types';
+import { DataStore, JobTitle } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DataStoresSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -37,8 +39,10 @@ export default function DataStoresSettingsPage() {
   
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [ownerRoleId, setOwnerRoleId] = useState('');
 
   const { data: dataStores, refresh, isLoading } = usePluggableCollection<DataStore>('dataStores');
+  const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
 
   const handleAddStore = async () => {
     if (!newName) return;
@@ -49,7 +53,8 @@ export default function DataStoresSettingsPage() {
       tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
       name: newName,
       description: newDesc,
-      status: 'active'
+      status: 'active',
+      ownerRoleId: ownerRoleId || undefined
     };
 
     try {
@@ -57,6 +62,7 @@ export default function DataStoresSettingsPage() {
       if (res.success) {
         setNewName('');
         setNewDesc('');
+        setOwnerRoleId('');
         refresh();
         toast({ title: "Datenspeicher hinzugefügt" });
       }
@@ -98,7 +104,7 @@ export default function DataStoresSettingsPage() {
             </div>
             <div>
               <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Datenspeicher & Repositories</CardTitle>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Physische und logische Ablageorte für fachliche Merkmale</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Physische und logische Ablageorte für fachliche Daten</p>
             </div>
           </div>
         </CardHeader>
@@ -111,6 +117,19 @@ export default function DataStoresSettingsPage() {
                 <div className="space-y-1.5">
                   <Label required className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung</Label>
                   <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="z.B. SAP HANA, Azure Blob..." className="h-11 rounded-lg" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verantwortliche Rolle</Label>
+                  <Select value={ownerRoleId} onValueChange={setOwnerRoleId}>
+                    <SelectTrigger className="h-11 rounded-lg">
+                      <SelectValue placeholder="Rolle wählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                        <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Beschreibung</Label>
@@ -131,7 +150,7 @@ export default function DataStoresSettingsPage() {
                     <Input placeholder="Suchen..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 pl-8 text-[10px] w-40 rounded-md" />
                   </div>
                   <Button variant="ghost" size="sm" className="h-8 text-[9px] font-bold gap-2" onClick={() => setShowArchived(!showArchived)}>
-                    {showArchived ? <RotateCcw className="w-3 h-3" /> : <Archive className="w-3 h-3" />}
+                    {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                     {showArchived ? 'Aktiv' : 'Archiv'}
                   </Button>
                 </div>
@@ -142,27 +161,33 @@ export default function DataStoresSettingsPage() {
               ) : (
                 <ScrollArea className="h-[400px]">
                   <div className="grid grid-cols-1 gap-2">
-                    {filteredStores.map(ds => (
-                      <div key={ds.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all", ds.status === 'active' ? "bg-white dark:bg-slate-950" : "bg-slate-50 opacity-60")}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                            <Database className="w-4 h-4" />
+                    {filteredStores.map(ds => {
+                      const role = jobTitles?.find(j => j.id === ds.ownerRoleId);
+                      return (
+                        <div key={ds.id} className={cn("p-4 border rounded-xl flex items-center justify-between group transition-all", ds.status === 'active' ? "bg-white dark:bg-slate-950" : "bg-slate-50 opacity-60")}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                              <Database className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{ds.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {role && <Badge variant="outline" className="text-[8px] font-black uppercase h-4 px-1.5 gap-1"><Briefcase className="w-2 h-2" /> {role.name}</Badge>}
+                                <p className="text-[10px] text-slate-400 italic truncate max-w-sm">{ds.description || 'Keine Beschreibung'}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{ds.name}</p>
-                            <p className="text-[10px] text-slate-400 italic truncate max-w-sm">{ds.description || 'Keine Beschreibung'}</p>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => toggleStatus(ds)}>
+                              {ds.status === 'active' ? <Archive className="w-3.5 h-3.5" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => handleDelete(ds.id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => toggleStatus(ds)}>
-                            {ds.status === 'active' ? <Archive className="w-3.5 h-3.5" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => handleDelete(ds.id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {filteredStores.length === 0 && (
                       <div className="py-20 text-center opacity-30">
                         <HardDrive className="w-10 h-10 mx-auto mb-2" />

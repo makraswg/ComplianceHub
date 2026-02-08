@@ -546,7 +546,7 @@ export default function FeaturesOverviewPage() {
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugeordneter Datenspeicher</Label>
+                      <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugeordneter Datenspeicher</Label>
                       <Select value={dataStoreId} onValueChange={setDataStoreId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
                           <div className="flex items-center gap-2">

@@ -156,7 +156,7 @@ export function AppSidebar() {
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
   ];
 
-  const complianceItems = [
+  const dsgvoItems = [
     { name: 'Datenschutz (VVT)', href: '/gdpr', icon: FileCheck },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
@@ -240,8 +240,8 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Compliance</p>
-            {complianceItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">dsgvoHub</p>
+            {dsgvoItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
           </div>
 
           <div className="space-y-1">
