@@ -243,6 +243,18 @@ export interface UsageTypeOption {
   enabled: boolean | number;
 }
 
+export interface AssetTypeOption {
+  id: string;
+  name: string;
+  enabled: boolean | number;
+}
+
+export interface OperatingModelOption {
+  id: string;
+  name: string;
+  enabled: boolean | number;
+}
+
 export interface DataStore {
   id: string;
   tenantId: string;
@@ -297,9 +309,9 @@ export interface Resource {
   tenantId: string;
   name: string;
   status?: 'active' | 'archived';
-  assetType: 'Hardware' | 'Software' | 'SaaS' | 'Infrastruktur';
-  category: 'Fachanwendung' | 'Infrastruktur' | 'Sicherheitskomponente' | 'Support-Tool';
-  operatingModel: 'On-Prem' | 'Cloud' | 'Hybrid' | 'Private Cloud';
+  assetType: string;
+  category: string;
+  operatingModel: string;
   criticality: 'low' | 'medium' | 'high';
   dataClassification: 'public' | 'internal' | 'confidential' | 'strictly_confidential';
   confidentialityReq: 'low' | 'medium' | 'high';
@@ -316,7 +328,6 @@ export interface Resource {
   systemOwnerRoleId?: string; 
   riskOwnerRoleId?: string; 
   externalOwnerContactId?: string; 
-  riskOwnerContactId?: string;
   operatorId: string;
   riskOwner: string;
   dataOwner: string;

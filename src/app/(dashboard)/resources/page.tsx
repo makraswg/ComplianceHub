@@ -40,10 +40,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, ServicePartnerContact, Process, ProcessVersion, ProcessNode, Feature, FeatureProcessStep } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, ServicePartnerContact, Process, ProcessVersion, ProcessNode, Feature, FeatureProcessStep, AssetTypeOption, OperatingModelOption } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -89,9 +88,9 @@ export default function ResourcesPage() {
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   const [name, setName] = useState('');
-  const [assetType, setAssetType] = useState<Resource['assetType']>('Software');
-  const [category, setCategory] = useState<Resource['category']>('Fachanwendung');
-  const [operatingModel, setOperatingModel] = useState<Resource['operatingModel']>('Cloud');
+  const [assetType, setAssetType] = useState('');
+  const [category, setCategory] = useState('Fachanwendung');
+  const [operatingModel, setOperatingModel] = useState('');
   const [criticality, setCriticality] = useState<Resource['criticality']>('medium');
   const [dataClassification, setDataClassification] = useState<Resource['dataClassification']>('internal');
   const [confidentialityReq, setConfidentialityReq] = useState<Resource['confidentialityReq']>('medium');
@@ -101,14 +100,13 @@ export default function ResourcesPage() {
   const [isDataRepository, setIsDataRepository] = useState(false);
   const [dataLocation, setDataLocation] = useState('');
   
-  // Hybrid Owner States
+  // System Owner
   const [systemOwnerType, setSystemOwnerType] = useState<'internal' | 'external'>('internal');
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
   const [externalOwnerContactId, setExternalOwnerContactId] = useState('');
   
-  const [riskOwnerType, setRiskOwnerType] = useState<'internal' | 'external'>('internal');
+  // Risk Owner (ALWAYS INTERNAL)
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
-  const [riskOwnerContactId, setRiskOwnerContactId] = useState('');
 
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
@@ -122,6 +120,9 @@ export default function ResourcesPage() {
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<FeatureProcessStep>('feature_process_steps');
+  
+  const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
+  const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -180,9 +181,9 @@ export default function ResourcesPage() {
   const resetForm = () => {
     setSelectedResource(null);
     setName('');
-    setAssetType('Software');
+    setAssetType('');
     setCategory('Fachanwendung');
-    setOperatingModel('Cloud');
+    setOperatingModel('');
     setCriticality('medium');
     setDataClassification('internal');
     setConfidentialityReq('medium');
@@ -194,9 +195,7 @@ export default function ResourcesPage() {
     setSystemOwnerType('internal');
     setSystemOwnerRoleId('');
     setExternalOwnerContactId('');
-    setRiskOwnerType('internal');
     setRiskOwnerRoleId('');
-    setRiskOwnerContactId('');
     setNotes('');
     setUrl('');
   };
@@ -228,8 +227,7 @@ export default function ResourcesPage() {
       dataLocation,
       systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       externalOwnerContactId: systemOwnerType === 'external' && externalOwnerContactId !== 'none' ? externalOwnerContactId : undefined,
-      riskOwnerRoleId: riskOwnerType === 'internal' && riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
-      riskOwnerContactId: riskOwnerType === 'external' && riskOwnerContactId !== 'none' ? riskOwnerContactId : undefined,
+      riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
       notes,
       url,
       status: selectedResource?.status || 'active',
@@ -268,9 +266,7 @@ export default function ResourcesPage() {
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
     setExternalOwnerContactId(res.externalOwnerContactId || 'none');
     
-    setRiskOwnerType(res.riskOwnerContactId ? 'external' : 'internal');
     setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
-    setRiskOwnerContactId(res.riskOwnerContactId || 'none');
 
     setNotes(res.notes || '');
     setUrl(res.url || '');
@@ -360,13 +356,13 @@ export default function ResourcesPage() {
           <Select value={assetTypeFilter} onValueChange={setAssetTypeFilter}>
             <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[140px] bg-transparent">
               <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
-              <SelectValue />
+              <SelectValue placeholder="Typ" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-xs">Alle Typen</SelectItem>
-              <SelectItem value="Software" className="text-xs">Software</SelectItem>
-              <SelectItem value="Hardware" className="text-xs">Hardware</SelectItem>
-              <SelectItem value="SaaS" className="text-xs">SaaS</SelectItem>
+              {assetTypeOptions?.filter(o => o.enabled).map(o => (
+                <SelectItem key={o.id} value={o.name} className="text-xs">{o.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -487,15 +483,19 @@ export default function ResourcesPage() {
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Asset Typ</Label>
                       <Select value={assetType} onValueChange={(v:any) => setAssetType(v)}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>{['Software', 'Hardware', 'SaaS', 'Infrastruktur'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          {assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
+                        </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Betriebsmodell</Label>
                       <Select value={operatingModel} onValueChange={(v:any) => setOperatingModel(v)}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>{['On-Prem', 'Cloud', 'Hybrid'].map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          {operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
+                        </SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -510,7 +510,7 @@ export default function ResourcesPage() {
                         Basierend auf den verarbeiteten Datenobjekten in den verknüpften Prozessen wird ein Schutzbedarf von <strong className="uppercase">{suggestedCompliance.criticality}</strong> empfohlen.
                         <div className="mt-3">
                           <Button size="sm" onClick={applyInheritance} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[9px] uppercase h-8 px-4 rounded-lg shadow-md gap-2">
-                            <RotateCcw className="w-3 h-3" /> Auf Vorschlag zurücksetzen
+                            <RotateCcw className="w-3.5 h-3.5" /> Auf Vorschlag zurücksetzen
                           </Button>
                         </div>
                       </AlertDescription>
@@ -614,42 +614,28 @@ export default function ResourcesPage() {
                       </div>
                     </div>
 
-                    {/* Risk Owner Section */}
+                    {/* Risk Owner Section (ALWAYS INTERNAL) */}
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                         <ShieldAlert className="w-4 h-4 text-orange-600" />
-                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner</h4>
+                        <h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4>
                       </div>
                       
                       <div className="space-y-4">
-                        <RadioGroup value={riskOwnerType} onValueChange={(v: any) => setRiskOwnerType(v)} className="grid grid-cols-2 gap-2">
-                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", riskOwnerType === 'internal' && "border-orange-600 bg-orange-50/50")}>
-                            <RadioGroupItem value="internal" id="risk-int" />
-                            <Label htmlFor="risk-int" className="text-[10px] font-bold uppercase cursor-pointer">Intern (Job)</Label>
-                          </div>
-                          <div className={cn("flex items-center space-x-2 border p-3 rounded-xl cursor-pointer transition-all", riskOwnerType === 'external' && "border-indigo-600 bg-indigo-50/50")}>
-                            <RadioGroupItem value="external" id="risk-ext" />
-                            <Label htmlFor="risk-ext" className="text-[10px] font-bold uppercase cursor-pointer">Extern (Partner)</Label>
-                          </div>
-                        </RadioGroup>
-
-                        {riskOwnerType === 'internal' ? (
-                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Interne Stelle auswählen</Label>
-                            <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                              <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
-                                {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        ) : (
-                          <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-                            <Label className="text-[9px] font-black uppercase text-slate-400">Externen Kontakt auswählen</Label>
-                            <PartnerContactSelect value={riskOwnerContactId} onValueChange={setRiskOwnerContactId} />
-                          </div>
-                        )}
+                        <div className="space-y-2">
+                          <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Stelle</Label>
+                          <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Keine Rolle zugewiesen</SelectItem>
+                              {jobs?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="p-4 bg-orange-50/50 rounded-xl border border-orange-100 flex items-start gap-3">
+                          <Info className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" />
+                          <p className="text-[9px] text-orange-800 leading-relaxed italic">Risk Ownership muss laut Governance-Richtlinie immer intern verankert sein.</p>
+                        </div>
                       </div>
                     </div>
                   </div>

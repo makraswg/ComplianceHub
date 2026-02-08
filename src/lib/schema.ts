@@ -78,6 +78,20 @@ export const appSchema: AppSchema = {
       description: 'TEXT',
     }
   },
+  asset_type_options: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
+  },
+  operating_model_options: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+    }
+  },
   data_stores: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -364,7 +378,6 @@ export const appSchema: AppSchema = {
       systemOwnerRoleId: 'VARCHAR(255)',
       riskOwnerRoleId: 'VARCHAR(255)',
       externalOwnerContactId: 'VARCHAR(255)',
-      riskOwnerContactId: 'VARCHAR(255)',
       operatorId: 'VARCHAR(255)',
       riskOwner: 'VARCHAR(255)',
       dataOwner: 'VARCHAR(255)',

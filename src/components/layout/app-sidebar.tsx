@@ -171,6 +171,7 @@ export function AppSidebar() {
     { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
     { name: 'Systemverantwortliche', href: '/settings/owners', icon: UserCircle },
+    { name: 'Ressourcen-Optionen', href: '/settings/resources', icon: Settings2 },
     { name: 'Regulatorik & Normen', href: '/settings/compliance', icon: Scale },
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
     { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },

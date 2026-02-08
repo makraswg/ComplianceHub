@@ -82,9 +82,8 @@ export default function ResourceDetailPage() {
   const systemOwnerContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
   const systemPartner = useMemo(() => partners?.find(p => p.id === systemOwnerContact?.partnerId), [partners, systemOwnerContact]);
 
+  // Risk Owner is always internal role
   const riskOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.riskOwnerRoleId), [jobs, resource]);
-  const riskOwnerContact = useMemo(() => contacts?.find(c => c.id === resource?.riskOwnerContactId), [contacts, resource]);
-  const riskPartner = useMemo(() => partners?.find(p => p.id === riskOwnerContact?.partnerId), [partners, riskOwnerContact]);
 
   const impactAnalysis = useMemo(() => {
     if (!resource || !processes || !versions) return { processes: [], vvts: [], features: [] };
@@ -243,7 +242,7 @@ export default function ResourceDetailPage() {
             Die verarbeiteten Datenobjekte in den verknüpften Prozessen erfordern eine höhere Klassifizierung (<strong className="uppercase">{effectiveInheritance?.classification}</strong>). 
             <div className="mt-3">
               <Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md gap-2 transition-all">
-                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Werte übernehmen
+                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Werte übernehmen
               </Button>
             </div>
           </AlertDescription>
@@ -266,11 +265,9 @@ export default function ResourceDetailPage() {
                 color="text-primary" 
               />
               <OwnerDisplay 
-                label="Risk Owner" 
+                label="Risk Owner (Intern)" 
                 role={riskOwnerRole} 
-                contact={riskOwnerContact} 
-                partner={riskPartner} 
-                icon={AlertTriangle} 
+                icon={ShieldAlert} 
                 color="text-orange-600" 
               />
             </CardContent>
