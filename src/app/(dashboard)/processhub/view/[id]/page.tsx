@@ -48,7 +48,9 @@ import {
   CheckCircle2,
   HelpCircle,
   Target,
-  Server
+  Server,
+  AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -56,7 +58,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature, Resource } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, RegulatoryOption, Feature, Resource, Risk } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -64,14 +66,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel
-} from '@/components/ui/dropdown-menu';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -129,7 +124,7 @@ export default function ProcessDetailViewPage() {
   const router = useRouter();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'diagram' | 'guide'>('guide');
+  const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
@@ -141,6 +136,7 @@ export default function ProcessDetailViewPage() {
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
@@ -169,6 +165,29 @@ export default function ProcessDetailViewPage() {
     });
     return Array.from(resourceIds).map(rid => resources?.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
+
+  // Aggregated Risks
+  const risksData = useMemo(() => {
+    if (!allRisks || !currentProcess || !activeVersion) return { direct: [], inherited: [], maxScore: 0 };
+    
+    // Direct risks
+    const direct = allRisks.filter(r => r.processId === id);
+    
+    // Inherited risks (from resources used in steps)
+    const resourceIdsUsed = new Set<string>();
+    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
+      if (n.resourceIds) n.resourceIds.forEach(rid => resourceIdsUsed.add(rid));
+    });
+    
+    const inherited = allRisks.filter(r => r.assetId && resourceIdsUsed.has(r.assetId) && r.processId !== id);
+    
+    const allRelevantRisks = [...direct, ...inherited];
+    const maxScore = allRelevantRisks.length > 0 
+      ? Math.max(...allRelevantRisks.map(r => r.impact * r.probability))
+      : 0;
+
+    return { direct, inherited, maxScore };
+  }, [allRisks, currentProcess, activeVersion, id]);
 
   const maturity = useMemo(() => {
     if (!currentProcess || !activeVersion) return null;
@@ -217,6 +236,14 @@ export default function ProcessDetailViewPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
               <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
+              {risksData.maxScore > 0 && (
+                <Badge className={cn(
+                  "rounded-full px-2 h-5 text-[10px] font-black border-none",
+                  risksData.maxScore >= 15 ? "bg-red-600 text-white" : risksData.maxScore >= 8 ? "bg-accent text-white" : "bg-emerald-600 text-white"
+                )}>
+                  Risk: {risksData.maxScore}
+                </Badge>
+              )}
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • Leitfaden</p>
           </div>
@@ -226,6 +253,7 @@ export default function ProcessDetailViewPage() {
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
             <Button variant={viewMode === 'diagram' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('diagram')}><Network className="w-3.5 h-3.5 mr-1.5" /> Visuell</Button>
             <Button variant={viewMode === 'guide' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('guide')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
+            <Button variant={viewMode === 'risks' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('risks')}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" /> Risikoanalyse</Button>
           </div>
           <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
         </div>
@@ -281,6 +309,31 @@ export default function ProcessDetailViewPage() {
                   </Card>
                 </section>
               )}
+
+              {/* Risk Summary Sidebar */}
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-accent border-b pb-2 flex items-center gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Risiko-Profil
+                </h3>
+                <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-100 space-y-4 shadow-inner">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Identifizierte Risiken</span>
+                    <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[10px] h-5">{risksData.direct.length + risksData.inherited.length}</Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[9px] font-bold uppercase">
+                      <span className="text-slate-400">Direkt</span>
+                      <span className="text-slate-700">{risksData.direct.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[9px] font-bold uppercase">
+                      <span className="text-slate-400">Vererbt (Assets)</span>
+                      <span className="text-slate-700">{risksData.inherited.length}</span>
+                    </div>
+                  </div>
+                  <Separator className="bg-orange-200/30" />
+                  <Button variant="ghost" size="sm" className="w-full text-[9px] font-black uppercase text-orange-700 hover:bg-orange-100 h-8" onClick={() => setViewMode('risks')}>Details anzeigen</Button>
+                </div>
+              </section>
 
               <section className="space-y-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2">Stammdaten</h3>
@@ -343,6 +396,112 @@ export default function ProcessDetailViewPage() {
             <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
               <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
             </div>
+          ) : viewMode === 'risks' ? (
+            <ScrollArea className="flex-1">
+              <div className="p-8 md:p-12 max-w-5xl mx-auto space-y-10 pb-32">
+                <div className="flex items-center justify-between border-b pb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-sm">
+                      <AlertCircle className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Risikoanalyse</h2>
+                      <p className="text-xs text-slate-500 font-medium">Betrachtung der prozessspezifischen Gefahrenlage.</p>
+                    </div>
+                  </div>
+                  <Button className="bg-slate-900 hover:bg-black text-white text-[10px] font-black uppercase tracking-widest h-10 px-8 rounded-xl shadow-lg" onClick={() => router.push(`/risks?search=${currentProcess?.title}`)}>
+                    Neues Risiko erfassen
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/50 border-b p-6">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <Target className="w-4 h-4 text-primary" /> Direkte Risiken
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {risksData.direct.length === 0 ? (
+                        <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken definiert.</div>
+                      ) : (
+                        <div className="divide-y divide-slate-50">
+                          {risksData.direct.map(r => (
+                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
+                              <div className="flex items-center gap-3">
+                                <Badge className={cn(
+                                  "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none shadow-sm",
+                                  (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
+                                )}>{r.impact * r.probability}</Badge>
+                                <div>
+                                  <p className="text-[11px] font-bold text-slate-800">{r.title}</p>
+                                  <p className="text-[9px] text-slate-400 font-bold uppercase">{r.category}</p>
+                                </div>
+                              </div>
+                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
+                    <CardHeader className="bg-indigo-50/30 border-b p-6">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900">
+                        <Layers className="w-4 h-4 text-indigo-600" /> Vererbte Risiken (IT-Systeme)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {risksData.inherited.length === 0 ? (
+                        <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken identifiziert.</div>
+                      ) : (
+                        <div className="divide-y divide-slate-50">
+                          {risksData.inherited.map(r => {
+                            const sourceAsset = resources?.find(res => res.id === r.assetId);
+                            return (
+                              <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks?search=${r.title}`)}>
+                                <div className="flex items-center gap-3">
+                                  <Badge className={cn(
+                                    "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none shadow-sm",
+                                    (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
+                                  )}>{r.impact * r.probability}</Badge>
+                                  <div>
+                                    <p className="text-[11px] font-bold text-slate-800">{r.title}</p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <Badge variant="outline" className="text-[7px] font-black h-3.5 border-indigo-100 text-indigo-600">{sourceAsset?.name || 'Asset'}</Badge>
+                                    </div>
+                                  </div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="p-8 rounded-3xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-primary opacity-10 blur-3xl -translate-y-1/2 translate-x-1/2" />
+                  <div className="relative z-10 space-y-6">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="w-6 h-6 text-primary" />
+                      <h3 className="text-lg font-headline font-bold uppercase tracking-widest">Risiko-Fazit</h3>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed font-medium">
+                      Der Prozess weist eine maximale Risikolast von <span className="text-primary font-black">{risksData.maxScore} Punkten</span> auf. 
+                      {risksData.maxScore >= 15 
+                        ? " Dies entspricht einer kritischen Gefährdungslage. Zusätzliche Kontrollen (TOM) werden dringend empfohlen."
+                        : risksData.maxScore >= 8 
+                        ? " Die Gefährdungslage ist moderat. Bestehende Kontrollen sollten regelmäßig auf Wirksamkeit geprüft werden."
+                        : " Das Risiko-Profil ist im grünen Bereich."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
           ) : (
             <ScrollArea className="flex-1">
               <div className="p-8 md:p-12 max-w-4xl mx-auto space-y-12 pb-32">
@@ -353,6 +512,9 @@ export default function ProcessDetailViewPage() {
                     const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
                     const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
                     
+                    // Risks for this step
+                    const stepRisks = allRisks?.filter(r => r.assetId && node.resourceIds?.includes(r.assetId));
+
                     return (
                       <div key={node.id} className="relative z-10 pl-16">
                         <div className={cn("absolute left-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm", node.type === 'start' ? "bg-white border-slate-900 text-slate-900" : "bg-white border-slate-200 text-slate-400")}>
@@ -366,6 +528,9 @@ export default function ProcessDetailViewPage() {
                                 {role && <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary"><Briefcase className="w-3.5 h-3.5" /> {role.name}</div>}
                                 {nodeResources && nodeResources.length > 0 && (
                                   <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-indigo-600"><Server className="w-3.5 h-3.5" /> {nodeResources.length} Systeme</div>
+                                )}
+                                {stepRisks && stepRisks.length > 0 && (
+                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-red-600 animate-pulse"><AlertTriangle className="w-3.5 h-3.5" /> Gefährdung erkannt</div>
                                 )}
                               </div>
                             </div>
