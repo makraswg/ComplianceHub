@@ -12,7 +12,7 @@ import {
   Play, 
   Lock,
   Database,
-  Save as SaveIcon
+  Save
 } from 'lucide-react';
 import Switch from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -162,7 +162,7 @@ export default function SyncSettingsPage() {
 
           <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
             <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-16 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               LDAP Einstellungen Speichern
             </Button>
           </div>
@@ -187,7 +187,7 @@ export default function SyncSettingsPage() {
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Letzter Lauf</TableHead>
                 <TableHead className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Status</TableHead>
                 <TableHead className="text-right px-6"></TableHead>
-              </TableRow
+              </TableRow>
             </TableHeader>
             <TableBody>
               {[ 
