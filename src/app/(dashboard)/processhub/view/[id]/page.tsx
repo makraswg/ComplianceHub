@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -63,6 +64,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
 
+function escapeXml(unsafe: string) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
+}
+
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProcesses?: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
@@ -91,6 +106,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
       label = target ? `Prozess: ${target.title}` : node.title;
     }
 
+    const escapedLabel = escapeXml(label);
+
     switch (node.type) {
       case 'start': 
         style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
@@ -111,17 +128,18 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
         style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
     }
     
-    // Auto-center X if using indices, otherwise use saved X
+    // Ensure nodes are centered on X axis to keep lines straight
     const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
     
-    xml += `<mxCell id="${nodeSafeId}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${nodeSafeId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
+    const edgeLabel = escapeXml(edge.label || '');
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -486,22 +504,26 @@ export default function ProcessDetailViewPage() {
               </div>
             </div>
 
-            {successors.length > 0 && (
-              <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
-                {successors.map((s, idx) => (
-                  <Button 
-                    key={idx} 
-                    variant="ghost" 
-                    className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
-                    onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
-                  >
-                    {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
-                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
-                    <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
-                  </Button>
-                ))}
+            <CardFooter className="p-3 bg-slate-50 border-t flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                {successors.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    {successors.map((s, idx) => (
+                      <Button 
+                        key={idx} 
+                        variant="ghost" 
+                        className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
+                        onClick={(e) => { e.stopPropagation(); document.getElementById(`card-${s.node?.id || ''}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
+                      >
+                        {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
+                        <span className="text-[9px] font-black uppercase tracking-tight text-slate-600 truncate max-w-[80px]">{s.node?.title}</span>
+                        <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </CardFooter>
           </CardContent>
         </Card>
       </div>
@@ -751,7 +773,7 @@ export default function ProcessDetailViewPage() {
                                   isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
                                   (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white" : 
                                   "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
-                                )} onClick={() => { setActiveNodeId(node.id); setViewMode('guide'); setGuideMode('list'); setTimeout(() => document.getElementById(node.id)?.scrollIntoView({behavior:'smooth', block:'center'}), 100); }}>
+                                )} onClick={() => { setActiveNodeId(node.id); setViewMode('guide'); setGuideMode('list'); setTimeout(() => document.getElementById(`card-${node.id}`)?.scrollIntoView({behavior:'smooth', block:'center'}), 100); }}>
                                   
                                   {isDecision ? (
                                     <div className="-rotate-45 text-center px-2">

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -68,6 +69,20 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 
+function escapeXml(unsafe: string) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
+}
+
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProcesses?: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
@@ -81,7 +96,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
 
   nodes.forEach((node, idx) => {
     let nodeSafeId = String(node.id || `node-${idx}`);
-    // Default vertical layout if no position saved
     const pos = positions[nodeSafeId] || { 
       x: (CANVAS_WIDTH / 2) - (NODE_W / 2), 
       y: 50 + (idx * VERTICAL_SPACING) 
@@ -91,11 +105,12 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
     let w = NODE_W, h = NODE_H;
     let label = node.title;
     
-    // Enhanced labeling for Subprocesses
     if (node.type === 'subprocess' && node.targetProcessId) {
       const target = allProcesses?.find(p => p.id === node.targetProcessId);
       label = target ? `Prozess: ${target.title}` : node.title;
     }
+
+    const escapedLabel = escapeXml(label);
 
     switch (node.type) {
       case 'start': 
@@ -117,17 +132,17 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
         style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
     }
     
-    // Horizontal centering if no manual position
     const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
     
-    xml += `<mxCell id="${nodeSafeId}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${nodeSafeId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
+    const edgeLabel = escapeXml(edge.label || '');
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
