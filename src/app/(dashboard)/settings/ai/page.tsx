@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { BrainCircuit, Loader2, Save, Sparkles, Server, Cloud, Building2, Info, CheckCircle2, ChevronRight, Zap } from 'lucide-react';
+import { BrainCircuit, Loader2, Save as SaveIcon, Sparkles, Server, Cloud, Building2, Info, CheckCircle2, ChevronRight, Zap } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -141,7 +142,7 @@ export default function AiSettingsPage() {
               disabled={isSaving} 
               className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
             >
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
               Konfiguration Speichern
             </Button>
           </div>

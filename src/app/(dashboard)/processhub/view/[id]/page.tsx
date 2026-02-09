@@ -440,7 +440,7 @@ export default function ProcessDetailViewPage() {
                 </div>
                 <div className="flex flex-wrap gap-2 items-center">
                   <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                    <Briefcase className="w-3 h-3" /> {roleName}
+                    <Briefcase className="w-3 3" /> {roleName}
                   </div>
                   {nodeResources?.map(res => (
                     <TooltipProvider key={res.id}>

@@ -6,7 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Loader2, Save, Send, ShieldCheck, Server, Globe } from 'lucide-react';
+import { Switch } from "@/components/ui/switch";
+import { 
+  Mail, 
+  Loader2, 
+  Save as SaveIcon, 
+  Send, 
+  ShieldCheck, 
+  Server, 
+  Globe,
+  Info
+} from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
@@ -14,7 +24,6 @@ import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
 import { SmtpConfig } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from "@/components/ui/switch";
 
 export default function EmailSettingsPage() {
   const { dataSource } = useSettings();
@@ -119,7 +128,7 @@ export default function EmailSettingsPage() {
               disabled={isSaving} 
               className="w-full sm:w-auto rounded-xl h-12 px-16 font-black uppercase text-xs tracking-[0.1em] bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95 gap-3"
             >
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
               Speichern
             </Button>
           </div>

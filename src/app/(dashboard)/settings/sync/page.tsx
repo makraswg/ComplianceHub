@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,7 +18,7 @@ import {
   Building2,
   Activity,
   ArrowRight,
-  Save
+  Save as SaveIcon
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -167,7 +168,7 @@ export default function SyncSettingsPage() {
 
           <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
             <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-16 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
-              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+              {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
               LDAP Einstellungen Speichern
             </Button>
           </div>
