@@ -3,19 +3,19 @@
 
 Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die während des Docker-Builds (Prerendering) oder zur Laufzeit auftreten.
 
+## 🔴 In Bearbeitung (Build-Blocker)
+
+| ID | Fehler | Ort | Ursache | Lösung | Status |
+|:---|:---|:---|:---|:---|:---|
+| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync` | Namenskollision oder fehlender Import | Umbenennung in `SaveIcon` | ✅ Behoben |
+| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email` | Fehlender Import der Switch-Komponente | Import hinzugefügt | ✅ Behoben |
+| ERR-03 | `Parsing ecmascript failed` | `/processhub/view/[id]` | Nicht geschlossene Tags oder fehlerhafte Schachtelung | JSX-Struktur validiert & bereinigt | ✅ Behoben |
+
 ## 🟢 Behoben (Build-Stabilität)
 
-| ID | Fehler | Ort | Ursache | Lösung |
-|:---|:---|:---|:---|:---|
-| ERR-01 | `ReferenceError: Save is not defined` | `/settings/sync`, `/settings/email`, `/risks`, `/features`, `/gdpr` | Icon `Save` kollidierte mit Funktionsnamen oder fehlte | Importiert als `SaveIcon` |
-| ERR-02 | `ReferenceError: Switch is not defined` | `/settings/email`, `/settings/sync` | Fehlender Import der Shadcn Switch Komponente | Import hinzugefügt |
-| ERR-03 | `ReferenceError: ArrowDown is not defined` | `/processhub/view/[id]` | Fehlender Import in der Versionshistorie | Icon zur Importliste hinzugefügt |
-| ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachtelte `div` oder ungeschlossene Tags | JSX-Struktur bereinigt & validiert |
-| ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR in Next.js 15 | `suppressHydrationWarning` und Mount-Check |
-| ERR-06 | `ReferenceError: Target is not defined` | `/processhub/view/[id]` | Doppelte oder fehlende Target-Icons | Importe bereinigt und eindeutig benannt |
-| ERR-07 | `ReferenceError: ArrowRightLeft is not defined` | `/processhub/view/[id]` | Fehlender Import für das Schnittstellen-Icon | Icon importiert |
-| ERR-08 | `ReferenceError: ArrowUp is not defined` | `/processhub/view/[id]` | Fehlender Import für das Start-Icon | Icon importiert |
-| ERR-09 | `Internal Server Error` | `/processhub/view/[id]` | Fehlendes `</SelectContent>` Tag bei VVT-Koppelung | Tag ergänzt und Syntax validiert |
+*   **Namenskonventionen**: Alle Lucide-Icons, die mit Funktionen kollidieren könnten (insb. `Save`), wurden global in `SaveIcon` umbenannt.
+*   **Import-Audit**: Alle Seiten wurden auf fehlende UI-Komponenten (`Switch`, `Select`, etc.) geprüft.
+*   **Hydrierungs-Schutz**: `Select`-Komponenten in komplexen Ansichten rendern nun erst nach der Client-seitigen Hydrierung.
 
 ## 🛡️ Richtlinien für Entwickler
 
