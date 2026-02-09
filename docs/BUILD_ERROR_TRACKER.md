@@ -13,6 +13,7 @@ Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die
 | ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachtelte `div` oder ungeschlossene Tags | JSX-Struktur bereinigt & validiert |
 | ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR in Next.js 15 | `suppressHydrationWarning` und Mount-Check |
 | ERR-06 | `ReferenceError: Target is not defined` | `/processhub/view/[id]` | Doppelte oder fehlende Target-Icons | Importe bereinigt und eindeutig benannt |
+| ERR-07 | `ReferenceError: ArrowRightLeft is not defined` | `/processhub/view/[id]` | Fehlender Import für das Schnittstellen-Icon | Icon importiert |
 
 ## 🛡️ Richtlinien für Entwickler
 
