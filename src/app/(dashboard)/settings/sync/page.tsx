@@ -172,7 +172,7 @@ export default function SyncSettingsPage() {
                   disabled={isSyncing === job.id}
                   onClick={() => handleRunSync(job.id)}
                 >
-                  {isSyncing === job.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  {isSyncing === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                   Jetzt ausführen
                 </Button>
               </div>

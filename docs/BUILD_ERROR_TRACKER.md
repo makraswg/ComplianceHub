@@ -12,6 +12,7 @@ Dieses Dokument dient der systematischen Erfassung und Behebung von Fehlern, die
 | ERR-03 | `ReferenceError: ArrowDown is not defined` | `/processhub/view/[id]` | Fehlender Import in der Versionshistorie | Icon zur Importliste hinzugefügt |
 | ERR-04 | `Parsing ecmascript failed` (JSX) | `/processhub/view/[id]` | Falsch geschachteltes `<Label>` / `</Badge>` | JSX-Tags korrigiert |
 | ERR-05 | `Hydration Mismatch` | `Select` Komponenten | Instabile IDs bei SSR | `suppressHydrationWarning` und Mount-Check |
+| ERR-06 | `ReferenceError: Save is not defined` | `/settings/email` | Icon-Kollision mit Funktionsname | Umbenannt in `SaveIcon` |
 
 ## 🟡 In Prüfung
 
