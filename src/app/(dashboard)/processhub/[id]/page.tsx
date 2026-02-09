@@ -110,6 +110,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
       label = target ? `Prozess: ${target.title}` : node.title;
     }
 
+    const escapedId = escapeXml(nodeSafeId);
     const escapedLabel = escapeXml(label);
 
     switch (node.type) {
@@ -134,15 +135,16 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
     
     const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
     
-    xml += `<mxCell id="${nodeSafeId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${escapedId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
+    const edgeId = String(edge.id || `edge-${idx}`);
     const edgeLabel = escapeXml(edge.label || '');
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${escapeXml(edgeId)}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${escapeXml(sourceId)}" target="${escapeXml(targetId)}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;

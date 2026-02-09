@@ -67,22 +67,24 @@ function generateMapXml(processes: Process[], relations: { fromId: string; toId:
     const x = 50 + col * spacingX;
     const y = 50 + row * spacingY;
     
+    const escapedId = escapeXml(proc.id);
     const escapedTitle = escapeXml(proc.title);
     let style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=2;fontStyle=1;fontSize=12;';
     if (proc.status === 'published') {
       style += 'fillColor=#f0fdf4;strokeColor=#166534;';
     }
 
-    xml += `<mxCell id="${proc.id}" value="${escapedTitle}" style="${style}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${escapedId}" value="${escapedTitle}" style="${style}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
   });
 
   relations.forEach((rel, idx) => {
     const sourceExists = processes.some(p => p.id === rel.fromId);
     const targetExists = processes.some(p => p.id === rel.toId);
+    const escapedId = escapeXml(`rel-${idx}`);
     const escapedLabel = escapeXml(rel.label);
     
     if (sourceExists && targetExists) {
-      xml += `<mxCell id="rel-${idx}" value="${escapedLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontSize=9;fontColor=#1e40af;" edge="1" parent="1" source="${rel.fromId}" target="${rel.toId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${escapedId}" value="${escapedLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontSize=9;fontColor=#1e40af;" edge="1" parent="1" source="${escapeXml(rel.fromId)}" target="${escapeXml(rel.toId)}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
 
