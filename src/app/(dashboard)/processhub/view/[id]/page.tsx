@@ -90,8 +90,8 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
   const VERTICAL_SPACING = 140;
 
   nodes.forEach((node, idx) => {
-    let nodeSafeId = String(node.id || `node-${idx}`);
-    const pos = positions[nodeSafeId] || { 
+    let nodeSafeId = escapeXml(String(node.id || `node-${idx}`));
+    const pos = positions[node.id] || { 
       x: (CANVAS_WIDTH / 2) - (NODE_W / 2), 
       y: 50 + (idx * VERTICAL_SPACING) 
     };
@@ -105,7 +105,6 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
       label = target ? `Prozess: ${target.title}` : node.title;
     }
 
-    const escapedId = escapeXml(nodeSafeId);
     const escapedLabel = escapeXml(label);
 
     switch (node.type) {
@@ -128,18 +127,18 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
         style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
     }
     
-    const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
+    const finalX = positions[node.id] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
     
-    xml += `<mxCell id="${escapedId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${nodeSafeId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
-    const sourceId = String(edge.source);
-    const targetId = String(edge.target);
-    const edgeId = String(edge.id || `edge-${idx}`);
+    const sourceId = escapeXml(String(edge.source));
+    const targetId = escapeXml(String(edge.target));
+    const edgeId = escapeXml(String(edge.id || `edge-${idx}`));
     const edgeLabel = escapeXml(edge.label || '');
-    if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${escapeXml(edgeId)}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${escapeXml(sourceId)}" target="${escapeXml(targetId)}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    if (nodes.some(n => String(n.id) === edge.source) && nodes.some(n => String(n.id) === edge.target)) {
+      xml += `<mxCell id="${edgeId}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -276,7 +275,7 @@ export default function ProcessDetailViewPage() {
   };
 
   const updateFlowLines = useCallback(() => {
-    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || guideMode !== 'list' || !containerRef.current) {
+    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || !containerRef.current) {
       setConnectionPaths([]);
       return;
     }
@@ -286,7 +285,7 @@ export default function ProcessDetailViewPage() {
     if (!sourceEl) return;
 
     const sourceRect = sourceEl.getBoundingClientRect();
-    const sourceMidX = sourceRect.left - containerRect.left + 5; 
+    const sourceMidX = sourceRect.left - containerRect.left + (sourceRect.width / 2); 
     const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
 
     const edges = activeVersion.model_json.edges || [];
@@ -301,13 +300,26 @@ export default function ProcessDetailViewPage() {
       
       if (targetEl) {
         const targetRect = targetEl.getBoundingClientRect();
-        const targetMidX = targetRect.left - containerRect.left + 5;
+        const targetMidX = targetRect.left - containerRect.left + (targetRect.width / 2);
         const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
 
-        const cp1x = sourceMidX - 100;
-        const cp1y = sourceMidY;
-        const cp2x = targetMidX - 100;
-        const cp2y = targetMidY;
+        // Calculate control points based on layout
+        // In list mode, paths curve to the left. In grid mode, we want a direct vertical/horizontal flow.
+        const isGrid = guideMode === 'structure';
+        
+        let cp1x, cp1y, cp2x, cp2y;
+        
+        if (isGrid) {
+          cp1x = sourceMidX;
+          cp1y = (sourceMidY + targetMidY) / 2;
+          cp2x = targetMidX;
+          cp2y = (sourceMidY + targetMidY) / 2;
+        } else {
+          cp1x = sourceMidX - 100;
+          cp1y = sourceMidY;
+          cp2x = targetMidX - 100;
+          cp2y = targetMidY;
+        }
 
         const path = `M ${sourceMidX} ${sourceMidY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetMidX} ${targetMidY}`;
         newPaths.push(path);
@@ -725,57 +737,61 @@ export default function ProcessDetailViewPage() {
 
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  {guideMode === 'list' && (
-                    <>
-                      <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                        <defs>
-                          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
-                          </marker>
-                        </defs>
-                        {connectionPaths.map((path, i) => (
-                          <path 
-                            key={i} 
-                            d={path} 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeDasharray="4 2"
-                            className="text-primary/20 animate-in fade-in duration-1000"
-                            markerEnd="url(#arrowhead)"
-                          />
-                        ))}
-                      </svg>
+                  {/* Global Flow Overlay for both modes */}
+                  <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                    <defs>
+                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
+                      </marker>
+                    </defs>
+                    {connectionPaths.map((path, i) => (
+                      <path 
+                        key={i} 
+                        d={path} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="3" 
+                        strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
+                        className="text-primary/30 animate-in fade-in duration-1000"
+                        markerEnd="url(#arrowhead)"
+                      />
+                    ))}
+                  </svg>
 
-                      <div className="space-y-12 relative">
-                        <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
-                        {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
-                          <GuideCard key={node.id} node={node} index={i} />
-                        ))}
-                      </div>
-                    </>
+                  {guideMode === 'list' && (
+                    <div className="space-y-12 relative">
+                      <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
+                      {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
+                        <GuideCard key={node.id} node={node} index={i} />
+                      ))}
+                    </div>
                   )}
 
                   {guideMode === 'structure' && (
-                    <div className="space-y-24 py-10">
+                    <div className="space-y-24 py-10 relative">
                       {structuredGrid.map((row, rowIdx) => (
                         <div key={rowIdx} className="relative flex justify-center gap-12">
                           {row.map((node) => {
                             const isDecision = node.type === 'decision';
                             const isStart = node.type === 'start';
                             const isEnd = node.type === 'end';
+                            const isActive = activeNodeId === node.id;
                             const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
                             const label = node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title;
 
                             return (
                               <div key={node.id} className="relative flex flex-col items-center">
-                                <div className={cn(
-                                  "relative z-10 transition-all hover:scale-105 duration-300 shadow-lg cursor-pointer",
-                                  isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
-                                  (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white" : 
-                                  "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
-                                )} onClick={() => { setActiveNodeId(node.id); setViewMode('guide'); setGuideMode('list'); setTimeout(() => document.getElementById(`card-${node.id}`)?.scrollIntoView({behavior:'smooth', block:'center'}), 100); }}>
-                                  
+                                <div 
+                                  id={`card-${node.id}`}
+                                  className={cn(
+                                    "relative z-10 transition-all duration-300 shadow-lg cursor-pointer",
+                                    isActive ? "scale-110 ring-4 ring-primary/20" : "hover:scale-105",
+                                    isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
+                                    (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
+                                    "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                                  )} 
+                                  onClick={() => setActiveNodeId(isActive ? null : node.id)}
+                                >
                                   {isDecision ? (
                                     <div className="-rotate-45 text-center px-2">
                                       <GitBranch className="w-6 h-6 mx-auto mb-1" />
