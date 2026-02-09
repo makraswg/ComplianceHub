@@ -220,7 +220,6 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  // BPMN Level-based layout calculation
   const structuredFlow = useMemo(() => {
     if (!activeVersion || guideMode !== 'structure') return { levels: [], edges: [] };
     
@@ -230,7 +229,6 @@ export default function ProcessDetailViewPage() {
     const levels: ProcessNode[][] = [];
     const processed = new Set<string>();
     
-    // Find entry nodes
     let currentLevelQueue = nodes.filter(n => !edges.some(e => e.target === n.id));
     if (currentLevelQueue.length === 0 && nodes.length > 0) currentLevelQueue = [nodes[0]];
 
@@ -297,7 +295,6 @@ export default function ProcessDetailViewPage() {
         let sX, sY, tX, tY, cp1x, cp1y, cp2x, cp2y;
 
         if (isStructure) {
-          // Centered flow for BPMN
           sX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
           sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
           tX = targetRect.left - containerRect.left + (targetRect.width / 2);
@@ -308,7 +305,6 @@ export default function ProcessDetailViewPage() {
           cp2x = tX;
           cp2y = (sY + tY) / 2;
         } else {
-          // Original List Mode: Sweep from left icons
           sX = sourceRect.left - containerRect.left + 20; 
           sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
           tX = targetRect.left - containerRect.left + 20;
@@ -323,7 +319,6 @@ export default function ProcessDetailViewPage() {
         const path = `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`;
         const isConnectedToActive = activeNodeId === edge.source || activeNodeId === edge.target;
         
-        // In List Mode, only show paths connected to active node. In Structure Mode, show all.
         const shouldShow = isStructure || isConnectedToActive;
 
         if (shouldShow) {
@@ -348,7 +343,8 @@ export default function ProcessDetailViewPage() {
   }, [updateFlowLines]);
 
   useLayoutEffect(() => {
-    updateFlowLines();
+    const timer = setTimeout(updateFlowLines, 100);
+    return () => clearTimeout(timer);
   }, [activeNodeId, activeVersion, viewMode, guideMode, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
@@ -389,8 +385,7 @@ export default function ProcessDetailViewPage() {
     const isActive = activeNodeId === node.id;
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
-    if (compact) {
-      // BPMN Compact Layout for Structure Grid
+    if (compact && !isActive) {
       const isDecision = node.type === 'decision';
       const isStart = node.type === 'start';
       const isEnd = node.type === 'end';
@@ -400,12 +395,11 @@ export default function ProcessDetailViewPage() {
           id={`card-${node.id}`}
           className={cn(
             "relative z-10 transition-all duration-300 shadow-lg cursor-pointer",
-            isActive ? "scale-110 ring-4 ring-primary/40" : "hover:scale-105",
             isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
             (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
             "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
           )} 
-          onClick={() => setActiveNodeId(isActive ? null : node.id)}
+          onClick={() => setActiveNodeId(node.id)}
         >
           {isDecision ? (
             <div className="-rotate-45 text-center px-2">
@@ -438,25 +432,28 @@ export default function ProcessDetailViewPage() {
     }
 
     return (
-      <div className="relative z-10 pl-12">
-        <div className={cn(
-          "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
-          isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-          node.type === 'start' ? "bg-emerald-500 text-white" : 
-          node.type === 'end' ? "bg-red-500 text-white" : 
-          node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-        )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
-          {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-           node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-           node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
-           <span className="font-headline font-black text-sm">{index + 1}</span>}
-        </div>
+      <div className={cn("relative z-10", !compact && "pl-12")}>
+        {!compact && (
+          <div className={cn(
+            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
+            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
+            node.type === 'start' ? "bg-emerald-500 text-white" : 
+            node.type === 'end' ? "bg-red-500 text-white" : 
+            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
+          )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+             <span className="font-headline font-black text-sm">{index + 1}</span>}
+          </div>
+        )}
 
         <Card 
           id={`card-${node.id}`}
           className={cn(
             "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300 cursor-pointer",
             isActive ? "ring-2 ring-primary border-primary/40 shadow-xl scale-[1.01]" : "hover:border-primary/20",
+            compact && "w-[600px] mx-auto",
             node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
             node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
           )}
@@ -746,7 +743,6 @@ export default function ProcessDetailViewPage() {
 
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  {/* Global SVG Layer for Flow Paths */}
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
@@ -766,7 +762,7 @@ export default function ProcessDetailViewPage() {
                           strokeWidth={p.isActive ? "4" : "2"} 
                           strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
                           className={cn(
-                            p.isActive ? "text-primary z-30" : "text-slate-300 opacity-40 z-0",
+                            p.isActive ? "text-primary z-30 opacity-100" : cn("text-slate-300 z-0", activeNodeId ? "opacity-20" : "opacity-40"),
                             "transition-all duration-500"
                           )}
                           markerEnd={p.isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
