@@ -1,13 +1,12 @@
+
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
-  Workflow, 
   ChevronLeft, 
   ChevronRight,
   Loader2, 
-  ShieldCheck,
   Activity, 
   RefreshCw, 
   ListChecks,
@@ -17,7 +16,6 @@ import {
   Briefcase,
   Building2,
   CheckCircle,
-  Eye,
   AlertTriangle,
   Lightbulb,
   GitBranch,
@@ -28,7 +26,6 @@ import {
   Layers,
   FileEdit,
   ArrowRightCircle,
-  Tag,
   Zap,
   CheckCircle2,
   Target,
@@ -38,13 +35,12 @@ import {
   UserCircle,
   ArrowUp,
   ClipboardCheck,
-  ArrowLeftRight,
   ShieldAlert,
   X,
   Scale,
   FileJson,
-  ArrowDown,
-  FileDown
+  FileDown,
+  ArrowRightLeft
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -142,15 +138,6 @@ export default function ProcessDetailViewPage() {
     const pMedia = media?.filter((m: any) => m.entityId === id).length || 0;
     return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
   }, [currentProcess, activeVersion, media, id]);
-
-  const processResources = useMemo(() => {
-    if (!activeVersion || !resources) return [];
-    const resourceIds = new Set<string>();
-    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
-      n.resourceIds?.forEach(rid => resourceIds.add(rid));
-    });
-    return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
-  }, [activeVersion, resources]);
 
   const structuredFlow = useMemo(() => {
     if (!activeVersion || viewMode !== 'structure') return { levels: [], edges: [] };
@@ -296,7 +283,7 @@ export default function ProcessDetailViewPage() {
     return () => window.removeEventListener('resize', updateFlowLines);
   }, [updateFlowLines]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const timer = setTimeout(updateFlowLines, 100);
     return () => clearTimeout(timer);
   }, [activeNodeId, activeVersion, viewMode, updateFlowLines]);
@@ -569,19 +556,21 @@ export default function ProcessDetailViewPage() {
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold tracking-tight text-slate-900 truncate">{currentProcess?.title}</h1>
-              <div className="flex items-center gap-1.5">
-                <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
-                  <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-none shadow-2xl">
-                    {allProcessVersions.map(v => (
-                      <SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
-              </div>
+              {mounted && (
+                <div className="flex items-center gap-1.5">
+                  <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
+                    <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0" suppressHydrationWarning>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-none shadow-2xl">
+                      {allProcessVersions.map(v => (
+                        <SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full px-2 h-5 text-[10px] font-black uppercase tracking-widest">{currentProcess?.status}</Badge>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -633,6 +622,22 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
 
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
+                  <ArrowRightLeft className="w-3.5 h-3.5" /> Schnittstellen
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[8px] font-black uppercase text-slate-400">Inputs (Eingänge)</span>
+                    <p className="text-[10px] font-bold text-slate-700 leading-tight">{currentProcess?.inputs || '---'}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                    <span className="text-[8px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</span>
+                    <p className="text-[10px] font-bold text-slate-700 leading-tight">{currentProcess?.outputs || '---'}</p>
+                  </div>
+                </div>
+              </section>
+
               {(currentProcess?.regulatoryFramework || currentProcess?.kpis) && (
                 <section className="space-y-3">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2">
@@ -662,15 +667,15 @@ export default function ProcessDetailViewPage() {
                 <div className="grid grid-cols-1 gap-2">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                     <span className="text-[9px] font-black uppercase text-slate-400">Automation</span>
-                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.automationLevel?.replace('_', ' ')}</Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.automationLevel?.replace('_', ' ') || 'Manuell'}</Badge>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                     <span className="text-[9px] font-black uppercase text-slate-400">Datenlast</span>
-                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.dataVolume}</Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.dataVolume || 'Low'}</Badge>
                   </div>
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
                     <span className="text-[9px] font-black uppercase text-slate-400">Frequenz</span>
-                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.processingFrequency?.replace('_', ' ')}</Badge>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.processingFrequency?.replace('_', ' ') || 'On Demand'}</Badge>
                   </div>
                 </div>
               </section>
@@ -680,18 +685,20 @@ export default function ProcessDetailViewPage() {
                   <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
                 </h3>
                 <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-3 shadow-inner">
-                  <div className="space-y-1">
-                    <Label className="text-[8px] font-black uppercase text-slate-400">VVT-Bezug</Label>
-                    <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
-                      <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2">
-                        <SelectValue placeholder="Wählen..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Kein Bezug</SelectItem>
-                        {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {mounted && (
+                    <div className="space-y-1">
+                      <Label className="text-[8px] font-black uppercase text-slate-400">VVT-Bezug</Label>
+                      <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink} disabled={isUpdatingVvt}>
+                        <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2" suppressHydrationWarning>
+                          <SelectValue placeholder="Wählen..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Kein Bezug</SelectItem>
+                          {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   {currentVvt && <p className="text-[9px] font-medium text-slate-600 leading-tight line-clamp-2 italic px-1">"{currentVvt.description}"</p>}
                 </div>
               </section>
@@ -723,10 +730,11 @@ export default function ProcessDetailViewPage() {
               )} 
               ref={containerRef}
               onClick={() => {
-                if (viewMode === 'structure' || viewMode === 'list') setActiveNodeId(null);
+                if (viewMode === 'structure') setActiveNodeId(null);
               }}
             >
-              <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+              {/* Process Flow Lines Layer */}
+              <svg className="absolute inset-0 pointer-events-none w-full h-full z-20 overflow-visible">
                 <defs>
                   <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                     <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-slate-400" />
@@ -779,9 +787,9 @@ export default function ProcessDetailViewPage() {
               )}
 
               {viewMode === 'structure' && (
-                <div className="space-y-20 py-10 relative">
+                <div className="space-y-24 py-10 relative">
                   {structuredFlow.levels.map((row, rowIdx) => (
-                    <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[140px]">
+                    <div key={rowIdx} className="relative flex justify-center gap-20 min-h-[160px]">
                       {row.map((node) => (
                         <div key={node.id} className="relative flex flex-col items-center">
                           <GuideCard node={node} index={0} compact={true} />
@@ -836,7 +844,7 @@ export default function ProcessDetailViewPage() {
                     <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
                       <CardHeader className="bg-indigo-50/30 border-b p-6">
                         <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900">
-                          <Layers className="w-4 h-4 text-indigo-600" /> System-Risiken
+                          <Layers className="w-4 h-4 text-indigo-600" /> System-Risiken (Vererbt)
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-0">

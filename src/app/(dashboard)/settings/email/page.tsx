@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -72,7 +73,10 @@ export default function EmailSettingsPage() {
               <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">E-Mail Versand aktiv</Label>
               <p className="text-[10px] uppercase font-bold text-slate-400 italic">Erlaubt den Versand von Passwort-Reset Links und Audit-Reports.</p>
             </div>
-            <Switch checked={!!smtpDraft.enabled} onCheckedChange={v => setSmtpDraft({...smtpDraft, enabled: v})} />
+            <Switch 
+              checked={!!smtpDraft.enabled} 
+              onCheckedChange={v => setSmtpDraft({...smtpDraft, enabled: v})} 
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
