@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -393,21 +392,21 @@ export default function ResourceDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+          <Card className="rounded-2xl border shadow-sm bg-primary/5 border-primary/10 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Schutzbedarf (CIA)</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="grid grid-cols-3 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
+                <div className="p-3 bg-white rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">V</span>
                   <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.confidentialityReq}</Badge>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
+                <div className="p-3 bg-white rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">I</span>
                   <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.integrityReq}</Badge>
                 </div>
-                <div className="p-3 bg-slate-50 rounded-xl border flex flex-col items-center justify-center gap-1">
+                <div className="p-3 bg-white rounded-xl border flex flex-col items-center justify-center gap-1">
                   <span className="text-[8px] font-black uppercase text-slate-400">A</span>
                   <Badge variant="outline" className="text-[10px] font-bold border-none uppercase">{resource.availabilityReq}</Badge>
                 </div>
@@ -551,12 +550,12 @@ export default function ResourceDetailPage() {
               </div>
 
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white p-6">
+                <CardHeader className="bg-indigo-50/50 border-b p-6">
                   <div className="flex items-center gap-4">
                     <Database className="w-6 h-6 text-primary" />
                     <div>
-                      <CardTitle className="text-base font-headline font-bold uppercase">Datenlast-Analyse</CardTitle>
-                      <CardDescription className="text-[10px] font-bold text-slate-400 uppercase">Verarbeitete Fach-Entitäten auf diesem System</CardDescription>
+                      <CardTitle className="text-base font-headline font-bold uppercase text-indigo-900">Datenlast-Analyse</CardTitle>
+                      <CardDescription className="text-[10px] font-bold text-indigo-400 uppercase">Verarbeitete Fach-Entitäten auf diesem System</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -621,22 +620,19 @@ export default function ResourceDetailPage() {
       {/* Role Management Dialog */}
       <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-lg border border-white/10">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary border border-primary/10 shadow-lg">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold">{selectedRole ? 'Systemrolle bearbeiten' : 'Neue Systemrolle'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">{resource.name}</DialogDescription>
+                <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">{selectedRole ? 'Systemrolle bearbeiten' : 'Neue Systemrolle'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase">{resource.name}</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           <div className="p-6 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rollenbezeichnung</Label>
-              <Input value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="z.B. IT-Admin, Read-Only..." className="rounded-xl h-11 border-slate-200 font-bold" />
-            </div>
+            <div className="space-y-2"><Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Rollenbezeichnung</Label><Input value={roleName} onChange={e => setRoleName(e.target.value)} placeholder="z.B. IT-Admin, Read-Only..." className="rounded-xl h-11 border-slate-200 font-bold" /></div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Risiko-Level</Label>

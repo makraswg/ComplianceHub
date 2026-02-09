@@ -183,15 +183,15 @@ export default function GdprDetailViewPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden">
+          <Card className="rounded-2xl border border-emerald-100 shadow-xl bg-emerald-50/50 overflow-hidden">
             <CardContent className="p-8 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
                   <ShieldCheck className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Compliance</p>
-                  <p className="text-2xl font-black">{stats.gapScore}%</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Compliance</p>
+                  <p className="text-2xl font-black text-emerald-900">{stats.gapScore}%</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -199,9 +199,9 @@ export default function GdprDetailViewPage() {
                   <span>Integritäts-Score</span>
                   <span>Art. 32 Check</span>
                 </div>
-                <Progress value={stats.gapScore} className="h-1.5 bg-white/10" />
+                <Progress value={stats.gapScore} className="h-1.5 bg-white" />
               </div>
-              <p className="text-[10px] text-slate-400 leading-relaxed italic border-t border-white/5 pt-4">
+              <p className="text-[10px] text-emerald-700 leading-relaxed italic border-t border-emerald-100 pt-4">
                 Dieser Score errechnet sich aus der Abdeckung des Schutzbedarfs durch technische Maßnahmen (TOM).
               </p>
             </CardContent>
@@ -228,7 +228,7 @@ export default function GdprDetailViewPage() {
             <TabsContent value="vvt" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <CardTitle className="text-sm font-bold">Verarbeitungszweck & Umfang</CardTitle>
+                  <CardTitle className="text-sm font-bold text-slate-900">Verarbeitungszweck & Umfang</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8 space-y-10">
                   <div className="space-y-3">
@@ -271,7 +271,7 @@ export default function GdprDetailViewPage() {
                     <div className="flex items-center gap-3">
                       <Workflow className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Verknüpfte Workflows</CardTitle>
+                        <CardTitle className="text-sm font-bold text-slate-900">Verknüpfte Workflows</CardTitle>
                         <CardDescription className="text-[10px] font-bold uppercase">Operative Umsetzung dieses Zwecks</CardDescription>
                       </div>
                     </div>
@@ -299,7 +299,7 @@ export default function GdprDetailViewPage() {
                     <div className="flex items-center gap-3">
                       <Server className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Involvierte IT-Systeme</CardTitle>
+                        <CardTitle className="text-sm font-bold text-slate-900">Involvierte IT-Systeme</CardTitle>
                         <CardDescription className="text-[10px] font-bold uppercase">Physische Datenlast für diesen Zweck</CardDescription>
                       </div>
                     </div>
@@ -326,12 +326,12 @@ export default function GdprDetailViewPage() {
 
             <TabsContent value="toms" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white p-6">
+                <CardHeader className="bg-emerald-50/50 border-b p-6">
                   <div className="flex items-center gap-4">
                     <ShieldCheck className="w-6 h-6 text-emerald-500" />
                     <div>
-                      <CardTitle className="text-base font-headline font-bold uppercase">Automatisierte TOM-Sicht (Art. 32)</CardTitle>
-                      <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gegenmaßnahmen basierend auf den genutzten IT-Systemen</CardDescription>
+                      <CardTitle className="text-base font-headline font-bold uppercase text-emerald-900">Automatisierte TOM-Sicht (Art. 32)</CardTitle>
+                      <CardDescription className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Gegenmaßnahmen basierend auf den genutzten IT-Systemen</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -367,6 +367,16 @@ export default function GdprDetailViewPage() {
 
             <TabsContent value="gaps" className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 gap-4">
+                <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm"><TrendingUp className="w-6 h-6" /></div>
+                    <div>
+                      <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900">Compliance Maturity</h4>
+                      <p className="text-[9px] text-emerald-600 font-bold uppercase">Ready for Audit</p>
+                    </div>
+                  </div>
+                  <div className="text-4xl font-black text-emerald-600">{stats.gapScore}%</div>
+                </div>
                 {stats.gaps.map((gap, i) => (
                   <Card key={i} className={cn(
                     "rounded-2xl border shadow-sm relative overflow-hidden",

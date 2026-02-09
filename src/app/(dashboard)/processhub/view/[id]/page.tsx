@@ -364,12 +364,12 @@ export default function ProcessDetailViewPage() {
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
                     <Zap className="w-3.5 h-3.5 fill-current" /> Maturity
                   </h3>
-                  <div className="p-4 rounded-xl bg-slate-900 text-white shadow-lg space-y-3">
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-headline font-black uppercase text-primary">{maturity.levelLabel}</h4>
-                      <Badge className="bg-white/10 text-white border-none rounded-full h-4 px-1.5 text-[8px] font-black">{maturity.totalPercent}%</Badge>
+                      <Badge className="bg-primary/10 text-primary border-none rounded-full h-4 px-1.5 text-[8px] font-black">{maturity.totalPercent}%</Badge>
                     </div>
-                    <Progress value={maturity.totalPercent} className="h-1 bg-white/5" />
+                    <Progress value={maturity.totalPercent} className="h-1 bg-slate-100" />
                   </div>
                 </section>
               )}
@@ -402,7 +402,7 @@ export default function ProcessDetailViewPage() {
                       <AlertCircle className="w-8 h-8" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Risikoanalyse</h2>
+                      <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Risikoanalyse</h2>
                       <p className="text-xs text-slate-500 font-medium">Betrachtung der prozessspezifischen Gefahrenlage.</p>
                     </div>
                   </div>
@@ -604,7 +604,7 @@ export default function ProcessDetailViewPage() {
                                         {node.checklist.map((item, idx) => (
                                           <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
                                             <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
-                                              <CheckCircle className="w-3 h-3 text-transparent group-hover/item:text-white" />
+                                              <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
                                             </div>
                                             <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
                                           </div>

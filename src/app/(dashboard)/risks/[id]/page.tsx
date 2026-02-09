@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -212,9 +211,9 @@ export default function RiskDetailPage() {
           </Card>
 
           <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white p-4 px-6 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary">Impact Context</CardTitle>
-              <Activity className="w-3.5 h-3.5 text-primary" />
+            <CardHeader className="bg-accent/5 border-b border-accent/10 p-4 px-6 flex flex-row items-center justify-between">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-accent">Impact Context</CardTitle>
+              <Activity className="w-3.5 h-3.5 text-accent" />
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-1">
@@ -292,29 +291,29 @@ export default function RiskDetailPage() {
               </Card>
 
               {aiAdvice && (
-                <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden animate-in zoom-in-95 duration-500">
-                  <CardHeader className="bg-primary/20 border-b border-white/5 p-6">
+                <Card className="rounded-2xl border border-indigo-100 shadow-xl bg-indigo-50/50 overflow-hidden animate-in zoom-in-95 duration-500">
+                  <CardHeader className="bg-primary/5 border-b border-indigo-100 p-6">
                     <div className="flex items-center gap-3">
                       <BrainCircuit className="w-6 h-6 text-primary" />
-                      <CardTitle className="text-sm font-bold uppercase tracking-widest">KI-Risikoanalyse</CardTitle>
+                      <CardTitle className="text-sm font-bold uppercase tracking-widest text-indigo-900">KI-Risikoanalyse</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent className="p-8 space-y-6">
-                    <p className="text-sm text-slate-300 leading-relaxed italic">"{aiAdvice.assessment}"</p>
+                    <p className="text-sm text-slate-700 leading-relaxed italic">"{aiAdvice.assessment}"</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                       <div className="space-y-3">
                         <h4 className="text-[10px] font-black uppercase text-primary">Vorgeschlagene Maßnahmen</h4>
                         <div className="space-y-2">
                           {aiAdvice.measures.map((m, i) => (
-                            <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-slate-200 bg-white/5 p-2 rounded-lg border border-white/5">
+                            <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-slate-800 bg-white/50 p-2 rounded-lg border border-indigo-100">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" /> {m}
                             </div>
                           ))}
                         </div>
                       </div>
                       <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase text-red-400">Lückenanalyse</h4>
-                        <p className="text-[11px] text-slate-400 leading-relaxed">{aiAdvice.gapAnalysis}</p>
+                        <h4 className="text-[10px] font-black uppercase text-red-600">Lückenanalyse</h4>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">{aiAdvice.gapAnalysis}</p>
                       </div>
                     </div>
                   </CardContent>

@@ -493,16 +493,16 @@ export default function FeatureDetailPage() {
 
             <TabsContent value="impact" className="space-y-8 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white p-6">
+                <CardHeader className="bg-primary/5 border-b border-primary/10 p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg"><Zap className="w-5 h-5" /></div>
+                      <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg text-white"><Zap className="w-5 h-5" /></div>
                       <div>
-                        <CardTitle className="text-base font-headline font-bold">Impact Analysis</CardTitle>
+                        <CardTitle className="text-base font-headline font-bold uppercase text-slate-900">Impact Analysis</CardTitle>
                         <p className="text-[10px] text-primary font-bold uppercase tracking-widest">Risikobewertung im Kontext der Datennutzung</p>
                       </div>
                     </div>
-                    <Badge className="bg-white/10 text-white border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest shadow-sm">Active Analysis</Badge>
+                    <Badge className="bg-primary/10 text-primary border-none rounded-full px-3 h-6 text-[10px] font-black uppercase tracking-widest shadow-sm">Active Analysis</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-8 space-y-10">
