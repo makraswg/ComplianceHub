@@ -33,15 +33,15 @@ import {
   AlertCircle,
   FileCheck,
   UserCircle,
-  ArrowUp,
-  ArrowDown,
+  ArrowUp as ArrowUpIcon,
+  ArrowDown as ArrowDownIcon,
   ClipboardCheck,
   ShieldAlert,
   X,
   Scale,
-  FileJson,
+  FileJson as FileJsonIcon,
   FileDown,
-  ArrowRightLeft,
+  ArrowRightLeft as ArrowRightLeftIcon,
   Save as SaveIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -276,7 +276,7 @@ export default function ProcessDetailViewPage() {
       const isEnd = node.type === 'end';
       return (
         <div id={`card-${node.id}`} className={cn("z-10 transition-all duration-300 shadow-lg cursor-pointer", isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden")} onClick={(e) => { e.stopPropagation(); handleNodeClick(node.id); }}>
-          {isDecision ? (<div className="-rotate-45 text-center px-2"><GitBranch className="w-6 h-6 mx-auto mb-1" /><p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p></div>) : (isStart || isEnd) ? (<div className="flex flex-col items-center">{isStart ? <ArrowUp className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}<p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p></div>) : (<div className="flex flex-col"><div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>{node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title}</p><p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleName}</p></div></div><div className="p-4"><p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p></div></div>)}
+          {isDecision ? (<div className="-rotate-45 text-center px-2"><GitBranch className="w-6 h-6 mx-auto mb-1" /><p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p></div>) : (isStart || isEnd) ? (<div className="flex flex-col items-center">{isStart ? <ArrowUpIcon className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}<p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p></div>) : (<div className="flex flex-col"><div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}><div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>{node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}</div><div className="min-w-0"><p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title}</p><p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{roleName}</p></div></div><div className="p-4"><p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p></div></div>)}
         </div>
       );
     }
@@ -285,7 +285,7 @@ export default function ProcessDetailViewPage() {
       <div className={cn("relative z-10", !compact && "pl-12")}>
         {!compact && (
           <div className={cn("absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer", isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110")} onClick={() => handleNodeClick(node.id)}>
-            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+            {node.type === 'start' ? <ArrowUpIcon className="w-5 h-5" /> : 
              node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> : 
              node.type === 'decision' ? <GitBranch className="w-5 h-5" /> : 
              <span className="font-headline font-black text-sm">{index + 1}</span>}
@@ -428,7 +428,7 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
               <section className="space-y-3">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><ArrowRightLeft className="w-3.5 h-3.5" /> Schnittstellen</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><ArrowRightLeftIcon className="w-3.5 h-3.5" /> Schnittstellen</h3>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1"><span className="text-[8px] font-black uppercase text-slate-400">Inputs (Eingänge)</span><p className="text-[10px] font-bold text-slate-700 leading-tight">{currentProcess?.inputs || '---'}</p></div>
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1"><span className="text-[8px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</span><p className="text-[10px] font-bold text-slate-700 leading-tight">{currentProcess?.outputs || '---'}</p></div>
@@ -448,7 +448,7 @@ export default function ProcessDetailViewPage() {
                         <SelectTrigger className="h-8 rounded-lg bg-white border-emerald-100 text-[10px] font-bold px-2" suppressHydrationWarning>
                           <SelectValue placeholder="Wählen..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-xl border-none shadow-2xl">
                           <SelectItem value="none">Kein VVT-Bezug</SelectItem>
                           {vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                         </SelectContent>
@@ -495,7 +495,7 @@ export default function ProcessDetailViewPage() {
                 <div className="space-y-10 animate-in fade-in">
                   <div className="flex items-center gap-4 border-b pb-6"><div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-sm"><ShieldAlert className="w-8 h-8" /></div><div><h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Prozess-Risikoanalyse</h2><p className="text-xs text-slate-500 font-medium">Betrachtung der spezifischen Gefahrenlage dieses Workflows.</p></div></div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white"><CardHeader className="bg-slate-50/50 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Direkte Risiken</CardTitle></CardHeader><CardContent className="p-0">{risksData.direct.length === 0 ? (<div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>) : (<div className="divide-y divide-slate-50">{risksData.direct.map(r => (<div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}><div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div><ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-accent transition-all" /></div>))}</div>)}</CardContent></Card>
+                    <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white"><CardHeader className="bg-slate-50/50 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2"><TargetIcon className="w-4 h-4 text-primary" /> Direkte Risiken</CardTitle></CardHeader><CardContent className="p-0">{risksData.direct.length === 0 ? (<div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>) : (<div className="divide-y divide-slate-50">{risksData.direct.map(r => (<div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}><div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div><ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-accent transition-all" /></div>))}</div>)}</CardContent></Card>
                     <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white"><CardHeader className="bg-indigo-50/30 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900"><Layers className="w-4 h-4 text-indigo-600" /> System-Risiken (Vererbt)</CardTitle></CardHeader><CardContent className="p-0">{risksData.inherited.length === 0 ? (<div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div>) : (<div className="divide-y divide-slate-50">{risksData.inherited.map(r => (<div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}><div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div><ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-accent transition-all" /></div>))}</div>)}</CardContent></Card>
                   </div>
                 </div>
@@ -519,7 +519,7 @@ export default function ProcessDetailViewPage() {
                             <p className="text-xs font-bold text-slate-800 group-hover/card:text-primary transition-colors">{log.action}</p>
                             {log.after && (
                               <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-primary p-0 mt-2 gap-1.5 opacity-0 group-hover/card:opacity-100 transition-all">
-                                <FileJson className="w-3.5 h-3.5" /> Details / Diff anzeigen
+                                <FileJsonIcon className="w-3.5 h-3.5" /> Details / Diff anzeigen
                               </Button>
                             )}
                           </div>
@@ -538,7 +538,7 @@ export default function ProcessDetailViewPage() {
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg"><FileJson className="w-6 h-6" /></div>
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg"><FileJsonIcon className="w-6 h-6" /></div>
               <div className="min-w-0 flex-1">
                 <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Struktur-Diff & Details</DialogTitle>
                 <DialogDescription className="text-[10px] text-white/50 font-bold uppercase truncate">{selectedLogEntry?.action}</DialogDescription>
@@ -547,11 +547,11 @@ export default function ProcessDetailViewPage() {
           </DialogHeader>
           <div className="flex-1 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 overflow-hidden">
             <div className="flex flex-col min-h-0">
-              <div className="p-4 bg-slate-50 border-b flex items-center gap-2"><ArrowUp className="w-3.5 h-3.5 text-slate-400" /><span className="text-[10px] font-black uppercase text-slate-400">Vorher (Status Quo)</span></div>
+              <div className="p-4 bg-slate-50 border-b flex items-center gap-2"><ArrowUpIcon className="w-3.5 h-3.5 text-slate-400" /><span className="text-[10px] font-black uppercase text-slate-400">Vorher (Status Quo)</span></div>
               <ScrollArea className="flex-1 p-6 bg-white"><pre className="text-[10px] font-mono text-slate-500 leading-relaxed">{selectedLogEntry?.before ? JSON.stringify(selectedLogEntry.before, null, 2) : "// Keine Daten vorhanden"}</pre></ScrollArea>
             </div>
             <div className="flex flex-col min-h-0">
-              <div className="p-4 bg-emerald-50/50 border-b flex items-center gap-2"><ArrowDown className="w-3.5 h-3.5 text-emerald-600" /><span className="text-[10px] font-black uppercase text-emerald-600">Nachher (Änderung)</span></div>
+              <div className="p-4 bg-emerald-50/50 border-b flex items-center gap-2"><ArrowDownIcon className="w-3.5 h-3.5 text-emerald-600" /><span className="text-[10px] font-black uppercase text-emerald-600">Nachher (Änderung)</span></div>
               <ScrollArea className="flex-1 p-6 bg-white"><pre className="text-[10px] font-mono text-emerald-900 leading-relaxed">{selectedLogEntry?.after ? JSON.stringify(selectedLogEntry.after, null, 2) : "// Keine Daten vorhanden"}</pre></ScrollArea>
             </div>
           </div>

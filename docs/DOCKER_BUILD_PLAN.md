@@ -1,27 +1,25 @@
 
-# Docker Build Stabilisierungs-Plan (V1.1)
+# Docker Build Stabilisierungs-Plan (V1.3)
 
-Dieses Dokument beschreibt die notwendigen Schritte, um den Produktions-Build (`next build`) innerhalb der Docker-Umgebung wieder lauffähig zu machen.
+Dieses Dokument beschreibt die notwendigen Schritte, um den Produktions-Build (`next build`) innerhalb der Docker-Umgebung dauerhaft lauffähig zu halten.
 
-## 🎯 Status Quo
-Der Build bricht aktuell beim Prerendering statischer Seiten ab. Next.js 15 ist im Produktionsmodus extrem strikt bei der Prüfung von Variablen und JSX-Strukturen.
+## 🛠️ Strategische Korrekturen
 
-## 🛠️ Identifizierte Problemfelder
+### 1. Namenskonventionen (Icons)
+Um `ReferenceError` zu vermeiden, werden alle Icons, deren Namen mit Funktionen oder States kollidieren könnten, konsequent umbenannt:
+- `Save` -> `SaveIcon`
+- `ArrowUp` -> `ArrowUpIcon`
+- `ArrowDown` -> `ArrowDownIcon`
 
-### 1. ReferenceErrors (Icons & Komponenten)
-- **Problem**: Lucide Icons wie `Save` kollidieren mit Funktionsnamen (`handleSave`) oder werden unter falschem Namen referenziert.
-- **Lösung**: Alle `Save`-Icons werden konsequent als `SaveIcon` importiert und genutzt. Fehlende Imports für `Switch` werden in allen Einstellungsseiten ergänzt.
+### 2. Import-Vollständigkeit
+Alle UI-Komponenten (Switch, Dialog, Select etc.) werden im Kopf der Datei explizit importiert. Es darf kein "Lazy Loading" ohne Fallback für das Prerendering geben.
 
-### 2. JSX Parsing Errors
-- **Problem**: Nicht geschlossene Tags (z.B. `</SelectContent>`) in komplexen Ansichten wie `/processhub/view/[id]`.
-- **Lösung**: Vollständige Validierung der JSX-Struktur und Ergänzung fehlender Abschluss-Tags.
+### 3. JSX Validierung
+Next.js 15 bricht bei unsauberen Tag-Schachtelungen ab. Insbesondere in der Prozessansicht wurde die Struktur der Select- und Dialog-Komponenten stabilisiert.
 
-### 3. Hydration Mismatches
-- **Problem**: `Select` und `Switch` Komponenten verursachen Warnungen, wenn sie auf dem Server anders initialisiert werden als auf dem Client.
-- **Lösung**: Nutzung von `isMounted` Checks und `suppressHydrationWarning`.
-
-## 📋 Checkliste für zukünftige Änderungen
-- [x] Icons immer mit Alias importieren: `import { Save as SaveIcon } from 'lucide-react'`
-- [x] Prüfen, ob alle Shadcn-Komponenten im File-Header importiert sind.
-- [x] Keine doppelten Imports aus der gleichen Bibliothek.
-- [x] `next build` lokal testen, bevor das Docker-Image gebaut wird.
+## ✅ Checkliste für den Build
+- [x] `SaveIcon` in allen Einstellungsseiten verwendet.
+- [x] `Switch` Importe in `sync/page.tsx` und `email/page.tsx` validiert.
+- [x] `SelectContent` Abschluss-Tag in der Prozessansicht repariert.
+- [x] Alle Icons für die Prozesshistorie importiert.
+- [x] Internal Server Error durch Syntax-Fix behoben.
