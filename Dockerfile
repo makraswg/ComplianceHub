@@ -22,7 +22,7 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 # Run the build command
-RUN npm run build
+RUN rm -rf .next && npm run build
 
 # Stage 3: Runner
 FROM node:20-alpine AS runner
