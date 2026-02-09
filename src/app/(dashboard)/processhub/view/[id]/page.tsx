@@ -752,7 +752,7 @@ export default function ProcessDetailViewPage() {
                         </div>
                       ))}
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
 
@@ -769,28 +769,60 @@ export default function ProcessDetailViewPage() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
-                      <CardHeader className="bg-slate-50/50 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Direkte Risiken</CardTitle></CardHeader>
+                      <CardHeader className="bg-slate-50/50 border-b p-6">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" /> Direkte Risiken
+                        </CardTitle>
+                      </CardHeader>
                       <CardContent className="p-0">
-                        {risksData.direct.length === 0 ? <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div> : (
-                          <div className="divide-y divide-slate-50">{risksData.direct.map(r => (
-                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
-                              <div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div>
-                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                          ))}</div>
+                        {risksData.direct.length === 0 ? (
+                          <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>
+                        ) : (
+                          <div className="divide-y divide-slate-50">
+                            {risksData.direct.map(r => (
+                              <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
+                                <div className="flex items-center gap-3">
+                                  <Badge className={cn(
+                                    "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
+                                    (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
+                                  )}>
+                                    {r.impact * r.probability}
+                                  </Badge>
+                                  <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-accent transition-all" />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </CardContent>
                     </Card>
                     <Card className="rounded-2xl border shadow-sm overflow-hidden bg-white">
-                      <CardHeader className="bg-indigo-50/30 border-b p-6"><CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900"><Layers className="w-4 h-4 text-indigo-600" /> System-Risiken</CardTitle></CardHeader>
+                      <CardHeader className="bg-indigo-50/30 border-b p-6">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-900">
+                          <Layers className="w-4 h-4 text-indigo-600" /> System-Risiken
+                        </CardTitle>
+                      </CardHeader>
                       <CardContent className="p-0">
-                        {risksData.inherited.length === 0 ? <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div> : (
-                          <div className="divide-y divide-slate-50">{risksData.inherited.map(r => (
-                            <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
-                              <div className="flex items-center gap-3"><Badge className={cn("h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",(r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white")}>{r.impact * r.probability}</Badge><span className="text-[11px] font-bold text-slate-800">{r.title}</span></div>
-                              <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
-                            </div>
-                          ))}</div>
+                        {risksData.inherited.length === 0 ? (
+                          <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div>
+                        ) : (
+                          <div className="divide-y divide-slate-50">
+                            {risksData.inherited.map(r => (
+                              <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
+                                <div className="flex items-center gap-3">
+                                  <Badge className={cn(
+                                    "h-6 w-8 justify-center rounded-md font-black text-[10px] border-none",
+                                    (r.impact * r.probability) >= 15 ? "bg-red-600 text-white" : (r.impact * r.probability) >= 8 ? "bg-orange-600 text-white" : "bg-emerald-600 text-white"
+                                  )}>
+                                    {r.impact * r.probability}
+                                  </Badge>
+                                  <span className="text-[11px] font-bold text-slate-800">{r.title}</span>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-accent transition-all" />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </CardContent>
                     </Card>
@@ -815,7 +847,7 @@ export default function ProcessDetailViewPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div className="md:col-span-1 space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Verfügbare Versionen</Badge>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Verfügbare Versionen</Label>
                       <div className="space-y-2">
                         {allProcessVersions.map(v => (
                           <div 
@@ -884,7 +916,7 @@ export default function ProcessDetailViewPage() {
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10">
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
                 <FileJson className="w-6 h-6" />
               </div>
               <div className="min-w-0 flex-1">
