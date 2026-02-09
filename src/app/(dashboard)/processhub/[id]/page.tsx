@@ -68,51 +68,66 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 
-function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
+function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProcesses?: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
   const edges = model.edges || [];
   const positions = layout.positions || {};
 
+  const CANVAS_WIDTH = 800;
+  const NODE_W = 160;
+  const NODE_H = 70;
+  const VERTICAL_SPACING = 140;
+
   nodes.forEach((node, idx) => {
     let nodeSafeId = String(node.id || `node-${idx}`);
-    const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
+    // Default vertical layout if no position saved
+    const pos = positions[nodeSafeId] || { 
+      x: (CANVAS_WIDTH / 2) - (NODE_W / 2), 
+      y: 50 + (idx * VERTICAL_SPACING) 
+    };
+    
     let style = '';
-    let w = 140, h = 70;
+    let w = NODE_W, h = NODE_H;
     let label = node.title;
     
+    // Enhanced labeling for Subprocesses
+    if (node.type === 'subprocess' && node.targetProcessId) {
+      const target = allProcesses?.find(p => p.id === node.targetProcessId);
+      label = target ? `Prozess: ${target.title}` : node.title;
+    }
+
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 40; h = 40; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
+        w = 50; h = 50; 
         break;
       case 'end': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 40; h = 40; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef2f2;strokeColor=#991b1b;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
+        w = 50; h = 50; 
         break;
       case 'decision': 
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;'; 
-        w = 60; h = 60;
-        label = 'X'; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;shadow=0;fontStyle=1;'; 
+        w = 100; h = 100;
         break;
       case 'subprocess':
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;dashed=1;shadow=0;';
-        w = 140; h = 70;
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#eef2ff;strokeColor=#4338ca;strokeWidth=2;dashed=1;shadow=0;';
         break;
       default: 
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;';
-        w = 140; h = 70;
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
     }
     
-    const displayValue = node.type === 'decision' ? label : node.title;
-    xml += `<mxCell id="${nodeSafeId}" value="${displayValue}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    // Horizontal centering if no manual position
+    const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
+    
+    xml += `<mxCell id="${nodeSafeId}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -144,7 +159,7 @@ export default function ProcessDesignerPage() {
     id: '', title: '', roleId: '', description: '', checklist: '', tips: '', errors: '', type: 'step', targetProcessId: '', resourceIds: [] as string[], featureIds: [] as string[], subjectGroupIds: [] as string[], dataCategoryIds: [] as string[], predecessorIds: [] as string[], successorIds: [] as string[], customFields: {} as Record<string, string>
   });
 
-  // Master Data (Stammdaten) Form State
+  // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaInputs, setMetaInputs] = useState('');
@@ -259,10 +274,10 @@ export default function ProcessDesignerPage() {
 
   const syncDiagramToModel = useCallback(() => {
     if (!iframeRef.current || !currentVersion || isDiagramLocked) return;
-    const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json);
+    const xml = generateMxGraphXml(currentVersion.model_json, currentVersion.layout_json, processes);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 1 }), '*');
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 300);
-  }, [currentVersion, isDiagramLocked]);
+  }, [currentVersion, isDiagramLocked, processes]);
 
   useEffect(() => {
     if (!mounted || !iframeRef.current || !currentVersion?.model_json?.nodes?.length) return;
@@ -572,7 +587,7 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
+        <aside className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile ? "hidden" : "w-[380px]")}>
           <Tabs defaultValue="meta" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>

@@ -10,6 +10,7 @@ import {
   Activity, 
   RefreshCw, 
   ChevronRight,
+  ChevronDown,
   ListChecks,
   Network,
   ExternalLink,
@@ -55,58 +56,72 @@ import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, Process
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
 
-function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
+function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProcesses?: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const nodes = model.nodes || [];
   const edges = model.edges || [];
   const positions = layout.positions || {};
 
+  const CANVAS_WIDTH = 800;
+  const NODE_W = 160;
+  const NODE_H = 70;
+  const VERTICAL_SPACING = 140;
+
   nodes.forEach((node, idx) => {
     let nodeSafeId = String(node.id || `node-${idx}`);
-    const pos = positions[nodeSafeId] || { x: 50 + (idx * 220), y: 150 };
+    // Use vertical auto-layout if no manual position exists
+    const pos = positions[nodeSafeId] || { 
+      x: (CANVAS_WIDTH / 2) - (NODE_W / 2), 
+      y: 50 + (idx * VERTICAL_SPACING) 
+    };
+    
     let style = '';
-    let w = 140, h = 70;
+    let w = NODE_W, h = NODE_H;
     let label = node.title;
     
+    if (node.type === 'subprocess' && node.targetProcessId) {
+      const target = allProcesses?.find(p => p.id === node.targetProcessId);
+      label = target ? `Prozess: ${target.title}` : node.title;
+    }
+
     switch (node.type) {
       case 'start': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 40; h = 40; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
+        w = 50; h = 50; 
         break;
       case 'end': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#ffffff;strokeColor=#000000;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 40; h = 40; 
+        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef2f2;strokeColor=#991b1b;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
+        w = 50; h = 50; 
         break;
       case 'decision': 
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;'; 
-        w = 60; h = 60;
-        label = 'X'; 
+        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;shadow=0;fontStyle=1;'; 
+        w = 100; h = 100;
         break;
       case 'subprocess':
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;dashed=1;shadow=0;';
-        w = 140; h = 70;
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#eef2ff;strokeColor=#4338ca;strokeWidth=2;dashed=1;shadow=0;';
         break;
       default: 
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#000000;strokeWidth=1.5;shadow=0;';
-        w = 140; h = 70;
+        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
     }
     
-    const displayValue = node.type === 'decision' ? label : node.title;
-    xml += `<mxCell id="${nodeSafeId}" value="${displayValue}" style="${style}" vertex="1" parent="1"><mxGeometry x="${(pos as any).x}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
+    // Auto-center X if using indices, otherwise use saved X
+    const finalX = positions[nodeSafeId] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
+    
+    xml += `<mxCell id="${nodeSafeId}" value="${label}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
   });
 
   edges.forEach((edge, idx) => {
     const sourceId = String(edge.source);
     const targetId = String(edge.target);
     if (nodes.some(n => String(n.id) === sourceId) && nodes.some(n => String(n.id) === targetId)) {
-      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#000000;strokeWidth=1.5;fontSize=10;fontColor=#000000;endArrow=block;endFill=1;curved=0;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${edge.id || `edge-${idx}`}" value="${edge.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
   xml += `</root></mxGraphModel>`;
@@ -121,6 +136,7 @@ export default function ProcessDetailViewPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
+  const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
   
@@ -187,6 +203,37 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
+  // Structured Grid Logic
+  const structuredGrid = useMemo(() => {
+    if (!activeVersion || guideMode !== 'structure') return [];
+    
+    const nodes = activeVersion.model_json.nodes || [];
+    const edges = activeVersion.model_json.edges || [];
+    
+    const levels: ProcessNode[][] = [];
+    const visited = new Set<string>();
+    
+    // Initial: Start nodes
+    let currentLevel = nodes.filter(n => !edges.some(e => e.target === n.id));
+    if (currentLevel.length === 0 && nodes.length > 0) currentLevel = [nodes[0]];
+
+    while (currentLevel.length > 0) {
+      levels.push(currentLevel);
+      currentLevel.forEach(n => visited.add(n.id));
+      
+      const nextLevelSet = new Set<string>();
+      currentLevel.forEach(n => {
+        edges.filter(e => e.source === n.id).forEach(e => {
+          if (!visited.has(e.target)) nextLevelSet.add(e.target);
+        });
+      });
+      
+      currentLevel = nodes.filter(n => nextLevelSet.has(n.id));
+    }
+    
+    return levels;
+  }, [activeVersion, guideMode]);
+
   const getFullRoleName = (roleId?: string) => {
     if (!roleId) return '---';
     const role = jobTitles?.find(j => j.id === roleId);
@@ -211,7 +258,7 @@ export default function ProcessDetailViewPage() {
   };
 
   const updateFlowLines = useCallback(() => {
-    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || !containerRef.current) {
+    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || guideMode !== 'list' || !containerRef.current) {
       setConnectionPaths([]);
       return;
     }
@@ -250,7 +297,7 @@ export default function ProcessDetailViewPage() {
     });
 
     setConnectionPaths(newPaths);
-  }, [activeNodeId, activeVersion, viewMode]);
+  }, [activeNodeId, activeVersion, viewMode, guideMode]);
 
   useEffect(() => {
     setMounted(true);
@@ -264,10 +311,10 @@ export default function ProcessDetailViewPage() {
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
-    const xml = generateMxGraphXml(activeVersion.model_json, activeVersion.layout_json);
+    const xml = generateMxGraphXml(activeVersion.model_json, activeVersion.layout_json, processes);
     iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 0 }), '*');
     setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
-  }, [activeVersion, viewMode]);
+  }, [activeVersion, viewMode, processes]);
 
   useEffect(() => {
     if (!mounted || !iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -281,6 +328,185 @@ export default function ProcessDetailViewPage() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, activeVersion, syncDiagram, viewMode]);
+
+  const GuideCard = ({ node, index }: { node: ProcessNode, index: number }) => {
+    const roleName = getFullRoleName(node.roleId);
+    const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
+    const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
+    const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
+    const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
+    
+    const predecessors = activeVersion?.model_json.edges
+      .filter(e => e.target === node.id)
+      .map(e => activeVersion?.model_json.nodes.find(n => n.id === e.source))
+      .filter(Boolean);
+    
+    const successors = activeVersion?.model_json.edges
+      .filter(e => e.source === node.id)
+      .map(e => ({
+        edge: e,
+        node: activeVersion?.model_json.nodes.find(n => n.id === e.target)
+      }))
+      .filter(s => !!s.node);
+
+    const isActive = activeNodeId === node.id;
+    const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
+
+    return (
+      <div className="relative z-10 pl-12">
+        <div className={cn(
+          "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
+          isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
+          node.type === 'start' ? "bg-emerald-500 text-white" : 
+          node.type === 'end' ? "bg-red-500 text-white" : 
+          node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
+        )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+          {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+           node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+           node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+           <span className="font-headline font-black text-sm">{index + 1}</span>}
+        </div>
+
+        {predecessors.length > 0 && (
+          <div className="flex gap-1.5 mb-2 ml-1">
+            {predecessors.map((p, idx) => (
+              <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
+                <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
+              </Badge>
+            ))}
+          </div>
+        )}
+        
+        <Card 
+          id={`card-${node.id}`}
+          className={cn(
+            "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300 cursor-pointer",
+            isActive ? "ring-2 ring-primary border-primary/40 shadow-xl scale-[1.01]" : "hover:border-primary/20",
+            node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
+            node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
+          )}
+          onClick={() => setActiveNodeId(isActive ? null : node.id)}
+        >
+          <CardHeader className="p-5 pb-4 bg-white border-b">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-headline font-black text-base text-slate-900 uppercase tracking-tight">{node.title}</h3>
+                  <Badge variant="outline" className={cn(
+                    "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
+                    node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
+                    node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                  )}>{node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type}</Badge>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
+                    <Briefcase className="w-3 h-3" /> {roleName}
+                  </div>
+                  {nodeResources?.map(res => (
+                    <TooltipProvider key={res.id}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md h-5 px-1.5 text-[8px] font-black cursor-help">
+                            <Server className="w-2.5 h-2.5 mr-1" /> {res.name}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent className="text-[9px] font-bold p-2 bg-slate-900 border-none rounded-lg text-white">
+                          {res.assetType} • {res.criticality.toUpperCase()} • {res.dataLocation}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </div>
+              </div>
+              {node.type === 'subprocess' && targetProc && (
+                <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5 shadow-sm" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
+                  <ExternalLink className="w-3 h-3" /> Prozess: {targetProc.title}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          
+          <CardContent className="p-0">
+            <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+              <div className="md:col-span-7 p-5 space-y-6">
+                {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
+                
+                {node.checklist && node.checklist.length > 0 && (
+                  <div className="space-y-3">
+                    <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2 tracking-widest">
+                      <ListChecks className="w-3.5 h-3.5" /> Checkliste / To-Do
+                    </Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {node.checklist.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
+                          <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
+                            <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
+                          </div>
+                          <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
+                <div className="space-y-4">
+                  {(node.tips || node.errors) && (
+                    <div className="space-y-2">
+                      <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
+                      {node.tips && (
+                        <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
+                          <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
+                        </div>
+                      )}
+                      {node.errors && (
+                        <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
+                          <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {nodeLinks?.map((l: any) => (
+                        <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
+                      ))}
+                      {nodeGroups?.map(g => (
+                        <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
+                      ))}
+                      {nodeCategories?.map(c => (
+                        <Badge key={c.id} variant="outline" className="bg-white text-blue-700 border-blue-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{c.name}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {successors.length > 0 && (
+              <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
+                {successors.map((s, idx) => (
+                  <Button 
+                    key={idx} 
+                    variant="ghost" 
+                    className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
+                    onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
+                  >
+                    {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
+                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
+                    <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
+                  </Button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   if (!mounted) return null;
 
@@ -469,221 +695,105 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative">
+              <div className="absolute top-6 right-8 z-30 bg-white/90 backdrop-blur shadow-xl border rounded-xl p-1 flex gap-1">
+                <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('list')}>Liste</Button>
+                <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur</Button>
+              </div>
+
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
-                    <defs>
-                      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
-                      </marker>
-                    </defs>
-                    {connectionPaths.map((path, i) => (
-                      <path 
-                        key={i} 
-                        d={path} 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeDasharray="4 2"
-                        className="text-primary/20 animate-in fade-in duration-1000"
-                        markerEnd="url(#arrowhead)"
-                      />
-                    ))}
-                  </svg>
+                  {guideMode === 'list' && (
+                    <>
+                      <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
+                        <defs>
+                          <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
+                          </marker>
+                        </defs>
+                        {connectionPaths.map((path, i) => (
+                          <path 
+                            key={i} 
+                            d={path} 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeDasharray="4 2"
+                            className="text-primary/20 animate-in fade-in duration-1000"
+                            markerEnd="url(#arrowhead)"
+                          />
+                        ))}
+                      </svg>
 
-                  <div className="space-y-12 relative">
-                    <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
-                    
-                    {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => {
-                      const roleName = getFullRoleName(node.roleId);
-                      const nodeLinks = featureLinks?.filter((l: any) => l.processId === id && l.nodeId === node.id);
-                      const nodeResources = resources?.filter(r => node.resourceIds?.includes(r.id));
-                      const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
-                      const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
-                      
-                      const predecessors = activeVersion.model_json.edges
-                        .filter(e => e.target === node.id)
-                        .map(e => activeVersion.model_json.nodes.find(n => n.id === e.source))
-                        .filter(Boolean);
-                      
-                      const successors = activeVersion.model_json.edges
-                        .filter(e => e.source === node.id)
-                        .map(e => ({
-                          edge: e,
-                          node: activeVersion.model_json.nodes.find(n => n.id === e.target)
-                        }))
-                        .filter(s => !!s.node);
+                      <div className="space-y-12 relative">
+                        <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
+                        {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
+                          <GuideCard key={node.id} node={node} index={i} />
+                        ))}
+                      </div>
+                    </>
+                  )}
 
-                      const isActive = activeNodeId === node.id;
-                      const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
+                  {guideMode === 'structure' && (
+                    <div className="space-y-24 py-10">
+                      {structuredGrid.map((row, rowIdx) => (
+                        <div key={rowIdx} className="relative flex justify-center gap-12">
+                          {row.map((node) => {
+                            const isDecision = node.type === 'decision';
+                            const isStart = node.type === 'start';
+                            const isEnd = node.type === 'end';
+                            const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
+                            const label = node.type === 'subprocess' && targetProc ? `Prozess: ${targetProc.title}` : node.title;
 
-                      return (
-                        <div key={node.id} className="relative z-10 pl-12" id={node.id}>
-                          <div className={cn(
-                            "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
-                            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-                            node.type === 'start' ? "bg-emerald-500 text-white" : 
-                            node.type === 'end' ? "bg-red-500 text-white" : 
-                            node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-                          )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
-                            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-                             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-                             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
-                             <span className="font-headline font-black text-sm">{i + 1}</span>}
-                          </div>
-
-                          {predecessors.length > 0 && (
-                            <div className="flex gap-1.5 mb-2 ml-1">
-                              {predecessors.map((p, idx) => (
-                                <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
-                                  <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                          
-                          <Card 
-                            id={`card-${node.id}`}
-                            className={cn(
-                              "rounded-2xl border shadow-sm overflow-hidden group transition-all bg-white duration-300 cursor-pointer",
-                              isActive ? "ring-2 ring-primary border-primary/40 shadow-xl scale-[1.01]" : "hover:border-primary/20",
-                              node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
-                              node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
-                            )}
-                            onClick={() => setActiveNodeId(isActive ? null : node.id)}
-                          >
-                            <CardHeader className="p-5 pb-4 bg-white border-b">
-                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h3 className="font-headline font-black text-base text-slate-900 uppercase tracking-tight">{node.title}</h3>
-                                    <Badge variant="outline" className={cn(
-                                      "text-[8px] font-black h-4 px-1.5 border-none shadow-none uppercase",
-                                      node.type === 'decision' ? "bg-amber-100 text-amber-700" : 
-                                      node.type === 'subprocess' ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
-                                    )}>{node.type === 'decision' ? 'Entscheidung' : node.type === 'step' ? 'Prozessschritt' : node.type}</Badge>
-                                  </div>
-                                  <div className="flex flex-wrap gap-2 items-center">
-                                    <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-primary bg-primary/5 px-2 py-0.5 rounded-md border border-primary/10">
-                                      <Briefcase className="w-3 h-3" /> {roleName}
-                                    </div>
-                                    {nodeResources?.map(res => (
-                                      <TooltipProvider key={res.id}>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md h-5 px-1.5 text-[8px] font-black cursor-help">
-                                              <Server className="w-2.5 h-2.5 mr-1" /> {res.name}
-                                            </Badge>
-                                          </TooltipTrigger>
-                                          <TooltipContent className="text-[9px] font-bold p-2 bg-slate-900 border-none rounded-lg text-white">
-                                            {res.assetType} • {res.criticality.toUpperCase()} • {res.dataLocation}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    ))}
-                                  </div>
-                                </div>
-                                {node.type === 'subprocess' && targetProc && (
-                                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5 shadow-sm" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
-                                    <ExternalLink className="w-3 h-3" /> Prozess: {targetProc.title}
-                                  </Button>
-                                )}
-                              </div>
-                            </CardHeader>
-                            
-                            <CardContent className="p-0">
-                              <div className="grid grid-cols-1 md:grid-cols-10 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-                                <div className="md:col-span-7 p-5 space-y-6">
-                                  {node.description && <p className="text-xs text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-xl border border-dashed border-slate-200">{node.description}</p>}
+                            return (
+                              <div key={node.id} className="relative flex flex-col items-center">
+                                <div className={cn(
+                                  "relative z-10 transition-all hover:scale-105 duration-300 shadow-lg cursor-pointer",
+                                  isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
+                                  (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white" : 
+                                  "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
+                                )} onClick={() => { setActiveNodeId(node.id); setViewMode('guide'); setGuideMode('list'); setTimeout(() => document.getElementById(node.id)?.scrollIntoView({behavior:'smooth', block:'center'}), 100); }}>
                                   
-                                  {node.checklist && node.checklist.length > 0 && (
-                                    <div className="space-y-3">
-                                      <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2 tracking-widest">
-                                        <ListChecks className="w-3.5 h-3.5" /> Checkliste / To-Do
-                                      </Label>
-                                      <div className="grid grid-cols-1 gap-2">
-                                        {node.checklist.map((item, idx) => (
-                                          <div key={idx} className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-100 group/item hover:border-emerald-200 transition-all cursor-pointer">
-                                            <div className="w-5 h-5 rounded-md border border-slate-200 flex items-center justify-center shrink-0 group-hover/item:bg-emerald-500 group-hover/item:border-emerald-500 transition-all">
-                                              <CheckCircle className="w-3.5 h-3.5 text-transparent group-hover/item:text-white" />
-                                            </div>
-                                            <span className="text-[11px] font-bold text-slate-700 leading-tight">{item}</span>
-                                          </div>
-                                        ))}
+                                  {isDecision ? (
+                                    <div className="-rotate-45 text-center px-2">
+                                      <GitBranch className="w-6 h-6 mx-auto mb-1" />
+                                      <p className="text-[9px] font-black leading-tight uppercase truncate max-w-[60px]">{node.title}</p>
+                                    </div>
+                                  ) : (isStart || isEnd) ? (
+                                    <div className="flex flex-col items-center">
+                                      {isStart ? <ArrowUp className="w-6 h-6" /> : <CheckCircle2 className="w-6 h-6" />}
+                                      <p className="text-[8px] font-black uppercase mt-1">{isStart ? 'Start' : 'Ende'}</p>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col">
+                                      <div className={cn("p-3 border-b flex items-center gap-3", node.type === 'subprocess' ? "bg-indigo-50" : "bg-slate-50")}>
+                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm", node.type === 'subprocess' ? "bg-indigo-600" : "bg-primary")}>
+                                          {node.type === 'subprocess' ? <Network className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="text-[10px] font-black uppercase text-slate-900 truncate leading-tight">{label}</p>
+                                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{getFullRoleName(node.roleId)}</p>
+                                        </div>
+                                      </div>
+                                      <div className="p-4">
+                                        <p className="text-[10px] text-slate-500 line-clamp-2 italic leading-relaxed">"{node.description || 'Keine Beschreibung'}"</p>
                                       </div>
                                     </div>
                                   )}
                                 </div>
 
-                                <div className="md:col-span-3 p-5 space-y-6 bg-slate-50/30">
-                                  <div className="space-y-4">
-                                    {(node.tips || node.errors) && (
-                                      <div className="space-y-2">
-                                        <Label className="text-[8px] font-black uppercase text-slate-400">Expertise</Label>
-                                        {node.tips && (
-                                          <div className="flex items-start gap-2 p-2 rounded-lg bg-blue-50/50 border border-blue-100 text-[10px] font-bold text-blue-900 italic">
-                                            <Lightbulb className="w-3 h-3 text-blue-500 shrink-0 mt-0.5" /> {node.tips}
-                                          </div>
-                                        )}
-                                        {node.errors && (
-                                          <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50/50 border border-red-100 text-[10px] font-bold text-red-900 italic">
-                                            <AlertCircle className="w-3 h-3 text-red-500 shrink-0 mt-0.5" /> {node.errors}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    <div className="space-y-2">
-                                      <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
-                                      <div className="flex flex-wrap gap-1">
-                                        {nodeLinks?.map((l: any) => (
-                                          <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
-                                        ))}
-                                        {nodeGroups?.map(g => (
-                                          <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
-                                        ))}
-                                        {nodeCategories?.map(c => (
-                                          <Badge key={c.id} variant="outline" className="bg-white text-blue-700 border-blue-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{c.name}</Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-
-                                    {node.links && node.links.length > 0 && (
-                                      <div className="space-y-2">
-                                        <Label className="text-[8px] font-black uppercase text-slate-400">Links</Label>
-                                        {node.links.map((link, idx) => (
-                                          <a key={idx} href={link.url} target="_blank" className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-slate-100 text-[10px] font-bold text-slate-600 hover:text-primary transition-all">
-                                            <LinkIcon className="w-3 h-3" /> <span className="truncate">{link.title}</span>
-                                          </a>
-                                        ))}
-                                      </div>
-                                    )}
+                                {rowIdx < structuredGrid.length - 1 && (
+                                  <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
+                                    <div className="w-0.5 h-12 bg-slate-400" />
+                                    <ChevronDown className="w-4 h-4 text-slate-400" />
                                   </div>
-                                </div>
+                                )}
                               </div>
-
-                              {successors.length > 0 && (
-                                <div className="bg-slate-50/80 p-3 border-t flex flex-wrap justify-center gap-2">
-                                  {successors.map((s, idx) => (
-                                    <Button 
-                                      key={idx} 
-                                      variant="ghost" 
-                                      className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
-                                      onClick={(e) => { e.stopPropagation(); document.getElementById(s.node?.id || '')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
-                                    >
-                                      {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
-                                      <span className="text-[9px] font-black uppercase tracking-tight text-slate-600">{s.node?.title}</span>
-                                      <ArrowRightCircle className="w-3.5 h-3.5 text-slate-300 group-hover/next:text-primary group-hover/next:translate-x-0.5 transition-all" />
-                                    </Button>
-                                  ))}
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </div>
