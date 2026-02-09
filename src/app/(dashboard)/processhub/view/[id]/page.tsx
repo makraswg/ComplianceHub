@@ -47,7 +47,9 @@ import {
   ArrowLeftRight,
   ShieldAlert,
   Move,
-  Maximize2
+  Maximize2,
+  X,
+  XCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -309,10 +311,11 @@ export default function ProcessDetailViewPage() {
           cp2x = tX;
           cp2y = (sY + tY) / 2;
         } else {
+          // LISTENANSICHT: Linien setzen an der linken Icon-Box an
           sX = sourceRect.left - containerRect.left + 20; 
-          sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+          sY = sourceRect.top - containerRect.top + 20;
           tX = targetRect.left - containerRect.left + 20;
-          tY = targetRect.top - containerRect.top + (targetRect.height / 2);
+          tY = targetRect.top - containerRect.top + 20;
           
           cp1x = sX - 150;
           cp1y = sY;
@@ -379,7 +382,13 @@ export default function ProcessDetailViewPage() {
       setTimeout(() => {
         const el = document.getElementById(`card-${nodeId}`);
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          // In der Strukturansicht horizontal und vertikal zentrieren, 
+          // in der Liste nur vertikal, um horizontalen Versatz zu vermeiden.
+          el.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center', 
+            inline: guideMode === 'structure' ? 'center' : 'nearest' 
+          });
         }
       }, 100);
     }
@@ -762,7 +771,13 @@ export default function ProcessDetailViewPage() {
               </div>
 
               <ScrollArea className="flex-1" ref={scrollAreaRef}>
-                <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative min-h-[1000px] min-w-[1200px]" ref={containerRef}>
+                <div 
+                  className={cn(
+                    "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px]",
+                    guideMode === 'structure' ? "min-w-[1200px]" : "max-w-5xl w-full pl-20"
+                  )} 
+                  ref={containerRef}
+                >
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
