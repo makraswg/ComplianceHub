@@ -18,7 +18,7 @@ import {
   Trash2,
   Pencil,
   Info,
-  Save,
+  Save as SaveIcon,
   PlusCircle,
   X
 } from 'lucide-react';
@@ -136,7 +136,7 @@ export default function StructureSettingsPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold">Org Structure</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Struktur & Stellen</h1>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Struktur &amp; Stellen</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">Hierarchischer Stellenplan der Organisationseinheiten.</p>
         </div>
         <Button 
@@ -280,7 +280,7 @@ export default function StructureSettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-slate-400">Stellenbeschreibung</Label>
-                <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] rounded-lg p-4 text-xs leading-relaxed border-slate-200 dark:border-slate-800" placeholder="Aufgaben & Kompetenzen..." />
+                <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] rounded-lg p-4 text-xs leading-relaxed border-slate-200 dark:border-slate-800" placeholder="Aufgaben &amp; Kompetenzen..." />
               </div>
               <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-lg flex items-start gap-3 border border-blue-100 dark:border-blue-900/30">
                 <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
@@ -291,7 +291,7 @@ export default function StructureSettingsPage() {
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-md h-10 px-6 font-bold text-[10px]">Abbrechen</Button>
             <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[10px] gap-2 shadow-lg shadow-primary/20">
-              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
+              {isSavingJob ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -9,7 +8,7 @@ import {
   Shield, 
   Plus, 
   Trash2, 
-  Save, 
+  Save as SaveIcon, 
   Loader2, 
   Settings2,
   Lock,
@@ -235,13 +234,13 @@ export default function PlatformRolesPage() {
               <div className="space-y-4">
                 <h3 className="text-[11px] font-bold text-slate-400 uppercase border-b pb-2">Modul-Berechtigungen</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <PermSelector label="IAM & Identitäten" icon={Layers} value={perms.iam} onChange={(v: any) => setPermissions({...perms, iam: v})} />
+                  <PermSelector label="IAM &amp; Identitäten" icon={Layers} value={perms.iam} onChange={(v: any) => setPermissions({...perms, iam: v})} />
                   <PermSelector label="Risikomanagement" icon={Activity} value={perms.risks} onChange={(v: any) => setPermissions({...perms, risks: v})} />
                   <PermSelector label="ProzessHub" icon={Layers} value={perms.processhub} onChange={(v: any) => setPermissions({...perms, processhub: v})} />
                   <PermSelector label="Datenschutz (VVT)" icon={FileCheck} value={perms.gdpr} onChange={(v: any) => setPermissions({...perms, gdpr: v})} />
                   <PermSelector label="Medienverwaltung" icon={FileStack} value={perms.media} onChange={(v: any) => setPermissions({...perms, media: v})} />
                   <PermSelector label="Systemeinstellungen" icon={Settings2} value={perms.settings} onChange={(v: any) => setPermissions({...perms, settings: v})} />
-                  <PermSelector label="Audit & Protokoll" icon={BrainCircuit} value={perms.audit} onChange={(v: any) => setPermissions({...perms, audit: v})} />
+                  <PermSelector label="Audit &amp; Protokoll" icon={BrainCircuit} value={perms.audit} onChange={(v: any) => setPermissions({...perms, audit: v})} />
                 </div>
               </div>
             </div>
@@ -249,7 +248,7 @@ export default function PlatformRolesPage() {
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving} className="px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg">
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>

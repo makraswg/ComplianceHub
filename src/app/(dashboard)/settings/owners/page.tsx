@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +10,7 @@ import {
   Plus, 
   PlusCircle,
   Trash2, 
-  Save, 
+  Save as SaveIcon, 
   Loader2, 
   Archive, 
   RotateCcw,
@@ -162,7 +161,7 @@ export default function ServicePartnerSettingsPage() {
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-indigo-100 text-indigo-700 text-[9px] font-bold border-none uppercase tracking-wider">Vendor Risk Management</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Service Partner & Externe</h1>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Service Partner &amp; Externe</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Verwaltung externer Dienstleister, Fachbereiche und Ansprechpartner.</p>
           </div>
         </div>
@@ -311,7 +310,7 @@ export default function ServicePartnerSettingsPage() {
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Branche</Label><Input value={pIndustry} onChange={e => setPIndustry(e.target.value)} className="h-11 rounded-xl" /></div>
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Website (URL)</Label><Input value={pWebsite} onChange={e => setPWebsite(e.target.value)} className="h-11 rounded-xl font-mono text-xs" placeholder="https://..." /></div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsPartnerDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSavePartner} disabled={isSaving || !pName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsPartnerDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSavePartner} disabled={isSaving || !pName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -332,7 +331,7 @@ export default function ServicePartnerSettingsPage() {
               <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Funktion</Label><Input value={cRole} onChange={e => setCRole(e.target.value)} className="h-11 rounded-xl" /></div>
             </div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsContactDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveContact} disabled={isSaving || !cName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsContactDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveContact} disabled={isSaving || !cName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -349,7 +348,7 @@ export default function ServicePartnerSettingsPage() {
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label><Input value={aName} onChange={e => setAName(e.target.value)} placeholder="z.B. IT-Infrastruktur, Marketing-Support..." className="h-11 rounded-xl font-bold" /></div>
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung</Label><Input value={aDesc} onChange={e => setADesc(e.target.value)} className="h-11 rounded-xl" /></div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsAreaDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveArea} disabled={isSaving || !aName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsAreaDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveArea} disabled={isSaving || !aName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

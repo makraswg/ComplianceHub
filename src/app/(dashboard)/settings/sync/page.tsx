@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -175,7 +174,7 @@ export default function SyncSettingsPage() {
             <div className="w-10 h-10 bg-indigo-500/10 rounded-lg flex items-center justify-center text-indigo-600 shadow-inner">
               <Database className="w-5 h-5" />
             </div>
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">System-Jobs & Automatisierung</CardTitle>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white">System-Jobs &amp; Automatisierung</CardTitle>
           </div>
           <Badge className="bg-emerald-100 text-emerald-700 border-none rounded-full text-[8px] font-black uppercase h-5 px-3">Real-time Monitor</Badge>
         </CardHeader>
