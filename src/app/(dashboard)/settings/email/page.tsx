@@ -13,6 +13,7 @@ import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
 import { SmtpConfig } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from "@/components/ui/switch";
 
 export default function EmailSettingsPage() {
   const { dataSource } = useSettings();
