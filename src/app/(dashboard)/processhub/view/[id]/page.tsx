@@ -7,7 +7,6 @@ import {
   Workflow, 
   ChevronLeft, 
   ChevronRight,
-  ChevronDown,
   Loader2, 
   ShieldCheck,
   Activity, 
@@ -20,17 +19,14 @@ import {
   Building2,
   CheckCircle,
   Eye,
-  Lock,
   AlertTriangle,
   Lightbulb,
   GitBranch,
   ArrowRight,
-  Shield,
   History,
   Clock,
   User as UserIcon,
   Layers,
-  FileText,
   FileEdit,
   ArrowRightCircle,
   Tag,
@@ -43,15 +39,9 @@ import {
   UserCircle,
   ArrowUp,
   ClipboardCheck,
-  Link as LinkIcon,
   ArrowLeftRight,
   ShieldAlert,
-  Move,
-  Maximize2,
   X,
-  XCircle,
-  Gauge,
-  Database,
   Scale
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +50,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, ProcessNode, Tenant, Department, Feature, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { Process, JobTitle, ProcessVersion, ProcessNode, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -71,97 +61,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
 
-function escapeXml(unsafe: string) {
-  if (!unsafe) return '';
-  return unsafe.replace(/[<>&"']/g, (c) => {
-    switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case '"': return '&quot;';
-      case "'": return '&apos;';
-      default: return c;
-    }
-  });
-}
-
-function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProcesses?: any[]) {
-  let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
-  const nodes = model.nodes || [];
-  const edges = model.edges || [];
-  const positions = layout.positions || {};
-
-  const CANVAS_WIDTH = 800;
-  const NODE_W = 160;
-  const NODE_H = 70;
-  const VERTICAL_SPACING = 140;
-
-  nodes.forEach((node, idx) => {
-    let nodeSafeId = escapeXml(String(node.id || `node-${idx}`));
-    const pos = positions[node.id] || { 
-      x: (CANVAS_WIDTH / 2) - (NODE_W / 2), 
-      y: 50 + (idx * VERTICAL_SPACING) 
-    };
-    
-    let style = '';
-    let w = NODE_W, h = NODE_H;
-    let label = node.title;
-    
-    if (node.type === 'subprocess' && node.targetProcessId) {
-      const target = allProcesses?.find(p => p.id === node.targetProcessId);
-      label = target ? `Prozess: ${target.title}` : node.title;
-    }
-
-    const escapedLabel = escapeXml(label);
-
-    switch (node.type) {
-      case 'start': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#f0fdf4;strokeColor=#166534;strokeWidth=2;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 50; h = 50; 
-        break;
-      case 'end': 
-        style = 'ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#fef2f2;strokeColor=#991b1b;strokeWidth=4;shadow=0;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;'; 
-        w = 50; h = 50; 
-        break;
-      case 'decision': 
-        style = 'rhombus;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;shadow=0;fontStyle=1;'; 
-        w = 100; h = 100;
-        break;
-      case 'subprocess':
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#eef2ff;strokeColor=#4338ca;strokeWidth=2;dashed=1;shadow=0;';
-        break;
-      default: 
-        style = 'rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#334155;strokeWidth=1.5;shadow=0;';
-    }
-    
-    const finalX = positions[node.id] ? (pos as any).x : (CANVAS_WIDTH / 2) - (w / 2);
-    
-    xml += `<mxCell id="${nodeSafeId}" value="${escapedLabel}" style="${style}" vertex="1" parent="1"><mxGeometry x="${finalX}" y="${(pos as any).y}" width="${w}" height="${h}" as="geometry"/></mxCell>`;
-  });
-
-  edges.forEach((edge, idx) => {
-    const sourceId = escapeXml(String(edge.source));
-    const targetId = escapeXml(String(edge.target));
-    const edgeId = escapeXml(String(edge.id || `edge-${idx}`));
-    const edgeLabel = escapeXml(edge.label || '');
-    if (nodes.some(n => String(n.id) === edge.source) && nodes.some(n => String(n.id) === edge.target)) {
-      xml += `<mxCell id="${edgeId}" value="${edgeLabel}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748b;strokeWidth=2;fontSize=11;fontColor=#334155;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${sourceId}" target="${targetId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
-    }
-  });
-  xml += `</root></mxGraphModel>`;
-  return xml;
-}
-
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
-  const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'structure' | 'risks'>('list');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
   
@@ -174,7 +81,7 @@ export default function ProcessDetailViewPage() {
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
-  const { data: allFeatures } = usePluggableCollection<Feature>('features');
+  const { data: allFeatures } = usePluggableCollection<any>('features');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allRisks } = usePluggableCollection<Risk>('risks');
   const { data: media } = usePluggableCollection<any>('media');
@@ -229,7 +136,7 @@ export default function ProcessDetailViewPage() {
   }, [activeVersion, resources]);
 
   const structuredFlow = useMemo(() => {
-    if (!activeVersion || guideMode !== 'structure') return { levels: [], edges: [] };
+    if (!activeVersion || viewMode !== 'structure') return { levels: [], edges: [] };
     
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
@@ -255,7 +162,7 @@ export default function ProcessDetailViewPage() {
     }
     
     return { levels, edges };
-  }, [activeVersion, guideMode]);
+  }, [activeVersion, viewMode]);
 
   const getFullRoleName = (roleId?: string) => {
     if (!roleId) return '---';
@@ -280,16 +187,15 @@ export default function ProcessDetailViewPage() {
     }
   };
 
-  // SVG PATH CALCULATION LOGIC
   const updateFlowLines = useCallback(() => {
-    if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
+    if (!activeVersion || (viewMode !== 'structure' && viewMode !== 'list') || !containerRef.current) {
       setAllPaths([]);
       return;
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const edges = activeVersion.model_json.edges || [];
-    const isStructure = guideMode === 'structure';
+    const isStructure = viewMode === 'structure';
     
     const newPaths: any[] = [];
 
@@ -314,7 +220,6 @@ export default function ProcessDetailViewPage() {
           cp2x = tX;
           cp2y = (sY + tY) / 2;
         } else {
-          // LISTENANSICHT: Linien setzen an der linken Icon-Box an
           sX = sourceRect.left - containerRect.left + 20; 
           sY = sourceRect.top - containerRect.top + 20;
           tX = targetRect.left - containerRect.left + 20;
@@ -344,7 +249,7 @@ export default function ProcessDetailViewPage() {
     });
 
     setAllPaths(newPaths);
-  }, [activeNodeId, activeVersion, viewMode, guideMode]);
+  }, [activeNodeId, activeVersion, viewMode]);
 
   useEffect(() => {
     setMounted(true);
@@ -355,14 +260,12 @@ export default function ProcessDetailViewPage() {
   useLayoutEffect(() => {
     const timer = setTimeout(updateFlowLines, 100);
     return () => clearTimeout(timer);
-  }, [activeNodeId, activeVersion, viewMode, guideMode, updateFlowLines]);
+  }, [activeNodeId, activeVersion, viewMode, updateFlowLines]);
 
-  // AUTO-RECENTERING LOGIC WHEN SWITCHING MODES
   useEffect(() => {
     if (!mounted || !scrollAreaRef.current) return;
 
-    if (guideMode === 'structure') {
-      // Re-center horizontally on switch to structure
+    if (viewMode === 'structure') {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         setTimeout(() => {
@@ -370,40 +273,18 @@ export default function ProcessDetailViewPage() {
           scrollContainer.scrollTop = 0;
         }, 50);
       }
-    } else {
+    } else if (viewMode === 'list') {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         scrollContainer.scrollLeft = 0;
       }
     }
-  }, [guideMode, mounted]);
-
-  const syncDiagram = useCallback(() => {
-    if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
-    const xml = generateMxGraphXml(activeVersion.model_json, activeVersion.layout_json, processes);
-    iframeRef.current.contentWindow?.postMessage(JSON.stringify({ action: 'load', xml: xml, autosave: 0 }), '*');
-    setTimeout(() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*'), 500);
-  }, [activeVersion, viewMode, processes]);
-
-  useEffect(() => {
-    if (!mounted || !iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
-    const handleMessage = (evt: MessageEvent) => {
-      if (!evt.data || typeof evt.data !== 'string') return;
-      try {
-        const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') syncDiagram();
-      } catch (e) {}
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [mounted, activeVersion, syncDiagram, viewMode]);
+  }, [viewMode, mounted]);
 
   const handleNodeClick = (nodeId: string) => {
-    if (guideMode === 'structure') {
-      // In structure mode, just set (don't toggle if already active)
+    if (viewMode === 'structure') {
       setActiveNodeId(nodeId);
     } else {
-      // In list mode, toggle behavior as before
       const isDeactivating = activeNodeId === nodeId;
       setActiveNodeId(isDeactivating ? null : nodeId);
     }
@@ -414,7 +295,7 @@ export default function ProcessDetailViewPage() {
         el.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'center', 
-          inline: guideMode === 'structure' ? 'center' : 'nearest' 
+          inline: viewMode === 'structure' ? 'center' : 'nearest' 
         });
       }
     }, 100);
@@ -438,7 +319,6 @@ export default function ProcessDetailViewPage() {
     const isActive = activeNodeId === node.id;
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
-    // COMPACT RENDER (for Non-Active BPMN Nodes)
     if (compact && !isActive) {
       const isDecision = node.type === 'decision';
       const isStart = node.type === 'start';
@@ -488,7 +368,6 @@ export default function ProcessDetailViewPage() {
       );
     }
 
-    // FULL DETAILED CARD RENDER
     return (
       <div className={cn("relative z-10", !compact && "pl-12")}>
         {!compact && (
@@ -517,9 +396,7 @@ export default function ProcessDetailViewPage() {
           )}
           onClick={(e) => {
             e.stopPropagation();
-            // In structure mode, stay open when clicking inside.
-            // In list mode, use standard toggle logic via handleNodeClick.
-            if (guideMode === 'structure' && isActive) return;
+            if (viewMode === 'structure' && isActive) return;
             handleNodeClick(node.id);
           }}
         >
@@ -601,7 +478,7 @@ export default function ProcessDetailViewPage() {
                     <Label className="text-[8px] font-black uppercase text-slate-400">Compliance & Daten</Label>
                     <div className="flex flex-wrap gap-1">
                       {nodeLinks?.map((l: any) => (
-                        <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find(f => f.id === l.featureId)?.name}</Badge>
+                        <Badge key={l.id} variant="outline" className="bg-white text-primary border-primary/10 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{allFeatures?.find((f: any) => f.id === l.featureId)?.name}</Badge>
                       ))}
                       {nodeGroups?.map(g => (
                         <Badge key={g.id} variant="outline" className="bg-white text-emerald-700 border-emerald-100 text-[7px] font-black h-4 px-1.5 uppercase rounded-none">{g.name}</Badge>
@@ -659,8 +536,8 @@ export default function ProcessDetailViewPage() {
 
         <div className="flex items-center gap-3">
           <div className="bg-slate-100 p-1 rounded-xl flex gap-1 border">
-            <Button variant={viewMode === 'diagram' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('diagram')}><Network className="w-3.5 h-3.5 mr-1.5" /> Visuell</Button>
-            <Button variant={viewMode === 'guide' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('guide')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('list')}><ListChecks className="w-3.5 h-3.5 mr-1.5" /> Leitfaden</Button>
+            <Button variant={viewMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('structure')}><Network className="w-3.5 h-3.5 mr-1.5" /> Struktur (BPMN)</Button>
             <Button variant={viewMode === 'risks' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('risks')}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" /> Risikoanalyse</Button>
           </div>
           <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
@@ -671,7 +548,6 @@ export default function ProcessDetailViewPage() {
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8 pb-20">
-              {/* Sektion: Verantwortung */}
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
                   <Briefcase className="w-3.5 h-3.5" /> Verantwortung
@@ -693,7 +569,6 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
 
-              {/* Sektion: Steuerung & Normen */}
               {(currentProcess?.regulatoryFramework || currentProcess?.kpis) && (
                 <section className="space-y-3">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2">
@@ -716,7 +591,6 @@ export default function ProcessDetailViewPage() {
                 </section>
               )}
 
-              {/* Sektion: Operativer Kontext */}
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5" /> Operativer Kontext
@@ -737,30 +611,6 @@ export default function ProcessDetailViewPage() {
                 </div>
               </section>
 
-              {/* Sektion: Eingang / Ausgang */}
-              {(currentProcess?.inputs || currentProcess?.outputs) && (
-                <section className="space-y-3">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
-                    <ArrowLeftRight className="w-3.5 h-3.5" /> Schnittstellen
-                  </h3>
-                  <div className="space-y-4">
-                    {currentProcess.inputs && (
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5"><ArrowDown className="w-2.5 h-2.5" /> Input</p>
-                        <p className="text-[11px] font-medium text-slate-600 leading-relaxed bg-white p-2 rounded-lg border border-slate-100">{currentProcess.inputs}</p>
-                      </div>
-                    )}
-                    {currentProcess.outputs && (
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5"><ArrowUp className="w-2.5 h-2.5" /> Output</p>
-                        <p className="text-[11px] font-medium text-slate-600 leading-relaxed bg-white p-2 rounded-lg border border-slate-100">{currentProcess.outputs}</p>
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {/* Sektion: DSGVO Koppelung */}
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2">
                   <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
@@ -812,17 +662,13 @@ export default function ProcessDetailViewPage() {
         </aside>
 
         <main className="flex-1 flex flex-col bg-slate-100 relative min-w-0">
-          {viewMode === 'diagram' ? (
-            <div className="flex-1 bg-white relative overflow-hidden shadow-inner">
-              <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
-            </div>
-          ) : viewMode === 'risks' ? (
+          {viewMode === 'risks' ? (
             <ScrollArea className="flex-1">
               <div className="p-8 md:p-12 max-w-5xl mx-auto space-y-10 pb-32">
                 <div className="flex items-center justify-between border-b pb-6">
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shadow-sm">
-                      <AlertCircle className="w-8 h-8" />
+                      <ShieldAlert className="w-8 h-8" />
                     </div>
                     <div>
                       <h2 className="text-2xl font-headline font-bold uppercase tracking-tight text-slate-900">Risikoanalyse</h2>
@@ -892,22 +738,15 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
-              {/* STICKY MODE BUTTONS - Outside ScrollArea to stay visible */}
-              <div className="absolute top-6 right-8 z-30 bg-white/90 backdrop-blur shadow-xl border rounded-xl p-1.5 flex gap-1">
-                <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('list')}>Liste</Button>
-                <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur (BPMN)</Button>
-              </div>
-
               <ScrollArea className="flex-1" ref={scrollAreaRef}>
                 <div 
                   className={cn(
                     "p-6 md:p-10 mx-auto space-y-12 pb-32 relative min-h-[1000px] transition-all duration-500",
-                    guideMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
+                    viewMode === 'structure' ? "min-w-[1400px]" : "max-w-5xl w-full pl-20"
                   )} 
                   ref={containerRef}
                   onClick={() => {
-                    // Close active node when clicking on background in structure mode
-                    if (guideMode === 'structure') setActiveNodeId(null);
+                    if (viewMode === 'structure') setActiveNodeId(null);
                   }}
                 >
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
@@ -927,14 +766,14 @@ export default function ProcessDetailViewPage() {
                           fill="none" 
                           stroke="currentColor" 
                           strokeWidth={p.isActive ? "4" : "2"} 
-                          strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
+                          strokeDasharray={viewMode === 'list' ? "4 2" : "none"}
                           className={cn(
                             p.isActive ? "text-primary z-30 opacity-100" : cn("text-slate-300 z-0", activeNodeId ? "opacity-20" : "opacity-40"),
                             "transition-all duration-500"
                           )}
                           markerEnd={p.isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
                         />
-                        {p.label && guideMode === 'structure' && (
+                        {p.label && viewMode === 'structure' && (
                           <text 
                             className={cn("text-[9px] font-black uppercase", p.isActive ? "text-primary" : "text-slate-400 opacity-40")}
                             dy="-5"
@@ -953,7 +792,7 @@ export default function ProcessDetailViewPage() {
                     ))}
                   </svg>
 
-                  {guideMode === 'list' && (
+                  {viewMode === 'list' && (
                     <div className="space-y-12 relative">
                       <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-slate-200 z-0" />
                       {activeVersion?.model_json?.nodes?.map((node: ProcessNode, i: number) => (
@@ -962,7 +801,7 @@ export default function ProcessDetailViewPage() {
                     </div>
                   )}
 
-                  {guideMode === 'structure' && (
+                  {viewMode === 'structure' && (
                     <div className="space-y-20 py-10 relative">
                       {structuredFlow.levels.map((row, rowIdx) => (
                         <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[140px]">
