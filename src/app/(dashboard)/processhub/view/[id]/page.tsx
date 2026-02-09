@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -130,7 +131,7 @@ export default function ProcessDetailViewPage() {
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<string[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, highlight: boolean }[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -193,40 +194,61 @@ export default function ProcessDetailViewPage() {
 
   /**
    * Calculates structural levels for the structured flow view.
-   * This is a simplified BFS-based level assignment for DAGs.
+   * Handles loops and jumps by assigning nodes to the earliest possible level.
    */
   const structuredLevels = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
     
+    const nodeToLevel: Record<string, number> = {};
     const levels: ProcessNode[][] = [];
-    const assignedIds = new Set<string>();
-    
-    // Start nodes
-    let currentLevelNodes = nodes.filter(n => n.type === 'start' || !edges.some(e => e.target === n.id));
-    if (currentLevelNodes.length === 0 && nodes.length > 0) currentLevelNodes = [nodes[0]];
 
-    while (currentLevelNodes.length > 0) {
-      const uniqueCurrent = currentLevelNodes.filter(n => !assignedIds.has(n.id));
-      if (uniqueCurrent.length === 0) break;
-      
-      levels.push(uniqueCurrent);
-      uniqueCurrent.forEach(n => assignedIds.add(n.id));
-      
-      const nextLevelIds = new Set<string>();
-      uniqueCurrent.forEach(n => {
-        edges.filter(e => e.source === n.id).forEach(e => nextLevelIds.add(e.target));
-      });
-      
-      currentLevelNodes = nodes.filter(n => nextLevelIds.has(n.id) && !assignedIds.has(n.id));
+    // 1. Initial assignment: Nodes with no incoming edges get level 0
+    nodes.forEach(node => {
+      const incoming = edges.filter(e => e.target === node.id);
+      if (incoming.length === 0) nodeToLevel[node.id] = 0;
+    });
+
+    if (Object.keys(nodeToLevel).length === 0 && nodes.length > 0) {
+      nodeToLevel[nodes[0].id] = 0;
     }
 
-    // Add any orphans
-    const orphans = nodes.filter(n => !assignedIds.has(n.id));
-    if (orphans.length > 0) levels.push(orphans);
+    // 2. Iterative assignment
+    let changed = true;
+    let iteration = 0;
+    while (changed && iteration < nodes.length) {
+      changed = false;
+      iteration++;
+      edges.forEach(edge => {
+        const srcLevel = nodeToLevel[edge.source];
+        if (srcLevel !== undefined) {
+          const targetLevel = srcLevel + 1;
+          if (nodeToLevel[edge.target] === undefined || nodeToLevel[edge.target] < targetLevel) {
+            // Avoid cycles pushing levels to infinity
+            if (targetLevel < nodes.length) {
+              nodeToLevel[edge.target] = targetLevel;
+              changed = true;
+            }
+          }
+        }
+      });
+    }
 
-    return levels;
+    // 3. Cleanup remaining nodes
+    nodes.forEach(node => {
+      if (nodeToLevel[node.id] === undefined) nodeToLevel[node.id] = 0;
+    });
+
+    // 4. Group
+    const levelGroups: Record<number, ProcessNode[]> = {};
+    Object.entries(nodeToLevel).forEach(([id, l]) => {
+      if (!levelGroups[l]) levelGroups[l] = [];
+      const node = nodes.find(n => n.id === id);
+      if (node) levelGroups[l].push(node);
+    });
+
+    return Object.keys(levelGroups).sort((a, b) => Number(a) - Number(b)).map(l => levelGroups[Number(l)]);
   }, [activeVersion]);
 
   const getFullRoleName = (roleId?: string) => {
@@ -253,41 +275,36 @@ export default function ProcessDetailViewPage() {
   };
 
   const updateFlowLines = useCallback(() => {
-    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || guideSubMode !== 'list' || !containerRef.current) {
+    if (!activeVersion || viewMode !== 'guide' || guideSubMode !== 'list' || !containerRef.current) {
       setConnectionPaths([]);
       return;
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
-    const sourceEl = document.getElementById(`card-${activeNodeId}`);
-    if (!sourceEl) return;
-
-    const sourceRect = sourceEl.getBoundingClientRect();
-    const sourceMidX = sourceRect.left - containerRect.left + 5; 
-    const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
-
     const edges = activeVersion.model_json.edges || [];
-    const relatedEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
-    
-    const newPaths: string[] = [];
+    const newPaths: { path: string, highlight: boolean }[] = [];
 
-    relatedEdges.forEach(edge => {
-      const isOutbound = edge.source === activeNodeId;
-      const targetId = isOutbound ? edge.target : edge.source;
-      const targetEl = document.getElementById(`card-${targetId}`);
+    edges.forEach(edge => {
+      const sourceEl = document.getElementById(`card-${edge.source}`);
+      const targetEl = document.getElementById(`card-${edge.target}`);
       
-      if (targetEl) {
+      if (sourceEl && targetEl) {
+        const sourceRect = sourceEl.getBoundingClientRect();
         const targetRect = targetEl.getBoundingClientRect();
+
+        const sourceMidX = sourceRect.left - containerRect.left + 5; 
+        const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
         const targetMidX = targetRect.left - containerRect.left + 5;
         const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
 
-        const cp1x = sourceMidX - 100;
+        const cp1x = sourceMidX - 120;
         const cp1y = sourceMidY;
-        const cp2x = targetMidX - 100;
+        const cp2x = targetMidX - 120;
         const cp2y = targetMidY;
 
         const path = `M ${sourceMidX} ${sourceMidY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetMidX} ${targetMidY}`;
-        newPaths.push(path);
+        const isHighlighted = activeNodeId === edge.source || activeNodeId === edge.target;
+        newPaths.push({ path, highlight: isHighlighted });
       }
     });
 
@@ -301,8 +318,8 @@ export default function ProcessDetailViewPage() {
   }, [updateFlowLines]);
 
   useLayoutEffect(() => {
-    if (activeNodeId) updateFlowLines();
-  }, [activeNodeId, updateFlowLines]);
+    updateFlowLines();
+  }, [activeNodeId, activeVersion, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -370,7 +387,7 @@ export default function ProcessDetailViewPage() {
           <div className="flex gap-1.5 mb-2 ml-1">
             {predecessors.map((p, idx) => (
               <Badge key={idx} variant="ghost" className="h-4 px-2 text-[7px] font-black uppercase text-slate-400 bg-slate-100/50 border-none rounded-full">
-                <ArrowLeftRight className="w-2 h-2 mr-1" /> Folge von: {p?.title}
+                <ArrowLeftRight className="w-2.5 h-2.5 mr-1" /> Folge von: {p?.title}
               </Badge>
             ))}
           </div>
@@ -401,8 +418,11 @@ export default function ProcessDetailViewPage() {
                     <Briefcase className="w-3 h-3" /> {roleName}
                   </div>
                   {nodeResources?.map(res => (
-                    <Badge key={res.id} className="bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-md h-5 px-1.5 text-[8px] font-black">
-                      <Server className="w-2.5 h-2.5 mr-1" /> {res.name}
+                    <Badge key={res.id} className={cn(
+                      "border rounded-md h-5 px-1.5 text-[8px] font-black gap-1",
+                      res.criticality === 'high' ? "bg-red-50 text-red-700 border-red-100" : "bg-indigo-50 text-indigo-700 border-indigo-100"
+                    )}>
+                      <Server className="w-2.5 h-2.5" /> {res.name} <span className="opacity-50 font-normal">({res.assetType})</span>
                     </Badge>
                   ))}
                 </div>
@@ -711,16 +731,19 @@ export default function ProcessDetailViewPage() {
                           <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary/40" />
                         </marker>
                       </defs>
-                      {connectionPaths.map((path, i) => (
+                      {connectionPaths.map((pathObj, i) => (
                         <path 
                           key={i} 
-                          d={path} 
+                          d={pathObj.path} 
                           fill="none" 
                           stroke="currentColor" 
-                          strokeWidth="2" 
-                          strokeDasharray="4 2"
-                          className="text-primary/20 animate-in fade-in duration-1000"
-                          markerEnd="url(#arrowhead)"
+                          strokeWidth={pathObj.highlight ? "3" : "1.5"} 
+                          strokeDasharray={pathObj.highlight ? "0" : "4 2"}
+                          className={cn(
+                            "transition-all duration-500",
+                            pathObj.highlight ? "text-primary opacity-60" : "text-slate-300 opacity-10"
+                          )}
+                          markerEnd={pathObj.highlight ? "url(#arrowhead)" : ""}
                         />
                       ))}
                     </svg>
@@ -736,7 +759,6 @@ export default function ProcessDetailViewPage() {
                   <div className="p-8 md:p-12 space-y-16 pb-40">
                     {structuredLevels.map((levelNodes, levelIdx) => (
                       <div key={levelIdx} className="relative">
-                        {/* Connection to next row indicator */}
                         {levelIdx < structuredLevels.length - 1 && (
                           <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
                             <div className="w-0.5 h-8 bg-slate-400" />
