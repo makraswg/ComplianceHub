@@ -221,8 +221,8 @@ export default function ProcessDetailViewPage() {
   }, [activeVersion, resources]);
 
   // Unified grid logic for BPMN structure
-  const structuredGrid = useMemo(() => {
-    if (!activeVersion || guideMode !== 'structure') return [];
+  const structuredFlow = useMemo(() => {
+    if (!activeVersion || guideMode !== 'structure') return { levels: [], edges: [] };
     
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
@@ -231,24 +231,24 @@ export default function ProcessDetailViewPage() {
     const processed = new Set<string>();
     
     // Find initial entry nodes (Start or nodes with no incoming edges)
-    let currentLevel = nodes.filter(n => !edges.some(e => e.target === n.id));
-    if (currentLevel.length === 0 && nodes.length > 0) currentLevel = [nodes[0]];
+    let currentLevelQueue = nodes.filter(n => !edges.some(e => e.target === n.id));
+    if (currentLevelQueue.length === 0 && nodes.length > 0) currentLevelQueue = [nodes[0]];
 
-    while (currentLevel.length > 0) {
-      levels.push(currentLevel);
-      currentLevel.forEach(n => processed.add(n.id));
+    while (currentLevelQueue.length > 0) {
+      levels.push(currentLevelQueue);
+      currentLevelQueue.forEach(n => processed.add(n.id));
       
       const nextLevelSet = new Set<string>();
-      currentLevel.forEach(n => {
+      currentLevelQueue.forEach(n => {
         edges.filter(e => e.source === n.id).forEach(e => {
           if (!processed.has(e.target)) nextLevelSet.add(e.target);
         });
       });
       
-      currentLevel = nodes.filter(n => nextLevelSet.has(n.id));
+      currentLevelQueue = nodes.filter(n => nextLevelSet.has(n.id));
     }
     
-    return levels;
+    return { levels, edges };
   }, [activeVersion, guideMode]);
 
   const getFullRoleName = (roleId?: string) => {
@@ -285,14 +285,15 @@ export default function ProcessDetailViewPage() {
     if (!sourceEl) return;
 
     const sourceRect = sourceEl.getBoundingClientRect();
-    const isGrid = guideMode === 'structure';
+    const isStructure = guideMode === 'structure';
     
     let sourceX, sourceY;
-    if (isGrid) {
+    if (isStructure) {
+      // Structure Mode: Centered on card
       sourceX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
       sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
     } else {
-      // List Mode: Anchor at the left-side icon (approx 20px in)
+      // Original List Mode: Anchor at the left-side icon (approx 20px in)
       sourceX = sourceRect.left - containerRect.left + 20; 
       sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
     }
@@ -311,7 +312,7 @@ export default function ProcessDetailViewPage() {
         const targetRect = targetEl.getBoundingClientRect();
         let targetX, targetY;
         
-        if (isGrid) {
+        if (isStructure) {
           targetX = targetRect.left - containerRect.left + (targetRect.width / 2);
           targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
         } else {
@@ -320,17 +321,17 @@ export default function ProcessDetailViewPage() {
         }
 
         let cp1x, cp1y, cp2x, cp2y;
-        if (isGrid) {
-          // Centered grid flow: straight-ish Bezier
+        if (isStructure) {
+          // Structure Mode: More orthogonal-like flow
           cp1x = sourceX;
           cp1y = (sourceY + targetY) / 2;
           cp2x = targetX;
           cp2y = (sourceY + targetY) / 2;
         } else {
-          // Classic List mode: curve to the far left
-          cp1x = sourceX - 120;
+          // Restore Original List Mode: broad sweep to the far left
+          cp1x = sourceX - 150;
           cp1y = sourceY;
-          cp2x = targetX - 120;
+          cp2x = targetX - 150;
           cp2y = targetY;
         }
 
@@ -767,21 +768,22 @@ export default function ProcessDetailViewPage() {
             <div className="flex-1 flex flex-col min-h-0 relative">
               <div className="absolute top-6 right-8 z-30 bg-white/90 backdrop-blur shadow-xl border rounded-xl p-1 flex gap-1">
                 <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('list')}>Liste</Button>
-                <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur</Button>
+                <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur (BPMN)</Button>
               </div>
 
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  {/* Global Flow Overlay */}
+                  {/* Unified SVG Layer for Paths */}
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className={cn(guideMode === 'structure' ? "text-primary" : "text-primary/40")} />
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary" />
                       </marker>
                     </defs>
                     {connectionPaths.map((p, i) => (
                       <g key={i}>
                         <path 
+                          id={`path-${i}`}
                           d={p.path} 
                           fill="none" 
                           stroke="currentColor" 
@@ -792,20 +794,18 @@ export default function ProcessDetailViewPage() {
                         />
                         {p.label && guideMode === 'structure' && (
                           <text 
-                            className="text-[10px] font-black uppercase"
+                            className="text-[9px] font-black uppercase"
                             dy="-5"
                             fill="currentColor"
                             style={{ 
                               paintOrder: 'stroke', 
                               stroke: 'white', 
-                              strokeWidth: '3px', 
+                              strokeWidth: '4px', 
                               textAnchor: 'middle',
                               color: 'hsl(var(--primary))'
                             }}
                           >
                             <textPath href={`#path-${i}`} startOffset="50%">{p.label}</textPath>
-                            {/* Fallback for non-textpath positions */}
-                            <tspan x="50%" y="50%">{p.label}</tspan>
                           </text>
                         )}
                       </g>
@@ -822,18 +822,12 @@ export default function ProcessDetailViewPage() {
                   )}
 
                   {guideMode === 'structure' && (
-                    <div className="space-y-24 py-10 relative">
-                      {structuredGrid.map((row, rowIdx) => (
-                        <div key={rowIdx} className="relative flex justify-center gap-12">
+                    <div className="space-y-20 py-10 relative">
+                      {structuredFlow.levels.map((row, rowIdx) => (
+                        <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[120px]">
                           {row.map((node) => (
                             <div key={node.id} className="relative flex flex-col items-center">
                               <GuideCard node={node} index={0} compact={true} />
-                              {rowIdx < structuredGrid.length - 1 && (
-                                <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-30">
-                                  <div className="w-0.5 h-12 bg-slate-400" />
-                                  <ChevronDown className="w-4 h-4 text-slate-400" />
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
