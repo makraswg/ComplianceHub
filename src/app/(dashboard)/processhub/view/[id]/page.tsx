@@ -159,7 +159,7 @@ export default function ProcessDetailViewPage() {
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, label?: string }[]>([]);
+  const [allPaths, setAllPaths] = useState<{ id: string, path: string, label?: string, isActive: boolean, isConnectedToActive: boolean }[]>([]);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -220,7 +220,7 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  // Unified grid logic for BPMN structure
+  // BPMN Level-based layout calculation
   const structuredFlow = useMemo(() => {
     if (!activeVersion || guideMode !== 'structure') return { levels: [], edges: [] };
     
@@ -230,7 +230,7 @@ export default function ProcessDetailViewPage() {
     const levels: ProcessNode[][] = [];
     const processed = new Set<string>();
     
-    // Find initial entry nodes (Start or nodes with no incoming edges)
+    // Find entry nodes
     let currentLevelQueue = nodes.filter(n => !edges.some(e => e.target === n.id));
     if (currentLevelQueue.length === 0 && nodes.length > 0) currentLevelQueue = [nodes[0]];
 
@@ -245,7 +245,7 @@ export default function ProcessDetailViewPage() {
         });
       });
       
-      currentLevelQueue = nodes.filter(n => nextLevelSet.has(n.id));
+      currentLevelQueue = nodes.filter(n => nextLevelSet.has(n.id) && !processed.has(n.id));
     }
     
     return { levels, edges };
@@ -275,72 +275,70 @@ export default function ProcessDetailViewPage() {
   };
 
   const updateFlowLines = useCallback(() => {
-    if (!activeNodeId || !activeVersion || viewMode !== 'guide' || !containerRef.current) {
-      setConnectionPaths([]);
+    if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
+      setAllPaths([]);
       return;
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
-    const sourceEl = document.getElementById(`card-${activeNodeId}`);
-    if (!sourceEl) return;
-
-    const sourceRect = sourceEl.getBoundingClientRect();
+    const edges = activeVersion.model_json.edges || [];
     const isStructure = guideMode === 'structure';
     
-    let sourceX, sourceY;
-    if (isStructure) {
-      // Structure Mode: Centered on card
-      sourceX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
-      sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
-    } else {
-      // Original List Mode: Anchor at the left-side icon (approx 20px in)
-      sourceX = sourceRect.left - containerRect.left + 20; 
-      sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
-    }
+    const newPaths: any[] = [];
 
-    const edges = activeVersion.model_json.edges || [];
-    const relatedEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
-    
-    const newPaths: { path: string, label?: string }[] = [];
-
-    relatedEdges.forEach(edge => {
-      const isOutbound = edge.source === activeNodeId;
-      const targetId = isOutbound ? edge.target : edge.source;
-      const targetEl = document.getElementById(`card-${targetId}`);
+    edges.forEach((edge, idx) => {
+      const sourceEl = document.getElementById(`card-${edge.source}`);
+      const targetEl = document.getElementById(`card-${edge.target}`);
       
-      if (targetEl) {
+      if (sourceEl && targetEl) {
+        const sourceRect = sourceEl.getBoundingClientRect();
         const targetRect = targetEl.getBoundingClientRect();
-        let targetX, targetY;
         
+        let sX, sY, tX, tY, cp1x, cp1y, cp2x, cp2y;
+
         if (isStructure) {
-          targetX = targetRect.left - containerRect.left + (targetRect.width / 2);
-          targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
+          // Centered flow for BPMN
+          sX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
+          sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+          tX = targetRect.left - containerRect.left + (targetRect.width / 2);
+          tY = targetRect.top - containerRect.top + (targetRect.height / 2);
+          
+          cp1x = sX;
+          cp1y = (sY + tY) / 2;
+          cp2x = tX;
+          cp2y = (sY + tY) / 2;
         } else {
-          targetX = targetRect.left - containerRect.left + 20;
-          targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
+          // Original List Mode: Sweep from left icons
+          sX = sourceRect.left - containerRect.left + 20; 
+          sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+          tX = targetRect.left - containerRect.left + 20;
+          tY = targetRect.top - containerRect.top + (targetRect.height / 2);
+          
+          cp1x = sX - 150;
+          cp1y = sY;
+          cp2x = tX - 150;
+          cp2y = tY;
         }
 
-        let cp1x, cp1y, cp2x, cp2y;
-        if (isStructure) {
-          // Structure Mode: More orthogonal-like flow
-          cp1x = sourceX;
-          cp1y = (sourceY + targetY) / 2;
-          cp2x = targetX;
-          cp2y = (sourceY + targetY) / 2;
-        } else {
-          // Restore Original List Mode: broad sweep to the far left
-          cp1x = sourceX - 150;
-          cp1y = sourceY;
-          cp2x = targetX - 150;
-          cp2y = targetY;
-        }
+        const path = `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`;
+        const isConnectedToActive = activeNodeId === edge.source || activeNodeId === edge.target;
+        
+        // In List Mode, only show paths connected to active node. In Structure Mode, show all.
+        const shouldShow = isStructure || isConnectedToActive;
 
-        const path = `M ${sourceX} ${sourceY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetX} ${targetY}`;
-        newPaths.push({ path, label: edge.label });
+        if (shouldShow) {
+          newPaths.push({ 
+            id: `edge-${idx}`, 
+            path, 
+            label: edge.label, 
+            isActive: isConnectedToActive,
+            isConnectedToActive
+          });
+        }
       }
     });
 
-    setConnectionPaths(newPaths);
+    setAllPaths(newPaths);
   }, [activeNodeId, activeVersion, viewMode, guideMode]);
 
   useEffect(() => {
@@ -350,8 +348,8 @@ export default function ProcessDetailViewPage() {
   }, [updateFlowLines]);
 
   useLayoutEffect(() => {
-    if (activeNodeId) updateFlowLines();
-  }, [activeNodeId, updateFlowLines]);
+    updateFlowLines();
+  }, [activeNodeId, activeVersion, viewMode, guideMode, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -380,11 +378,6 @@ export default function ProcessDetailViewPage() {
     const nodeGroups = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
     const nodeCategories = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
     
-    const predecessors = activeVersion?.model_json.edges
-      .filter(e => e.target === node.id)
-      .map(e => activeVersion?.model_json.nodes.find(n => n.id === e.source))
-      .filter(Boolean);
-    
     const successors = activeVersion?.model_json.edges
       .filter(e => e.source === node.id)
       .map(e => ({
@@ -407,7 +400,7 @@ export default function ProcessDetailViewPage() {
           id={`card-${node.id}`}
           className={cn(
             "relative z-10 transition-all duration-300 shadow-lg cursor-pointer",
-            isActive ? "scale-110 ring-4 ring-primary/20" : "hover:scale-105",
+            isActive ? "scale-110 ring-4 ring-primary/40" : "hover:scale-105",
             isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
             (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
             "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
@@ -587,8 +580,6 @@ export default function ProcessDetailViewPage() {
     );
   };
 
-  if (!mounted) return null;
-
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -635,24 +626,6 @@ export default function ProcessDetailViewPage() {
                     </Select>
                   </div>
                   {currentVvt && <p className="text-[9px] font-medium text-slate-600 leading-tight line-clamp-2 italic px-1">"{currentVvt.description}"</p>}
-                </div>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
-                  <UserCircle className="w-3.5 h-3.5" /> Verantwortung
-                </h3>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
-                  <div>
-                    <Label className="text-[8px] font-black uppercase text-slate-400">Owner Rolle</Label>
-                    <p className="text-[11px] font-bold text-slate-900">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
-                  </div>
-                  {currentDept && (
-                    <div>
-                      <Label className="text-[8px] font-black uppercase text-slate-400">Abteilung</Label>
-                      <p className="text-[11px] font-bold text-slate-700">{currentDept.name}</p>
-                    </div>
-                  )}
                 </div>
               </section>
 
@@ -773,39 +746,44 @@ export default function ProcessDetailViewPage() {
 
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  {/* Unified SVG Layer for Paths */}
+                  {/* Global SVG Layer for Flow Paths */}
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-slate-400" />
+                      </marker>
+                      <marker id="arrowhead-active" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                         <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" className="text-primary" />
                       </marker>
                     </defs>
-                    {connectionPaths.map((p, i) => (
-                      <g key={i}>
+                    {allPaths.map((p) => (
+                      <g key={p.id}>
                         <path 
-                          id={`path-${i}`}
+                          id={p.id}
                           d={p.path} 
                           fill="none" 
                           stroke="currentColor" 
-                          strokeWidth={guideMode === 'structure' ? "3" : "2"} 
+                          strokeWidth={p.isActive ? "4" : "2"} 
                           strokeDasharray={guideMode === 'list' ? "4 2" : "none"}
-                          className={cn(guideMode === 'structure' ? "text-primary" : "text-primary/30", "animate-in fade-in duration-1000")}
-                          markerEnd="url(#arrowhead)"
+                          className={cn(
+                            p.isActive ? "text-primary z-30" : "text-slate-300 opacity-40 z-0",
+                            "transition-all duration-500"
+                          )}
+                          markerEnd={p.isActive ? "url(#arrowhead-active)" : "url(#arrowhead)"}
                         />
                         {p.label && guideMode === 'structure' && (
                           <text 
-                            className="text-[9px] font-black uppercase"
+                            className={cn("text-[9px] font-black uppercase", p.isActive ? "text-primary" : "text-slate-400 opacity-40")}
                             dy="-5"
                             fill="currentColor"
                             style={{ 
                               paintOrder: 'stroke', 
                               stroke: 'white', 
                               strokeWidth: '4px', 
-                              textAnchor: 'middle',
-                              color: 'hsl(var(--primary))'
+                              textAnchor: 'middle'
                             }}
                           >
-                            <textPath href={`#path-${i}`} startOffset="50%">{p.label}</textPath>
+                            <textPath href={`#${p.id}`} startOffset="50%">{p.label}</textPath>
                           </text>
                         )}
                       </g>
@@ -824,7 +802,7 @@ export default function ProcessDetailViewPage() {
                   {guideMode === 'structure' && (
                     <div className="space-y-20 py-10 relative">
                       {structuredFlow.levels.map((row, rowIdx) => (
-                        <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[120px]">
+                        <div key={rowIdx} className="relative flex justify-center gap-16 min-h-[140px]">
                           {row.map((node) => (
                             <div key={node.id} className="relative flex flex-col items-center">
                               <GuideCard node={node} index={0} compact={true} />
