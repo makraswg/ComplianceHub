@@ -67,12 +67,13 @@ import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessVersion, Process
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
@@ -170,6 +171,15 @@ export default function ProcessDetailViewPage() {
     return allProcessVersions.find((v: any) => v.version === selectedVersionNum);
   }, [allProcessVersions, selectedVersionNum]);
 
+  const processResources = useMemo(() => {
+    if (!activeVersion || !resources) return [];
+    const resourceIds = new Set<string>();
+    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
+      n.resourceIds?.forEach(rid => resourceIds.add(rid));
+    });
+    return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
+  }, [activeVersion, resources]);
+
   const risksData = useMemo(() => {
     if (!allRisks || !currentProcess || !activeVersion) return { direct: [], inherited: [], maxScore: 0 };
     const direct = allRisks.filter(r => r.processId === id);
@@ -190,15 +200,6 @@ export default function ProcessDetailViewPage() {
     const pMedia = media?.filter((m: any) => m.entityId === id).length || 0;
     return calculateProcessMaturity(currentProcess, activeVersion, pMedia);
   }, [currentProcess, activeVersion, media, id]);
-
-  const processResources = useMemo(() => {
-    if (!activeVersion || !resources) return [];
-    const resourceIds = new Set<string>();
-    activeVersion.model_json.nodes.forEach((n: ProcessNode) => {
-      n.resourceIds?.forEach(rid => resourceIds.add(rid));
-    });
-    return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
-  }, [activeVersion, resources]);
 
   const structuredGrid = useMemo(() => {
     if (!activeVersion || guideSubMode !== 'structured') return [];
@@ -292,7 +293,6 @@ export default function ProcessDetailViewPage() {
 
         const path = `M ${sX} ${sY} C ${sX} ${sY + 40}, ${tX} ${tY - 40}, ${tX} ${tY}`;
         const isHighlighted = activeNodeId === edge.source || activeNodeId === edge.target;
-        const isAnyActive = !!activeNodeId;
         
         newPaths.push({ 
           path, 
@@ -347,7 +347,6 @@ export default function ProcessDetailViewPage() {
     const nodeSubjects = subjectGroups?.filter(g => node.subjectGroupIds?.includes(g.id));
     const nodeCats = dataCategories?.filter(c => node.dataCategoryIds?.includes(c.id));
 
-    // Logical neighbors for the card
     const predecessors = activeVersion.model_json.edges.filter(e => e.target === node.id).map(e => activeVersion.model_json.nodes.find(n => n.id === e.source)).filter(Boolean);
     const successors = activeVersion.model_json.edges.filter(e => e.source === node.id).map(e => activeVersion.model_json.nodes.find(n => n.id === e.target)).filter(Boolean);
 
@@ -355,7 +354,6 @@ export default function ProcessDetailViewPage() {
     const isDecision = node.type === 'decision';
 
     if (guideSubMode === 'structured') {
-      // Small BPMN Style node for grid
       return (
         <div id={`card-${node.id}`} className="flex flex-col items-center gap-2 group cursor-pointer" onClick={() => setActiveNodeId(isActive ? null : node.id)}>
           <div className={cn(
@@ -383,7 +381,6 @@ export default function ProcessDetailViewPage() {
       );
     }
 
-    // High Density Guide Card for List View
     return (
       <Card 
         id={`card-${node.id}`}
@@ -431,7 +428,7 @@ export default function ProcessDetailViewPage() {
                       <Server className="w-3 h-3" /> {res.name}
                     </Badge>
                   </TooltipTrigger>
-                  <TooltipContent className="text-[10px] font-bold uppercase">{res.assetType} • Criticality: {res.criticality}</TooltipContent>
+                  <TooltipContent className="text-[10px] font-bold uppercase">{res.assetType} • Kritikalität: {res.criticality}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             ))}
@@ -440,7 +437,6 @@ export default function ProcessDetailViewPage() {
 
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            {/* Primary Action Area */}
             <div className="md:col-span-7 p-6 space-y-6">
               {node.description && (
                 <div className="space-y-2">
@@ -466,7 +462,6 @@ export default function ProcessDetailViewPage() {
               )}
             </div>
 
-            {/* Context & GRC Area */}
             <div className="md:col-span-5 p-6 bg-slate-50/30 space-y-6">
               {(node.tips || node.errors) && (
                 <div className="space-y-4">
@@ -507,7 +502,7 @@ export default function ProcessDetailViewPage() {
             {predecessors.length > 0 && (
               <div className="flex items-center gap-1.5 overflow-hidden">
                 <span className="text-[8px] font-black text-slate-400 uppercase shrink-0">Von:</span>
-                {predecessors.map(p => (
+                {predecessors.map((p: any) => (
                   <Badge key={p?.id} variant="ghost" className="bg-white border border-slate-200 text-[8px] font-bold h-5 px-1.5 truncate max-w-[100px]">{p?.title}</Badge>
                 ))}
               </div>
@@ -515,15 +510,15 @@ export default function ProcessDetailViewPage() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-[8px] font-black text-primary uppercase">Weiter zu:</span>
-            {successors.map(s => (
+            {successors.map((s: any) => (
               <Button 
-                key={s.node?.id} 
+                key={s.id} 
                 variant="outline" 
                 size="sm" 
                 className="h-7 rounded-lg text-[9px] font-black uppercase bg-white border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
-                onClick={(e) => { e.stopPropagation(); setActiveNodeId(s.node?.id || null); }}
+                onClick={(e) => { e.stopPropagation(); setActiveNodeId(s.id || null); }}
               >
-                {s.node?.title} <ArrowRight className="w-2.5 h-2.5 ml-1" />
+                {s.title} <ArrowRight className="w-2.5 h-2.5 ml-1" />
               </Button>
             ))}
           </div>
@@ -565,7 +560,6 @@ export default function ProcessDetailViewPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full">
-        {/* Simplified Sidebar */}
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
             <div className="p-6 space-y-8">
@@ -637,7 +631,7 @@ export default function ProcessDetailViewPage() {
           </ScrollArea>
         </aside>
 
-        <main className="flex-1 flex flex-col bg-slate-100 relative">
+        <main className="flex-1 flex flex-col bg-slate-100 relative" ref={containerRef}>
           <div className="absolute top-6 right-8 z-30 flex bg-white/90 backdrop-blur-sm p-1 rounded-xl border shadow-md">
             <Button 
               variant={guideSubMode === 'list' ? 'secondary' : 'ghost'} 
@@ -688,7 +682,7 @@ export default function ProcessDetailViewPage() {
                         <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Risiken.</div>
                       ) : (
                         <div className="divide-y divide-slate-50">
-                          {risksData.direct.map(r => (
+                          {risksData.direct.map((r: any) => (
                             <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
                               <div className="flex items-center gap-3">
                                 <Badge className={cn(
@@ -716,7 +710,7 @@ export default function ProcessDetailViewPage() {
                         <div className="p-10 text-center opacity-30 italic text-xs">Keine systembedingten Risiken.</div>
                       ) : (
                         <div className="divide-y divide-slate-50">
-                          {risksData.inherited.map(r => (
+                          {risksData.inherited.map((r: any) => (
                             <div key={r.id} className="p-4 flex items-center justify-between group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={() => router.push(`/risks/${r.id}`)}>
                               <div className="flex items-center gap-3">
                                 <Badge className={cn(
@@ -736,7 +730,7 @@ export default function ProcessDetailViewPage() {
               </div>
             </ScrollArea>
           ) : (
-            <div className="flex-1 flex flex-col min-h-0 relative" ref={containerRef}>
+            <div className="flex-1 flex flex-col min-h-0 relative">
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-24 pb-64 relative">
                   
