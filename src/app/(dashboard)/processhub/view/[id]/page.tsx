@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -943,8 +944,8 @@ export default function ProcessDetailViewPage() {
               )}
             </div>
           </ScrollArea>
-        </main>
-      </div>
+        </div>
+      </Dialog>
 
       <Dialog open={!!selectedLogEntry} onOpenChange={(open) => !open && setSelectedLogEntry(null)}>
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] rounded-3xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
