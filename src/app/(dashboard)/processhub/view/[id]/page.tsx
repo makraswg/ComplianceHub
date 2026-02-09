@@ -49,7 +49,10 @@ import {
   Move,
   Maximize2,
   X,
-  XCircle
+  XCircle,
+  Gauge,
+  Database,
+  Scale
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -152,7 +155,7 @@ function generateMxGraphXml(model: ProcessModel, layout: ProcessLayout, allProce
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -638,6 +641,8 @@ export default function ProcessDetailViewPage() {
     );
   };
 
+  const ownerRole = useMemo(() => jobTitles?.find(j => j.id === currentProcess?.ownerRoleId), [jobTitles, currentProcess]);
+
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -665,7 +670,97 @@ export default function ProcessDetailViewPage() {
       <div className="flex-1 flex overflow-hidden h-full">
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex">
           <ScrollArea className="flex-1">
-            <div className="p-6 space-y-8">
+            <div className="p-6 space-y-8 pb-20">
+              {/* Sektion: Verantwortung */}
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                  <Briefcase className="w-3.5 h-3.5" /> Verantwortung
+                </h3>
+                <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Fachabteilung</p>
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                      <Building2 className="w-4 h-4 text-primary" /> {currentDept?.name || '---'}
+                    </div>
+                  </div>
+                  <Separator className="opacity-50" />
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prozessverantwortung (Owner)</p>
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                      <UserCircle className="w-4 h-4 text-indigo-600" /> {ownerRole?.name || '---'}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Sektion: Steuerung & Normen */}
+              {(currentProcess?.regulatoryFramework || currentProcess?.kpis) && (
+                <section className="space-y-3">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2">
+                    <Scale className="w-3.5 h-3.5" /> Steuerung & Normen
+                  </h3>
+                  <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl shadow-inner">
+                    {currentProcess.regulatoryFramework && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Regelwerk / Standard</p>
+                        <Badge variant="outline" className="bg-white border-indigo-200 text-indigo-700 text-[10px] font-bold h-6 uppercase">{currentProcess.regulatoryFramework}</Badge>
+                      </div>
+                    )}
+                    {currentProcess.kpis && (
+                      <div className="space-y-1 pt-2 border-t border-indigo-100/50">
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Kennzahlen (KPIs)</p>
+                        <p className="text-[11px] font-bold text-slate-700 italic leading-relaxed">"{currentProcess.kpis}"</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Sektion: Operativer Kontext */}
+              <section className="space-y-3">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5" /> Operativer Kontext
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Automation</span>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.automationLevel?.replace('_', ' ')}</Badge>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Datenlast</span>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.dataVolume}</Badge>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase text-slate-400">Frequenz</span>
+                    <Badge variant="outline" className="text-[9px] font-bold border-none bg-white shadow-sm uppercase">{currentProcess?.processingFrequency?.replace('_', ' ')}</Badge>
+                  </div>
+                </div>
+              </section>
+
+              {/* Sektion: Eingang / Ausgang */}
+              {(currentProcess?.inputs || currentProcess?.outputs) && (
+                <section className="space-y-3">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                    <ArrowLeftRight className="w-3.5 h-3.5" /> Schnittstellen
+                  </h3>
+                  <div className="space-y-4">
+                    {currentProcess.inputs && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5"><ArrowDown className="w-2.5 h-2.5" /> Input</p>
+                        <p className="text-[11px] font-medium text-slate-600 leading-relaxed bg-white p-2 rounded-lg border border-slate-100">{currentProcess.inputs}</p>
+                      </div>
+                    )}
+                    {currentProcess.outputs && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5"><ArrowUp className="w-2.5 h-2.5" /> Output</p>
+                        <p className="text-[11px] font-medium text-slate-600 leading-relaxed bg-white p-2 rounded-lg border border-slate-100">{currentProcess.outputs}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Sektion: DSGVO Koppelung */}
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2">
                   <FileCheck className="w-3.5 h-3.5" /> DSGVO Koppelung
@@ -690,7 +785,7 @@ export default function ProcessDetailViewPage() {
               {maturity && (
                 <section className="space-y-3">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5 fill-current" /> Maturity
+                    <Zap className="w-3.5 h-3.5 fill-current" /> Reifegrad
                   </h3>
                   <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 shadow-sm space-y-3">
                     <div className="flex items-center justify-between">
