@@ -385,10 +385,11 @@ export default function ProcessDetailViewPage() {
         {!compact && (
           <div className={cn(
             "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
-            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110",
-            node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
-            node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
-            node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
+            isActive ? "scale-125 ring-4 ring-primary/20" : "hover:scale-110"
+          )}>
+            {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
+             node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
+             node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
              <span className="font-headline font-black text-sm">{index + 1}</span>}
           </div>
         )}
@@ -592,7 +593,7 @@ export default function ProcessDetailViewPage() {
                 <div className="space-y-4 p-4 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
                   <div className="space-y-1">
                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Fachabteilung</p>
-                    <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                    <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                       <Building2 className="w-4 h-4 text-primary" /> {currentDept?.name || '---'}
                     </div>
                   </div>
@@ -981,7 +982,7 @@ export default function ProcessDetailViewPage() {
               </ScrollArea>
             </div>
           </div>
-          <div className="p-4 bg-slate-50 border-t flex justify-end">
+          <div className="p-4 bg-slate-50 border-t flex justify-end shrink-0">
             <Button className="rounded-xl h-10 px-8 font-bold text-xs" onClick={() => setSelectedLogEntry(null)}>Schließen</Button>
           </div>
         </DialogContent>
