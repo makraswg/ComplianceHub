@@ -192,10 +192,6 @@ export default function ProcessDetailViewPage() {
     return Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean);
   }, [activeVersion, resources]);
 
-  /**
-   * Calculates structural levels for the structured flow view.
-   * Handles loops and jumps by assigning nodes to the earliest possible level.
-   */
   const structuredLevels = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -204,7 +200,6 @@ export default function ProcessDetailViewPage() {
     const nodeToLevel: Record<string, number> = {};
     const levels: ProcessNode[][] = [];
 
-    // 1. Initial assignment: Nodes with no incoming edges get level 0
     nodes.forEach(node => {
       const incoming = edges.filter(e => e.target === node.id);
       if (incoming.length === 0) nodeToLevel[node.id] = 0;
@@ -214,7 +209,6 @@ export default function ProcessDetailViewPage() {
       nodeToLevel[nodes[0].id] = 0;
     }
 
-    // 2. Iterative assignment
     let changed = true;
     let iteration = 0;
     while (changed && iteration < nodes.length) {
@@ -225,7 +219,6 @@ export default function ProcessDetailViewPage() {
         if (srcLevel !== undefined) {
           const targetLevel = srcLevel + 1;
           if (nodeToLevel[edge.target] === undefined || nodeToLevel[edge.target] < targetLevel) {
-            // Avoid cycles pushing levels to infinity
             if (targetLevel < nodes.length) {
               nodeToLevel[edge.target] = targetLevel;
               changed = true;
@@ -235,12 +228,10 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // 3. Cleanup remaining nodes
     nodes.forEach(node => {
       if (nodeToLevel[node.id] === undefined) nodeToLevel[node.id] = 0;
     });
 
-    // 4. Group
     const levelGroups: Record<number, ProcessNode[]> = {};
     Object.entries(nodeToLevel).forEach(([id, l]) => {
       if (!levelGroups[l]) levelGroups[l] = [];
@@ -702,7 +693,6 @@ export default function ProcessDetailViewPage() {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col min-h-0 relative">
-              {/* Internal Toggle for Guide Sub-Mode */}
               <div className="absolute top-6 right-8 z-30 flex bg-white/90 backdrop-blur-sm p-1 rounded-xl border shadow-md">
                 <Button 
                   variant={guideSubMode === 'list' ? 'secondary' : 'ghost'} 
