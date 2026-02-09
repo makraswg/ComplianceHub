@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -44,7 +43,8 @@ import {
   X,
   Scale,
   FileJson,
-  ArrowDown
+  ArrowDown,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Process, JobTitle, ProcessVersion, ProcessNode, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { Process, JobTitle, ProcessVersion, ProcessNode, Resource, Risk, ProcessingActivity, DataSubjectGroup, DataCategory, Tenant, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -63,6 +63,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { updateProcessMetadataAction } from '@/app/actions/process-actions';
 import { toast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { exportDetailedProcessPdf } from '@/lib/export-utils';
 
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
@@ -74,6 +75,7 @@ export default function ProcessDetailViewPage() {
   const [viewMode, setViewMode] = useState<'list' | 'structure' | 'risks' | 'history'>('list');
   const [selectedVersionNum, setSelectedVersionNum] = useState<number | null>(null);
   const [isUpdatingVvt, setIsUpdatingVvt] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
@@ -95,6 +97,7 @@ export default function ProcessDetailViewPage() {
   const { data: subjectGroups } = usePluggableCollection<DataSubjectGroup>('dataSubjectGroups');
   const { data: dataCategories } = usePluggableCollection<DataCategory>('dataCategories');
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentDept = useMemo(() => 
@@ -198,6 +201,28 @@ export default function ProcessDetailViewPage() {
       }
     } finally {
       setIsUpdatingVvt(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!currentProcess || !activeVersion || !tenants) return;
+    setIsExporting(true);
+    try {
+      const tenant = tenants.find((t: any) => t.id === currentProcess.tenantId);
+      if (!tenant) throw new Error("Mandant nicht gefunden.");
+      
+      await exportDetailedProcessPdf(
+        currentProcess, 
+        activeVersion, 
+        tenant, 
+        jobTitles || [], 
+        departments || []
+      );
+      toast({ title: "PDF Bericht erstellt" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Export fehlgeschlagen", description: e.message });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -568,6 +593,17 @@ export default function ProcessDetailViewPage() {
             <Button variant={viewMode === 'risks' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('risks')}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" /> Risikoanalyse</Button>
             <Button variant={viewMode === 'history' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase px-4" onClick={() => setViewMode('history')}><History className="w-3.5 h-3.5 mr-1.5" /> Historie</Button>
           </div>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-10 rounded-xl font-bold text-xs border-slate-200 gap-2 hover:bg-emerald-50 text-emerald-600 shadow-sm"
+            onClick={handleExportPdf}
+            disabled={isExporting}
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            Export (PDF)
+          </Button>
           <Button variant="outline" className="rounded-xl h-10 px-6 font-bold text-xs border-slate-200 gap-2 shadow-sm" onClick={() => router.push(`/processhub/${id}`)}><FileEdit className="w-4 h-4" /> Designer</Button>
         </div>
       </header>
@@ -893,7 +929,11 @@ export default function ProcessDetailViewPage() {
                                   onClick={() => setSelectedLogEntry(log)}
                                 >
                                   <p className="text-xs font-bold text-slate-800 group-hover/card:text-primary transition-colors">{log.action}</p>
-                                  {log.after && <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-primary p-0 mt-2 gap-1.5 opacity-0 group-hover/card:opacity-100 transition-all"><FileJson className="w-3 h-3" /> Details / Diff anzeigen</Button>}
+                                  {log.after && (
+                                    <Button variant="ghost" size="sm" className="h-6 text-[8px] font-black uppercase text-primary p-0 mt-2 gap-1.5 opacity-0 group-hover/card:opacity-100 transition-all">
+                                      <FileJson className="w-3.5 h-3.5" /> Details / Diff anzeigen
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             </div>

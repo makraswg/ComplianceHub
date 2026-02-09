@@ -1,6 +1,6 @@
 'use client';
 
-import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure } from './types';
+import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Department } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
@@ -25,7 +25,7 @@ export async function exportUsersExcel(users: any[], tenants: any[]) {
     'E-Mail': u.email,
     'Abteilung': u.department || '---',
     'Stelle': u.title || '---',
-    'Mandant': tenants.find(t => t.id === u.tenantId)?.name || u.tenantId,
+    'Mandant': tenants.find((t: any) => t.id === u.tenantId)?.name || u.tenantId,
     'Status': u.enabled ? 'Aktiv' : 'Inaktiv',
     'Onboarding': u.onboardingDate || '---',
     'Letzter Sync': u.lastSyncedAt ? new Date(u.lastSyncedAt).toLocaleString() : '---'
@@ -141,20 +141,6 @@ export async function exportGdprPdf(
       styles: { fontSize: 8 }
     });
 
-    // 4. TOM (Art. 32)
-    doc.addPage();
-    doc.setFontSize(14);
-    doc.text('4. Technisch-organisatorische Maßnahmen (Art. 32 DSGVO)', 14, 20);
-    const tomData = toms.map(t => [t.title, t.tomCategory || '-', t.status.toUpperCase(), t.effectiveness === 5 ? 'HOCH' : 'MITTEL']);
-    autoTable(doc, {
-      startY: 25,
-      head: [['Kontrolle / Maßnahme', 'Kategorie', 'Status', 'Wirksamkeit']],
-      body: tomData.length > 0 ? tomData : [['Keine automatisierten TOM hinterlegt', '', '', '']],
-      theme: 'striped',
-      headStyles: { fillColor: [5, 150, 105] },
-      styles: { fontSize: 8 }
-    });
-
     doc.save(`VVT_Bericht_${activity.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   } catch (error) {
     console.error('PDF Export fehlgeschlagen:', error);
@@ -180,13 +166,14 @@ export async function exportResourcesExcel(resources: any[]) {
 
 /**
  * Detaillierter Prozessbericht (PDF)
- * Enthält Logo, Stammdaten, Leitfaden und Diagramm-Notiz.
+ * Enthält Logo, Stammdaten, Leitfaden und GRC-Kontext.
  */
 export async function exportDetailedProcessPdf(
   process: Process,
   version: ProcessVersion,
   tenant: Tenant,
-  jobTitles: JobTitle[]
+  jobTitles: JobTitle[],
+  departments: Department[]
 ) {
   try {
     const { default: jsPDF } = await import('jspdf');
@@ -212,28 +199,52 @@ export async function exportDetailedProcessPdf(
     doc.text(`Mandant: ${tenant.name}`, 50, 37);
     doc.text(`Erstellungsdatum: ${timestamp}`, 14, 45);
 
-    // 2. Stammdaten Tabelle
+    // 2. Stammdaten & Governance
     doc.setFontSize(14);
     doc.setTextColor(0);
-    doc.text('1. Stammdaten', 14, 55);
+    doc.text('1. Stammdaten & Governance', 14, 55);
     
+    const dept = departments.find(d => d.id === process.responsibleDepartmentId);
+    const owner = jobTitles.find(j => j.id === process.ownerRoleId);
+
     autoTable(doc, {
       startY: 60,
       body: [
         ['Bezeichnung', process.title],
         ['Status', process.status.toUpperCase()],
+        ['Verantwortliche Abt.', dept?.name || '-'],
+        ['Prozessverantwortung', owner?.name || '-'],
         ['Regulatorik', process.regulatoryFramework || 'Nicht definiert'],
         ['Zusammenfassung', process.description || '-']
       ],
       theme: 'grid',
       styles: { fontSize: 9 },
-      columnStyles: { 0: { fontStyle: 'bold', width: 40 } }
+      columnStyles: { 0: { fontStyle: 'bold', width: 45 } }
+    });
+
+    // 2.1 Operativer Kontext
+    doc.text('1.1 Operativer Kontext', 14, (doc as any).lastAutoTable.finalY + 15);
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      body: [
+        ['Automatisierung', process.automationLevel || '-'],
+        ['Datenvolumen', process.dataVolume || '-'],
+        ['Frequenz', process.processingFrequency || '-'],
+        ['Inputs', process.inputs || '-'],
+        ['Outputs', process.outputs || '-'],
+        ['KPIs', process.kpis || '-']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 45 } }
     });
 
     // 3. Leitfaden (Operative Schritte)
-    doc.text('2. Operativer Leitfaden', 14, (doc as any).lastAutoTable.finalY + 15);
+    doc.addPage();
+    doc.setFontSize(14);
+    doc.text('2. Operativer Leitfaden', 14, 20);
     
-    const stepsData = version.model_json.nodes.map((node, i) => {
+    const stepsData = version.model_json.nodes.filter(n => n.type !== 'start' && n.type !== 'end').map((node, i) => {
       const role = jobTitles.find(j => j.id === node.roleId);
       return [
         (i + 1).toString(),
@@ -245,32 +256,11 @@ export async function exportDetailedProcessPdf(
     });
 
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 20,
+      startY: 25,
       head: [['#', 'Schritt', 'Verantwortung', 'Tätigkeit', 'Prüfschritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235] },
-      styles: { fontSize: 8 }
-    });
-
-    // 4. Diagramm-Anhang (Text-Repräsentation für den Druck)
-    doc.addPage();
-    doc.setFontSize(14);
-    doc.text('3. Visuelle Prozesslogik', 14, 20);
-    doc.setFontSize(10);
-    doc.text('Logische Verknüpfungen (Diagramm-Zusammenfassung):', 14, 30);
-
-    const edgesData = version.model_json.edges.map(edge => {
-      const src = version.model_json.nodes.find(n => n.id === edge.source);
-      const trg = version.model_json.nodes.find(n => n.id === edge.target);
-      return [`${src?.title}`, `-->`, `${trg?.title}`, `${edge.label || '-'}`];
-    });
-
-    autoTable(doc, {
-      startY: 35,
-      head: [['Von', '', 'Nach', 'Bedingung']],
-      body: edgesData,
-      theme: 'plain',
       styles: { fontSize: 8 }
     });
 
@@ -369,7 +359,7 @@ export async function exportFullComplianceReportPdf(
         startY += 5;
 
         const tableData = userAssignments.map(a => {
-          const ent = entitlements.find(e => e.id === a.entitlementId);
+          const ent = entitlements.find((e: any) => e.id === a.entitlementId);
           const res = resources.find(r => r.id === ent?.resourceId);
           return [
             res?.name || 'Unbekanntes System',
@@ -396,7 +386,7 @@ export async function exportFullComplianceReportPdf(
       const activeAssignments = assignments.filter(a => a.status !== 'removed');
       resources.forEach((res, index) => {
         const resAssignments = activeAssignments.filter(a => {
-          const ent = entitlements.find(e => e.id === a.entitlementId);
+          const ent = entitlements.find((e: any) => e.id === a.entitlementId);
           return ent?.resourceId === res.id;
         });
 
@@ -411,7 +401,7 @@ export async function exportFullComplianceReportPdf(
 
         const tableData = resAssignments.map(a => {
           const user = users.find(u => u.id === a.userId);
-          const ent = entitlements.find(e => e.id === a.entitlementId);
+          const ent = entitlements.find((e: any) => e.id === a.entitlementId);
           return [
             user?.displayName || a.userId,
             user?.email || '-',
