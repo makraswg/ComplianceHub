@@ -153,6 +153,7 @@ export default function ProcessDetailViewPage() {
   const { dataSource } = useSettings();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<'diagram' | 'guide' | 'risks'>('guide');
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
@@ -162,11 +163,6 @@ export default function ProcessDetailViewPage() {
   // Interactive Flow States
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [allPaths, setAllPaths] = useState<{ id: string, path: string, label?: string, isActive: boolean, isConnectedToActive: boolean }[]>([]);
-  
-  // Drag and Drop Positions for Structure View
-  const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>({});
-  const [isDragging, setIsDragging] = useState<string | null>(null);
-  const dragStartRef = useRef<{ x: number, y: number, nodeX: number, nodeY: number } | null>(null);
 
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -303,19 +299,16 @@ export default function ProcessDetailViewPage() {
         let sX, sY, tX, tY, cp1x, cp1y, cp2x, cp2y;
 
         if (isStructure) {
-          // Centered Connection Logic for BPMN
           sX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
           sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
           tX = targetRect.left - containerRect.left + (targetRect.width / 2);
           tY = targetRect.top - containerRect.top + (targetRect.height / 2);
           
-          // Smooth vertical S-Curve
           cp1x = sX;
           cp1y = (sY + tY) / 2;
           cp2x = tX;
           cp2y = (sY + tY) / 2;
         } else {
-          // Original Side-Bezier Logic for List View (starts from left icon)
           sX = sourceRect.left - containerRect.left + 20; 
           sY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
           tX = targetRect.left - containerRect.left + 20;
@@ -330,7 +323,6 @@ export default function ProcessDetailViewPage() {
         const path = `M ${sX} ${sY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${tX} ${tY}`;
         const isConnectedToActive = activeNodeId === edge.source || activeNodeId === edge.target;
         
-        // In structure mode lines are permanent, in list mode only on interaction
         const shouldShow = isStructure || isConnectedToActive;
 
         if (shouldShow) {
@@ -357,7 +349,7 @@ export default function ProcessDetailViewPage() {
   useLayoutEffect(() => {
     const timer = setTimeout(updateFlowLines, 100);
     return () => clearTimeout(timer);
-  }, [activeNodeId, activeVersion, viewMode, guideMode, manualPositions, updateFlowLines]);
+  }, [activeNodeId, activeVersion, viewMode, guideMode, updateFlowLines]);
 
   const syncDiagram = useCallback(() => {
     if (!iframeRef.current || !activeVersion || viewMode !== 'diagram') return;
@@ -379,58 +371,19 @@ export default function ProcessDetailViewPage() {
     return () => window.removeEventListener('message', handleMessage);
   }, [mounted, activeVersion, syncDiagram, viewMode]);
 
-  // DRAG AND DROP LOGIC
-  const handleMouseDown = (e: React.MouseEvent, nodeId: string) => {
-    if (guideMode !== 'structure' || e.button !== 0) return;
+  const handleNodeClick = (nodeId: string) => {
+    const isDeactivating = activeNodeId === nodeId;
+    setActiveNodeId(isDeactivating ? null : nodeId);
     
-    // Prevent dragging when clicking buttons inside cards
-    if ((e.target as HTMLElement).closest('button')) return;
-
-    const nodeEl = document.getElementById(`card-${nodeId}`);
-    if (!nodeEl) return;
-
-    const rect = nodeEl.getBoundingClientRect();
-    dragStartRef.current = {
-      x: e.clientX,
-      y: e.clientY,
-      nodeX: manualPositions[nodeId]?.x || 0,
-      nodeY: manualPositions[nodeId]?.y || 0
-    };
-    setIsDragging(nodeId);
-    e.preventDefault();
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !dragStartRef.current) return;
-
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-
-      setManualPositions(prev => ({
-        ...prev,
-        [isDragging]: {
-          x: dragStartRef.current!.nodeX + dx,
-          y: dragStartRef.current!.nodeY + dy
+    if (!isDeactivating) {
+      setTimeout(() => {
+        const el = document.getElementById(`card-${nodeId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         }
-      }));
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(null);
-      dragStartRef.current = null;
-    };
-
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+      }, 100);
     }
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
+  };
 
   const GuideCard = ({ node, index, compact = false }: { node: ProcessNode, index: number, compact?: boolean }) => {
     const roleName = getFullRoleName(node.roleId);
@@ -450,17 +403,6 @@ export default function ProcessDetailViewPage() {
     const isActive = activeNodeId === node.id;
     const targetProc = node.targetProcessId ? processes?.find(p => p.id === node.targetProcessId) : null;
 
-    const manualPos = manualPositions[node.id];
-    const style: React.CSSProperties = manualPos ? {
-      position: 'absolute',
-      transform: `translate(${manualPos.x}px, ${manualPos.y}px)`,
-      zIndex: isDragging === node.id ? 100 : (isActive ? 50 : 10),
-      transition: isDragging === node.id ? 'none' : 'transform 0.1s ease-out'
-    } : {
-      position: 'relative',
-      zIndex: isActive ? 50 : 10
-    };
-
     // COMPACT RENDER (for Non-Active BPMN Nodes)
     if (compact && !isActive) {
       const isDecision = node.type === 'decision';
@@ -470,15 +412,13 @@ export default function ProcessDetailViewPage() {
       return (
         <div 
           id={`card-${node.id}`}
-          style={style}
           className={cn(
-            "z-10 transition-all duration-300 shadow-lg cursor-grab active:cursor-grabbing",
+            "z-10 transition-all duration-300 shadow-lg cursor-pointer",
             isDecision ? "w-24 h-24 rotate-45 flex items-center justify-center border-4 border-white bg-amber-500 text-white" : 
             (isStart || isEnd) ? "w-16 h-16 rounded-full border-4 border-white flex items-center justify-center text-white shadow-xl" : 
             "w-64 rounded-2xl bg-white border border-slate-200 overflow-hidden"
           )} 
-          onMouseDown={(e) => handleMouseDown(e, node.id)}
-          onClick={(e) => { if(!isDragging) setActiveNodeId(node.id); }}
+          onClick={() => handleNodeClick(node.id)}
         >
           {isDecision ? (
             <div className="-rotate-45 text-center px-2">
@@ -510,9 +450,9 @@ export default function ProcessDetailViewPage() {
       );
     }
 
-    // FULL DETAILED CARD RENDER (for List View or Active BPMN Node)
+    // FULL DETAILED CARD RENDER
     return (
-      <div className={cn("relative z-10", !compact && "pl-12")} style={style}>
+      <div className={cn("relative z-10", !compact && "pl-12")}>
         {!compact && (
           <div className={cn(
             "absolute left-0 w-10 h-10 rounded-xl flex items-center justify-center border-4 border-slate-50 shadow-sm z-20 transition-all cursor-pointer",
@@ -520,7 +460,7 @@ export default function ProcessDetailViewPage() {
             node.type === 'start' ? "bg-emerald-500 text-white" : 
             node.type === 'end' ? "bg-red-500 text-white" : 
             node.type === 'decision' ? "bg-amber-500 text-white" : "bg-white text-slate-900 border-slate-200"
-          )} onClick={() => setActiveNodeId(isActive ? null : node.id)}>
+          )} onClick={() => handleNodeClick(node.id)}>
             {node.type === 'start' ? <ArrowUp className="w-5 h-5" /> : 
              node.type === 'end' ? <CheckCircle2 className="w-5 h-5" /> :
              node.type === 'decision' ? <GitBranch className="w-5 h-5" /> :
@@ -537,8 +477,7 @@ export default function ProcessDetailViewPage() {
             node.type === 'decision' && !isActive && "border-amber-100 bg-amber-50/10",
             node.type === 'subprocess' && !isActive && "border-indigo-100 bg-indigo-50/10"
           )}
-          onMouseDown={(e) => handleMouseDown(e, node.id)}
-          onClick={(e) => { if(!isDragging) setActiveNodeId(isActive ? null : node.id); }}
+          onClick={() => handleNodeClick(node.id)}
         >
           <CardHeader className="p-5 pb-4 bg-white border-b">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -641,7 +580,7 @@ export default function ProcessDetailViewPage() {
                         key={idx} 
                         variant="ghost" 
                         className="h-8 rounded-full px-4 border bg-white shadow-sm gap-2 group/next active:scale-95 transition-all"
-                        onClick={(e) => { e.stopPropagation(); document.getElementById(`card-${s.node?.id || ''}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setActiveNodeId(s.node?.id || null); }}
+                        onClick={(e) => { e.stopPropagation(); handleNodeClick(s.node?.id || ''); }}
                       >
                         {s.edge.label && <Badge className="bg-amber-500 text-white border-none h-3.5 px-1 text-[6px] font-black uppercase">{s.edge.label}</Badge>}
                         <span className="text-[9px] font-black uppercase tracking-tight text-slate-600 truncate max-w-[80px]">{s.node?.title}</span>
@@ -820,12 +759,9 @@ export default function ProcessDetailViewPage() {
               <div className="absolute top-6 right-8 z-30 bg-white/90 backdrop-blur shadow-xl border rounded-xl p-1.5 flex gap-1">
                 <Button variant={guideMode === 'list' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('list')}>Liste</Button>
                 <Button variant={guideMode === 'structure' ? 'secondary' : 'ghost'} size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase" onClick={() => setGuideMode('structure')}>Struktur (BPMN)</Button>
-                {guideMode === 'structure' && (
-                  <Button variant="ghost" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase text-blue-600" onClick={() => setManualPositions({})} title="Auto Layout"><Maximize2 className="w-3.5 h-3.5" /></Button>
-                )}
               </div>
 
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1" ref={scrollAreaRef}>
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative min-h-[1000px] min-w-[1200px]" ref={containerRef}>
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
