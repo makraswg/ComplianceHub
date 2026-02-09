@@ -26,7 +26,7 @@ import {
   MessageSquare,
   ChevronRight,
   Filter,
-  Save,
+  Save as SaveIcon,
   Info,
   CalendarDays,
   Target,
@@ -384,7 +384,7 @@ export default function TasksPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 text-slate-400 hover:bg-white uppercase tracking-widest">Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving || !title || !assigneeId} className="rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg gap-2 uppercase">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
             </Button>
           </DialogFooter>
         </DialogContent>
