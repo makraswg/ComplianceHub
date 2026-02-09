@@ -25,6 +25,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import { usePlatformAuth } from '@/context/auth-context';
 
+export const dynamic = 'force-dynamic';
+
 export default function SyncSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: authUser } = usePlatformAuth();

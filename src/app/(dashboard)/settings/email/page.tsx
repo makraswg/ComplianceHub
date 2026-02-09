@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -24,6 +23,8 @@ import { testSmtpConnectionAction } from '@/app/actions/smtp-actions';
 import { SmtpConfig } from '@/lib/types';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+
+export const dynamic = 'force-dynamic';
 
 export default function EmailSettingsPage() {
   const { dataSource } = useSettings();
