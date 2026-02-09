@@ -285,8 +285,18 @@ export default function ProcessDetailViewPage() {
     if (!sourceEl) return;
 
     const sourceRect = sourceEl.getBoundingClientRect();
-    const sourceMidX = sourceRect.left - containerRect.left + (sourceRect.width / 2); 
-    const sourceMidY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+    const isGrid = guideMode === 'structure';
+    
+    // DIFFERENT ANCHOR POINTS FOR DIFFERENT MODES
+    let sourceX, sourceY;
+    if (isGrid) {
+      sourceX = sourceRect.left - containerRect.left + (sourceRect.width / 2);
+      sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+    } else {
+      // Restore classical left-side icon anchor
+      sourceX = sourceRect.left - containerRect.left + 20; 
+      sourceY = sourceRect.top - containerRect.top + (sourceRect.height / 2);
+    }
 
     const edges = activeVersion.model_json.edges || [];
     const relatedEdges = edges.filter(e => e.source === activeNodeId || e.target === activeNodeId);
@@ -300,28 +310,34 @@ export default function ProcessDetailViewPage() {
       
       if (targetEl) {
         const targetRect = targetEl.getBoundingClientRect();
-        const targetMidX = targetRect.left - containerRect.left + (targetRect.width / 2);
-        const targetMidY = targetRect.top - containerRect.top + (targetRect.height / 2);
-
-        // Calculate control points based on layout
-        // In list mode, paths curve to the left. In grid mode, we want a direct vertical/horizontal flow.
-        const isGrid = guideMode === 'structure';
+        let targetX, targetY;
         
+        if (isGrid) {
+          targetX = targetRect.left - containerRect.left + (targetRect.width / 2);
+          targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
+        } else {
+          // Restore classical left-side icon anchor
+          targetX = targetRect.left - containerRect.left + 20;
+          targetY = targetRect.top - containerRect.top + (targetRect.height / 2);
+        }
+
         let cp1x, cp1y, cp2x, cp2y;
         
         if (isGrid) {
-          cp1x = sourceMidX;
-          cp1y = (sourceMidY + targetMidY) / 2;
-          cp2x = targetMidX;
-          cp2y = (sourceMidY + targetMidY) / 2;
+          // Centered grid logic
+          cp1x = sourceX;
+          cp1y = (sourceY + targetY) / 2;
+          cp2x = targetX;
+          cp2y = (sourceY + targetY) / 2;
         } else {
-          cp1x = sourceMidX - 100;
-          cp1y = sourceMidY;
-          cp2x = targetMidX - 100;
-          cp2y = targetMidY;
+          // Restore classical outward curve to the left
+          cp1x = sourceX - 120;
+          cp1y = sourceY;
+          cp2x = targetX - 120;
+          cp2y = targetY;
         }
 
-        const path = `M ${sourceMidX} ${sourceMidY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetMidX} ${targetMidY}`;
+        const path = `M ${sourceX} ${sourceY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${targetX} ${targetY}`;
         newPaths.push(path);
       }
     });
@@ -451,7 +467,7 @@ export default function ProcessDetailViewPage() {
               </div>
               {node.type === 'subprocess' && targetProc && (
                 <Button size="sm" variant="outline" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-200 text-indigo-700 hover:bg-indigo-50 gap-1.5 shadow-sm" onClick={(e) => { e.stopPropagation(); router.push(`/processhub/view/${node.targetProcessId}`); }}>
-                  <ExternalLink className="w-3 h-3" /> Prozess: {targetProc.title}
+                  <ExternalLink className="w-3.5 h-3.5" /> Prozess: {targetProc.title}
                 </Button>
               )}
             </div>
@@ -737,7 +753,7 @@ export default function ProcessDetailViewPage() {
 
               <ScrollArea className="flex-1">
                 <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-12 pb-32 relative" ref={containerRef}>
-                  {/* Global Flow Overlay for both modes */}
+                  {/* Global Flow Overlay */}
                   <svg className="absolute inset-0 pointer-events-none w-full h-full z-0 overflow-visible">
                     <defs>
                       <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
