@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -29,7 +30,9 @@ import {
   Lock,
   CalendarDays,
   Target,
-  Pencil
+  Pencil,
+  Globe,
+  Server
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +45,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -151,7 +154,6 @@ export default function UserDetailPage() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar: Profile Summary */}
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
@@ -161,25 +163,25 @@ export default function UserDetailPage() {
               <div className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Abteilung</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <Building2 className="w-4 h-4 text-primary" /> {user.department || '---'}
                   </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Rollenprofil (Stelle)</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <Briefcase className="w-4 h-4 text-indigo-600" /> {user.title || '---'}
                   </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Mandant (Standort)</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <Globe className="w-4 h-4 text-slate-400" /> {tenants?.find(t => t.id === user.tenantId)?.name || user.tenantId}
                   </div>
                 </div>
               </div>
               
-              <Separator />
+              <Separator className="bg-slate-100 dark:bg-slate-800" />
               
               <div className="space-y-3">
                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">AD-Integrität</p>
@@ -201,17 +203,16 @@ export default function UserDetailPage() {
           </Card>
         </aside>
 
-        {/* Main Content Area */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="assignments" className="space-y-6">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
-              <TabsTrigger value="assignments" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+              <TabsTrigger value="assignments" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <ShieldCheck className="w-4 h-4 text-primary" /> Berechtigungen
               </TabsTrigger>
-              <TabsTrigger value="drift" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="drift" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Activity className="w-4 h-4 text-indigo-600" /> Compliance
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="history" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <History className="w-4 h-4 text-slate-500" /> Audit Log
               </TabsTrigger>
             </TabsList>
@@ -225,19 +226,19 @@ export default function UserDetailPage() {
                       <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Aktive Zugriffsrechte</CardTitle>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black uppercase gap-2 border-primary/20 text-primary hover:bg-primary/5" onClick={() => router.push('/assignments')}>
+                  <Button size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black uppercase gap-2 border-primary/20 text-primary hover:bg-primary/5 shadow-sm" onClick={() => router.push('/assignments')}>
                     <Plus className="w-3.5 h-3.5" /> Recht hinzufügen
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
-                      <TableRow>
-                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400">System (Asset)</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Rolle / Recht</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Herkunft</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Gültigkeit</TableHead>
-                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400">Aktionen</TableHead>
+                      <TableRow className="border-b last:border-0">
+                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">System (Asset)</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Rolle / Recht</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Herkunft</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Gültigkeit</TableHead>
+                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Aktionen</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -247,7 +248,7 @@ export default function UserDetailPage() {
                         const isBlueprint = a.syncSource === 'blueprint' || a.syncSource === 'group';
                         
                         return (
-                          <TableRow key={a.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800 transition-colors">
+                          <TableRow key={a.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-b last:border-0 transition-colors">
                             <TableCell className="py-4 px-6">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400 border border-slate-100 dark:border-slate-800 shadow-inner">
@@ -289,21 +290,21 @@ export default function UserDetailPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="drift" className="space-y-6 animate-in fade-in duration-500">
+            <TabsContent value="drift" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                   <CardHeader className="bg-amber-50/50 dark:bg-amber-900/10 border-b p-6">
                     <div className="flex items-center gap-3">
                       <ShieldAlert className="w-5 h-5 text-amber-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold uppercase">Fehlende Rollen (AD Drift)</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase">Im Hub definiert, aber im AD nicht vorhanden</CardDescription>
+                        <CardTitle className="text-sm font-bold uppercase tracking-tight">Fehlende Rollen (AD Drift)</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">Im Hub definiert, aber im AD nicht vorhanden</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6 space-y-3">
                     {driftInfo.missing.map((g, i) => (
-                      <div key={i} className="p-3 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center justify-between group">
+                      <div key={i} className="p-3 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center justify-between group shadow-sm">
                         <span className="text-[11px] font-bold text-red-700 dark:text-red-400 font-mono">{g}</span>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform"><RotateCcw className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -311,7 +312,7 @@ export default function UserDetailPage() {
                     {driftInfo.missing.length === 0 && (
                       <div className="py-16 text-center space-y-2 opacity-30">
                         <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500" />
-                        <p className="text-[9px] font-black uppercase">Vollständig synchron</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest">Vollständig synchron</p>
                       </div>
                     )}
                   </CardContent>
@@ -322,14 +323,14 @@ export default function UserDetailPage() {
                     <div className="flex items-center gap-3">
                       <Target className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold uppercase">Nicht autorisiert</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase">Im AD vorhanden, aber im Hub nicht autorisiert</CardDescription>
+                        <CardTitle className="text-sm font-bold uppercase tracking-tight">Nicht autorisiert</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">Im AD vorhanden, aber im Hub nicht autorisiert</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6 space-y-3">
                     {driftInfo.extra.map((g, i) => (
-                      <div key={i} className="p-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center justify-between group">
+                      <div key={i} className="p-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center justify-between group shadow-sm">
                         <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 font-mono">{g}</span>
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-400 group-hover:scale-110 transition-transform"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -337,7 +338,7 @@ export default function UserDetailPage() {
                     {driftInfo.extra.length === 0 && (
                       <div className="py-16 text-center space-y-2 opacity-30">
                         <ShieldCheck className="w-8 h-8 mx-auto text-primary" />
-                        <p className="text-[9px] font-black uppercase">Keine Drift-Rechte</p>
+                        <p className="text-[9px] font-black uppercase tracking-widest">Keine Drift-Rechte</p>
                       </div>
                     )}
                   </CardContent>
@@ -345,7 +346,7 @@ export default function UserDetailPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="history" className="space-y-6 animate-in fade-in duration-500">
+            <TabsContent value="history" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
                   <div className="flex items-center gap-3">
@@ -360,18 +361,18 @@ export default function UserDetailPage() {
                     {userAuditLogs.map((log: any) => (
                       <div key={log.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between group">
                         <div className="flex items-start gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-950 flex items-center justify-center text-slate-400 mt-1 shadow-inner shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-950 flex items-center justify-center text-slate-400 mt-1 shadow-inner shrink-0 border border-slate-200 dark:border-slate-800">
                             <Activity className="w-4 h-4" />
                           </div>
                           <div>
                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed">{log.action}</p>
                             <div className="flex items-center gap-3 mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                              <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(log.timestamp).toLocaleString()}</span>
-                              <span className="flex items-center gap-1"><UserCircle className="w-2.5 h-2.5" /> Akteur: {log.actorUid}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5 opacity-50" /> {new Date(log.timestamp).toLocaleString()}</span>
+                              <span className="flex items-center gap-1"><UserCircle className="w-2.5 h-2.5 opacity-50" /> Akteur: {log.actorUid}</span>
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/audit?search=${log.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/audit?search=${log.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {userAuditLogs.length === 0 && (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -323,17 +324,17 @@ export default function ResourceDetailPage() {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="details" className="space-y-6">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
-              <TabsTrigger value="details" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+              <TabsTrigger value="details" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Stammdaten & Ownership
               </TabsTrigger>
-              <TabsTrigger value="maintenance" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="maintenance" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Settings2 className="w-4 h-4" /> Wartung & Backup
               </TabsTrigger>
-              <TabsTrigger value="audit" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="audit" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <BadgeCheck className="w-4 h-4" /> Zugriff & Rollen
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+              <TabsTrigger value="tasks" className="rounded-xl px-5 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <ClipboardList className="w-4 h-4" /> Aufgaben ({resourceTasks.length})
               </TabsTrigger>
             </TabsList>
@@ -348,11 +349,11 @@ export default function ResourceDetailPage() {
                     <div className="space-y-6">
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Asset-Kategorie</Label>
-                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">{resource.category || '---'}</p>
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">{resource.category || '---'}</p>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Anmelde-Infrastruktur</Label>
-                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                           <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes IdP-System' : 'Externer Directory-Dienst'}
                         </div>
                       </div>
@@ -360,13 +361,13 @@ export default function ResourceDetailPage() {
                     <div className="space-y-6">
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Technischer Standort</Label>
-                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                           <MapPin className="w-4 h-4 text-slate-300" /> {resource.dataLocation || 'Nicht spezifiziert'}
                         </div>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Service URL</Label>
-                        <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                           {resource.url && resource.url !== '#' ? (
                             <a href={resource.url} target="_blank" className="text-sm font-bold text-primary flex items-center gap-2 hover:underline">
                               {resource.url} <ExternalLink className="w-3.5 h-3.5" />
@@ -379,10 +380,10 @@ export default function ResourceDetailPage() {
                     </div>
                   </div>
                   
-                  <div className="space-y-4 pt-6 border-t">
+                  <div className="space-y-4 pt-6 border-t border-slate-100">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verantwortlichkeiten (Ownership)</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-3">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-3 shadow-inner">
                         <p className="text-[10px] font-black uppercase text-primary">Interne Steuerung</p>
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
@@ -395,7 +396,7 @@ export default function ResourceDetailPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="p-4 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-3">
+                      <div className="p-4 bg-indigo-50/30 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl space-y-3 shadow-inner">
                         <p className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Externer Betrieb</p>
                         <div className="space-y-2">
                           <div className="flex items-center gap-3">
@@ -438,7 +439,7 @@ export default function ResourceDetailPage() {
                             <p className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-2"><MapPin className="w-3 h-3" /> {job.storage_location}</p>
                           </div>
                           {itProc && (
-                            <Button variant="outline" size="sm" className="h-8 rounded-xl text-[10px] font-black uppercase border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
+                            <Button variant="outline" size="sm" className="h-8 rounded-xl text-[10px] font-black uppercase border-orange-200 text-orange-700 hover:bg-orange-50 transition-all shadow-sm" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
                               <Workflow className="w-3.5 h-3.5 mr-2" /> Recovery Leitfaden
                             </Button>
                           )}
@@ -485,24 +486,24 @@ export default function ResourceDetailPage() {
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
-                      <TableRow>
-                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400">Rollenbezeichnung</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center">Risiko</TableHead>
-                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400">Details</TableHead>
+                      <TableRow className="border-b last:border-0">
+                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Rollenbezeichnung</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center tracking-widest">Risiko</TableHead>
+                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Details</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {resourceRoles.map(role => (
-                        <TableRow key={role.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-slate-100 dark:border-slate-800 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
+                        <TableRow key={role.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
                           <TableCell className="py-4 px-6">
                             <div className="font-black text-sm text-slate-800 dark:text-slate-100">{role.name}</div>
                             {role.isAdmin && <Badge className="bg-red-600 text-white border-none rounded-full text-[7px] font-black h-4 px-1.5 mt-1 uppercase">Privilegiert</Badge>}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Badge variant="outline" className={cn("text-[9px] font-black h-5 border-none uppercase", role.riskLevel === 'high' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>{role.riskLevel}</Badge>
+                            <Badge variant="outline" className={cn("text-[9px] font-black h-5 border-none uppercase shadow-sm", role.riskLevel === 'high' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>{role.riskLevel}</Badge>
                           </TableCell>
                           <TableCell className="text-right px-6">
-                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100"><ArrowRight className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"><ArrowRight className="w-4 h-4" /></Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -516,14 +517,14 @@ export default function ResourceDetailPage() {
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 border-b p-6 flex flex-row items-center justify-between">
                   <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Operative Aufgaben</CardTitle>
-                  <Button size="sm" variant="outline" className="h-9 rounded-xl text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}><Plus className="w-3.5 h-3.5" /> Aufgabe</Button>
+                  <Button size="sm" variant="outline" className="h-9 rounded-xl text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all" onClick={() => setIsTaskDialogOpen(true)}><Plus className="w-3.5 h-3.5" /> Aufgabe</Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {resourceTasks.map(t => (
-                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
-                        <div className="flex items-center gap-4">
-                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600")}>
+                      <div key={t.id} className="p-4 px-10 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                        <div className="flex items-center gap-6">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100", t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
                           <div>
@@ -531,7 +532,7 @@ export default function ResourceDetailPage() {
                             <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Status: {t.status} • Fällig: {t.dueDate || '∞'}</p>
                           </div>
                         </div>
-                        <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
+                        <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1" />
                       </div>
                     ))}
                     {resourceTasks.length === 0 && <div className="py-16 text-center opacity-30 italic text-xs uppercase tracking-widest text-slate-400">Keine Aufgaben für diese Ressource</div>}
@@ -545,39 +546,46 @@ export default function ResourceDetailPage() {
 
       {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-900">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800 border-b shrink-0">
-            <DialogTitle className="text-xl font-headline font-black uppercase tracking-tight">Aufgabe für Asset erstellen</DialogTitle>
-            <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Referenz: {resource.name}</DialogDescription>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-900">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center text-primary shadow-sm border border-white/10">
+                <ClipboardList className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl font-headline font-black uppercase tracking-tight">Aufgabe für Asset erstellen</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-1">Referenz: {resource.name}</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           <ScrollArea className="flex-1 max-h-[60vh]">
             <div className="p-8 space-y-6">
               <div className="space-y-2">
-                <Label required className="text-[10px] font-bold uppercase text-slate-400">Titel</Label>
-                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 font-bold" />
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1">Titel</Label>
+                <Input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className="rounded-xl h-12 font-bold bg-white" placeholder="z.B. Log-Review durchführen..." />
               </div>
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label required className="text-[10px] font-bold uppercase text-slate-400">Verantwortlich</Label>
+                  <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlich</Label>
                   <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
-                    <SelectTrigger className="rounded-xl h-11"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                    <SelectContent>{pUsers?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className="rounded-xl h-11 bg-white shadow-sm"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                    <SelectContent className="rounded-xl">{pUsers?.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400">Deadline</Label>
-                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11" />
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Deadline</Label>
+                  <Input type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="rounded-xl h-11 bg-white shadow-sm" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Beschreibung</Label>
-                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px]" />
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung</Label>
+                <Textarea value={taskDesc} onChange={e => setTaskDesc(e.target.value)} className="rounded-2xl min-h-[100px] bg-slate-50/50 p-4" placeholder="Optionale Details zur Durchführung..." />
               </div>
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t flex gap-2">
-            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-xs">Abbrechen</Button>
-            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="rounded-xl px-12 bg-primary text-white font-bold text-xs shadow-lg gap-2">
+            <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 px-8 uppercase">Abbrechen</Button>
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="rounded-xl px-12 bg-primary text-white font-bold text-[10px] h-11 uppercase shadow-lg shadow-primary/20 gap-2 transition-all active:scale-95">
               {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Erstellen
             </Button>
           </DialogFooter>
