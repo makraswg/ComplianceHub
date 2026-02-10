@@ -28,7 +28,8 @@ import {
   Trash2,
   Lock,
   CalendarDays,
-  Target
+  Target,
+  Pencil
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -120,10 +121,10 @@ export default function UserDetailPage() {
   const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/users')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/users')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div className="min-w-0">
@@ -134,14 +135,16 @@ export default function UserDetailPage() {
                 isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
               )}>{isEnabled ? 'Aktiv' : 'Inaktiv'}</Badge>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{user.email} • ID: {user.id}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
+              <Mail className="w-3 h-3" /> {user.email} • ID: {user.id}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-slate-200" onClick={() => router.push(`/reviews?search=${user.displayName}`)}>
-            <RotateCcw className="w-3.5 h-3.5 mr-2" /> Access Review starten
+          <Button variant="outline" size="sm" className="h-9 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all" onClick={() => router.push(`/reviews?search=${user.displayName}`)}>
+            <RotateCcw className="w-3.5 h-3.5 mr-2" /> Review starten
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all">
+          <Button size="sm" className="h-9 rounded-xl font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all">
             <Pencil className="w-3.5 h-3.5 mr-2" /> Profil bearbeiten
           </Button>
         </div>
@@ -149,29 +152,28 @@ export default function UserDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Sidebar: Profile Summary */}
-        <aside className="lg:col-span-1 space-y-4">
-          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Identitäts-Kontext</CardTitle>
+        <aside className="lg:col-span-1 space-y-6">
+          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
+              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Identitäts-Kontext</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Abteilung</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
                     <Building2 className="w-4 h-4 text-primary" /> {user.department || '---'}
                   </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Rollenprofil (Stelle)</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
                     <Briefcase className="w-4 h-4 text-indigo-600" /> {user.title || '---'}
                   </div>
                 </div>
-                <Separator />
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Mandant (Standort)</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
                     <Globe className="w-4 h-4 text-slate-400" /> {tenants?.find(t => t.id === user.tenantId)?.name || user.tenantId}
                   </div>
                 </div>
@@ -191,32 +193,9 @@ export default function UserDetailPage() {
                 {driftInfo.hasDrift && (
                   <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[9px] text-amber-700 font-bold leading-relaxed italic">Synchronisations-Abweichung zum Active Directory erkannt.</p>
+                    <p className="text-[9px] text-amber-700 font-bold leading-relaxed italic">Abweichung zum Active Directory erkannt.</p>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white p-4 px-6 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-primary">Security Stats</CardTitle>
-              <Zap className="w-3.5 h-3.5 text-primary fill-current" />
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Aktive Rechte</span>
-                <span className="text-sm font-black text-slate-800">{userAssignments.filter(a => a.status === 'active').length}</span>
-              </div>
-              <div className="flex items-center justify-between border-b pb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Admin-Status</span>
-                <Badge variant={userAssignments.some(a => entitlements?.find(e => e.id === a.entitlementId)?.isAdmin) ? "destructive" : "outline"} className="text-[8px] font-black h-4 px-1.5 uppercase">
-                  {userAssignments.some(a => entitlements?.find(e => e.id === a.entitlementId)?.isAdmin) ? 'Privilegiert' : 'Standard'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Review Status</span>
-                <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full h-4 px-1.5 text-[8px] font-black uppercase">Konform</Badge>
               </div>
             </CardContent>
           </Card>
@@ -225,41 +204,40 @@ export default function UserDetailPage() {
         {/* Main Content Area */}
         <div className="lg:col-span-3">
           <Tabs defaultValue="assignments" className="space-y-6">
-            <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
-              <TabsTrigger value="assignments" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Berechtigungen
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
+              <TabsTrigger value="assignments" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <ShieldCheck className="w-4 h-4 text-primary" /> Berechtigungen
               </TabsTrigger>
-              <TabsTrigger value="drift" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Activity className="w-3.5 h-3.5 text-indigo-600" /> Compliance & Drift
+              <TabsTrigger value="drift" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <Activity className="w-4 h-4 text-indigo-600" /> Compliance
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <History className="w-3.5 h-3.5 text-slate-500" /> Journal & Audit
+              <TabsTrigger value="history" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <History className="w-4 h-4 text-slate-500" /> Audit Log
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="assignments" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
+            <TabsContent value="assignments" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Layers className="w-5 h-5 text-primary" />
                     <div>
-                      <CardTitle className="text-sm font-bold">Aktive Zugriffsberechtigungen</CardTitle>
-                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Übersicht aller Einzelzuweisungen und Gruppenrechte</CardDescription>
+                      <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Aktive Zugriffsrechte</CardTitle>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-primary/20 text-primary hover:bg-primary/5" onClick={() => router.push('/assignments')}>
+                  <Button size="sm" variant="outline" className="h-8 rounded-xl text-[10px] font-black uppercase gap-2 border-primary/20 text-primary hover:bg-primary/5" onClick={() => router.push('/assignments')}>
                     <Plus className="w-3.5 h-3.5" /> Recht hinzufügen
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
-                    <TableHeader className="bg-slate-50/30">
+                    <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
                       <TableRow>
-                        <TableHead className="py-3 px-6 font-bold text-[10px] uppercase text-slate-400">System (Asset)</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Rolle / Recht</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Herkunft</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-slate-400">Gültigkeit</TableHead>
-                        <TableHead className="text-right px-6 font-bold text-[10px] uppercase text-slate-400">Aktionen</TableHead>
+                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400">System (Asset)</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Rolle / Recht</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Herkunft</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400">Gültigkeit</TableHead>
+                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400">Aktionen</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -269,18 +247,18 @@ export default function UserDetailPage() {
                         const isBlueprint = a.syncSource === 'blueprint' || a.syncSource === 'group';
                         
                         return (
-                          <TableRow key={a.id} className="group hover:bg-slate-50 border-b last:border-0">
+                          <TableRow key={a.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 border-slate-100 dark:border-slate-800 transition-colors">
                             <TableCell className="py-4 px-6">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shadow-inner">
+                                <div className="w-8 h-8 rounded-lg bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-400 border border-slate-100 dark:border-slate-800 shadow-inner">
                                   <Server className="w-4 h-4" />
                                 </div>
-                                <span className="text-xs font-bold text-slate-800">{res?.name || 'Unbekannt'}</span>
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{res?.name || 'Unbekannt'}</span>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-700">{ent?.name}</span>
+                                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{ent?.name}</span>
                                 {ent?.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full h-3.5 px-1.5 text-[7px] font-black uppercase">Admin</Badge>}
                               </div>
                             </TableCell>
@@ -303,7 +281,7 @@ export default function UserDetailPage() {
                         );
                       })}
                       {userAssignments.filter(a => a.status === 'active').length === 0 && (
-                        <TableRow><TableCell colSpan={5} className="py-12 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Berechtigungen zugewiesen</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={5} className="py-16 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Berechtigungen zugewiesen</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>
@@ -313,25 +291,25 @@ export default function UserDetailPage() {
 
             <TabsContent value="drift" className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-amber-50/50 border-b p-6">
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-amber-50/50 dark:bg-amber-900/10 border-b p-6">
                     <div className="flex items-center gap-3">
                       <ShieldAlert className="w-5 h-5 text-amber-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Fehlende Rollen (LDAP Drift)</CardTitle>
+                        <CardTitle className="text-sm font-bold uppercase">Fehlende Rollen (AD Drift)</CardTitle>
                         <CardDescription className="text-[10px] font-bold uppercase">Im Hub definiert, aber im AD nicht vorhanden</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6 space-y-3">
                     {driftInfo.missing.map((g, i) => (
-                      <div key={i} className="p-3 bg-red-50/50 border border-red-100 rounded-xl flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-red-700 font-mono">{g}</span>
-                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform"><RotateCcw className="w-3 h-3" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">In AD provisionieren</TooltipContent></Tooltip></TooltipProvider>
+                      <div key={i} className="p-3 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl flex items-center justify-between group">
+                        <span className="text-[11px] font-bold text-red-700 dark:text-red-400 font-mono">{g}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 group-hover:scale-110 transition-transform"><RotateCcw className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {driftInfo.missing.length === 0 && (
-                      <div className="py-10 text-center space-y-2 opacity-30">
+                      <div className="py-16 text-center space-y-2 opacity-30">
                         <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500" />
                         <p className="text-[9px] font-black uppercase">Vollständig synchron</p>
                       </div>
@@ -339,25 +317,25 @@ export default function UserDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-indigo-50/50 border-b p-6">
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                  <CardHeader className="bg-indigo-50/50 dark:bg-indigo-900/10 border-b p-6">
                     <div className="flex items-center gap-3">
                       <Target className="w-5 h-5 text-indigo-600" />
                       <div>
-                        <CardTitle className="text-sm font-bold">Nicht autorisierte Rollen</CardTitle>
+                        <CardTitle className="text-sm font-bold uppercase">Nicht autorisiert</CardTitle>
                         <CardDescription className="text-[10px] font-bold uppercase">Im AD vorhanden, aber im Hub nicht autorisiert</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6 space-y-3">
                     {driftInfo.extra.map((g, i) => (
-                      <div key={i} className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-center justify-between group">
-                        <span className="text-[11px] font-bold text-amber-700 font-mono">{g}</span>
-                        <TooltipProvider><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7 text-amber-400 group-hover:scale-110 transition-transform"><Trash2 className="w-3 h-3" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aus AD entfernen</TooltipContent></Tooltip></TooltipProvider>
+                      <div key={i} className="p-3 bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center justify-between group">
+                        <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 font-mono">{g}</span>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-400 group-hover:scale-110 transition-transform"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {driftInfo.extra.length === 0 && (
-                      <div className="py-10 text-center space-y-2 opacity-30">
+                      <div className="py-16 text-center space-y-2 opacity-30">
                         <ShieldCheck className="w-8 h-8 mx-auto text-primary" />
                         <p className="text-[9px] font-black uppercase">Keine Drift-Rechte</p>
                       </div>
@@ -368,33 +346,32 @@ export default function UserDetailPage() {
             </TabsContent>
 
             <TabsContent value="history" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
                   <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-slate-500" />
                     <div>
-                      <CardTitle className="text-sm font-bold">Individuelles Journal</CardTitle>
-                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Alle Audit-Ereignisse bezogen auf diese Identität</CardDescription>
+                      <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Audit Journal</CardTitle>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
                     {userAuditLogs.map((log: any) => (
-                      <div key={log.id} className="p-4 px-8 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                      <div key={log.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between group">
                         <div className="flex items-start gap-4">
-                          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 mt-1 shadow-inner shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-950 flex items-center justify-center text-slate-400 mt-1 shadow-inner shrink-0">
                             <Activity className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="text-xs font-bold text-slate-800 leading-relaxed">{log.action}</p>
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-relaxed">{log.action}</p>
                             <div className="flex items-center gap-3 mt-1 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                               <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(log.timestamp).toLocaleString()}</span>
                               <span className="flex items-center gap-1"><UserCircle className="w-2.5 h-2.5" /> Akteur: {log.actorUid}</span>
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100" onClick={() => router.push(`/audit?search=${log.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all" onClick={() => router.push(`/audit?search=${log.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
                       </div>
                     ))}
                     {userAuditLogs.length === 0 && (

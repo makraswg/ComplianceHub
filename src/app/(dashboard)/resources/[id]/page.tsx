@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -239,10 +238,10 @@ export default function ResourceDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all active:scale-95" onClick={() => setIsTaskDialogOpen(true)}>
+          <Button variant="outline" size="sm" className="h-9 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all active:scale-95" onClick={() => setIsTaskDialogOpen(true)}>
             <ClipboardList className="w-4 h-4 mr-2" /> Aufgabe erstellen
           </Button>
-          <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-primary text-white shadow-lg shadow-primary/20 active:scale-95 transition-all" onClick={() => router.push(`/resources?edit=${resource.id}`)}>
+          <Button size="sm" className="h-9 rounded-xl font-bold text-xs px-8 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 active:scale-95 transition-all" onClick={() => router.push(`/resources?edit=${resource.id}`)}>
             <Pencil className="w-4 h-4 mr-2" /> Bearbeiten
           </Button>
         </div>
