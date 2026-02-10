@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -119,8 +120,8 @@ function ResourcesPageContent() {
   const [currentBackupIdx, setCurrentBackupIdx] = useState<number | null>(null);
   const [backupForm, setBackupForm] = useState<Partial<BackupJob>>({
     name: '', cycle: 'Täglich', custom_cycle: '', storage_location: '', description: '', 
-    responsible_type: 'internal', responsible_id: '', external_contact_id: '',
-    lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
+    responsible_type: 'internal', responsible_id: 'none', external_contact_id: 'none',
+    lastReviewDate: '', it_process_id: 'none'
   });
 
   const [notes, setNotes] = useState('');
@@ -301,7 +302,7 @@ function ResourcesPageContent() {
       setBackupForm({
         name: '', cycle: 'Täglich', custom_cycle: '', storage_location: '', description: '', 
         responsible_type: 'internal', responsible_id: 'none', external_contact_id: 'none',
-        lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
+        lastReviewDate: '', it_process_id: 'none'
       });
       setCurrentBackupIdx(null);
     }
@@ -341,11 +342,6 @@ function ResourcesPageContent() {
   const updateProcesses = useMemo(() => 
     allProcesses?.filter(p => p.process_type_id === 'pt-update' && p.title.toLowerCase().includes(updateProcSearch.toLowerCase())),
     [allProcesses, updateProcSearch]
-  );
-
-  const genericDetailProcesses = useMemo(() => 
-    allProcesses?.filter(p => p.process_type_id === 'pt-detail'),
-    [allProcesses]
   );
 
   if (!mounted) return null;
@@ -820,33 +816,23 @@ function ResourcesPageContent() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Übergeordneter IT-Prozess (Backup)</Label>
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zugehöriger Backup-Prozess</Label>
                   <div className="relative group mb-1.5">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                     <Input 
-                      placeholder="Filtern..." 
+                      placeholder="Backup-Prozesse filtern..." 
                       value={backupProcSearch} 
                       onChange={e => setBackupProcSearch(e.target.value)}
                       className="h-8 pl-8 text-[10px]"
                     />
                   </div>
                   <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Backup-Leitfaden wählen..." /></SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Kein Bezug</SelectItem>
                       {backupProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Operativer Detailprozess</Label>
-                  <Select value={backupForm.detail_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, detail_process_id: v})}>
-                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Detail-Workflow wählen..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Kein Bezug</SelectItem>
-                      {genericDetailProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

@@ -155,16 +155,6 @@ export default function ResourceDetailPage() {
   const externalContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
   const externalArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
 
-  const getJobName = (roleId?: string) => {
-    if (!roleId) return '---';
-    return jobTitles?.find(j => j.id === roleId)?.name || roleId;
-  };
-
-  const getProcessTitle = (procId?: string) => {
-    if (!procId) return '---';
-    return processes?.find(p => p.id === procId)?.title || procId;
-  };
-
   if (!mounted) return null;
 
   if (isResLoading) {
@@ -267,18 +257,6 @@ export default function ResourceDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          {inheritedData && (
-            <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-2xl flex items-start gap-3 shadow-sm">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-blue-900 uppercase">Vererbte Governance</p>
-                <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Schutzbedarf und Personenbezug werden automatisch aus {inheritedData.featureCount} Datenobjekten in {inheritedData.processCount} Prozessen abgeleitet.
-                </p>
-              </div>
-            </div>
-          )}
         </aside>
 
         <div className="lg:col-span-3">
@@ -408,7 +386,6 @@ export default function ResourceDetailPage() {
                   <div className="divide-y divide-slate-100">
                     {resourceBackups.map(job => {
                       const itProc = processes?.find(p => p.id === job.it_process_id);
-                      const detailProc = processes?.find(p => p.id === job.detail_process_id);
                       const contact = contacts?.find(c => c.id === job.external_contact_id);
                       const partner = partners?.find(p => p.id === contact?.partnerId);
                       const role = jobTitles?.find(r => r.id === job.responsible_id);
@@ -450,18 +427,14 @@ export default function ResourceDetailPage() {
                             </div>
 
                             <div className="w-full md:w-64 space-y-2">
-                              <p className="text-[8px] font-black uppercase text-slate-400 ml-1">Dokumentierte Workflows</p>
-                              {itProc && (
+                              <p className="text-[8px] font-black uppercase text-slate-400 ml-1">Dokumentierter Workflow</p>
+                              {itProc ? (
                                 <Button variant="outline" className="w-full h-9 justify-start text-[10px] font-bold gap-2 bg-white border-slate-100" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
-                                  <Workflow className="w-3.5 h-3.5 text-indigo-600" /> IT-Leitfaden
+                                  <Workflow className="w-3.5 h-3.5 text-indigo-600" /> Backup-Prozess ansehen
                                 </Button>
+                              ) : (
+                                <p className="text-[10px] text-slate-300 italic text-center py-2 border border-dashed rounded-lg">Kein Prozess verknüpft</p>
                               )}
-                              {detailProc && (
-                                <Button variant="outline" className="w-full h-9 justify-start text-[10px] font-bold gap-2 bg-white border-slate-100" onClick={() => router.push(`/processhub/view/${detailProc.id}`)}>
-                                  <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Detailprozess
-                                </Button>
-                              )}
-                              {!itProc && !detailProc && <p className="text-[10px] text-slate-300 italic text-center py-2 border border-dashed rounded-lg">Keine Workflows verknüpft</p>}
                             </div>
                           </div>
                         </div>
