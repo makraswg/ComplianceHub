@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -46,7 +47,8 @@ import {
   HardDrive,
   Map,
   UserCircle,
-  Fingerprint
+  Fingerprint,
+  Save as SaveIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -88,11 +90,10 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
-  const { user: authUser } = useUser();
   const { logout, user: platformUser } = usePlatformAuth();
 
   const [mounted, setMounted] = useState(false);
-  const [isPasswordDialogOpen, useStatePasswordDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -124,10 +125,6 @@ export function AppSidebar() {
     } finally {
       setIsUpdatingPassword(false);
     }
-  };
-
-  const setIsPasswordDialogOpen = (open: boolean) => {
-    useStatePasswordDialogOpen(open);
   };
 
   const coreItems = [

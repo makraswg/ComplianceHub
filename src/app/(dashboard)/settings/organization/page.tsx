@@ -18,21 +18,16 @@ import {
   Trash2,
   Pencil,
   Info,
-  Save,
+  Save as SaveIcon,
   PlusCircle,
   X,
   Globe,
-  BrainCircuit,
   Settings2,
   AlertTriangle,
-  Link as LinkIcon,
-  ImageIcon,
   Network,
   ChevronRight,
   Maximize2,
   RefreshCw,
-  ShieldCheck,
-  Shield,
   Lock,
   Unlock
 } from 'lucide-react';
@@ -63,12 +58,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-/**
- * Generates XML for mxGraph representing the organization tree.
- */
+export const dynamic = 'force-dynamic';
+
 function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
-  
   const NODE_W = 180;
   const NODE_H = 60;
   const GAP_X = 250;
@@ -110,11 +103,9 @@ export default function UnifiedOrganizationPage() {
   const [isIframeReady, setIsIframeReady] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   
-  // Selection
   const [activeAddParent, setActiveAddParent] = useState<{ id: string, type: 'tenant' | 'dept' } | null>(null);
   const [newName, setNewName] = useState('');
 
-  // Tenant Editor
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Partial<Tenant> | null>(null);
   const [tenantName, setTenantName] = useState('');
@@ -124,7 +115,6 @@ export default function UnifiedOrganizationPage() {
   const [tenantLogoUrl, setTenantLogoUrl] = useState('');
   const [isSavingTenant, setIsSavingTenant] = useState(false);
 
-  // Job Editor (RBAC Blueprint)
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
   const [jobName, setJobName] = useState('');
@@ -133,7 +123,6 @@ export default function UnifiedOrganizationPage() {
   const [isSavingJob, setIsSavingJob] = useState(false);
   const [roleSearch, setRoleSearch] = useState('');
 
-  // Delete State
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -146,32 +135,41 @@ export default function UnifiedOrganizationPage() {
   const isSuperAdmin = user?.role === 'superAdmin';
 
   const filteredData = useMemo(() => {
-    if (!tenants) return [];
+    if (!tenants || !departments || !jobTitles) return [];
     
+    // Efficiency: Pre-group jobs and depts using Maps O(N)
+    const jobsByDept = new Map<string, JobTitle[]>();
+    jobTitles.forEach(j => {
+      const matchStatus = showArchived ? j.status === 'archived' : j.status !== 'archived';
+      if (!matchStatus) return;
+      if (!jobsByDept.has(j.departmentId)) jobsByDept.set(j.departmentId, []);
+      jobsByDept.get(j.departmentId)?.push(j);
+    });
+
+    const deptsByTenant = new Map<string, any[]>();
+    departments.forEach(d => {
+      const matchStatus = showArchived ? d.status === 'archived' : d.status !== 'archived';
+      if (!matchStatus) return;
+      if (!deptsByTenant.has(d.tenantId)) deptsByTenant.set(d.tenantId, []);
+      deptsByTenant.get(d.tenantId)?.push({
+        ...d,
+        jobs: jobsByDept.get(d.id) || []
+      });
+    });
+
     return tenants
       .filter(t => (showArchived ? t.status === 'archived' : t.status !== 'archived'))
-      .map(tenant => {
-        const tenantDepts = departments?.filter(d => 
-          d.tenantId === tenant.id && 
-          (showArchived ? d.status === 'archived' : d.status !== 'archived')
-        ) || [];
-
-        const deptsWithJobs = tenantDepts.map(dept => {
-          const deptJobs = jobTitles?.filter(j => 
-            j.departmentId === dept.id && 
-            (showArchived ? j.status === 'archived' : j.status !== 'archived')
-          ) || [];
-          return { ...dept, jobs: deptJobs };
-        });
-
-        return { ...tenant, departments: deptsWithJobs };
-      })
+      .map(tenant => ({
+        ...tenant,
+        departments: deptsByTenant.get(tenant.id) || []
+      }))
       .filter(t => {
         if (!search) return true;
         const s = search.toLowerCase();
-        const hasMatchingJob = t.departments.some(d => d.jobs.some(j => j.name.toLowerCase().includes(s)));
-        const hasMatchingDept = t.departments.some(d => d.name.toLowerCase().includes(s));
-        return t.name.toLowerCase().includes(s) || hasMatchingDept || hasMatchingJob;
+        const matchT = t.name.toLowerCase().includes(s);
+        const matchD = t.departments.some((d: any) => d.name.toLowerCase().includes(s));
+        const matchJ = t.departments.some((d: any) => d.jobs.some((j: any) => j.name.toLowerCase().includes(s)));
+        return matchT || matchD || matchJ;
       });
   }, [tenants, departments, jobTitles, search, showArchived]);
 
@@ -183,18 +181,6 @@ export default function UnifiedOrganizationPage() {
   }, [tenants, departments, jobTitles, isIframeReady]);
 
   useEffect(() => {
-    const handleMessage = (evt: MessageEvent) => {
-      if (!evt.data || typeof evt.data !== 'string') return;
-      try {
-        const msg = JSON.parse(evt.data);
-        if (msg.event === 'init') setIsIframeReady(true);
-      } catch (e) {}
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-  useEffect(() => {
     if (activeTab === 'chart' && isIframeReady) syncChart();
   }, [activeTab, isIframeReady, syncChart]);
 
@@ -202,8 +188,6 @@ export default function UnifiedOrganizationPage() {
     if (!tenantName || !tenantSlug) return;
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
-    const isNew = !editingTenant;
-    
     const data: Tenant = {
       ...editingTenant,
       id,
@@ -216,40 +200,27 @@ export default function UnifiedOrganizationPage() {
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
     } as Tenant;
 
-    try {
-      const res = await saveCollectionRecord('tenants', id, data, dataSource);
-      if (res.success) {
-        await logAuditEventAction(dataSource, {
-          tenantId: id,
-          actorUid: user?.email || 'system',
-          action: isNew ? `Mandant erstellt: ${tenantName}` : `Mandant aktualisiert: ${tenantName}`,
-          entityType: 'tenant',
-          entityId: id,
-          after: data
-        });
-        setIsTenantDialogOpen(false);
-        refreshTenants();
-        toast({ title: "Mandant gespeichert" });
-      }
-    } finally {
-      setIsSavingTenant(false);
+    const res = await saveCollectionRecord('tenants', id, data, dataSource);
+    if (res.success) {
+      setIsTenantDialogOpen(false);
+      refreshTenants();
+      toast({ title: "Mandant gespeichert" });
     }
+    setIsSavingTenant(false);
   };
 
   const handleCreateSub = async () => {
     if (!newName || !activeAddParent) return;
     const id = `${activeAddParent.type === 'tenant' ? 'd' : 'j'}-${Math.random().toString(36).substring(2, 7)}`;
-    
     if (activeAddParent.type === 'tenant') {
-      const deptData = { id, tenantId: activeAddParent.id, name: newName, status: 'active' };
-      await saveCollectionRecord('departments', id, deptData, dataSource);
+      await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
       refreshDepts();
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
-      if (!dept) return;
-      const jobData = { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' };
-      await saveCollectionRecord('jobTitles', id, jobData, dataSource);
-      refreshJobs();
+      if (dept) {
+        await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+        refreshJobs();
+      }
     }
     setNewName('');
     setActiveAddParent(null);
@@ -270,18 +241,15 @@ export default function UnifiedOrganizationPage() {
   const executeDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    try {
-      const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
-      if (res.success) {
-        toast({ title: "Eintrag permanent gelöscht" });
-        if (deleteTarget.type === 'tenants') refreshTenants();
-        if (deleteTarget.type === 'departments') refreshDepts();
-        if (deleteTarget.type === 'jobTitles') refreshJobs();
-        setDeleteTarget(null);
-      }
-    } finally {
-      setIsDeleting(false);
+    const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
+    if (res.success) {
+      toast({ title: "Eintrag permanent gelöscht" });
+      if (deleteTarget.type === 'tenants') refreshTenants();
+      if (deleteTarget.type === 'departments') refreshDepts();
+      if (deleteTarget.type === 'jobTitles') refreshJobs();
+      setDeleteTarget(null);
     }
+    setIsDeleting(false);
   };
 
   const openTenantEdit = (tenant: Partial<Tenant>) => {
@@ -305,17 +273,14 @@ export default function UnifiedOrganizationPage() {
   const saveJobEdits = async () => {
     if (!editingJob) return;
     setIsSavingJob(true);
-    try {
-      const updatedJob = { ...editingJob, name: jobName, description: jobDesc, entitlementIds: jobEntitlementIds };
-      const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
-      if (res.success) {
-        setIsEditorOpen(false);
-        refreshJobs();
-        toast({ title: "Rollenprofil gespeichert" });
-      }
-    } finally {
-      setIsSavingJob(false);
+    const updatedJob = { ...editingJob, name: jobName, description: jobDesc, entitlementIds: jobEntitlementIds };
+    const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
+    if (res.success) {
+      setIsEditorOpen(false);
+      refreshJobs();
+      toast({ title: "Rollenprofil gespeichert" });
     }
+    setIsSavingJob(false);
   };
 
   const filteredEntitlements = useMemo(() => {
@@ -328,11 +293,13 @@ export default function UnifiedOrganizationPage() {
     });
   }, [entitlements, resources, editingJob, roleSearch]);
 
+  if (!mounted) return null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
-          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Organisationsstruktur</Badge>
+          <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
           <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten & Rollenplan</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Blueprints.</p>
         </div>
@@ -358,23 +325,18 @@ export default function UnifiedOrganizationPage() {
             <div className="relative group max-w-md flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <Input 
-                placeholder="Nach Name, Abteilung oder Rolle suchen..." 
+                placeholder="Name, Abteilung oder Rolle suchen..." 
                 className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                className={cn("h-9 rounded-md font-bold text-xs", showArchived && "text-orange-600 bg-orange-50")} 
-                onClick={() => setShowArchived(!showArchived)}
-              >
+              <Button variant="outline" size="sm" className={cn("h-9 rounded-md font-bold text-xs", showArchived && "text-orange-600 bg-orange-50")} onClick={() => setShowArchived(!showArchived)}>
                 {showArchived ? <RotateCcw className="w-3.5 h-3.5 mr-2" /> : <Archive className="w-3.5 h-3.5 mr-2" />}
-                {showArchived ? 'Aktive Ansicht' : 'Archiv'}
+                {showArchived ? 'Aktiv' : 'Archiv'}
               </Button>
-              <Button size="sm" className="h-9 rounded-md font-bold text-xs shadow-lg shadow-primary/10" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
+              <Button size="sm" className="h-9 rounded-md font-bold text-xs shadow-lg" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}>
                 <Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant
               </Button>
             </div>
@@ -384,11 +346,12 @@ export default function UnifiedOrganizationPage() {
             {(tenantsLoading || deptsLoading || jobsLoading) ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
-                <p className="text-[10px] font-bold text-slate-400">Lade Struktur...</p>
+                <p className="text-[10px] font-bold text-slate-400">Synchronisiere Struktur...</p>
               </div>
             ) : filteredData.length === 0 ? (
               <div className="py-20 text-center border-2 border-dashed rounded-xl bg-white/50">
-                <p className="text-xs font-bold text-slate-400">Keine Mandanten oder Übereinstimmungen gefunden.</p>
+                <Info className="w-10 h-10 mx-auto mb-3 text-slate-200" />
+                <p className="text-xs font-bold text-slate-400">Keine Daten gefunden. Bitte initialisieren Sie den Hub.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
@@ -404,18 +367,18 @@ export default function UnifiedOrganizationPage() {
                             <CardTitle className="text-base font-bold text-slate-900 dark:text-white">{tenant.name}</CardTitle>
                             <Badge variant="outline" className="text-[8px] font-bold h-4 px-1">{tenant.region}</Badge>
                           </div>
-                          <p className="text-[10px] text-slate-400 font-bold">{tenant.slug}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase">{tenant.slug}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => openTenantEdit(tenant)}><Settings2 className="w-3.5 h-3.5" /> Details</Button>
                         <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}><PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung</Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-500" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {tenant.departments.map(dept => (
+                        {tenant.departments.map((dept: any) => (
                           <div key={dept.id} className="group/dept">
                             <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors">
                               <div className="flex items-center gap-3">
@@ -429,7 +392,7 @@ export default function UnifiedOrganizationPage() {
                             </div>
                             <div className="bg-slate-50/30 px-8 pb-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 border-slate-100 dark:border-slate-800 ml-4">
-                                {dept.jobs.map(job => (
+                                {dept.jobs?.map((job: any) => (
                                   <div key={job.id} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 rounded-lg border shadow-sm group/job hover:border-primary/30 transition-all cursor-pointer" onClick={() => openJobEditor(job)}>
                                     <div className="flex items-center gap-2 min-w-0">
                                       <Briefcase className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -455,6 +418,15 @@ export default function UnifiedOrganizationPage() {
                             </div>
                           </div>
                         ))}
+                        {activeAddParent?.id === tenant.id && activeAddParent.type === 'tenant' && (
+                          <div className="p-4 px-8 bg-primary/5 border-y border-primary/10">
+                            <div className="flex items-center gap-3">
+                              <Input autoFocus placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 border-slate-200 rounded-md bg-white text-xs font-bold" />
+                              <Button size="sm" className="h-10 px-6 rounded-md font-bold text-[10px]" onClick={handleCreateSub}>Erstellen</Button>
+                              <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -464,119 +436,66 @@ export default function UnifiedOrganizationPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] relative overflow-hidden shadow-inner animate-in fade-in">
+        <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] relative overflow-hidden shadow-inner">
           <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-xl p-1.5 flex flex-col gap-1.5">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => setIsLocked(!isLocked)} 
-                    className={cn("h-9 w-9 rounded-lg transition-all", isLocked ? "bg-amber-50 text-amber-600" : "hover:bg-slate-100 text-slate-600")}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setIsLocked(!isLocked)} className={cn("h-9 w-9 rounded-lg transition-all", isLocked ? "bg-amber-50 text-amber-600" : "hover:bg-slate-100 text-slate-600")}>
                     {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="left">
-                  {isLocked ? 'Layout entsperren' : 'Layout sperren'}
-                </TooltipContent>
+                <TooltipContent side="left">{isLocked ? 'Layout entsperren' : 'Layout sperren'}</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-lg hover:bg-slate-100">
-                    <RefreshCw className="w-4 h-4 text-slate-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">Neu zeichnen</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-lg hover:bg-slate-100">
-                    <Maximize2 className="w-4 h-4 text-slate-600" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">Zentrieren</TooltipContent>
-              </Tooltip>
+              <Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-lg hover:bg-slate-100"><RefreshCw className="w-4 h-4 text-slate-600" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ action: 'zoom', type: 'fit' }), '*')} className="h-9 w-9 rounded-lg hover:bg-slate-100"><Maximize2 className="w-4 h-4 text-slate-600" /></Button>
             </TooltipProvider>
           </div>
           <iframe ref={iframeRef} src="https://embed.diagrams.net/?embed=1&ui=min&spin=1&proto=json" className="absolute inset-0 w-full h-full border-none" />
           {(!isIframeReady) && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4">
               <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-              <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Lade Stammbaum...</p>
+              <p className="text-[10px] font-black uppercase tracking-widest animate-pulse">Generiere Stammbaum...</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Job Editor Dialog (RBAC Blueprint) */}
+      {/* Role Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-4xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white h-[90vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
-                <Briefcase className="w-6 h-6" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Rollenprofil & Blueprint</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Definiert Standard-Rechte für: {jobName}</DialogDescription>
-              </div>
+              <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg"><Briefcase className="w-6 h-6" /></div>
+              <div><DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Rollenprofil & Blueprint</DialogTitle><DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{jobName}</DialogDescription></div>
             </div>
           </DialogHeader>
-          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+          <Tabs defaultValue="rbac" className="flex-1 flex flex-col min-h-0">
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary">Beschreibung</TabsTrigger>
-                <TabsTrigger value="rbac" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Standard-Systemrollen (RBAC)</TabsTrigger>
+                <TabsTrigger value="rbac" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600">Standard-Rechte (Blueprint)</TabsTrigger>
               </TabsList>
             </div>
             <ScrollArea className="flex-1 bg-slate-50/30">
               <div className="p-8 space-y-10">
                 <TabsContent value="base" className="mt-0 space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung der Rolle</Label>
-                    <Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-12 font-bold text-sm rounded-xl border-slate-200" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Rollenbeschreibung (ISO 9001 Kontext)</Label>
-                    <Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] p-5 rounded-2xl text-xs font-medium leading-relaxed bg-white shadow-inner" placeholder="Was sind die Hauptaufgaben und Verantwortlichkeiten?..." />
-                  </div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bezeichnung</Label><Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-12 font-bold text-sm rounded-xl border-slate-200" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Stellenbeschreibung (ISO Context)</Label><Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[200px] p-5 rounded-2xl text-xs font-medium bg-white" placeholder="Aufgaben und Verantwortlichkeiten..." /></div>
                 </TabsContent>
-
                 <TabsContent value="rbac" className="mt-0 space-y-8">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 uppercase">Berechtigungs-Blueprint</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">Wählen Sie Systemrollen, die ein Mitarbeiter in diesem Rollenprofil automatisch erhalten soll.</p>
-                    </div>
-                    <div className="relative group">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                      <Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[10px] rounded-lg w-full md:w-64" />
-                    </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <h4 className="text-sm font-bold uppercase">Berechtigungs-Vorgabe</h4>
+                    <Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 text-[10px] w-full max-w-xs" />
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {filteredEntitlements.map(ent => {
                       const res = resources?.find(r => r.id === ent.resourceId);
                       const isSelected = jobEntitlementIds.includes(ent.id);
                       return (
-                        <div 
-                          key={ent.id} 
-                          className={cn(
-                            "p-4 border rounded-2xl flex items-center gap-4 cursor-pointer transition-all shadow-sm group",
-                            isSelected ? "border-indigo-500 bg-indigo-50/30 ring-2 ring-indigo-500/10" : "bg-white border-slate-100 hover:border-slate-200"
-                          )}
-                          onClick={() => setJobEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}
-                        >
-                          <Checkbox checked={isSelected} className="rounded-md h-4 w-4" />
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[8px] font-black uppercase text-slate-400">{res?.name}</span>
-                              {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full h-3 px-1 text-[6px] font-black">ADMIN</Badge>}
-                            </div>
-                          </div>
+                        <div key={ent.id} className={cn("p-4 border rounded-2xl flex items-center gap-4 cursor-pointer transition-all shadow-sm bg-white", isSelected ? "border-indigo-500 bg-indigo-50/30" : "hover:border-slate-200")} onClick={() => setJobEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}>
+                          <Checkbox checked={isSelected} />
+                          <div className="min-w-0"><p className="text-[11px] font-bold truncate">{ent.name}</p><p className="text-[8px] font-black uppercase text-slate-400">{res?.name}</p></div>
                         </div>
                       );
                     })}
@@ -587,56 +506,22 @@ export default function UnifiedOrganizationPage() {
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
-            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white shadow-lg font-bold text-[10px] uppercase gap-2 active:scale-95 transition-all">
-              {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Profil speichern
-            </Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase gap-2 shadow-lg">{isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Tenant Dialog */}
-      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary border border-primary/10">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <DialogTitle className="text-lg font-bold text-slate-900">{editingTenant ? 'Mandant konfigurieren' : 'Neuer Mandant'}</DialogTitle>
-            </div>
-          </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">Unternehmensname</Label>
-                <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-md h-11 border-slate-200" placeholder="z.B. Acme Corp" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[11px] font-bold text-slate-400">System-Alias (Slug)</Label>
-                <Input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} className="rounded-md h-11 border-slate-200 font-mono text-sm" placeholder="acme-holding" />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
-            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleCreateTenant} disabled={isSavingTenant || !tenantName} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
-              {isSavingTenant ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Speichern
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Permanent Delete Alert */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
-        <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
+      {/* Delete Alert */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={val => !val && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-600" /></div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Permanent löschen?</AlertDialogTitle>
-            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich permanent löschen?</AlertDialogDescription>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich unwiderruflich löschen?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
-            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-md font-bold text-xs h-11 px-10 gap-2">{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Permanent löschen</AlertDialogAction>
+            <AlertDialogCancel className="rounded-lg font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs h-11 px-10 gap-2">{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Löschen</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

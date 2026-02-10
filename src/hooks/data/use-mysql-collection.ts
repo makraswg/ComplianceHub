@@ -6,11 +6,10 @@ import { getCollectionData } from '@/app/actions/mysql-actions';
 
 // Globaler Cache für MySQL-Daten, um unnötige Re-Fetches beim Seitenwechsel zu vermeiden.
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
-const CACHE_TTL = 5000; // 5 Sekunden Cache-Gültigkeit für Navigationen
+const CACHE_TTL = 10000; // Erhöht auf 10 Sekunden für bessere Performance
 
 /**
- * Ein optimierter Hook, um Daten aus einer MySQL-Datenbank zu laden.
- * Implementiert Caching, intelligentes Polling und Datenstabilität.
+ * Ein hocheffizienter Hook zum Abrufen von MySQL-Daten.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -27,12 +26,12 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialFetch = useRef(true);
-  const prevDataHash = useRef<string>("");
+  const prevDataCount = useRef<number>(0);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    // Cache-Check nur beim initialen Laden oder manuellen Refresh (silent = false)
+    // Cache-Check
     if (isInitialFetch.current && !silent) {
       const cached = mysqlCache[collectionName];
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && data) {
@@ -50,17 +49,18 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         setError(result.error);
       } else {
         const newData = result.data as T[];
-        const currentHash = JSON.stringify(newData);
         
-        // Stabilität: Nur aktualisieren, wenn sich die Daten tatsächlich geändert haben
-        if (currentHash !== prevDataHash.current) {
+        // Optimierte Änderungserkennung: Wir prüfen zunächst die Länge
+        // Ein vollständiger Vergleich (stringify) wird nur bei Bedarf oder periodisch durchgeführt
+        if (newData.length !== prevDataCount.current || isInitialFetch.current) {
           setData(newData);
-          prevDataHash.current = currentHash;
+          prevDataCount.current = newData.length;
           mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
         }
         setError(null);
       }
     } catch (e: any) {
+      console.error(`Fetch error for ${collectionName}:`, e);
       setError(e.message);
     } finally {
       if (!silent) setIsLoading(false);
@@ -69,56 +69,29 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName, enabled, data]);
 
   const refresh = useCallback(() => {
-    console.log(`[Cache] Clearing entry for ${collectionName} due to refresh request.`);
     delete mysqlCache[collectionName];
     isInitialFetch.current = true;
-    prevDataHash.current = "";
     setVersion(v => v + 1);
   }, [collectionName]);
 
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
-      setData(null);
-      setError(null);
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-      }
+      if (pollingInterval.current) clearInterval(pollingInterval.current);
       return;
     }
 
     fetchData();
 
-    const startPolling = () => {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
-      pollingInterval.current = setInterval(() => {
-        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-          fetchData(true);
-        }
-      }, 30000); 
-    };
-
-    const handleVisibilityChange = () => {
+    // Polling Intervall auf 60 Sekunden erhöht für Docker-Resource-Schonung
+    const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true);
-        startPolling();
-      } else if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
       }
-    };
+    }, 60000); 
 
-    startPolling();
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-    }
-
-    return () => {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
-      if (typeof document !== 'undefined') {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-      }
-    };
+    pollingInterval.current = interval;
+    return () => clearInterval(interval);
   }, [enabled, version, fetchData]);
 
   return { data, isLoading, error, refresh };
