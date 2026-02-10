@@ -4,17 +4,12 @@ services:
     container_name: compliance-hub-db
     restart: always
     privileged: true
-    environment:
-      MYSQL_DATABASE: compliance_hub
-      MYSQL_USER: compliance_user
-      MYSQL_PASSWORD: hub_secret_password
-      MYSQL_ROOT_PASSWORD: root_secret_password
+    env_file:
+      - .env
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-    networks:
-      - compliance-hub-network
 
   compliance-app:
     build: .
@@ -22,24 +17,13 @@ services:
     restart: always
     ports:
       - "9002:3000"
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=production
       - MYSQL_HOST=compliance-db
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=compliance_hub
-      - MYSQL_USER=compliance_user
-      - MYSQL_PASSWORD=hub_secret_password
-      - OLLAMA_URL=http://host.docker.internal:11434
     depends_on:
       - compliance-db
-    networks:
-      - compliance-hub-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
-networks:
-  compliance-hub-network:
-    driver: bridge
 
 volumes:
   mysql_data:
