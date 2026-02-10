@@ -13,6 +13,7 @@ const CACHE_TTL = 10000;
  * Optimiert für virtualisierte Docker Umgebungen.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
+  // Initialisiere Daten aus dem Cache, falls vorhanden
   const [data, setData] = useState<T[] | null>(() => {
     const cached = mysqlCache[collectionName];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -21,38 +22,30 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     return null;
   });
   
-  const [isLoading, setIsLoading] = useState(enabled && !data);
+  // isLoading ist nur wahr, wenn enabled UND noch keine Daten (auch nicht aus Cache) vorhanden sind
+  const [isLoading, setIsLoading] = useState(enabled && data === null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialFetch = useRef(true);
-  const prevDataCount = useRef<number>(0);
+  const prevDataCount = useRef<number>(-1);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    // Cache-Check am Anfang
-    if (isInitialFetch.current && !silent) {
-      const cached = mysqlCache[collectionName];
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && cached.data) {
-        setData(cached.data);
-        setIsLoading(false);
-        isInitialFetch.current = false;
-        return;
-      }
+    if (!silent && data === null) {
+      setIsLoading(true);
     }
-
-    if (!silent && !data) setIsLoading(true);
     
     try {
       const result = await getCollectionData(collectionName);
       if (result.error) {
         setError(result.error);
       } else {
-        const newData = result.data as T[];
+        const newData = (result.data || []) as T[];
         
-        // Optimierte Änderungserkennung: Wir prüfen zunächst die Länge
+        // Update nur wenn Daten sich geändert haben oder erster Lauf
         if (newData.length !== prevDataCount.current || isInitialFetch.current) {
           setData(newData);
           prevDataCount.current = newData.length;
@@ -62,16 +55,17 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       }
     } catch (e: any) {
       console.error(`Fetch error for ${collectionName}:`, e);
-      setError(e.message);
+      setError(e.message || "Unbekannter Datenbankfehler");
     } finally {
-      if (!silent) setIsLoading(false);
+      setIsLoading(false);
       isInitialFetch.current = false;
     }
-  }, [collectionName, enabled]); // data entfernt aus deps zur Stabilität
+  }, [collectionName, enabled, data]);
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];
     isInitialFetch.current = true;
+    prevDataCount.current = -1;
     setVersion(v => v + 1);
   }, [collectionName]);
 
@@ -84,7 +78,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Polling Intervall auf 60 Sekunden erhöht für Docker-Resource-Schonung
+    // Polling Intervall für Hintergrund-Updates
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true);
@@ -92,7 +86,9 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     }, 60000); 
 
     pollingInterval.current = interval;
-    return () => clearInterval(interval);
+    return () => {
+      if (pollingInterval.current) clearInterval(pollingInterval.current);
+    };
   }, [enabled, version, fetchData]);
 
   return { data, isLoading, error, refresh };
