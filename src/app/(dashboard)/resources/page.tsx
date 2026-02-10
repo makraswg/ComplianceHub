@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Plus, 
   Search, 
@@ -34,7 +34,8 @@ import {
   PlusCircle,
   Settings2,
   Clock,
-  LayoutGrid
+  LayoutGrid,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, ProcessType } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, ProcessType, Risk } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -69,10 +70,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 export const dynamic = 'force-dynamic';
 
-export default function ResourcesPage() {
+function ResourcesPageContent() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -87,7 +89,6 @@ export default function ResourcesPage() {
   const [assetType, setAssetType] = useState('');
   const [category, setCategory] = useState('Fachanwendung');
   const [operatingModel, setOperatingModel] = useState('');
-  const [criticality, setCriticality] = useState<Resource['criticality']>('medium');
   const [dataClassification, setDataClassification] = useState<Resource['dataClassification']>('internal');
   const [confidentialityReq, setConfidentialityReq] = useState<Resource['confidentialityReq']>('medium');
   const [integrityReq, setIntegrityReq] = useState<Resource['integrityReq']>('medium');
@@ -100,6 +101,9 @@ export default function ResourcesPage() {
   
   const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
+  const [externalOwnerPartnerId, setExternalOwnerPartnerId] = useState('none');
+  const [externalOwnerContactId, setExternalOwnerContactId] = useState('none');
+  const [externalOwnerAreaId, setExternalOwnerAreaId] = useState('none');
 
   const [backupRequired, setBackupRequired] = useState(false);
   const [updatesRequired, setUpdatesRequired] = useState(false);
@@ -126,8 +130,27 @@ export default function ResourcesPage() {
   const { data: allProcesses } = usePluggableCollection<Process>('processes');
   const { data: allBackupJobs, refresh: refreshBackups } = usePluggableCollection<BackupJob>('backup_jobs');
   const { data: allUpdateLinks, refresh: refreshUpdates } = usePluggableCollection<ResourceUpdateProcess>('resource_update_processes');
+  const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
+  const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
+  const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
+  const { data: risks } = usePluggableCollection<Risk>('risks');
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Handle auto-edit from URL
+  useEffect(() => {
+    if (mounted && resources && searchParams.get('edit')) {
+      const targetId = searchParams.get('edit');
+      const res = resources.find(r => r.id === targetId);
+      if (res) {
+        openEdit(res);
+        // Clean URL
+        const url = new URL(window.location.href);
+        url.searchParams.delete('edit');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [mounted, resources, searchParams]);
 
   const sortedRoles = useMemo(() => {
     if (!jobTitles || !departmentsData) return [];
@@ -143,6 +166,15 @@ export default function ResourcesPage() {
     return allProcesses?.filter(p => p.status !== 'archived') || [];
   }, [allProcesses]);
 
+  const getInheritedCriticality = (resId: string) => {
+    const resRisks = risks?.filter(r => r.assetId === resId) || [];
+    if (resRisks.length === 0) return 'low';
+    const maxScore = Math.max(...resRisks.map(r => r.impact * r.probability));
+    if (maxScore >= 15) return 'high';
+    if (maxScore >= 8) return 'medium';
+    return 'low';
+  };
+
   const handleSave = async () => {
     if (!name || !assetType) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." });
@@ -153,11 +185,15 @@ export default function ResourcesPage() {
     const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
+    // Criticality is inherited, not saved manually if risks exist
+    const derivedCriticality = getInheritedCriticality(id);
+
     const resourceData: Resource = {
       ...selectedResource,
       id,
       tenantId: targetTenantId,
-      name, assetType, category, operatingModel, criticality, dataClassification,
+      name, assetType, category, operatingModel, dataClassification,
+      criticality: derivedCriticality as any,
       confidentialityReq, integrityReq, availabilityReq,
       hasPersonalData, isDataRepository, isIdentityProvider,
       backupRequired, updatesRequired,
@@ -165,6 +201,9 @@ export default function ResourcesPage() {
       dataLocation,
       systemOwnerRoleId: systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
+      externalOwnerPartnerId: externalOwnerPartnerId !== 'none' ? externalOwnerPartnerId : undefined,
+      externalOwnerContactId: externalOwnerContactId !== 'none' ? externalOwnerContactId : undefined,
+      externalOwnerAreaId: externalOwnerAreaId !== 'none' ? externalOwnerAreaId : undefined,
       notes, url, status: selectedResource?.status || 'active',
       createdAt: selectedResource?.createdAt || new Date().toISOString()
     } as Resource;
@@ -215,7 +254,6 @@ export default function ResourcesPage() {
     setAssetType(res.assetType);
     setCategory(res.category);
     setOperatingModel(res.operatingModel);
-    setCriticality(res.criticality);
     setDataClassification(res.dataClassification || 'internal');
     setConfidentialityReq(res.confidentialityReq || 'medium');
     setIntegrityReq(res.integrityReq || 'medium');
@@ -231,6 +269,9 @@ export default function ResourcesPage() {
     setDataLocation(res.dataLocation || '');
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
     setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
+    setExternalOwnerPartnerId(res.externalOwnerPartnerId || 'none');
+    setExternalOwnerContactId(res.externalOwnerContactId || 'none');
+    setExternalOwnerAreaId(res.externalOwnerAreaId || 'none');
     setNotes(res.notes || '');
     setUrl(res.url || '');
     setIsDialogOpen(true);
@@ -239,10 +280,11 @@ export default function ResourcesPage() {
   const resetForm = () => {
     setSelectedResource(null);
     setName(''); setAssetType(''); setCategory('Fachanwendung'); setOperatingModel('');
-    setCriticality('medium'); setDataClassification('internal');
+    setDataClassification('internal');
     setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
     setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false);
     setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerRoleId('none'); setRiskOwnerRoleId('none');
+    setExternalOwnerPartnerId('none'); setExternalOwnerContactId('none'); setExternalOwnerAreaId('none');
     setBackupRequired(false); setUpdatesRequired(false);
     setLocalBackupJobs([]); setSelectedUpdateProcessIds([]);
     setNotes(''); setUrl('');
@@ -344,7 +386,7 @@ export default function ResourcesPage() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">CIA</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Vererbte Krit.</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Backup/Updates</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
@@ -353,6 +395,7 @@ export default function ResourcesPage() {
               {filteredResources.map((res) => {
                 const backups = allBackupJobs?.filter(b => b.resourceId === res.id).length || 0;
                 const updates = allUpdateLinks?.filter(u => u.resourceId === res.id).length || 0;
+                const crit = getInheritedCriticality(res.id);
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -367,7 +410,9 @@ export default function ResourcesPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <Badge variant="outline" className={cn("text-[8px] font-black h-4 px-1.5 border-none uppercase", res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{res.criticality}</Badge>
+                      <Badge variant="outline" className={cn("text-[8px] font-black h-4 px-1.5 border-none uppercase", crit === 'high' ? "bg-red-50 text-red-600" : crit === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600")}>
+                        {crit}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -402,7 +447,7 @@ export default function ResourcesPage() {
                   <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Wartung, Backup & Schutzbedarfe</DialogDescription>
                 </div>
               </div>
-              <AiFormAssistant formType="resource" currentData={{ name, assetType, criticality }} onApply={(s) => { if(s.name) setName(s.name); if(s.criticality) setCriticality(s.criticality); }} />
+              <AiFormAssistant formType="resource" currentData={{ name, assetType }} onApply={(s) => { if(s.name) setName(s.name); }} />
             </div>
           </DialogHeader>
           
@@ -411,8 +456,8 @@ export default function ResourcesPage() {
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
                 <TabsTrigger value="gov" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Schutzbedarf</TabsTrigger>
+                <TabsTrigger value="ownership" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Ownership</TabsTrigger>
                 <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Wartung & Backup</TabsTrigger>
-                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Ownership</TabsTrigger>
               </TabsList>
             </div>
 
@@ -438,14 +483,135 @@ export default function ResourcesPage() {
                         <SelectContent className="rounded-xl">{operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugehöriger IdP</Label>
+                      <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
+                          <SelectValue placeholder="IdP wählen..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Direkt / Lokal</SelectItem>
+                          <SelectItem value="self">Dieses System (LDAP/Local)</SelectItem>
+                          {resources?.filter(r => !!r.isIdentityProvider && r.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Physischer Standort</Label>
+                      <Input value={dataLocation} onChange={e => setDataLocation(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white shadow-sm" placeholder="z.B. Azure West Europe, RZ Nord..." />
+                    </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="gov" className="mt-0 space-y-8">
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-slate-50/50"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2 flex items-center gap-4 pt-6"><Label className="text-[10px] font-bold text-slate-900">Pers. Daten</Label><Switch checked={hasPersonalData} onCheckedChange={setHasPersonalData} /></div>
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Vererbter Schutzbedarf</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center justify-center gap-2 shadow-inner">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Effektive Kritikalität</span>
+                        <p className={cn("text-3xl font-black uppercase", getInheritedCriticality(selectedResource?.id || 'new') === 'high' ? "text-red-600" : "text-emerald-600")}>
+                          {getInheritedCriticality(selectedResource?.id || 'new')}
+                        </p>
+                        <p className="text-[9px] text-slate-400 italic">Wird automatisch aus verknüpften Risiken berechnet.</p>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Daten-Klassifizierung</Label>
+                          <Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="public">Öffentlich</SelectItem>
+                              <SelectItem value="internal">Intern</SelectItem>
+                              <SelectItem value="confidential">Vertraulich</SelectItem>
+                              <SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] font-bold uppercase">Personenbezug</Label>
+                            <p className="text-[8px] text-slate-400 uppercase font-black">Art. 4 DSGVO</p>
+                          </div>
+                          <Switch checked={hasPersonalData} onCheckedChange={setHasPersonalData} className="data-[state=checked]:bg-emerald-600" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="ownership" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Internal Ownership */}
+                    <div className="space-y-6 p-6 bg-white border rounded-2xl shadow-sm">
+                      <div className="flex items-center gap-3 border-b pb-3">
+                        <Building2 className="w-5 h-5 text-primary" />
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Interne Verantwortung</h4>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Intern)</Label>
+                          <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Keine</SelectItem>
+                              {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Intern)</Label>
+                          <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Keine</SelectItem>
+                              {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* External Ownership */}
+                    <div className="space-y-6 p-6 bg-indigo-50/20 border border-indigo-100 rounded-2xl shadow-sm">
+                      <div className="flex items-center gap-3 border-b pb-3">
+                        <Globe className="w-5 h-5 text-indigo-600" />
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Externer Betrieb</h4>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Service Partner</Label>
+                          <Select value={externalOwnerPartnerId} onValueChange={setExternalOwnerPartnerId}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white border-indigo-100"><SelectValue placeholder="Partner wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Kein externer Partner</SelectItem>
+                              {partners?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Ansprechpartner</Label>
+                          <Select value={externalOwnerContactId} onValueChange={setExternalOwnerContactId} disabled={externalOwnerPartnerId === 'none'}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white border-indigo-100"><SelectValue placeholder="Kontakt wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Kein Ansprechpartner</SelectItem>
+                              {contacts?.filter(c => c.partnerId === externalOwnerPartnerId).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Fachbereich / Area</Label>
+                          <Select value={externalOwnerAreaId} onValueChange={setExternalOwnerAreaId} disabled={externalOwnerPartnerId === 'none'}>
+                            <SelectTrigger className="rounded-xl h-11 bg-white border-indigo-100"><SelectValue placeholder="Bereich wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Kein Bereich</SelectItem>
+                              {areas?.filter(a => a.partnerId === externalOwnerPartnerId).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -465,7 +631,7 @@ export default function ResourcesPage() {
                       </div>
                       {backupRequired && (
                         <div className="space-y-4">
-                          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700" onClick={() => handleOpenBackupModal()}>
+                          <Button size="sm" variant="outline" className="h-8 text-[10px] font-bold gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => handleOpenBackupModal()}>
                             <PlusCircle className="w-3.5 h-3.5" /> Backup-Job anlegen
                           </Button>
                           <div className="grid grid-cols-1 gap-3">
@@ -518,21 +684,6 @@ export default function ResourcesPage() {
                           </ScrollArea>
                         </div>
                       )}
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="admin" className="mt-0 space-y-10">
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-[9px] font-black uppercase text-slate-400">System Owner (Intern)</Label>
-                      <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                        <SelectTrigger className="rounded-xl h-11 bg-white shadow-sm"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="none">Keine</SelectItem>
-                          {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
                     </div>
                   </div>
                 </TabsContent>
@@ -607,5 +758,13 @@ export default function ResourcesPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ResourcesPage() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>}>
+      <ResourcesPageContent />
+    </Suspense>
   );
 }
