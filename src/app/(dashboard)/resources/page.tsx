@@ -26,7 +26,9 @@ import {
   Globe,
   UserCircle,
   HardDrive,
-  RefreshCw
+  RefreshCw,
+  Info,
+  ClipboardList
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -34,7 +36,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, ProcessType, BackupJob, UpdateProcess } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
@@ -58,6 +60,9 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from '@/components/ui/separator';
+
+export const dynamic = 'force-dynamic';
 
 export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -106,11 +111,20 @@ export default function ResourcesPage() {
   const { data: departmentsData } = usePluggableCollection<Department>('departments');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
-  
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
+  const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('processTypes');
+
+  const { data: backupJobs, refresh: refreshBackups } = usePluggableCollection<BackupJob>('backupJobs');
+  const { data: updateProcesses, refresh: refreshUpdates } = usePluggableCollection<UpdateProcess>('updateProcesses');
 
   useEffect(() => { setMounted(true); }, []);
+
+  const itProcesses = useMemo(() => {
+    const itTypeId = processTypes?.find(t => t.name === 'IT-Prozess')?.id;
+    return processes?.filter(p => p.processTypeId === itTypeId) || [];
+  }, [processes, processTypes]);
 
   const sortedRoles = useMemo(() => {
     if (!jobTitles || !departmentsData) return [];
@@ -135,10 +149,6 @@ export default function ResourcesPage() {
     const tenant = tenants?.find((t: any) => t.id === id);
     return tenant ? tenant.slug : id;
   };
-
-  const identityProviders = useMemo(() => {
-    return resources?.filter(r => r.isIdentityProvider === true || r.isIdentityProvider === 1) || [];
-  }, [resources]);
 
   const resetForm = () => {
     setSelectedResource(null);
@@ -186,7 +196,7 @@ export default function ResourcesPage() {
 
     const resourceData: Resource = {
       ...selectedResource,
-      id: selectedResource?.id || '',
+      id: selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`,
       tenantId: targetTenantId,
       name,
       assetType,
@@ -210,14 +220,14 @@ export default function ResourcesPage() {
       url,
       status: selectedResource?.status || 'active',
       createdAt: selectedResource?.createdAt || new Date().toISOString(),
+      backupRequired,
+      updatesRequired,
       operatorId: '',
       riskOwner: '',
       dataOwner: '',
       mfaType: 'none',
-      authMethod: identityProviderId === 'none' ? 'direct' : 'idp',
-      backupRequired,
-      updatesRequired
-    } as Resource;
+      authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
+    };
 
     try {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
@@ -267,6 +277,50 @@ export default function ResourcesPage() {
     setBackupRequired(!!res.backupRequired);
     setUpdatesRequired(!!res.updatesRequired);
     setIsDialogOpen(true);
+  };
+
+  // Maintenance Job Management
+  const [newBackupName, setNewBackupName] = useState('');
+  const [newBackupResponsibleId, setNewBackupResponsibleId] = useState('');
+  const [newBackupProcessId, setNewBackupProcessId] = useState('');
+  
+  const [newUpdateName, setNewUpdateName] = useState('');
+  const [newUpdateResponsibleId, setNewUpdateResponsibleId] = useState('');
+  const [newUpdateProcessId, setNewUpdateProcessId] = useState('');
+
+  const handleAddBackupJob = async () => {
+    if (!newBackupName || !selectedResource) return;
+    const bid = `bkp-${Math.random().toString(36).substring(2, 7)}`;
+    const job: BackupJob = {
+      id: bid,
+      resourceId: selectedResource.id,
+      name: newBackupName,
+      cycle: 'daily',
+      location: 'Standard Storage',
+      responsibleRoleId: newBackupResponsibleId === 'none' ? undefined : newBackupResponsibleId,
+      processId: newBackupProcessId === 'none' ? undefined : newBackupProcessId
+    };
+    await saveCollectionRecord('backupJobs', bid, job, dataSource);
+    setNewBackupName('');
+    refreshBackups();
+    toast({ title: "Sicherungs-Job hinzugefügt" });
+  };
+
+  const handleAddUpdateProcess = async () => {
+    if (!newUpdateName || !selectedResource) return;
+    const uid = `upd-${Math.random().toString(36).substring(2, 7)}`;
+    const proc: UpdateProcess = {
+      id: uid,
+      resourceId: selectedResource.id,
+      name: newUpdateName,
+      frequency: 'monthly',
+      responsibleRoleId: newUpdateResponsibleId === 'none' ? undefined : newUpdateResponsibleId,
+      processId: newUpdateProcessId === 'none' ? undefined : newUpdateProcessId
+    };
+    await saveCollectionRecord('updateProcesses', uid, proc, dataSource);
+    setNewUpdateName('');
+    refreshUpdates();
+    toast({ title: "Wartungs-Prozess hinzugefügt" });
   };
 
   const filteredResources = useMemo(() => {
@@ -502,20 +556,134 @@ export default function ResourcesPage() {
                 <TabsContent value="maintenance" className="mt-0 space-y-10">
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
                     <div className="flex items-center gap-2 border-b pb-3"><RefreshCw className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Wartung & Verfügbarkeit</h4></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-900">Datensicherung erforderlich</Label>
-                          <p className="text-[8px] text-slate-400 uppercase font-black">Backup-Planung aktiv</p>
+                    
+                    <div className="space-y-8">
+                      {/* Backup Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="space-y-0.5">
+                            <Label className="text-sm font-bold uppercase text-slate-900">Datensicherung erforderlich</Label>
+                            <p className="text-[10px] text-slate-400 uppercase font-black">Backup-Konzeption aktiv</p>
+                          </div>
+                          <Switch checked={backupRequired} onCheckedChange={setBackupRequired} />
                         </div>
-                        <Switch checked={backupRequired} onCheckedChange={setBackupRequired} />
+
+                        {backupRequired && (
+                          <div className="space-y-4 pl-4 border-l-2 border-emerald-100 animate-in fade-in slide-in-from-top-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-white border rounded-xl shadow-sm">
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">Bezeichnung</Label>
+                                <Input value={newBackupName} onChange={e => setNewBackupName(e.target.value)} placeholder="z.B. Daily DB Export" className="h-9 text-xs" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortung</Label>
+                                <Select value={newBackupResponsibleId} onValueChange={setNewBackupResponsibleId}>
+                                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Rolle..." /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Keine</SelectItem>
+                                    {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{getFullRoleName(r.id)}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">IT-Prozess</Label>
+                                <Select value={newBackupProcessId} onValueChange={setNewBackupProcessId}>
+                                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Prozess..." /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Kein Bezug</SelectItem>
+                                    {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-emerald-600" onClick={handleAddBackupJob} disabled={!newBackupName || !selectedResource}>
+                                <Plus className="w-3 h-3" /> Job hinzufügen
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              {backupJobs?.filter(b => b.resourceId === selectedResource?.id).map(job => (
+                                <div key={job.id} className="p-3 bg-slate-50 border rounded-lg flex items-center justify-between group shadow-sm">
+                                  <div className="flex items-center gap-3">
+                                    <HardDrive className="w-4 h-4 text-emerald-600" />
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-slate-800">{job.name}</p>
+                                      <p className="text-[8px] text-slate-400 uppercase font-black">
+                                        Verantw: {getFullRoleName(job.responsibleRoleId)} • Prozess: {itProcesses.find(p => p.id === job.processId)?.title || '---'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all" onClick={() => deleteCollectionRecord('backupJobs', job.id, dataSource).then(() => refreshBackups())}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] font-bold uppercase text-slate-900">Updates / Patching nötig</Label>
-                          <p className="text-[8px] text-slate-400 uppercase font-black">Wartungs-Prozesse definieren</p>
+
+                      {/* Updates Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                          <div className="space-y-0.5">
+                            <Label className="text-sm font-bold uppercase text-slate-900">Patch-Management nötig</Label>
+                            <p className="text-[10px] text-slate-400 uppercase font-black">Wartungs-Zyklen definieren</p>
+                          </div>
+                          <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} />
                         </div>
-                        <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} />
+
+                        {updatesRequired && (
+                          <div className="space-y-4 pl-4 border-l-2 border-blue-100 animate-in fade-in slide-in-from-top-2">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-white border rounded-xl shadow-sm">
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">Wartungstitel</Label>
+                                <Input value={newUpdateName} onChange={e => setNewUpdateName(e.target.value)} placeholder="z.B. Security Patching" className="h-9 text-xs" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortung</Label>
+                                <Select value={newUpdateResponsibleId} onValueChange={setNewUpdateResponsibleId}>
+                                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Rolle..." /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Keine</SelectItem>
+                                    {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{getFullRoleName(r.id)}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label className="text-[9px] font-black uppercase text-slate-400">IT-Prozess</Label>
+                                <Select value={newUpdateProcessId} onValueChange={setNewUpdateProcessId}>
+                                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Prozess..." /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Kein Bezug</SelectItem>
+                                    {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-blue-600" onClick={handleAddUpdateProcess} disabled={!newUpdateName || !selectedResource}>
+                                <Plus className="w-3 h-3" /> Eintrag hinzufügen
+                              </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                              {updateProcesses?.filter(u => u.resourceId === selectedResource?.id).map(proc => (
+                                <div key={proc.id} className="p-3 bg-slate-50 border rounded-lg flex items-center justify-between group shadow-sm">
+                                  <div className="flex items-center gap-3">
+                                    <RefreshCw className="w-4 h-4 text-blue-600" />
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-bold text-slate-800">{proc.name}</p>
+                                      <p className="text-[8px] text-slate-400 uppercase font-black">
+                                        Verantw: {getFullRoleName(proc.responsibleRoleId)} • Prozess: {itProcesses.find(p => p.id === proc.processId)?.title || '---'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all" onClick={() => deleteCollectionRecord('updateProcesses', proc.id, dataSource).then(() => refreshUpdates())}>
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

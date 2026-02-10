@@ -339,6 +339,8 @@ export interface BackupJob {
   location: string;
   description?: string;
   lastReviewDate?: string;
+  responsibleRoleId?: string;
+  processId?: string;
 }
 
 export interface UpdateProcess {
@@ -349,6 +351,7 @@ export interface UpdateProcess {
   description?: string;
   responsibleRoleId?: string;
   lastRunDate?: string;
+  processId?: string;
 }
 
 export interface Resource {

@@ -440,7 +440,9 @@ export const appSchema: AppSchema = {
       cycle: 'VARCHAR(50) DEFAULT "daily"',
       location: 'VARCHAR(255)',
       description: 'TEXT',
-      lastReviewDate: 'VARCHAR(50)'
+      lastReviewDate: 'VARCHAR(50)',
+      responsibleRoleId: 'VARCHAR(255)',
+      processId: 'VARCHAR(255)'
     }
   },
   update_processes: {
@@ -451,7 +453,8 @@ export const appSchema: AppSchema = {
       frequency: 'VARCHAR(50) DEFAULT "monthly"',
       description: 'TEXT',
       responsibleRoleId: 'VARCHAR(255)',
-      lastRunDate: 'VARCHAR(50)'
+      lastRunDate: 'VARCHAR(50)',
+      processId: 'VARCHAR(255)'
     }
   },
   auditEvents: {

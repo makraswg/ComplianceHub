@@ -91,7 +91,8 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     if (typeRows[0].count === 0) {
       const types = [
         { id: 'pt-core', name: 'Unternehmensprozess', desc: 'Strategische Kernprozesse der Organisation.' },
-        { id: 'pt-detail', name: 'Detailprozess', desc: 'Operative Arbeitsabläufe auf Teamebene.' }
+        { id: 'pt-detail', name: 'Detailprozess', desc: 'Operative Arbeitsabläufe auf Teamebene.' },
+        { id: 'pt-it', name: 'IT-Prozess', desc: 'Technische Abläufe, Wartung und IT-Governance.' }
       ];
       for (const t of types) {
         await connection.execute(
