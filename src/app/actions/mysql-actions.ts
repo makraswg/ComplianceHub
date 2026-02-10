@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -47,6 +48,7 @@ const collectionToTableMap: { [key: string]: string } = {
   assetTypeOptions: 'asset_type_options',
   operatingModelOptions: 'operating_model_options',
   processes: 'processes',
+  process_types: 'process_types',
   process_versions: 'process_versions',
   process_comments: 'process_comments',
   process_ops: 'process_ops',
@@ -60,7 +62,9 @@ const collectionToTableMap: { [key: string]: string } = {
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
   task_comments: 'task_comments',
-  media: 'media'
+  media: 'media',
+  backup_jobs: 'backup_jobs',
+  update_processes: 'update_processes'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -101,7 +105,7 @@ function normalizeRecord(item: any, tableName: string) {
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
     'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
     'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-    'isIdentityProvider'
+    'isIdentityProvider', 'backupRequired', 'updatesRequired'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -225,7 +229,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
       'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
       'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-      'isIdentityProvider'
+      'isIdentityProvider', 'backupRequired', 'updatesRequired'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -246,55 +250,24 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
 }
 
 export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
-  console.log(`[SERVER-ACTION] deleteCollectionRecord: START - Collection: ${collectionName}, ID: ${id}, Source: ${dataSource}`);
-  
-  if (dataSource === 'mock') {
-    console.log(`[SERVER-ACTION] deleteCollectionRecord: MOCK MODE - Bypassing real delete.`);
-    return { success: true, error: null };
-  }
-  
+  if (dataSource === 'mock') return { success: true, error: null };
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
       await deleteDoc(doc(firestore, collectionName, id));
-      console.log(`[SERVER-ACTION] deleteCollectionRecord: FIRESTORE SUCCESS`);
       return { success: true, error: null };
-    } catch (e: any) { 
-      console.error(`[SERVER-ACTION] deleteCollectionRecord: FIRESTORE ERROR`, e);
-      return { success: false, error: e.message }; 
-    }
+    } catch (e: any) { return { success: false, error: e.message }; }
   }
-  
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) {
-    console.error(`[SERVER-ACTION] deleteCollectionRecord: MAPPING ERROR - No table found for ${collectionName}`);
-    return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
-  }
-  
+  if (!tableName) return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
   let connection;
   try {
-    console.log(`[SERVER-ACTION] deleteCollectionRecord: MYSQL ATTEMPT - Table: ${tableName}, ID: ${id}`);
     connection = await getMysqlConnection();
-    
-    // Explicit check for foreign key constraints if it's a settings option
-    if (tableName === 'asset_type_options' || tableName === 'operating_model_options') {
-      // Small check to see if it's used
-      const [usage]: any = await connection.execute(`SELECT COUNT(*) as count FROM resources WHERE ${tableName === 'asset_type_options' ? 'assetType' : 'operatingModel'} = (SELECT name FROM \`${tableName}\` WHERE id = ?)`, [id]);
-      if (usage[0].count > 0) {
-        console.warn(`[SERVER-ACTION] deleteCollectionRecord: PROTECTED - Item still in use by ${usage[0].count} resources.`);
-        connection.release();
-        return { success: false, error: "Löschen nicht möglich: Diese Option wird aktuell noch von IT-Ressourcen verwendet." };
-      }
-    }
-
     const [result]: any = await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
     connection.release();
-    
-    console.log(`[SERVER-ACTION] deleteCollectionRecord: MYSQL SUCCESS. Affected rows: ${result.affectedRows}`);
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
-    console.error(`[SERVER-ACTION] deleteCollectionRecord: MYSQL ERROR for ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }
@@ -303,76 +276,16 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   let connection;
   try {
     connection = await getMysqlConnection();
-    
-    const tablesToClear = [
-      'users',
-      'auditEvents',
-      'catalogs',
-      'hazardModules',
-      'hazards',
-      'hazardMeasures',
-      'hazardMeasureRelations',
-      'importRuns',
-      'risks',
-      'riskMeasures',
-      'riskControls',
-      'resources',
-      'entitlements',
-      'assignments',
-      'groups',
-      'bundles',
-      'processingActivities',
-      'dataSubjectGroups',
-      'dataCategories',
-      'departments',
-      'jobTitles',
-      'service_partners',
-      'service_partner_contacts',
-      'service_partner_areas',
-      'data_stores',
-      'asset_type_options',
-      'operating_model_options',
-      'processes',
-      'process_versions',
-      'process_comments',
-      'process_ops',
-      'process_relations',
-      'bookstack_exports',
-      'ai_sessions',
-      'ai_messages',
-      'regulatory_options',
-      'usage_type_options',
-      'uiConfigs',
-      'platformRoles',
-      'features',
-      'feature_links',
-      'feature_dependencies',
-      'feature_process_steps',
-      'tasks',
-      'task_comments',
-      'media'
-    ];
-
+    const tablesToClear = Object.values(collectionToTableMap);
     await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
-
     for (const table of tablesToClear) {
-      try {
-        await connection.execute(`DELETE FROM \`${table}\``);
-      } catch (err) {
-        console.warn(`Could not clear table ${table}, might not exist yet.`);
-      }
+      try { await connection.execute(`DELETE FROM \`${table}\``); } catch (err) {}
     }
-
     await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
-
     connection.release();
     return { success: true, message: "Ausgewählte Datenbereiche wurden erfolgreich geleert." };
   } catch (error: any) {
-    if (connection) {
-      await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
-      connection.release();
-    }
-    console.error("Truncate failed:", error);
+    if (connection) { await connection.execute('SET FOREIGN_KEY_CHECKS = 1'); connection.release(); }
     return { success: false, message: `Fehler beim Leeren der Tabellen: ${error.message}` };
   }
 }

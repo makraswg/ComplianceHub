@@ -222,6 +222,7 @@ export const appSchema: AppSchema = {
       tenantId: 'VARCHAR(255) NOT NULL',
       responsibleDepartmentId: 'VARCHAR(255)',
       vvtId: 'VARCHAR(255)', 
+      typeId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       inputs: 'TEXT',
@@ -241,6 +242,13 @@ export const appSchema: AppSchema = {
       tags: 'TEXT',
     }
   },
+  process_types: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      name: 'VARCHAR(255) NOT NULL',
+      enabled: 'BOOLEAN DEFAULT TRUE'
+    }
+  },
   process_versions: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -251,6 +259,31 @@ export const appSchema: AppSchema = {
       revision: 'INT DEFAULT 0',
       created_by_user_id: 'VARCHAR(255)',
       created_at: 'VARCHAR(50)',
+    }
+  },
+  backup_jobs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      cycle: 'VARCHAR(50)', 
+      location: 'TEXT',
+      description: 'TEXT',
+      responsibleRoleId: 'VARCHAR(255)',
+      processId: 'VARCHAR(255)', 
+      lastReviewDate: 'VARCHAR(50)'
+    }
+  },
+  update_processes: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      frequency: 'VARCHAR(50)',
+      responsibleRoleId: 'VARCHAR(255)',
+      processId: 'VARCHAR(255)', 
+      description: 'TEXT',
+      lastReviewDate: 'VARCHAR(50)'
     }
   },
   regulatory_options: {
@@ -376,6 +409,8 @@ export const appSchema: AppSchema = {
       isDataRepository: 'BOOLEAN DEFAULT FALSE',
       isIdentityProvider: 'BOOLEAN DEFAULT FALSE',
       identityProviderId: 'VARCHAR(255)',
+      backupRequired: 'BOOLEAN DEFAULT FALSE',
+      updatesRequired: 'BOOLEAN DEFAULT FALSE',
       affectedGroups: 'TEXT',
       dataLocation: 'VARCHAR(255)',
       isInternetExposed: 'BOOLEAN DEFAULT FALSE',

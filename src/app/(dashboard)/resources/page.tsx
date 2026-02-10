@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -17,13 +18,18 @@ import {
   Database,
   KeyRound,
   ShieldAlert,
-  Save,
+  Save as SaveIcon,
   Archive,
   RotateCcw,
   ShieldCheck,
   ChevronRight,
   Globe,
-  UserCircle
+  UserCircle,
+  HardDrive,
+  Activity,
+  History,
+  Trash2,
+  Workflow
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,7 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
@@ -55,6 +61,9 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Separator } from '@/components/ui/separator';
+
+export const dynamic = 'force-dynamic';
 
 export default function ResourcesPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -90,6 +99,9 @@ export default function ResourcesPage() {
   const [externalRefId, setExternalRefId] = useState('none'); 
   const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
 
+  const [backupRequired, setBackupRequired] = useState(false);
+  const [updatesRequired, setUpdatesRequired] = useState(false);
+
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
 
@@ -99,9 +111,9 @@ export default function ResourcesPage() {
   const { data: departmentsData } = usePluggableCollection<Department>('departments');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
-  
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
+  const { data: itProcesses } = usePluggableCollection<Process>('processes');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -153,6 +165,8 @@ export default function ResourcesPage() {
     setSystemOwnerRoleId('');
     setExternalRefId('none');
     setRiskOwnerRoleId('');
+    setBackupRequired(false);
+    setUpdatesRequired(false);
     setNotes('');
     setUrl('');
   };
@@ -191,6 +205,8 @@ export default function ResourcesPage() {
       hasPersonalData,
       isDataRepository,
       isIdentityProvider,
+      backupRequired,
+      updatesRequired,
       identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? (selectedResource?.id || 'self') : identityProviderId),
       dataLocation,
       systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
@@ -235,6 +251,8 @@ export default function ResourcesPage() {
     setHasPersonalData(!!res.hasPersonalData);
     setIsDataRepository(!!res.isDataRepository);
     setIsIdentityProvider(!!res.isIdentityProvider);
+    setBackupRequired(!!res.backupRequired);
+    setUpdatesRequired(!!res.updatesRequired);
     
     if (res.identityProviderId === res.id) setIdentityProviderId('self');
     else setIdentityProviderId(res.identityProviderId || 'none');
@@ -416,7 +434,7 @@ export default function ResourcesPage() {
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">{selectedResource ? 'Ressource aktualisieren' : 'Ressource registrieren'}</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Management & Schutzbedarfsfeststellung</DialogDescription>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Management &amp; Schutzbedarfsfeststellung</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="resource" currentData={{ name, assetType, category, operatingModel }} onApply={(s) => { if(s.name) setName(s.name); if(s.category) setCategory(s.category); }} />
@@ -428,7 +446,8 @@ export default function ResourcesPage() {
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
                 <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf</TabsTrigger>
-                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung & Auth</TabsTrigger>
+                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung &amp; Auth</TabsTrigger>
+                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Wartung &amp; Backup</TabsTrigger>
               </TabsList>
             </div>
 
@@ -480,7 +499,7 @@ export default function ResourcesPage() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                       <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label><Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">Öffentlich</SelectItem><SelectItem value="internal">Intern</SelectItem><SelectItem value="confidential">Vertraulich</SelectItem><SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
+                      <div className="space-y-2"><Label className="text-[10px) font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
                     </div>
                   </div>
                 </TabsContent>
@@ -516,29 +535,74 @@ export default function ResourcesPage() {
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><KeyRound className="w-4 h-4 text-blue-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Identitätsanbieter</h4></div>
                       <div className="space-y-4">
                         <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung über</Label>
-                        <Select value={identityProviderId} onValueChange={setIdentityProviderId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Direkt / Lokal</SelectItem><SelectItem value="self">Dieses System</SelectItem>{identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}</SelectContent></Select>
-                      </div>
-                    </div>
-                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6 md:col-span-2">
-                      <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><ShieldAlert className="w-4 h-4 text-orange-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Risk Owner (Intern)</h4></div>
-                      <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche interne Rolle</Label>
-                        <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                          <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                        <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
+                          <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">Keine</SelectItem>
-                            {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
-                              <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>
-                            ))}
+                            <SelectItem value="none">Direkt / Lokal</SelectItem>
+                            <SelectItem value="self">Dieses System (LDAP/Local)</SelectItem>
+                            {identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
                   </div>
                 </TabsContent>
+
+                <TabsContent value="maintenance" className="mt-0 space-y-10">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    {/* Backup Config */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="w-4 h-4 text-orange-600" />
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung</h4>
+                        </div>
+                        <Switch checked={backupRequired} onCheckedChange={setBackupRequired} />
+                      </div>
+                      {backupRequired ? (
+                        <div className="space-y-4 animate-in fade-in">
+                          <p className="text-[10px] text-slate-500 italic">Sicherungs-Jobs können in der Detailansicht verwaltet werden.</p>
+                          <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-3">
+                            <Info className="w-4 h-4 text-orange-600" />
+                            <p className="text-[10px] font-bold text-orange-800">Review alle 180 Tage empfohlen.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center opacity-30"><p className="text-[10px] font-black uppercase">Keine Sicherung gefordert</p></div>
+                      )}
+                    </div>
+
+                    {/* Update Config */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-blue-600" />
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Patch-Management</h4>
+                        </div>
+                        <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} />
+                      </div>
+                      {updatesRequired ? (
+                        <div className="space-y-4 animate-in fade-in">
+                          <p className="text-[10px] text-slate-500 italic">Wartungszyklen und Prozesse können in der Detailansicht hinterlegt werden.</p>
+                          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3">
+                            <ShieldCheck className="w-4 h-4 text-blue-600" />
+                            <p className="text-[10px] font-bold text-blue-800">Überwachung der Patch-Level aktiv.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center opacity-30"><p className="text-[10px] font-black uppercase">Kein Patch-Management gefordert</p></div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
               </div>
             </ScrollArea>
-            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] h-11 uppercase">Abbrechen</Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-12 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
+              </Button>
+            </DialogFooter>
           </Tabs>
         </DialogContent>
       </Dialog>

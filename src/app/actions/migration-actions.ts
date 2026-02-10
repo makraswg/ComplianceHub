@@ -68,6 +68,21 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
+    // SEEDING: Prozesstypen
+    details.push('🌱 Prüfe auf Prozesstypen...');
+    const [typeRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `process_types`');
+    if (typeRows[0].count === 0) {
+      const types = [
+        ['pt-1', 'Unternehmensprozess', 1],
+        ['pt-2', 'Detailprozess', 1],
+        ['pt-3', 'IT-Prozess', 1]
+      ];
+      for (const t of types) {
+        await connection.execute('INSERT INTO `process_types` (id, name, enabled) VALUES (?, ?, ?)', t);
+      }
+      details.push('   ✅ Standard-Prozesstypen erstellt.');
+    }
+
     // SEEDING: Default Admin Account
     details.push('🌱 Prüfe auf initialen Admin-Account...');
     const [userRows]: any = await connection.execute('SELECT COUNT(*) as count FROM `platformUsers`');

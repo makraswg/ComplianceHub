@@ -97,6 +97,7 @@ export default function UnifiedOrganizationPage() {
   const { dataSource } = useSettings();
   const { user } = usePlatformAuth();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState('');
@@ -132,14 +133,18 @@ export default function UnifiedOrganizationPage() {
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const isSuperAdmin = user?.role === 'superAdmin';
 
   const filteredData = useMemo(() => {
-    if (!tenants || !departments || !jobTitles) return [];
+    if (!tenants) return [];
     
     // Efficiency: Pre-group jobs and depts using Maps O(N)
     const jobsByDept = new Map<string, JobTitle[]>();
-    jobTitles.forEach(j => {
+    (jobTitles || []).forEach(j => {
       const matchStatus = showArchived ? j.status === 'archived' : j.status !== 'archived';
       if (!matchStatus) return;
       if (!jobsByDept.has(j.departmentId)) jobsByDept.set(j.departmentId, []);
@@ -147,7 +152,7 @@ export default function UnifiedOrganizationPage() {
     });
 
     const deptsByTenant = new Map<string, any[]>();
-    departments.forEach(d => {
+    (departments || []).forEach(d => {
       const matchStatus = showArchived ? d.status === 'archived' : d.status !== 'archived';
       if (!matchStatus) return;
       if (!deptsByTenant.has(d.tenantId)) deptsByTenant.set(d.tenantId, []);
@@ -293,6 +298,18 @@ export default function UnifiedOrganizationPage() {
     });
   }, [entitlements, resources, editingJob, roleSearch]);
 
+  useEffect(() => {
+    const handleMessage = (evt: MessageEvent) => {
+      if (!evt.data || typeof evt.data !== 'string') return;
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.event === 'init') setIsIframeReady(true);
+      } catch (e) {}
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   if (!mounted) return null;
 
   return (
@@ -300,7 +317,7 @@ export default function UnifiedOrganizationPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten & Rollenplan</h1>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten &amp; Rollenplan</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Blueprints.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
@@ -467,7 +484,7 @@ export default function UnifiedOrganizationPage() {
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg"><Briefcase className="w-6 h-6" /></div>
-              <div><DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Rollenprofil & Blueprint</DialogTitle><DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{jobName}</DialogDescription></div>
+              <div><DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Rollenprofil &amp; Blueprint</DialogTitle><DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{jobName}</DialogDescription></div>
             </div>
           </DialogHeader>
           <Tabs defaultValue="rbac" className="flex-1 flex flex-col min-h-0">
