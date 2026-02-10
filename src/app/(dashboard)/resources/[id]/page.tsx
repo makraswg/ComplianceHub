@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -56,11 +55,9 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department, Entitlement, BackupJob, UpdateProcess } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { saveResourceAction } from '@/app/actions/resource-actions';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
@@ -76,13 +73,12 @@ import { Switch } from '@/components/ui/switch';
 
 export const dynamic = 'force-dynamic';
 
-export default function ResourceDetailPage() {
+export default function UserDetailPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = usePlatformAuth();
   const { activeTenantId, dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
-  const [isInheriting, setIsInheriting] = useState(false);
 
   // Role Management State
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false);
@@ -139,34 +135,6 @@ export default function ResourceDetailPage() {
     return { processes: affectedProcesses, vvts: affectedVvts, features: linkedFeatures };
   }, [resource, processes, versions, vvts, features, featureLinks]);
 
-  const effectiveInheritance = useMemo(() => {
-    if (!impactAnalysis.features || impactAnalysis.features.length === 0) return null;
-    const rankMap = { 'low': 1, 'medium': 2, 'high': 3 };
-    const classRankMap = { 'public': 1, 'internal': 2, 'confidential': 3, 'strictly_confidential': 4 };
-    const revRankMap = { 1: 'low', 2: 'medium', 3: 'high' } as const;
-    const revClassMap = { 1: 'public', 2: 'internal', 3: 'confidential', 4: 'strictly_confidential' } as const;
-    let maxCrit = 1, maxC = 1, maxI = 1, maxA = 1, maxClass = 1;
-    impactAnalysis.features.forEach(f => {
-      maxCrit = Math.max(maxCrit, rankMap[f.criticality] || 1);
-      maxC = Math.max(maxC, rankMap[f.confidentialityReq || 'low'] || 1);
-      maxI = Math.max(maxI, rankMap[f.integrityReq || 'low'] || 1);
-      maxA = Math.max(maxA, rankMap[f.availabilityReq || 'low'] || 1);
-      if (f.criticality === 'high') maxClass = Math.max(maxClass, 3);
-      else if (f.criticality === 'medium') maxClass = Math.max(maxClass, 2);
-    });
-    return { criticality: revRankMap[maxCrit as 1|2|3], confidentiality: revRankMap[maxC as 1|2|3], integrity: revRankMap[maxI as 1|2|3], availability: revRankMap[maxA as 1|2|3], classification: revClassMap[maxClass as 1|2|3|4] };
-  }, [impactAnalysis.features]);
-
-  const handleApplyInheritance = async () => {
-    if (!resource || !effectiveInheritance) return;
-    setIsInheriting(true);
-    const updatedResource: Resource = { ...resource, criticality: effectiveInheritance.criticality, confidentialityReq: effectiveInheritance.confidentiality, integrityReq: effectiveInheritance.integrity, availabilityReq: effectiveInheritance.availability, dataClassification: effectiveInheritance.classification };
-    try {
-      const res = await saveResourceAction(updatedResource, dataSource, user?.email || 'system');
-      if (res.success) { toast({ title: "Compliance-Vorschlag übernommen" }); refreshRes(); }
-    } finally { setIsInheriting(false); }
-  };
-
   const handleSaveRole = async () => {
     if (!roleName || !resource) return;
     setIsSavingRole(true);
@@ -174,8 +142,22 @@ export default function ResourceDetailPage() {
     const roleData: Entitlement = { ...selectedRole, id: roleId, resourceId: resource.id, name: roleName, description: roleDesc, riskLevel: roleRiskLevel, isAdmin: roleIsAdmin, externalMapping: roleMapping, tenantId: resource.tenantId };
     try {
       const res = await saveCollectionRecord('entitlements', roleId, roleData, dataSource);
-      if (res.success) { toast({ title: selectedRole ? "Rolle aktualisiert" : "Rolle angelegt" }); setIsRoleDialogOpen(false); refreshRoles(); }
+      if (res.success) { 
+        toast({ title: selectedRole ? "Rolle aktualisiert" : "Rolle angelegt" }); 
+        setIsRoleDialogOpen(false); 
+        refreshRoles(); 
+      }
     } finally { setIsSavingRole(false); }
+  };
+
+  const openRoleEdit = (role: Entitlement) => {
+    setSelectedRole(role);
+    setRoleName(role.name);
+    setRoleDesc(role.description || '');
+    setRoleRiskLevel(role.riskLevel as any || 'low');
+    setRoleIsAdmin(!!role.isAdmin);
+    setRoleMapping(role.externalMapping || '');
+    setIsRoleDialogOpen(true);
   };
 
   const getFullRoleName = (roleId?: string) => {
@@ -220,7 +202,7 @@ export default function ResourceDetailPage() {
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50/50 border-b p-4 px-6"><CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung</CardTitle></CardHeader>
             <CardContent className="p-6 space-y-8">
-              <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>{systemOwnerPartner ? (<div className="space-y-3 p-4 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner"><div className="flex items-center gap-2"><Badge className="bg-indigo-600 text-white border-none rounded-full h-3 px-1 text-[6px] font-black uppercase tracking-widest">EXTERN</Badge><p className="text-[10px] font-black uppercase text-indigo-900 truncate">{systemOwnerPartner.name}</p></div>{systemOwnerArea && (<div className="flex items-center gap-2 pt-1 border-t border-indigo-100/50"><Briefcase className="w-3.5 h-3.5 text-indigo-400" /><p className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">{systemOwnerArea.name}</p></div>)}</div>) : systemOwnerRole ? (<div className="space-y-1"><div className="flex items-center gap-2 text-slate-900 font-bold text-sm"><Briefcase className="w-4 h-4 text-primary" /> {systemOwnerRole.name}</div>{systemOwnerDept && <p className="text-[9px] text-slate-400 font-bold uppercase pl-6">{systemOwnerDept.name}</p>}</div>) : (<p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>)}</div>
+              <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>{systemOwnerPartner ? (<div className="space-y-3 p-4 rounded-xl bg-indigo-50 border border-indigo-100 shadow-inner"><div className="flex items-center gap-2"><Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase tracking-widest">EXTERN</Badge><p className="text-[10px] font-black uppercase text-indigo-900 truncate">{systemOwnerPartner.name}</p></div>{systemOwnerArea && (<div className="flex items-center gap-2 pt-1 border-t border-indigo-100/50"><Briefcase className="w-3.5 h-3.5 text-indigo-400" /><p className="text-[10px] font-bold text-indigo-700 uppercase tracking-tight">{systemOwnerArea.name}</p></div>)}</div>) : systemOwnerRole ? (<div className="space-y-1"><div className="flex items-center gap-2 text-slate-900 font-bold text-sm"><Briefcase className="w-4 h-4 text-primary" /> {systemOwnerRole.name}</div>{systemOwnerDept && <p className="text-[9px] text-slate-400 font-bold uppercase pl-6">{systemOwnerDept.name}</p>}</div>) : (<p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>)}</div>
               <div className="space-y-1"><p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risk Owner</p>{riskOwnerRole ? (<div className="space-y-1"><div className="flex items-center gap-2 text-slate-900 font-bold text-sm"><ShieldAlert className="w-4 h-4 text-orange-600" /> {riskOwnerRole.name}</div>{riskOwnerDept && <p className="text-[9px] text-slate-400 font-bold uppercase pl-6">{riskOwnerDept.name}</p>}</div>) : (<p className="text-sm text-slate-300 italic font-medium p-1">Nicht zugewiesen</p>)}</div>
             </CardContent>
           </Card>
@@ -235,7 +217,7 @@ export default function ResourceDetailPage() {
               <TabsTrigger value="details" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm"><Info className="w-3.5 h-3.5" /> Technik</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="roles" className="space-y-6">
+            <TabsContent value="roles" className="space-y-6 animate-in fade-in">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-3"><Shield className="w-5 h-5 text-primary" /><div><CardTitle className="text-sm font-bold">Systemrollen</CardTitle><CardDescription className="text-[10px] font-bold uppercase">Berechtigungsprofile</CardDescription></div></div>
@@ -252,96 +234,60 @@ export default function ResourceDetailPage() {
             </TabsContent>
 
             <TabsContent value="maintenance" className="space-y-8 animate-in fade-in">
-              {/* Backup Jobs */}
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-emerald-50/50 border-b p-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-3"><HardDrive className="w-5 h-5 text-emerald-600" /><div><CardTitle className="text-sm font-bold text-emerald-900">Sicherungskonzept (Backups)</CardTitle><CardDescription className="text-[10px] font-bold text-emerald-600 uppercase">Geplante und manuelle Datensicherungen</CardDescription></div></div>
-                  {!resource.backupRequired && <Badge variant="outline" className="text-[8px] font-black border-slate-200">Nicht erforderlich</Badge>}
+                  {!resource.backupRequired && <Badge variant="outline" className="text-[8px] font-black border-slate-200">Inaktiv</Badge>}
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 gap-4">
                     {resourceBackups.map(b => (
-                      <div key={b.id} className="p-5 bg-white border rounded-2xl shadow-sm border-slate-100 group hover:border-emerald-200 transition-all">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 shadow-inner"><HardDrive className="w-5 h-5 text-emerald-600" /></div>
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-slate-800">{b.name}</h4>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                <Badge variant="outline" className="text-[8px] font-black h-4 uppercase">{b.cycle}</Badge>
-                                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                                  <UserCircle className="w-3 h-3" /> Verantw: {getFullRoleName(b.responsibleRoleId)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 border-t md:border-t-0 pt-3 md:pt-0">
-                            {b.processId && (
-                              <Button variant="outline" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-100 text-indigo-600 bg-indigo-50/20" onClick={() => router.push(`/processhub/view/${b.processId}`)}>
-                                <Workflow className="w-3 h-3 mr-1.5" /> Leitfaden
-                              </Button>
-                            )}
-                            <div className="text-right">
-                              <p className="text-[8px] font-black text-slate-400 uppercase">Letzter Test</p>
-                              <p className="text-[10px] font-bold text-slate-700">{b.lastReviewDate || 'Offen'}</p>
-                            </div>
+                      <div key={b.id} className="p-5 bg-white border rounded-2xl shadow-sm border-slate-100 group hover:border-emerald-200 transition-all flex items-center justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 shadow-inner"><HardDrive className="w-5 h-5 text-emerald-600" /></div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sm text-slate-800">{b.name}</h4>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Verantw: {getFullRoleName(b.responsibleRoleId)}</p>
                           </div>
                         </div>
+                        {b.processId && (
+                          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase border-indigo-100 text-indigo-600 bg-indigo-50/20" onClick={() => router.push(`/processhub/view/${b.processId}`)}><Workflow className="w-3 h-3 mr-1.5" /> Leitfaden</Button>
+                        )}
                       </div>
                     ))}
-                    {resourceBackups.length === 0 && (
-                      <div className="py-12 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase">Keine Jobs hinterlegt</div>
-                    )}
+                    {resourceBackups.length === 0 && <div className="py-12 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase">Keine Jobs hinterlegt</div>}
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Update Processes */}
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-blue-50/50 border-b p-6 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-3"><RefreshCw className="w-5 h-5 text-blue-600" /><div><CardTitle className="text-sm font-bold text-blue-900">Patch- & Release-Management</CardTitle><CardDescription className="text-[10px] font-bold text-blue-600 uppercase">Regelmäßige Wartung und Updates</CardDescription></div></div>
-                  {!resource.updatesRequired && <Badge variant="outline" className="text-[8px] font-black border-slate-200">Nicht erforderlich</Badge>}
+                  <div className="flex items-center gap-3"><RefreshCw className="w-5 h-5 text-blue-600" /><div><CardTitle className="text-sm font-bold text-blue-900">Patch- & Release-Management</CardTitle><CardDescription className="text-[10px] font-bold text-blue-600 uppercase">Wartungsprozesse</CardDescription></div></div>
+                  {!resource.updatesRequired && <Badge variant="outline" className="text-[8px] font-black border-slate-200">Inaktiv</Badge>}
                 </CardHeader>
                 <CardContent className="p-6">
                   <div className="grid grid-cols-1 gap-4">
                     {resourceUpdates.map(u => (
-                      <div key={u.id} className="p-5 bg-white border rounded-2xl shadow-sm border-slate-100 group hover:border-blue-200 transition-all">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 shadow-inner"><ClipboardList className="w-5 h-5 text-blue-600" /></div>
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-sm text-slate-800">{u.name}</h4>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                <Badge variant="outline" className="text-[8px] font-black h-4 uppercase">{u.frequency.replace('_', ' ')}</Badge>
-                                <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                                  <UserCircle className="w-3 h-3" /> Verantw: {getFullRoleName(u.responsibleRoleId)}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 border-t md:border-t-0 pt-3 md:pt-0">
-                            {u.processId && (
-                              <Button variant="outline" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase border-blue-100 text-blue-600 bg-blue-50/20" onClick={() => router.push(`/processhub/view/${u.processId}`)}>
-                                <Workflow className="w-3 h-3 mr-1.5" /> Wartungsprozess
-                              </Button>
-                            )}
-                            <div className="text-right">
-                              <p className="text-[8px] font-black text-slate-400 uppercase">Letzter Lauf</p>
-                              <p className="text-[10px] font-bold text-slate-700">{u.lastRunDate || 'Noch nie'}</p>
-                            </div>
+                      <div key={u.id} className="p-5 bg-white border rounded-2xl shadow-sm border-slate-100 group hover:border-blue-200 transition-all flex items-center justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0 shadow-inner"><ClipboardList className="w-5 h-5 text-blue-600" /></div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sm text-slate-800">{u.name}</h4>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Verantw: {getFullRoleName(u.responsibleRoleId)}</p>
                           </div>
                         </div>
+                        {u.processId && (
+                          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[9px] font-black uppercase border-blue-100 text-blue-600 bg-blue-50/20" onClick={() => router.push(`/processhub/view/${u.processId}`)}><Workflow className="w-3 h-3 mr-1.5" /> Wartungsprozess</Button>
+                        )}
                       </div>
                     ))}
-                    {resourceUpdates.length === 0 && (
-                      <div className="py-12 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase">Keine Wartungsprozesse hinterlegt</div>
-                    )}
+                    {resourceUpdates.length === 0 && <div className="py-12 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs uppercase">Keine Wartungsprozesse hinterlegt</div>}
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="impact" className="space-y-8">
+            <TabsContent value="impact" className="space-y-8 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between"><div className="flex items-center gap-3"><Workflow className="w-5 h-5 text-indigo-600" /><div><CardTitle className="text-sm font-bold">Workflows</CardTitle></div></div><Badge variant="outline">{impactAnalysis.processes.length}</Badge></CardHeader>
@@ -351,7 +297,7 @@ export default function ResourceDetailPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="details" className="space-y-6">
+            <TabsContent value="details" className="space-y-6 animate-in fade-in">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                 <CardHeader className="bg-slate-50/50 border-b p-6"><CardTitle className="text-sm font-bold">Technische Spezifikation</CardTitle></CardHeader>
                 <CardContent className="p-8 grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -363,7 +309,7 @@ export default function ResourceDetailPage() {
                     <h4 className="text-[10px] font-black uppercase text-slate-400 mb-4 flex items-center gap-2"><Target className="w-3.5 h-3.5" /> Schutzbedarfs-Integrität</h4>
                     <div className="space-y-4">
                       {['confidentiality', 'integrity', 'availability'].map(key => {
-                        const val = resource[`${key}Req` as keyof Resource] as string;
+                        const val = (resource as any)[`${key}Req`];
                         return (<div key={key} className="flex items-center justify-between"><span className="text-[10px] font-bold text-slate-500 uppercase">{key}</span><Badge variant="outline" className={cn("text-[8px] font-black border-none", val === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{val?.toUpperCase()}</Badge></div>);
                       })}
                     </div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -457,7 +456,7 @@ export default function ResourcesPage() {
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1.5">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white" onClick={() => openEdit(res)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}>
                           <Pencil className="w-3.5 h-3.5 text-slate-400" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}>
@@ -595,7 +594,7 @@ export default function ResourcesPage() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-emerald-600" onClick={handleAddBackupJob} disabled={!newBackupName || !selectedResource}>
+                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAddBackupJob} disabled={!newBackupName || !selectedResource}>
                                 <Plus className="w-3 h-3" /> Job hinzufügen
                               </Button>
                             </div>
@@ -659,7 +658,7 @@ export default function ResourcesPage() {
                                   </SelectContent>
                                 </Select>
                               </div>
-                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-blue-600" onClick={handleAddUpdateProcess} disabled={!newUpdateName || !selectedResource}>
+                              <Button className="md:col-span-3 h-8 text-[10px] font-black uppercase gap-2 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAddUpdateProcess} disabled={!newUpdateName || !selectedResource}>
                                 <Plus className="w-3 h-3" /> Eintrag hinzufügen
                               </Button>
                             </div>
@@ -720,7 +719,7 @@ export default function ResourcesPage() {
                       <div className="flex items-center gap-2 border-b border-slate-100 pb-3"><KeyRound className="w-4 h-4 text-blue-600" /><h4 className="text-[10px] font-black uppercase text-slate-900 tracking-widest">Identitätsanbieter</h4></div>
                       <div className="space-y-4">
                         <Label className="text-[9px] font-black uppercase text-slate-400">Anmeldung über</Label>
-                        <Select value={identityProviderId} onValueChange={setIdentityProviderId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Direkt / Lokal</SelectItem><SelectItem value="self">Dieses System</SelectItem>{identityProviders.filter(idp => idp.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}</SelectContent></Select>
+                        <Select value={identityProviderId} onValueChange={setIdentityProviderId}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="IdP wählen..." /></SelectTrigger><SelectContent><SelectItem value="none">Direkt / Lokal</SelectItem><SelectItem value="self">Dieses System</SelectItem>{resources?.filter(r => r.isIdentityProvider && r.id !== selectedResource?.id).map(idp => <SelectItem key={idp.id} value={idp.id}>{idp.name}</SelectItem>)}</SelectContent></Select>
                       </div>
                     </div>
                     <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6 md:col-span-2">

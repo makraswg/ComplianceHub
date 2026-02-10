@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -273,7 +272,6 @@ export default function PlatformUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Main Admin Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
@@ -344,7 +342,6 @@ export default function PlatformUsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 2FA Setup Dialog */}
       <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
         <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 bg-indigo-600 text-white shrink-0 pr-10">
@@ -369,7 +366,7 @@ export default function PlatformUsersPage() {
               <>
                 <div className="space-y-4">
                   <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    1. Scannen Sie diesen QR-Code mit einer Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator oder Authy).
+                    1. Scannen Sie diesen QR-Code mit einer Authenticator-App.
                   </p>
                   <div className="p-4 bg-white border border-indigo-100 rounded-2xl shadow-inner flex justify-center">
                     <img src={totpSetupData.qrCode} alt="TOTP QR Code" className="w-48 h-48" />
@@ -378,22 +375,15 @@ export default function PlatformUsersPage() {
 
                 <div className="space-y-4">
                   <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                    2. Geben Sie den 6-stelligen Code aus der App zur Verifizierung ein.
+                    2. Bestätigungscode eingeben.
                   </p>
-                  <div className="space-y-2">
-                    <Input 
-                      value={totpVerificationCode} 
-                      onChange={e => setTotpVerificationCode(e.target.value)} 
-                      placeholder="000 000" 
-                      className="h-12 rounded-xl text-center text-xl font-black tracking-[0.5em] border-indigo-200 bg-indigo-50/30"
-                      maxLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Manueller Schlüssel (Secret)</Label>
-                  <p className="text-[10px] font-mono font-bold text-slate-600 break-all select-all">{totpSetupData.secret}</p>
+                  <Input 
+                    value={totpVerificationCode} 
+                    onChange={e => setTotpVerificationCode(e.target.value)} 
+                    placeholder="000 000" 
+                    className="h-12 rounded-xl text-center text-xl font-black tracking-[0.5em] border-indigo-200 bg-indigo-50/30"
+                    maxLength={6}
+                  />
                 </div>
               </>
             ) : (
