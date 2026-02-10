@@ -133,6 +133,17 @@ export const appSchema: AppSchema = {
       totpSecret: 'VARCHAR(255)',
     },
   },
+  platform_backups: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      timestamp: 'VARCHAR(50) NOT NULL',
+      status: 'VARCHAR(50) NOT NULL',
+      fileName: 'VARCHAR(255) NOT NULL',
+      fileSize: 'BIGINT',
+      type: 'VARCHAR(50)',
+      createdBy: 'VARCHAR(255)'
+    }
+  },
   magic_links: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

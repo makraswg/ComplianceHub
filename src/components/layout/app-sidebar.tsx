@@ -50,7 +50,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -173,6 +173,7 @@ export function AppSidebar() {
     { name: 'Daten-Landkarte', href: '/settings/data-map', icon: Network },
     { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
+    { name: 'Backup & Restore', href: '/settings/backup', icon: Database },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
     { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },

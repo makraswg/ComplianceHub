@@ -134,6 +134,16 @@ export interface PlatformUser {
   totpSecret?: string;
 }
 
+export interface PlatformBackup {
+  id: string;
+  timestamp: string;
+  status: 'success' | 'failed' | 'in_progress';
+  fileName: string;
+  fileSize: number;
+  type: 'manual' | 'scheduled';
+  createdBy: string;
+}
+
 export interface MediaFile {
   id: string;
   tenantId: string;

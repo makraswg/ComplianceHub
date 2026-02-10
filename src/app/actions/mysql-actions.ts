@@ -63,7 +63,8 @@ const collectionToTableMap: { [key: string]: string } = {
   task_comments: 'task_comments',
   media: 'media',
   backupJobs: 'backup_jobs',
-  updateProcesses: 'update_processes'
+  updateProcesses: 'update_processes',
+  platform_backups: 'platform_backups'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -279,7 +280,7 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'asset_type_options', 'operating_model_options', 'process_types', 'processes', 'process_versions', 'process_comments',
       'process_ops', 'process_relations', 'bookstack_exports', 'ai_sessions', 'ai_messages', 'regulatory_options',
       'usage_type_options', 'uiConfigs', 'platformRoles', 'features', 'feature_links', 'feature_dependencies',
-      'feature_process_steps', 'tasks', 'task_comments', 'media', 'backup_jobs', 'update_processes'
+      'feature_process_steps', 'tasks', 'task_comments', 'media', 'backup_jobs', 'update_processes', 'platform_backups'
     ];
     await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
     for (const table of tablesToClear) {
