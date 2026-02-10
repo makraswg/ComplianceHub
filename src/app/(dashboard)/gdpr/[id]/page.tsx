@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -46,7 +47,7 @@ import { Label } from '@/components/ui/label';
 export default function GdprDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
-  const { dataSource, activeTenantId } = useSettings();
+  const { dataSource } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -64,348 +65,118 @@ export default function GdprDetailViewPage() {
 
   const stats = useMemo(() => {
     if (!activity || !processes || !versions || !resources || !measures) return { linkedProcesses: [], aggregatedResources: [], automatedToms: [], gapScore: 0, gaps: [] };
-
     const linkedProcesses = processes.filter(p => p.vvtId === activity.id);
     const resourceIds = new Set<string>();
     linkedProcesses.forEach(proc => {
       const ver = versions.find(v => v.process_id === proc.id);
-      ver?.model_json?.nodes?.forEach((node: ProcessNode) => {
-        node.resourceIds?.forEach(rid => resourceIds.add(rid));
-      });
+      ver?.model_json?.nodes?.forEach((node: ProcessNode) => { node.resourceIds?.forEach(rid => resourceIds.add(rid)); });
     });
-    
     const aggregatedResources = Array.from(resourceIds).map(rid => resources.find(r => r.id === rid)).filter(Boolean) as Resource[];
     const automatedToms = measures.filter(m => m.isTom && m.resourceIds?.some(rid => resourceIds.has(rid)));
-
     const gaps = [];
-    if (aggregatedResources.some(r => r.criticality === 'high') && automatedToms.length < 3) {
-      gaps.push({ type: 'critical', title: 'Ungenügende Absicherung', msg: 'Hoher Schutzbedarf, aber weniger als 3 Kontrollen (TOM) definiert.' });
-    }
-    if (automatedToms.some(m => !m.isEffective)) {
-      gaps.push({ type: 'warning', title: 'Kontroll-Schwäche', msg: 'Mindestens eine verknüpfte TOM ist aktuell als "nicht wirksam" markiert.' });
-    }
-    if (linkedProcesses.length === 0) {
-      gaps.push({ type: 'info', title: 'Daten-Inkonsistenz', msg: 'Diesem Zweck ist noch kein operativer Geschäftsprozess zugeordnet.' });
-    }
-
+    if (aggregatedResources.some(r => r.criticality === 'high') && automatedToms.length < 3) gaps.push({ type: 'critical', msg: 'Hoher Schutzbedarf, aber wenig TOMs.' });
     const gapScore = gaps.length === 0 ? 100 : Math.max(0, 100 - (gaps.length * 25));
-
     return { linkedProcesses, aggregatedResources, automatedToms, gaps, gapScore };
   }, [activity, processes, versions, resources, measures]);
 
   const handleExport = async () => {
     if (!activity || !currentTenant) return;
     setIsExporting(true);
-    try {
-      await exportGdprPdf(activity, currentTenant, stats.aggregatedResources, stats.automatedToms);
-      toast({ title: "PDF Bericht erstellt" });
-    } catch (e: any) {
-      toast({ variant: "destructive", title: "Export fehlgeschlagen", description: e.message });
-    } finally {
-      setIsExporting(false);
-    }
+    try { await exportGdprPdf(activity, currentTenant, stats.aggregatedResources, stats.automatedToms); toast({ title: "PDF Bericht erstellt" }); } finally { setIsExporting(false); }
   };
 
   if (!mounted) return null;
-
-  if (isActLoading) {
-    return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-emerald-600 opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Lade VVT-Register...</p></div>;
-  }
-
-  if (!activity) {
-    return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Eintrag nicht gefunden</h2><Button onClick={() => router.push('/gdpr')}>Zurück zum Register</Button></div>;
-  }
+  if (isActLoading) return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-emerald-600 opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Lade VVT-Register...</p></div>;
+  if (!activity) return null;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/gdpr')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl">
-            <ChevronLeft className="w-6 h-6" />
-          </Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/gdpr')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>
           <div className="min-w-0">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{activity.name}</h1>
-              <Badge className={cn(
-                "rounded-full px-2 h-5 text-[9px] font-black uppercase tracking-widest border-none shadow-sm",
-                activity.status === 'active' ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
-              )}>V{activity.version}</Badge>
-            </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Art. 30 DSGVO • {activity.legalBasis}</p>
+            <div className="flex items-center gap-3"><h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{activity.name}</h1><Badge className="rounded-full px-2 h-5 text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border-none shadow-sm">V{activity.version}</Badge></div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2"><FileCheck className="w-3 h-3" /> Art. 30 DSGVO • {activity.legalBasis}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-emerald-200 text-emerald-700 hover:bg-emerald-50 shadow-sm" onClick={handleExport} disabled={isExporting}>
-            {isExporting ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <FileDown className="w-3.5 h-3.5 mr-2" />} Art. 30 Bericht (PDF)
-          </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all" onClick={() => router.push(`/gdpr`)}>
-            Bearbeiten
-          </Button>
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-emerald-200 text-emerald-700" onClick={handleExport} disabled={isExporting}>{isExporting ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <FileDown className="w-3.5 h-3.5 mr-2" />} PDF Bericht</Button>
+          <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-emerald-600 text-white shadow-lg active:scale-95 transition-all">Bearbeiten</Button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <aside className="lg:col-span-1 space-y-4">
-          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="space-y-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 shadow-inner">
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Fachabteilung</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <Building2 className="w-4 h-4 text-emerald-600" /> {activity.responsibleDepartment || '---'}
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Rechtsgrundlage</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                    <Scale className="w-4 h-4 text-indigo-500" /> {activity.legalBasis || '---'}
-                  </div>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <aside className="lg:col-span-1 space-y-6">
+          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Maturity Score</CardTitle></CardHeader>
+            <CardContent className="p-8 space-y-8">
+              <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Compliance Level</span>
+                <p className="text-4xl font-black text-emerald-600">{stats.gapScore}%</p>
+                <Badge variant="outline" className="mt-2 bg-white text-[8px] font-black">Art. 32 Audit</Badge>
               </div>
-              
-              <div className="space-y-3">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Daten-Kontext</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-3 rounded-xl bg-white border border-slate-100 shadow-sm flex flex-col items-center text-center gap-1">
-                    <p className="text-[8px] font-black uppercase text-slate-400">Joint Cont.</p>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold border-none", activity.jointController ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-400")}>{activity.jointController ? 'JA' : 'NEIN'}</Badge>
-                  </div>
-                  <div className="p-3 rounded-xl bg-white border border-slate-100 shadow-sm flex flex-col items-center text-center gap-1">
-                    <p className="text-[8px] font-black uppercase text-slate-400">Transfer</p>
-                    <Badge variant="outline" className={cn("text-[9px] font-bold border-none", activity.thirdCountryTransfer ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-400")}>{activity.thirdCountryTransfer ? 'NON-EU' : 'EU'}</Badge>
-                  </div>
-                </div>
+              <div className="space-y-4 pt-4 border-t">
+                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Abteilung</Label><p className="text-xs font-bold">{activity.responsibleDepartment || '---'}</p></div>
+                <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Rechtsbasis</Label><p className="text-xs font-bold">{activity.legalBasis || '---'}</p></div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border border-emerald-100 shadow-xl bg-emerald-50/50 overflow-hidden">
-            <CardContent className="p-8 space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
-                  <ShieldCheck className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Compliance</p>
-                  <p className="text-2xl font-black text-emerald-900">{stats.gapScore}%</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest opacity-60">
-                  <span>Integritäts-Score</span>
-                  <span>Art. 32 Check</span>
-                </div>
-                <Progress value={stats.gapScore} className="h-1.5 bg-white" />
-              </div>
-              <p className="text-[10px] text-emerald-700 leading-relaxed italic border-t border-emerald-100 pt-4">
-                Dieser Score errechnet sich aus der Abdeckung des Schutzbedarfs durch technische Maßnahmen (TOM).
-              </p>
             </CardContent>
           </Card>
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="vvt" className="space-y-6">
-            <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
-              <TabsTrigger value="vvt" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <FileCheck className="w-3.5 h-3.5 text-emerald-600" /> VVT-Stammblatt
-              </TabsTrigger>
-              <TabsTrigger value="assets" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Server className="w-3.5 h-3.5 text-indigo-600" /> IT-Systeme ({stats.aggregatedResources.length})
-              </TabsTrigger>
-              <TabsTrigger value="toms" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Automatisierte TOM
-              </TabsTrigger>
-              <TabsTrigger value="gaps" className="rounded-lg px-6 gap-2 text-[11px] font-bold text-red-600 data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <AlertTriangle className="w-3.5 h-3.5" /> Gap-Analyse
-              </TabsTrigger>
+          <Tabs defaultValue="vvt" className="space-y-8">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+              <TabsTrigger value="vvt" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase data-[state=active]:bg-white data-[state=active]:shadow-lg"><Info className="w-4 h-4" /> Stammblatt</TabsTrigger>
+              <TabsTrigger value="assets" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase data-[state=active]:bg-white data-[state=active]:shadow-lg"><Server className="w-4 h-4" /> Systeme & TOM</TabsTrigger>
+              <TabsTrigger value="gaps" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase data-[state=active]:bg-white data-[state=active]:shadow-lg"><AlertTriangle className="w-4 h-4 text-red-600" /> Gaps</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="vvt" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <CardTitle className="text-sm font-bold text-slate-900">Verarbeitungszweck & Umfang</CardTitle>
-                </CardHeader>
-                <CardContent className="p-8 space-y-10">
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Funktionale Beschreibung</Label>
-                    <p className="text-sm text-slate-700 leading-relaxed font-medium bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-inner italic">
-                      "{activity.description || 'Keine detaillierte Zweckbeschreibung hinterlegt.'}"
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Aufbewahrungsfrist</p>
-                        <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                          <Clock className="w-4 h-4 text-emerald-600" /> {activity.retentionPeriod || '---'}
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Empfängerkategorien</p>
-                        <p className="text-xs text-slate-600 font-medium">{activity.recipientCategories || 'Keine externen Empfänger dokumentiert.'}</p>
-                      </div>
-                    </div>
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                      <div className="flex items-center gap-3 mb-2">
-                        <History className="w-4 h-4 text-slate-400" />
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Review Historie</p>
-                      </div>
-                      <p className="text-xs font-bold text-slate-700">Letzte Prüfung: {activity.lastReviewDate ? new Date(activity.lastReviewDate).toLocaleDateString() : 'Ausstehend'}</p>
-                      <Badge className="w-fit mt-2 bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase h-4 px-1.5">Gültig bis 2025</Badge>
-                    </div>
+            <TabsContent value="vvt" className="animate-in fade-in duration-500">
+              <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b p-8"><CardTitle className="text-lg font-headline font-bold uppercase">Verarbeitungszweck</CardTitle></CardHeader>
+                <CardContent className="p-10 space-y-8">
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label><p className="text-sm font-medium leading-relaxed italic bg-slate-50 p-6 rounded-2xl shadow-inner">"{activity.description}"</p></div>
+                  <div className="grid grid-cols-2 gap-8 pt-4 border-t">
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Aufbewahrung</Label><p className="text-xs font-bold">{activity.retentionPeriod}</p></div>
+                    <div className="space-y-1"><Label className="text-[9px] font-black uppercase text-slate-400">Transfer Status</Label><p className="text-xs font-bold">{activity.thirdCountryTransfer ? 'Drittstaatentransfer Aktiv' : 'Kein Drittstaatentransfer'}</p></div>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            <TabsContent value="assets" className="space-y-6 animate-in fade-in duration-500">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden h-fit">
-                  <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Workflow className="w-5 h-5 text-indigo-600" />
-                      <div>
-                        <CardTitle className="text-sm font-bold text-slate-900">Verknüpfte Workflows</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase">Operative Umsetzung dieses Zwecks</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
+            <TabsContent value="assets" className="animate-in fade-in">
+              <div className="space-y-6">
+                <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
+                  <CardHeader className="bg-slate-50 border-b p-6"><CardTitle className="text-sm font-bold uppercase">IT-Infrastruktur</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
-                      {stats.linkedProcesses.map(p => (
-                        <div key={p.id} className="p-4 flex items-center justify-between group hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/processhub/view/${p.id}`)}>
-                          <div className="flex items-center gap-3">
-                            <Workflow className="w-4 h-4 text-indigo-400" />
-                            <span className="text-xs font-bold text-slate-700">{p.title}</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" />
-                        </div>
-                      ))}
-                      {stats.linkedProcesses.length === 0 && (
-                        <div className="p-10 text-center opacity-30 italic text-xs">Keine direkten Prozesse zugeordnet.</div>
-                      )}
-                    </div>
+                    <div className="divide-y divide-slate-100">{stats.aggregatedResources.map(res => (
+                      <div key={res.id} className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/resources/${res.id}`)}>
+                        <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700">{res.name}</span></div>
+                        <Badge variant="outline" className="text-[7px] font-black h-4 px-1">{res.criticality.toUpperCase()}</Badge>
+                      </div>
+                    ))}</div>
                   </CardContent>
                 </Card>
-
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden h-fit">
-                  <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Server className="w-5 h-5 text-indigo-600" />
-                      <div>
-                        <CardTitle className="text-sm font-bold text-slate-900">Involvierte IT-Systeme</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase">Physische Datenlast für diesen Zweck</CardDescription>
+                <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
+                  <CardHeader className="bg-emerald-50/50 border-b p-6"><CardTitle className="text-sm font-bold uppercase">Verknüpfte TOM (Art. 32)</CardTitle></CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-100">{stats.automatedToms.map(tom => (
+                      <div key={tom.id} className="p-4 flex items-center justify-between group hover:bg-emerald-50 cursor-pointer">
+                        <div className="flex items-center gap-3"><ShieldCheck className="w-4 h-4 text-emerald-500" /><span className="text-xs font-bold text-slate-700">{tom.title}</span></div>
+                        <Badge className="bg-emerald-500 text-white border-none text-[7px] h-4">AKTIV</Badge>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4">
-                    <div className="grid grid-cols-1 gap-2">
-                      {stats.aggregatedResources.map(res => (
-                        <div key={res.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between group hover:border-indigo-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}>
-                          <div className="flex items-center gap-3">
-                            <Server className="w-4 h-4 text-indigo-400" />
-                            <p className="text-[11px] font-bold text-slate-700 truncate">{res.name}</p>
-                          </div>
-                          <Badge variant="outline" className={cn(
-                            "text-[7px] font-black h-4 px-1 border-none",
-                            res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
-                          )}>{res.criticality.toUpperCase()}</Badge>
-                        </div>
-                      ))}
-                    </div>
+                    ))}</div>
                   </CardContent>
                 </Card>
               </div>
             </TabsContent>
 
-            <TabsContent value="toms" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-emerald-50/50 border-b p-6">
-                  <div className="flex items-center gap-4">
-                    <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                    <div>
-                      <CardTitle className="text-base font-headline font-bold uppercase text-emerald-900">Automatisierte TOM-Sicht (Art. 32)</CardTitle>
-                      <CardDescription className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Gegenmaßnahmen basierend auf den genutzten IT-Systemen</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-1 gap-3">
-                    {stats.automatedToms.map(tom => (
-                      <div key={tom.id} className="p-5 bg-white border rounded-2xl shadow-sm flex items-center justify-between group hover:border-emerald-300 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center border shadow-inner",
-                            tom.status === 'completed' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100"
-                          )}>
-                            <ShieldCheck className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h5 className="font-bold text-sm text-slate-800">{tom.title}</h5>
-                            <div className="flex gap-2 mt-1">
-                              <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-400 h-4">{tom.tomCategory}</Badge>
-                              <span className="text-[9px] text-slate-400 font-medium italic">Owner: {tom.owner}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-9 rounded-xl text-[9px] font-black uppercase" onClick={() => router.push(`/risks/measures`)}>Nachweis <ExternalLink className="w-3.5 h-3.5 ml-2" /></Button>
-                      </div>
-                    ))}
-                    {stats.automatedToms.length === 0 && (
-                      <div className="py-20 text-center border-2 border-dashed rounded-2xl opacity-20 italic text-xs">Keine verknüpften Kontrollen gefunden.</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="gaps" className="space-y-6 animate-in fade-in duration-500">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm"><TrendingUp className="w-6 h-6" /></div>
-                    <div>
-                      <h4 className="text-sm font-black uppercase tracking-widest text-emerald-900">Compliance Maturity</h4>
-                      <p className="text-[9px] text-emerald-600 font-bold uppercase">Ready for Audit</p>
-                    </div>
-                  </div>
-                  <div className="text-4xl font-black text-emerald-600">{stats.gapScore}%</div>
-                </div>
-                {stats.gaps.map((gap, i) => (
-                  <Card key={i} className={cn(
-                    "rounded-2xl border shadow-sm relative overflow-hidden",
-                    gap.type === 'critical' ? "bg-red-50 border-red-100" : gap.type === 'warning' ? "bg-orange-50 border-orange-100" : "bg-blue-50 border-blue-100"
-                  )}>
-                    <CardContent className="p-6 flex items-start gap-5">
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center shadow-lg",
-                        gap.type === 'critical' ? "bg-red-600 text-white" : gap.type === 'warning' ? "bg-orange-600 text-white" : "bg-blue-600 text-white"
-                      )}>
-                        {gap.type === 'critical' ? <AlertTriangle className="w-6 h-6" /> : <Info className="w-6 h-6" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-black uppercase tracking-tight text-slate-900">{gap.title}</h4>
-                          <Badge className="h-4 px-1.5 text-[7px] font-black uppercase rounded-none">Audit Finding</Badge>
-                        </div>
-                        <p className="text-xs text-slate-700 leading-relaxed font-medium">{gap.msg}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {stats.gaps.length === 0 && (
-                  <div className="py-32 text-center opacity-30 italic space-y-4">
-                    <CheckCircle2 className="w-16 h-16 mx-auto text-emerald-500" />
-                    <p className="text-sm font-black uppercase">Keine Compliance-Lücken identifiziert</p>
-                  </div>
-                )}
-              </div>
+            <TabsContent value="gaps" className="animate-in fade-in">
+              {stats.gaps.length > 0 ? (
+                <div className="space-y-4">{stats.gaps.map((gap, i) => (
+                  <div key={i} className="p-6 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-4 shadow-sm"><AlertTriangle className="w-6 h-6 text-red-600" /><div><p className="text-sm font-black uppercase text-red-900">Audit Finding</p><p className="text-xs font-bold text-red-700">{gap.msg}</p></div></div>
+                ))}</div>
+              ) : <div className="py-20 text-center opacity-30 italic uppercase text-[10px]"><CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-emerald-500" />Keine Compliance Gaps gefunden</div>}
             </TabsContent>
           </Tabs>
         </div>

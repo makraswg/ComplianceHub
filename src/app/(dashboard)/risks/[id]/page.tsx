@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -10,29 +11,20 @@ import {
   Activity, 
   ShieldCheck, 
   Workflow, 
-  FileCheck, 
   Zap, 
   Target, 
   ArrowRight,
   ClipboardList,
   CheckCircle2,
   AlertCircle,
-  TrendingUp,
-  TrendingDown,
-  Info,
-  Layers,
-  Server,
-  Pencil,
-  Trash2,
-  Save,
-  BrainCircuit,
-  Settings2,
   History,
   Clock,
   User as UserIcon,
-  BadgeCheck,
-  Split,
-  Plus
+  Server,
+  Pencil,
+  BrainCircuit,
+  Settings2,
+  Info
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,13 +53,12 @@ export default function RiskDetailPage() {
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<RiskAdvisorOutput | null>(null);
 
-  const { data: risks, isLoading: isRisksLoading, refresh: refreshRisks } = usePluggableCollection<Risk>('risks');
+  const { data: risks, isLoading: isRisksLoading } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: allMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: allControls } = usePluggableCollection<RiskControl>('riskControls');
   const { data: allTasks } = usePluggableCollection<Task>('tasks');
-  const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -89,13 +80,6 @@ export default function RiskDetailPage() {
     allTasks?.filter(t => t.entityId === id && t.entityType === 'risk') || [],
     [allTasks, id]
   );
-
-  const residualScore = useMemo(() => {
-    if (!risk) return 0;
-    const impact = risk.residualImpact || risk.impact;
-    const probability = risk.residualProbability || risk.probability;
-    return impact * probability;
-  }, [risk]);
 
   const handleOpenAdvisor = async () => {
     if (!risk) return;
@@ -125,293 +109,159 @@ export default function RiskDetailPage() {
     return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-accent opacity-20" /><p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Analysiere Risikoszenario...</p></div>;
   }
 
-  if (!risk) {
-    return <div className="p-20 text-center space-y-4"><AlertTriangle className="w-12 h-12 text-amber-500 mx-auto" /><h2 className="text-xl font-headline font-bold text-slate-900">Risiko nicht gefunden</h2><Button onClick={() => router.push('/risks')}>Zurück zum Inventar</Button></div>;
-  }
+  if (!risk) return null;
 
   const bruteScore = risk.impact * risk.probability;
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/risks')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/risks')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
             <ChevronLeft className="w-6 h-6" />
           </Button>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{risk.title}</h1>
               <Badge className={cn(
-                "rounded-full px-2 h-5 text-[9px] font-black uppercase tracking-widest border-none shadow-sm",
+                "rounded-full px-3 h-6 text-[9px] font-black uppercase tracking-widest border-none shadow-sm",
                 bruteScore >= 15 ? "bg-red-50 text-red-700" : bruteScore >= 8 ? "bg-orange-50 text-orange-700" : "bg-emerald-50 text-emerald-700"
               )}>{risk.category}</Badge>
             </div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">ID: {risk.id} • Status: {risk.status}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+              <AlertTriangle className="w-3 h-3" /> Risiko-Management • {risk.status}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleOpenAdvisor} disabled={isAdvisorLoading}>
-            {isAdvisorLoading ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <BrainCircuit className="w-3.5 h-3.5 mr-2" />} KI-Berater
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleOpenAdvisor} disabled={isAdvisorLoading}>
+            {isAdvisorLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI-Berater
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-accent hover:bg-accent/90 text-white shadow-lg active:scale-95 transition-all">
-            <Settings2 className="w-3.5 h-3.5 mr-2" /> Bearbeiten
+          <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20 active:scale-95 transition-all" onClick={() => router.push(`/risks?edit=${risk.id}`)}>
+            <Settings2 className="w-4 h-4 mr-2" /> Bearbeiten
           </Button>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <aside className="lg:col-span-1 space-y-4">
-          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quantitative Analyse</CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <aside className="lg:col-span-1 space-y-6">
+          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
+            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Gefährdungslage</CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-8">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner flex flex-col items-center gap-1">
-                  <span className="text-[8px] font-black uppercase text-slate-400">Brutto-Score</span>
-                  <p className={cn(
-                    "text-2xl font-black",
-                    bruteScore >= 15 ? "text-red-600" : bruteScore >= 8 ? "text-orange-600" : "text-emerald-600"
-                  )}>{bruteScore}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 shadow-inner flex flex-col items-center gap-1">
-                  <span className="text-[8px] font-black uppercase text-emerald-600">Netto-Score</span>
-                  <p className="text-2xl font-black text-emerald-700">{residualScore}</p>
+            <CardContent className="p-8 space-y-10">
+              <div className="p-6 rounded-[1.5rem] bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Brutto Risiko-Score</span>
+                <p className={cn("text-4xl font-black tracking-tighter", bruteScore >= 15 ? "text-red-600" : bruteScore >= 8 ? "text-orange-600" : "text-emerald-600")}>{bruteScore}</p>
+                <div className="flex items-center gap-2 mt-3 text-[9px] font-bold text-slate-400 uppercase bg-white dark:bg-slate-900 px-3 py-1 rounded-full shadow-sm border">
+                  Impact {risk.impact} × Wahrsch. {risk.probability}
                 </div>
               </div>
 
-              <Separator />
-
-              <div className="space-y-4">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Behandlungsstrategie</p>
-                <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center gap-3 shadow-sm">
-                  <Target className="w-5 h-5 text-indigo-600" />
-                  <div>
-                    <p className="text-xs font-bold text-indigo-900 uppercase">{risk.treatmentStrategy || 'Mitigate'}</p>
-                    <p className="text-[8px] font-bold text-indigo-400 italic">Planung aktiv</p>
+              <div className="space-y-6 pt-4 border-t">
+                <div className="space-y-1 group/field">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Eigner (Owner)</Label>
+                  <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border shadow-sm">
+                    <UserIcon className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-bold text-slate-800">{risk.owner}</span>
+                  </div>
+                </div>
+                <div className="space-y-1 group/field">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Behandlungsstrategie</Label>
+                  <div className="flex items-center gap-3 p-3 bg-white dark:bg-slate-950 rounded-xl border shadow-sm">
+                    <Target className="w-4 h-4 text-indigo-600" />
+                    <span className="text-sm font-bold text-slate-800 uppercase">{risk.treatmentStrategy || 'Mitigate'}</span>
                   </div>
                 </div>
               </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risiko-Eigner</p>
-                <div className="flex items-center gap-3 p-1">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-primary font-bold text-xs shadow-inner">
-                    {risk.owner?.charAt(0) || 'R'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate">{risk.owner}</p>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">Verantwortlich</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-            <CardHeader className="bg-accent/5 border-b border-accent/10 p-4 px-6 flex flex-row items-center justify-between">
-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-accent">Impact Context</CardTitle>
-              <Activity className="w-3.5 h-3.5 text-accent" />
-            </CardHeader>
-            <CardContent className="p-6 space-y-4">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black uppercase text-slate-400">Betroffenes System</p>
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm cursor-pointer hover:text-primary transition-colors" onClick={() => asset && router.push(`/resources/${asset.id}`)}>
-                  <Server className="w-4 h-4 text-indigo-500" /> {asset?.name || 'Global / Strategisch'}
-                </div>
-              </div>
-              {process && (
-                <div className="space-y-1 pt-2 border-t border-slate-100">
-                  <p className="text-[9px] font-black uppercase text-slate-400">Gefährdeter Prozess</p>
-                  <div className="flex items-center gap-2 text-slate-900 font-bold text-sm cursor-pointer hover:text-primary transition-colors" onClick={() => router.push(`/processhub/view/${process.id}`)}>
-                    <Workflow className="w-4 h-4 text-orange-500" /> {process.title}
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
-              <TabsTrigger value="overview" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Target className="w-3.5 h-3.5 text-accent" /> Risiko-Szenario
+          <Tabs defaultValue="overview" className="space-y-8">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
+              <TabsTrigger value="overview" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <Info className="w-4 h-4" /> Analyse & Kontext
               </TabsTrigger>
-              <TabsTrigger value="mitigation" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Maßnahmen (TOM)
+              <TabsTrigger value="mitigation" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <ShieldCheck className="w-4 h-4" /> Maßnahmen & TOM
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ClipboardList className="w-3.5 h-3.5 text-indigo-600" /> Aufgaben ({riskTasks.length})
+              <TabsTrigger value="tasks" className="rounded-xl px-10 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <ClipboardList className="w-4 h-4" /> Aufgaben ({riskTasks.length})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6">
-                  <CardTitle className="text-sm font-bold">Analyse & Bewertung</CardTitle>
+            <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b p-8">
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Szenariobeschreibung</CardTitle>
                 </CardHeader>
-                <CardContent className="p-8 space-y-10">
-                  <div className="space-y-3">
-                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Bedrohungsszenario</Label>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner italic">
-                      "{risk.description || 'Keine fachliche Beschreibung hinterlegt.'}"
+                <CardContent className="p-10 space-y-10">
+                  <div className="space-y-4">
+                    <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Beschreibung der Bedrohung</Label>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium bg-slate-50 dark:bg-slate-950 p-8 rounded-[1.5rem] shadow-inner italic">
+                      "{risk.description || 'Keine detaillierte Beschreibung hinterlegt.'}"
                     </p>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t">
+                    {asset && (
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Brutto-Wahrscheinlichkeit</p>
-                        <div className="flex items-center gap-2">
-                          <Progress value={risk.probability * 20} className="h-2 rounded-full bg-slate-100 flex-1" />
-                          <span className="text-xs font-black w-8 text-right">{risk.probability}/5</span>
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Betroffenes IT-System</Label>
+                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100" onClick={() => router.push(`/resources/${asset.id}`)}>
+                          <Server className="w-4 h-4 text-indigo-500" /> {asset.name}
                         </div>
                       </div>
+                    )}
+                    {process && (
                       <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Brutto-Schaden (Impact)</p>
-                        <div className="flex items-center gap-2">
-                          <Progress value={risk.impact * 20} className="h-2 rounded-full bg-slate-100 flex-1" />
-                          <span className="text-xs font-black w-8 text-right">{risk.impact}/5</span>
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Betroffener Workflow</Label>
+                        <div className="flex items-center gap-3 text-sm font-bold text-slate-800 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100" onClick={() => router.push(`/processhub/view/${process.id}`)}>
+                          <Workflow className="w-4 h-4 text-orange-500" /> {process.title}
                         </div>
                       </div>
-                    </div>
-                    <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                      <div className="flex items-center gap-3 mb-2">
-                        <History className="w-4 h-4 text-slate-400" />
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Governance Historie</p>
-                      </div>
-                      <p className="text-xs font-bold text-slate-700">Zuletzt geprüft: {risk.lastReviewDate ? new Date(risk.lastReviewDate).toLocaleDateString() : 'Ausstehend'}</p>
-                      <Badge className="w-fit mt-2 bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase h-4 px-1.5">Regelkonform</Badge>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-
-              {aiAdvice && (
-                <Card className="rounded-2xl border border-indigo-100 shadow-xl bg-indigo-50/50 overflow-hidden animate-in zoom-in-95 duration-500">
-                  <CardHeader className="bg-primary/5 border-b border-indigo-100 p-6">
-                    <div className="flex items-center gap-3">
-                      <BrainCircuit className="w-6 h-6 text-primary" />
-                      <CardTitle className="text-sm font-bold uppercase tracking-widest text-indigo-900">KI-Risikoanalyse</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-8 space-y-6">
-                    <p className="text-sm text-slate-700 leading-relaxed italic">"{aiAdvice.assessment}"</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                      <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase text-primary">Vorgeschlagene Maßnahmen</h4>
-                        <div className="space-y-2">
-                          {aiAdvice.measures.map((m, i) => (
-                            <div key={i} className="flex items-start gap-2 text-[11px] font-bold text-slate-800 bg-white/50 p-2 rounded-lg border border-indigo-100">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" /> {m}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <h4 className="text-[10px] font-black uppercase text-red-600">Lückenanalyse</h4>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">{aiAdvice.gapAnalysis}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
 
-            <TabsContent value="mitigation" className="space-y-6 animate-in fade-in duration-500">
+            <TabsContent value="mitigation" className="space-y-8 animate-in fade-in">
               <div className="grid grid-cols-1 gap-4">
-                {linkedMeasures.map(measure => {
-                  const measureControls = linkedControls.filter(c => c.measureId === measure.id);
-                  const isEffective = measureControls.some(c => c.isEffective);
-                  
-                  return (
-                    <Card key={measure.id} className="rounded-2xl border shadow-sm bg-white overflow-hidden group hover:border-emerald-300 transition-all">
-                      <CardContent className="p-6 flex items-center justify-between">
-                        <div className="flex items-center gap-5">
-                          <div className={cn(
-                            "w-12 h-12 rounded-xl flex items-center justify-center shadow-inner border",
-                            isEffective ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400"
-                          )}>
-                            <ShieldCheck className="w-6 h-6" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900">{measure.title}</h4>
-                            <div className="flex items-center gap-3 mt-1">
-                              <Badge variant="outline" className="text-[8px] font-black uppercase border-none bg-slate-50 text-slate-400">{measure.tomCategory}</Badge>
-                              <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 uppercase">
-                                <UserIcon className="w-3 h-3" /> {measure.owner}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-[8px] font-black text-slate-400 uppercase">Status</p>
-                            <Badge className={cn(
-                              "border-none rounded-full h-4 px-1.5 text-[7px] font-black uppercase",
-                              isEffective ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"
-                            )}>{isEffective ? 'Wirksam' : 'Prüfung offen'}</Badge>
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl group-hover:bg-slate-100" onClick={() => router.push(`/risks/measures?search=${measure.title}`)}>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {linkedMeasures.length === 0 && (
-                  <div className="py-20 text-center border-2 border-dashed rounded-3xl opacity-20 italic text-xs space-y-4 shadow-inner">
-                    <ShieldAlert className="w-12 h-12 mx-auto" />
-                    <p className="text-sm font-black uppercase">Keine Maßnahmen verknüpft</p>
-                    <Button variant="outline" size="sm" className="rounded-xl h-9" onClick={() => router.push('/risks/measures')}>Maßnahmenplan öffnen</Button>
+                {linkedMeasures.map(m => (
+                  <div key={m.id} className="p-6 bg-white border rounded-2xl flex items-center justify-between group hover:border-emerald-300 cursor-pointer shadow-sm transition-all" onClick={() => router.push(`/risks/measures/${m.id}`)}>
+                    <div className="flex items-center gap-5">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border shadow-inner"><ShieldCheck className="w-6 h-6" /></div>
+                      <div>
+                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{m.title}</p>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{m.tomCategory || 'Maßnahme'}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-emerald-600 transition-all group-hover:translate-x-2" />
                   </div>
-                )}
+                ))}
+                {linkedMeasures.length === 0 && <div className="py-20 text-center border-2 border-dashed rounded-3xl opacity-30 italic uppercase text-[10px]">Keine Maßnahmen verknüpft</div>}
               </div>
             </TabsContent>
 
-            <TabsContent value="tasks" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ClipboardList className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <CardTitle className="text-sm font-bold">Verknüpfte operative Aufgaben</CardTitle>
-                      <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Maßnahmenumsetzung & Monitoring</CardDescription>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline" className="h-8 rounded-lg text-[10px] font-black uppercase gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={() => router.push('/tasks')}>
-                    <Plus className="w-3.5 h-3.5" /> Neue Aufgabe
-                  </Button>
+            <TabsContent value="tasks" className="space-y-8 animate-in fade-in">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b p-8">
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight">Operative Tasks</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100">
                     {riskTasks.map(t => (
-                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "w-9 h-9 rounded-lg flex items-center justify-center text-white shadow-sm",
-                            t.status === 'done' ? "bg-emerald-500" : t.priority === 'critical' ? "bg-red-600" : "bg-indigo-600"
-                          )}>
+                      <div key={t.id} className="p-6 px-10 hover:bg-slate-50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                        <div className="flex items-center gap-6">
+                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white", t.status === 'done' ? "bg-emerald-500" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{t.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 shadow-sm uppercase">{t.status}</Badge>
-                              <span className="text-[9px] text-slate-400 font-medium italic">Fällig: {t.dueDate || '∞'}</span>
-                            </div>
-                          </div>
+                          <div><p className="text-sm font-black text-slate-800">{t.title}</p><p className="text-[10px] text-slate-400 uppercase font-bold">Status: {t.status}</p></div>
                         </div>
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
-                    {riskTasks.length === 0 && (
-                      <div className="py-16 text-center opacity-20 italic text-xs uppercase tracking-widest">Keine offenen Aufgaben für dieses Risiko.</div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
