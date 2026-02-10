@@ -391,7 +391,9 @@ export default function ProcessDetailViewPage() {
               {isHydrated && (
                 <div className="flex items-center gap-1.5">
                   <Select value={String(selectedVersionNum || activeVersion?.version || 1)} onValueChange={(v) => setSelectedVersionNum(parseInt(v))}>
-                    <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0" suppressHydrationWarning><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-6 w-20 rounded-full border-none bg-slate-100 text-[10px] font-black uppercase px-2 shadow-none focus:ring-0" suppressHydrationWarning>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent className="rounded-xl border-none shadow-2xl">
                       {allProcessVersions.map(v => (<SelectItem key={v.id} value={String(v.version)} className="text-[10px] font-bold">V{v.version}.0</SelectItem>))}
                     </SelectContent>

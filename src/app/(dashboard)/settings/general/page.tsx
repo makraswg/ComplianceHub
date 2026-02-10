@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -15,6 +14,8 @@ import { Tenant } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+
+export const dynamic = 'force-dynamic';
 
 export default function GeneralSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
