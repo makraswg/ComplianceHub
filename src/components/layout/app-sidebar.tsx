@@ -48,7 +48,8 @@ import {
   Map,
   UserCircle,
   Fingerprint,
-  Save as SaveIcon
+  Save as SaveIcon,
+  ShieldAlert
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,6 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   useAuth, 
-  useUser 
 } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import {
@@ -160,6 +160,11 @@ export function AppSidebar() {
     { name: 'Berichte & Analyse', href: '/risks/reports', icon: PieChart },
   ];
 
+  const itSecHubItems = [
+    { name: 'Backup & Restore', href: '/itsechub/backups', icon: HardDrive },
+    { name: 'Patching Monitor', href: '/itsechub/patching', icon: Activity },
+  ];
+
   const policyHubItems = [
     { name: 'Dashboard', href: '/gdpr/dashboard', icon: LayoutDashboard },
     { name: 'VVT Register', href: '/gdpr', icon: FileCheck },
@@ -175,6 +180,7 @@ export function AppSidebar() {
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
     { name: 'Service Partner & Externe', href: '/settings/owners', icon: Building2 },
     { name: 'Ressourcen-Optionen', href: '/settings/resources', icon: Settings2 },
+    { name: 'Prozesstypen', href: '/settings/process-types', icon: ListFilter },
     { name: 'Regulatorik & Normen', href: '/settings/compliance', icon: Scale },
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
     { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },
@@ -187,7 +193,7 @@ export function AppSidebar() {
   if (!mounted) return null;
 
   const NavLink = ({ item, activeColor = "bg-primary", isSubItem = false }: { item: any, activeColor?: string, isSubItem?: boolean }) => {
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && !isSubItem && pathname.startsWith(item.href) && !pathname.startsWith('/processhub/map') && item.href !== '/processhub/map');
+    const isActive = pathname === item.href || (item.href !== '/dashboard' && !isSubItem && pathname.startsWith(item.href));
     const isExact = pathname === item.href;
     const active = isSubItem ? isExact : isActive;
 
@@ -238,32 +244,37 @@ export function AppSidebar() {
       <ScrollArea className="flex-1 px-3">
         <div className="space-y-8 py-4">
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Plattform Core</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Plattform Core</p>
             {coreItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">AccessHub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">AccessHub</p>
             {accessHubItems.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">WorkflowHub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">WorkflowHub</p>
             {hubModules.map((item) => <NavLink key={item.name} item={item} />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">PolicyHub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">PolicyHub</p>
             {policyHubItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-emerald-600" />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">RiskHub</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">RiskHub</p>
             {riskItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-accent" />)}
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400">Admin</p>
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ITSecHub</p>
+            {itSecHubItems.map((item) => <NavLink key={item.name} item={item} activeColor="bg-orange-600" />)}
+          </div>
+
+          <div className="space-y-1">
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admin</p>
             <NavLink item={{ name: 'Setup & Infra', href: '/setup', icon: Settings2 }} />
             
             <Collapsible open={isSettingsOpen} onOpenChange={setIsSettingsOpen} className="space-y-1">
