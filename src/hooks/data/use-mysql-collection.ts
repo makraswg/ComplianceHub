@@ -6,10 +6,11 @@ import { getCollectionData } from '@/app/actions/mysql-actions';
 
 // Globaler Cache für MySQL-Daten, um unnötige Re-Fetches beim Seitenwechsel zu vermeiden.
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
-const CACHE_TTL = 10000; // Erhöht auf 10 Sekunden für bessere Performance
+const CACHE_TTL = 10000; 
 
 /**
  * Ein hocheffizienter Hook zum Abrufen von MySQL-Daten.
+ * Optimiert für virtualisierte Docker Umgebungen.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -31,10 +32,11 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
     
-    // Cache-Check
+    // Cache-Check am Anfang
     if (isInitialFetch.current && !silent) {
       const cached = mysqlCache[collectionName];
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && data) {
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL) && cached.data) {
+        setData(cached.data);
         setIsLoading(false);
         isInitialFetch.current = false;
         return;
@@ -51,7 +53,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newData = result.data as T[];
         
         // Optimierte Änderungserkennung: Wir prüfen zunächst die Länge
-        // Ein vollständiger Vergleich (stringify) wird nur bei Bedarf oder periodisch durchgeführt
         if (newData.length !== prevDataCount.current || isInitialFetch.current) {
           setData(newData);
           prevDataCount.current = newData.length;
@@ -66,7 +67,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       if (!silent) setIsLoading(false);
       isInitialFetch.current = false;
     }
-  }, [collectionName, enabled, data]);
+  }, [collectionName, enabled]); // data entfernt aus deps zur Stabilität
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];

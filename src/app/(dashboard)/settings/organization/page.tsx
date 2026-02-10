@@ -29,7 +29,9 @@ import {
   Maximize2,
   RefreshCw,
   Lock,
-  Unlock
+  Unlock,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -53,16 +55,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 export const dynamic = 'force-dynamic';
 
-function escapeXml(unsafe: string) {
-  if (!unsafe) return '';
-  return unsafe.toString().replace(/[<>&"']/g, (c) => {
+function escapeXml(unsafe: any) {
+  if (unsafe === null || unsafe === undefined) return '';
+  return unsafe.toString().replace(/[<>&"']/g, (c: string) => {
     switch (c) {
       case '<': return '&lt;';
       case '>': return '&gt;';
@@ -74,7 +76,7 @@ function escapeXml(unsafe: string) {
   });
 }
 
-function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
+function generateOrgChartXml(tenants: Tenant[], depts: Department[], jobs: JobTitle[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const NODE_W = 180;
   const NODE_H = 60;
@@ -108,7 +110,7 @@ function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
 }
 
 export default function UnifiedOrganizationPage() {
-  const { dataSource } = useSettings();
+  const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -121,15 +123,16 @@ export default function UnifiedOrganizationPage() {
   const [activeAddParent, setActiveAddParent] = useState<{ id: string, type: 'tenant' | 'dept' } | null>(null);
   const [newName, setNewName] = useState('');
 
+  // Tenant Editor State
   const [isTenantDialogOpen, setIsTenantDialogOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Partial<Tenant> | null>(null);
   const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
   const [tenantRegion, setTenantRegion] = useState('EU-DSGVO');
   const [tenantDescription, setTenantDescription] = useState('');
-  const [tenantLogoUrl, setTenantLogoUrl] = useState('');
   const [isSavingTenant, setIsSavingTenant] = useState(false);
 
+  // Job Editor State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
   const [jobName, setJobName] = useState('');
@@ -138,6 +141,7 @@ export default function UnifiedOrganizationPage() {
   const [isSavingJob, setIsSavingJob] = useState(false);
   const [roleSearch, setRoleSearch] = useState('');
 
+  // Deletion State
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, type: 'tenants' | 'departments' | 'jobTitles', label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -147,32 +151,30 @@ export default function UnifiedOrganizationPage() {
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
+  // Hocheffiziente Gruppierung für Docker Umgebungen
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
-    // Efficient grouping using Maps
-    const jobsByDept = new Map<string, JobTitle[]>();
+    const jobsMap = new Map<string, JobTitle[]>();
     (jobTitles || []).forEach(j => {
       const matchStatus = showArchived ? j.status === 'archived' : j.status !== 'archived';
       if (!matchStatus) return;
-      if (!jobsByDept.has(j.departmentId)) jobsByDept.set(j.departmentId, []);
-      jobsByDept.get(j.departmentId)?.push(j);
+      if (!jobsMap.has(j.departmentId)) jobsMap.set(j.departmentId, []);
+      jobsMap.get(j.departmentId)?.push(j);
     });
 
-    const deptsByTenant = new Map<string, any[]>();
+    const deptsMap = new Map<string, any[]>();
     (departments || []).forEach(d => {
       const matchStatus = showArchived ? d.status === 'archived' : d.status !== 'archived';
       if (!matchStatus) return;
-      if (!deptsByTenant.has(d.tenantId)) deptsByTenant.set(d.tenantId, []);
-      deptsByTenant.get(d.tenantId)?.push({
+      if (!deptsMap.has(d.tenantId)) deptsMap.set(d.tenantId, []);
+      deptsMap.get(d.tenantId)?.push({
         ...d,
-        jobs: jobsByDept.get(d.id) || []
+        jobs: jobsMap.get(d.id) || []
       });
     });
 
@@ -180,15 +182,13 @@ export default function UnifiedOrganizationPage() {
       .filter(t => (showArchived ? t.status === 'archived' : t.status !== 'archived'))
       .map(tenant => ({
         ...tenant,
-        departments: deptsByTenant.get(tenant.id) || []
+        departments: deptsMap.get(tenant.id) || []
       }))
       .filter(t => {
         if (!search) return true;
         const s = search.toLowerCase();
-        const matchT = t.name.toLowerCase().includes(s);
-        const matchD = t.departments.some((d: any) => d.name.toLowerCase().includes(s));
-        const matchJ = t.departments.some((d: any) => d.jobs.some((j: any) => j.name.toLowerCase().includes(s)));
-        return matchT || matchD || matchJ;
+        return t.name.toLowerCase().includes(s) || 
+               t.departments.some((d: any) => d.name.toLowerCase().includes(s) || d.jobs.some((j: any) => j.name.toLowerCase().includes(s)));
       });
   }, [tenants, departments, jobTitles, search, showArchived]);
 
@@ -203,18 +203,17 @@ export default function UnifiedOrganizationPage() {
     if (activeTab === 'chart' && isIframeReady) syncChart();
   }, [activeTab, isIframeReady, syncChart]);
 
-  const handleCreateTenant = async () => {
-    if (!tenantName || !tenantSlug) return;
+  const handleSaveTenant = async () => {
+    if (!tenantName) return;
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
     const data: Tenant = {
       ...editingTenant,
       id,
       name: tenantName,
-      slug: tenantSlug.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      slug: tenantSlug || tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
       region: tenantRegion,
       companyDescription: tenantDescription,
-      logoUrl: tenantLogoUrl,
       status: editingTenant?.status || 'active',
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
     } as Tenant;
@@ -237,7 +236,7 @@ export default function UnifiedOrganizationPage() {
     } else {
       const dept = departments?.find(d => d.id === activeAddParent.id);
       if (dept) {
-        await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+        await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] }, dataSource);
         refreshJobs();
       }
     }
@@ -287,10 +286,19 @@ export default function UnifiedOrganizationPage() {
     if (res.success) {
       setIsEditorOpen(false);
       refreshJobs();
-      toast({ title: "Rollenprofil gespeichert" });
+      toast({ title: "Rollenprofil (Blueprint) gespeichert" });
     }
     setIsSavingJob(false);
   };
+
+  const filteredEntitlements = useMemo(() => {
+    if (!entitlements || !resources) return [];
+    return entitlements.filter(e => {
+      const res = resources.find(r => r.id === e.resourceId);
+      if (activeTenantId !== 'all' && res?.tenantId !== activeTenantId && res?.tenantId !== 'global') return false;
+      return e.name.toLowerCase().includes(roleSearch.toLowerCase()) || res?.name.toLowerCase().includes(roleSearch.toLowerCase());
+    });
+  }, [entitlements, resources, roleSearch, activeTenantId]);
 
   useEffect(() => {
     const handleMessage = (evt: MessageEvent) => {
@@ -307,7 +315,7 @@ export default function UnifiedOrganizationPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
@@ -328,24 +336,37 @@ export default function UnifiedOrganizationPage() {
               <Input placeholder="Suchen..." className="pl-9 h-10 rounded-md border-slate-200 bg-white" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Aktiv' : 'Archiv'}</Button>
-              <Button size="sm" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
+              <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className="h-9 font-bold text-[10px] uppercase">{showArchived ? 'Aktive' : 'Archiv'}</Button>
+              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
 
           <div className="space-y-4">
-            {groupedData.map(tenant => (
+            {(tenantsLoading || deptsLoading || jobsLoading) ? (
+              <div className="py-20 text-center space-y-4">
+                <Loader2 className="w-10 h-10 animate-spin text-primary opacity-20 mx-auto" />
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Synchronisiere Struktur...</p>
+              </div>
+            ) : groupedData.map(tenant => (
               <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50 dark:bg-slate-900/80 border-b p-4 px-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary border shadow-sm">
                       <Building2 className="w-5 h-5" />
                     </div>
-                    <div><CardTitle className="text-base font-bold">{tenant.name}</CardTitle><p className="text-[10px] text-slate-400 font-bold uppercase">{tenant.slug}</p></div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-base font-bold">{tenant.name}</CardTitle>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setTenantRegion(tenant.region || 'EU-DSGVO'); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3 h-3" /></Button>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{tenant.slug}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}><PlusCircle className="w-3.5 h-3.5 mr-1" /> Abteilung</Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-[10px] font-bold hover:bg-primary/5 gap-1.5" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}>
+                      <PlusCircle className="w-3.5 h-3.5 text-primary" /> Abteilung
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -356,21 +377,27 @@ export default function UnifiedOrganizationPage() {
                           <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
                           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100">
                             <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3" /> Rolle</Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
                           </div>
                         </div>
                         <div className="bg-slate-50/30 px-8 pb-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 pl-10 border-l-2 ml-4">
                             {dept.jobs?.map((job: any) => (
-                              <div key={job.id} className="flex items-center justify-between p-2.5 bg-white rounded-lg border shadow-sm group hover:border-primary/30 cursor-pointer" onClick={() => openJobEditor(job)}>
-                                <div className="flex items-center gap-2 truncate"><Briefcase className="w-3.5 h-3.5 text-slate-400" /><p className="text-[11px] font-bold truncate">{job.name}</p></div>
+                              <div key={job.id} className="flex items-center justify-between p-3 bg-white rounded-lg border shadow-sm group hover:border-primary/30 cursor-pointer" onClick={() => openJobEditor(job)}>
+                                <div className="flex items-center gap-2 truncate">
+                                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                                  <div>
+                                    <p className="text-[11px] font-bold text-slate-700 truncate">{job.name}</p>
+                                    <p className="text-[8px] text-slate-400 font-black uppercase">{job.entitlementIds?.length || 0} Rechte</p>
+                                  </div>
+                                </div>
                                 <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
                               </div>
                             ))}
                             {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
                               <div className="col-span-full pt-2 flex gap-2">
-                                <Input autoFocus placeholder="Rollenname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 text-[11px]" />
-                                <Button size="sm" className="h-8 px-4 text-[10px]" onClick={handleCreateSub}>OK</Button>
+                                <Input autoFocus placeholder="Bezeichnung der Rolle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 text-[11px]" />
+                                <Button size="sm" className="h-8 px-4 text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
                               </div>
                             )}
@@ -380,8 +407,8 @@ export default function UnifiedOrganizationPage() {
                     ))}
                     {activeAddParent?.id === tenant.id && activeAddParent.type === 'tenant' && (
                       <div className="p-4 px-8 bg-primary/5 flex items-center gap-3">
-                        <Input autoFocus placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 text-xs" />
-                        <Button size="sm" className="h-10 px-6" onClick={handleCreateSub}>OK</Button>
+                        <Input autoFocus placeholder="Name der Abteilung..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 text-xs" />
+                        <Button size="sm" className="h-10 px-6" onClick={handleCreateSub}>Erstellen</Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
                       </div>
                     )}
@@ -402,7 +429,97 @@ export default function UnifiedOrganizationPage() {
         </div>
       )}
 
-      {/* Dialogs OMITTED for brevity but fully implemented in background */}
+      {/* Tenant Dialog */}
+      <Dialog open={isTenantDialogOpen} onOpenChange={setIsTenantDialogOpen}>
+        <DialogContent className="max-w-md rounded-xl shadow-2xl border-none">
+          <DialogHeader>
+            <DialogTitle>{editingTenant ? 'Mandant bearbeiten' : 'Neuer Mandant'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5"><Label>Name</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Slug</Label><Input value={tenantSlug} onChange={e => setTenantSlug(e.target.value)} placeholder="alias-id" /></div>
+            <div className="space-y-1.5"><Label>Regulatorik</Label>
+              <Select value={tenantRegion} onValueChange={setTenantRegion}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem><SelectItem value="BSI-Grundschutz">BSI Grundschutz</SelectItem></SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>KI-Kontext (Firma)</Label><Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)}>Abbrechen</Button>
+            <Button onClick={handleSaveTenant} disabled={isSavingTenant}>{isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4 mr-2" />} Speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Job Editor (Blueprint) */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-5">
+                <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg"><Briefcase className="w-6 h-6" /></div>
+                <div><DialogTitle className="text-lg font-bold">Rollenprofil (Blueprint)</DialogTitle><DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Soll-Berechtigungen für {jobName}</DialogDescription></div>
+              </div>
+              <AiFormAssistant formType="gdpr" currentData={{ jobName, jobDesc }} onApply={(s) => { if(s.name) setJobName(s.name); if(s.description) setJobDesc(s.description); }} />
+            </div>
+          </DialogHeader>
+          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
+            <TabsList className="bg-white border-b h-12 px-6 justify-start rounded-none gap-8">
+              <TabsTrigger value="base" className="text-[10px] font-black uppercase tracking-widest data-[state=active]:text-primary h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary">Stammdaten</TabsTrigger>
+              <TabsTrigger value="roles" className="text-[10px] font-black uppercase tracking-widest data-[state=active]:text-primary h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary">Berechtigungen</TabsTrigger>
+            </TabsList>
+            <ScrollArea className="flex-1 bg-slate-50/30">
+              <div className="p-8 space-y-8">
+                <TabsContent value="base" className="mt-0 space-y-6">
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 font-bold text-sm bg-white" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Stellenbeschreibung (für KI Audit)</Label><Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[150px] p-4 text-xs leading-relaxed bg-white" /></div>
+                </TabsContent>
+                <TabsContent value="roles" className="mt-0 space-y-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">Standard-Rechte ({jobEntitlementIds.length} gewählt)</Label>
+                    <div className="relative group"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" /><Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-8 pl-8 text-[10px] w-48 bg-white" /></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {filteredEntitlements.map(ent => {
+                      const res = resources?.find(r => r.id === ent.resourceId);
+                      const isSelected = jobEntitlementIds.includes(ent.id);
+                      return (
+                        <div key={ent.id} className={cn("p-3 border rounded-xl flex items-center gap-3 transition-all cursor-pointer shadow-sm", isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/10" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setJobEntitlementIds(prev => isSelected ? prev.filter(id => id !== ent.id) : [...prev, ent.id])}>
+                          <Checkbox checked={isSelected} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">{ent.name}</p>
+                            <p className="text-[8px] font-black uppercase text-slate-400">{res?.name}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </TabsContent>
+              </div>
+            </ScrollArea>
+          </Tabs>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
+            <Button variant="ghost" onClick={() => setIsEditorOpen(false)} className="rounded-xl font-bold text-[10px] uppercase h-11 px-8">Abbrechen</Button>
+            <Button onClick={saveJobEdits} disabled={isSavingJob} className="rounded-xl font-bold text-[10px] uppercase h-11 px-12 bg-primary text-white shadow-lg gap-2">{isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Blueprint speichern</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">Möchten Sie <strong>{deleteTarget?.label}</strong> wirklich unwiderruflich entfernen? Alle untergeordneten Verknüpfungen gehen verloren.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white" disabled={isDeleting}>{isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Löschen'}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
