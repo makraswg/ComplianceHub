@@ -24,7 +24,9 @@ import {
   ShieldCheck,
   ChevronRight,
   Globe,
-  UserCircle
+  UserCircle,
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,6 +96,10 @@ export default function ResourcesPage() {
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
 
+  // Maintenance Form State
+  const [backupRequired, setBackupRequired] = useState(false);
+  const [updatesRequired, setUpdatesRequired] = useState(false);
+
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
@@ -156,6 +162,8 @@ export default function ResourcesPage() {
     setRiskOwnerRoleId('');
     setNotes('');
     setUrl('');
+    setBackupRequired(false);
+    setUpdatesRequired(false);
   };
 
   const handleSave = async () => {
@@ -206,7 +214,9 @@ export default function ResourcesPage() {
       riskOwner: '',
       dataOwner: '',
       mfaType: 'none',
-      authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
+      authMethod: identityProviderId === 'none' ? 'direct' : 'idp',
+      backupRequired,
+      updatesRequired
     } as Resource;
 
     try {
@@ -254,6 +264,8 @@ export default function ResourcesPage() {
 
     setNotes(res.notes || '');
     setUrl(res.url || '');
+    setBackupRequired(!!res.backupRequired);
+    setUpdatesRequired(!!res.updatesRequired);
     setIsDialogOpen(true);
   };
 
@@ -429,6 +441,7 @@ export default function ResourcesPage() {
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
                 <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf</TabsTrigger>
+                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Wartung & Backup</TabsTrigger>
                 <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung & Auth</TabsTrigger>
               </TabsList>
             </div>
@@ -482,6 +495,28 @@ export default function ResourcesPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                       <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label><Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">Öffentlich</SelectItem><SelectItem value="internal">Intern</SelectItem><SelectItem value="confidential">Vertraulich</SelectItem><SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem></SelectContent></Select></div>
                       <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="maintenance" className="mt-0 space-y-10">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
+                    <div className="flex items-center gap-2 border-b pb-3"><RefreshCw className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Wartung & Verfügbarkeit</h4></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-900">Datensicherung erforderlich</Label>
+                          <p className="text-[8px] text-slate-400 uppercase font-black">Backup-Planung aktiv</p>
+                        </div>
+                        <Switch checked={backupRequired} onCheckedChange={setBackupRequired} />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] font-bold uppercase text-slate-900">Updates / Patching nötig</Label>
+                          <p className="text-[8px] text-slate-400 uppercase font-black">Wartungs-Prozesse definieren</p>
+                        </div>
+                        <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} />
+                      </div>
                     </div>
                   </div>
                 </TabsContent>

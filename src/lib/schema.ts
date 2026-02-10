@@ -407,7 +407,31 @@ export const appSchema: AppSchema = {
       url: 'TEXT',
       documentationUrl: 'TEXT',
       notes: 'TEXT',
-      createdAt: 'VARCHAR(50)'
+      createdAt: 'VARCHAR(50)',
+      backupRequired: 'BOOLEAN DEFAULT FALSE',
+      updatesRequired: 'BOOLEAN DEFAULT FALSE'
+    }
+  },
+  backup_jobs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      cycle: 'VARCHAR(50) DEFAULT "daily"',
+      location: 'VARCHAR(255)',
+      description: 'TEXT',
+      lastReviewDate: 'VARCHAR(50)'
+    }
+  },
+  update_processes: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      frequency: 'VARCHAR(50) DEFAULT "monthly"',
+      description: 'TEXT',
+      responsibleRoleId: 'VARCHAR(255)',
+      lastRunDate: 'VARCHAR(50)'
     }
   },
   auditEvents: {

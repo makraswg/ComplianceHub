@@ -61,7 +61,9 @@ const collectionToTableMap: { [key: string]: string } = {
   bookstackConfigs: 'bookstack_configs',
   tasks: 'tasks',
   task_comments: 'task_comments',
-  media: 'media'
+  media: 'media',
+  backupJobs: 'backup_jobs',
+  updateProcesses: 'update_processes'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -102,7 +104,7 @@ function normalizeRecord(item: any, tableName: string) {
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
     'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
     'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-    'isIdentityProvider'
+    'isIdentityProvider', 'backupRequired', 'updatesRequired'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -222,7 +224,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
       'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
       'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-      'isIdentityProvider'
+      'isIdentityProvider', 'backupRequired', 'updatesRequired'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
@@ -277,7 +279,7 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
       'asset_type_options', 'operating_model_options', 'processes', 'process_versions', 'process_comments',
       'process_ops', 'process_relations', 'bookstack_exports', 'ai_sessions', 'ai_messages', 'regulatory_options',
       'usage_type_options', 'uiConfigs', 'platformRoles', 'features', 'feature_links', 'feature_dependencies',
-      'feature_process_steps', 'tasks', 'task_comments', 'media'
+      'feature_process_steps', 'tasks', 'task_comments', 'media', 'backup_jobs', 'update_processes'
     ];
     await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
     for (const table of tablesToClear) {

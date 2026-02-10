@@ -313,6 +313,26 @@ export interface FeatureProcessLink {
   criticality: 'low' | 'medium' | 'high';
 }
 
+export interface BackupJob {
+  id: string;
+  resourceId: string;
+  name: string;
+  cycle: 'daily' | 'weekly' | 'monthly' | 'manual';
+  location: string;
+  description?: string;
+  lastReviewDate?: string;
+}
+
+export interface UpdateProcess {
+  id: string;
+  resourceId: string;
+  name: string;
+  frequency: 'monthly' | 'quarterly' | 'on_release' | 'manual';
+  description?: string;
+  responsibleRoleId?: string;
+  lastRunDate?: string;
+}
+
 export interface Resource {
   id: string;
   tenantId: string;
@@ -353,6 +373,8 @@ export interface Resource {
   documentationUrl?: string;
   notes: string;
   createdAt?: string;
+  backupRequired?: boolean | number;
+  updatesRequired?: boolean | number;
 }
 
 export interface ProcessingActivity {
