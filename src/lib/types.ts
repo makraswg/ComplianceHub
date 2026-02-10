@@ -326,10 +326,13 @@ export interface BackupJob {
   id: string;
   resourceId: string;
   name: string;
-  cycle: 'Täglich' | 'Wöchentlich' | 'Monatlich' | 'Manuell';
+  cycle: 'Täglich' | 'Wöchentlich' | 'Monatlich' | 'Manuell' | 'Benutzerdefiniert';
+  custom_cycle?: string;
   storage_location: string;
   description?: string;
-  responsible_id: string; 
+  responsible_type: 'internal' | 'external';
+  responsible_id?: string; // Role ID for internal
+  external_contact_id?: string; // Contact ID for external
   it_process_id?: string;
   detail_process_id?: string;
   lastReviewDate?: string;

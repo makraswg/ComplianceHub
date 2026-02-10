@@ -37,7 +37,8 @@ import {
   LayoutGrid,
   Info,
   Building2,
-  Mail
+  Mail,
+  Target
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion, ServicePartnerContact } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -67,7 +68,7 @@ import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysq
 import { toast } from '@/hooks/use-toast';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export const dynamic = 'force-dynamic';
@@ -101,8 +102,8 @@ function ResourcesPageContent() {
   const [identityProviderId, setIdentityProviderId] = useState('none');
   const [dataLocation, setDataLocation] = useState('');
   
-  const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('');
-  const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('');
+  const [systemOwnerRoleId, setSystemOwnerRoleId] = useState('none');
+  const [riskOwnerRoleId, setRiskOwnerRoleId] = useState('none');
   const [externalOwnerPartnerId, setExternalOwnerPartnerId] = useState('none');
   const [externalOwnerContactId, setExternalOwnerContactId] = useState('none');
   const [externalOwnerAreaId, setExternalOwnerAreaId] = useState('none');
@@ -118,7 +119,9 @@ function ResourcesPageContent() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [currentBackupIdx, setCurrentBackupIdx] = useState<number | null>(null);
   const [backupForm, setBackupForm] = useState<Partial<BackupJob>>({
-    name: '', cycle: 'Täglich', storage_location: '', description: '', responsible_id: '', lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
+    name: '', cycle: 'Täglich', custom_cycle: '', storage_location: '', description: '', 
+    responsible_type: 'internal', responsible_id: '', external_contact_id: '',
+    lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
   });
 
   const [notes, setNotes] = useState('');
@@ -166,15 +169,8 @@ function ResourcesPageContent() {
     });
   }, [jobTitles, departmentsData]);
 
-  const itProcesses = useMemo(() => {
-    return allProcesses?.filter(p => p.status !== 'archived') || [];
-  }, [allProcesses]);
-
-  // --- INHERITANCE CALCULATOR ---
   const getInheritedStats = (resId: string) => {
     if (!resId || !allVersions || !featureLinks || !features) return null;
-
-    // 1. Processes using this resource
     const usedInProcIds = new Set<string>();
     allVersions.forEach(v => {
       const nodes = v.model_json?.nodes || [];
@@ -182,21 +178,15 @@ function ResourcesPageContent() {
         usedInProcIds.add(v.process_id);
       }
     });
-
-    // 2. Features linked to these processes
     const linkedFeatIds = new Set<string>();
     featureLinks.forEach((link: any) => {
       if (usedInProcIds.has(link.processId)) {
         linkedFeatIds.add(link.featureId);
       }
     });
-
     const linkedFeats = Array.from(linkedFeatIds).map(fid => features.find(f => f.id === fid)).filter(Boolean) as Feature[];
     if (linkedFeats.length === 0) return null;
-
-    // 3. Inheritance logic
     const hasPersonalData = linkedFeats.some(f => !!f.hasPersonalData);
-    
     const classOrder = { strictly_confidential: 4, confidential: 3, internal: 2, public: 1 };
     let maxClass: Resource['dataClassification'] = 'internal';
     let maxCV = 0;
@@ -204,7 +194,6 @@ function ResourcesPageContent() {
       const v = classOrder[f.dataClassification as keyof typeof classOrder] || 0;
       if (v > maxCV) { maxCV = v; maxClass = f.dataClassification as any; }
     });
-
     const reqOrder = { high: 3, medium: 2, low: 1 };
     const getMaxReq = (p: 'confidentialityReq' | 'integrityReq' | 'availabilityReq') => {
       let maxR: 'low' | 'medium' | 'high' = 'low';
@@ -215,7 +204,6 @@ function ResourcesPageContent() {
       });
       return maxR;
     };
-
     const resRisks = risks?.filter(r => r.assetId === resId) || [];
     let derivedCrit: 'low' | 'medium' | 'high' = 'low';
     if (resRisks.length > 0) {
@@ -223,16 +211,7 @@ function ResourcesPageContent() {
       if (maxScore >= 15) derivedCrit = 'high';
       else if (maxScore >= 8) derivedCrit = 'medium';
     }
-
-    return {
-      hasPersonalData,
-      dataClassification: maxClass,
-      confidentialityReq: getMaxReq('confidentialityReq'),
-      integrityReq: getMaxReq('integrityReq'),
-      availabilityReq: getMaxReq('availabilityReq'),
-      criticality: derivedCrit,
-      featureCount: linkedFeats.length
-    };
+    return { hasPersonalData, dataClassification: maxClass, confidentialityReq: getMaxReq('confidentialityReq'), integrityReq: getMaxReq('integrityReq'), availabilityReq: getMaxReq('availabilityReq'), criticality: derivedCrit, featureCount: linkedFeats.length };
   };
 
   const handleSave = async () => {
@@ -240,13 +219,10 @@ function ResourcesPageContent() {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." });
       return;
     }
-
     setIsSaving(true);
     const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
-    
     const inherited = getInheritedStats(id);
-
     const resourceData: Resource = {
       ...selectedResource,
       id,
@@ -258,11 +234,9 @@ function ResourcesPageContent() {
       integrityReq: inherited ? inherited.integrityReq : integrityReq,
       availabilityReq: inherited ? inherited.availabilityReq : availabilityReq,
       hasPersonalData: inherited ? inherited.hasPersonalData : hasPersonalData,
-      isDataRepository, isIdentityProvider,
-      backupRequired, updatesRequired,
+      isDataRepository, isIdentityProvider, backupRequired, updatesRequired,
       identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? id : identityProviderId),
-      dataLocation,
-      systemOwnerRoleId: systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
+      dataLocation, systemOwnerRoleId: systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
       externalOwnerPartnerId: externalOwnerPartnerId !== 'none' ? externalOwnerPartnerId : undefined,
       externalOwnerContactId: externalOwnerContactId !== 'none' ? externalOwnerContactId : undefined,
@@ -274,80 +248,46 @@ function ResourcesPageContent() {
     try {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
-        if (selectedResource) {
-          const oldJobs = allBackupJobs?.filter(b => b.resourceId === id) || [];
-          for (const oj of oldJobs) await deleteCollectionRecord('backup_jobs', oj.id, dataSource);
-          const oldUpdates = allUpdateLinks?.filter(u => u.resourceId === id) || [];
-          for (const ou of oldUpdates) await deleteCollectionRecord('resource_update_processes', ou.id, dataSource);
-        }
+        const oldJobs = allBackupJobs?.filter(b => b.resourceId === id) || [];
+        for (const oj of oldJobs) await deleteCollectionRecord('backup_jobs', oj.id, dataSource);
+        const oldUpdates = allUpdateLinks?.filter(u => u.resourceId === id) || [];
+        for (const ou of oldUpdates) await deleteCollectionRecord('resource_update_processes', ou.id, dataSource);
 
         for (const job of localBackupJobs) {
           const jobId = job.id || `bj-${Math.random().toString(36).substring(2, 7)}`;
-          await saveCollectionRecord('backup_jobs', jobId, { 
-            ...job, id: jobId, resourceId: id,
-            updatedAt: new Date().toISOString(),
-            createdAt: job.createdAt || new Date().toISOString()
-          }, dataSource);
+          await saveCollectionRecord('backup_jobs', jobId, { ...job, id: jobId, resourceId: id, updatedAt: new Date().toISOString(), createdAt: job.createdAt || new Date().toISOString() }, dataSource);
         }
-
         for (const pid of selectedUpdateProcessIds) {
           const lid = `upl-${id}-${pid}`;
-          await saveCollectionRecord('resource_update_processes', lid, { 
-            id: lid, resourceId: id, processId: pid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-          }, dataSource);
+          await saveCollectionRecord('resource_update_processes', lid, { id: lid, resourceId: id, processId: pid, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, dataSource);
         }
-
         toast({ title: selectedResource ? "Ressource aktualisiert" : "Ressource registriert" });
         setIsDialogOpen(false);
-        refresh();
-        refreshBackups();
-        refreshUpdates();
+        refresh(); refreshBackups(); refreshUpdates();
       }
-    } finally {
-      setIsSaving(false);
-    }
+    } finally { setIsSaving(false); }
   };
 
   const openEdit = (res: Resource) => {
-    setSelectedResource(res);
-    setName(res.name);
-    setAssetType(res.assetType);
-    setCategory(res.category);
-    setOperatingModel(res.operatingModel);
-    setDataClassification(res.dataClassification || 'internal');
-    setConfidentialityReq(res.confidentialityReq || 'medium');
-    setIntegrityReq(res.integrityReq || 'medium');
-    setAvailabilityReq(res.availabilityReq || 'medium');
-    setHasPersonalData(!!res.hasPersonalData);
-    setIsDataRepository(!!res.isDataRepository);
-    setIsIdentityProvider(!!res.isIdentityProvider);
-    setBackupRequired(!!res.backupRequired);
-    setUpdatesRequired(!!res.updatesRequired);
+    setSelectedResource(res); setName(res.name); setAssetType(res.assetType); setCategory(res.category); setOperatingModel(res.operatingModel);
+    setDataClassification(res.dataClassification || 'internal'); setConfidentialityReq(res.confidentialityReq || 'medium'); setIntegrityReq(res.integrityReq || 'medium');
+    setAvailabilityReq(res.availabilityReq || 'medium'); setHasPersonalData(!!res.hasPersonalData); setIsDataRepository(!!res.isDataRepository); setIsIdentityProvider(!!res.isIdentityProvider);
+    setBackupRequired(!!res.backupRequired); setUpdatesRequired(!!res.updatesRequired);
     setLocalBackupJobs(allBackupJobs?.filter(b => b.resourceId === res.id) || []);
     setSelectedUpdateProcessIds(allUpdateLinks?.filter(u => u.resourceId === res.id).map(u => u.processId) || []);
     setIdentityProviderId(res.identityProviderId === res.id ? 'self' : (res.identityProviderId || 'none'));
-    setDataLocation(res.dataLocation || '');
-    setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
-    setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
-    setExternalOwnerPartnerId(res.externalOwnerPartnerId || 'none');
-    setExternalOwnerContactId(res.externalOwnerContactId || 'none');
-    setExternalOwnerAreaId(res.externalOwnerAreaId || 'none');
-    setNotes(res.notes || '');
-    setUrl(res.url || '');
-    setIsDialogOpen(true);
+    setDataLocation(res.dataLocation || ''); setSystemOwnerRoleId(res.systemOwnerRoleId || 'none'); setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
+    setExternalOwnerPartnerId(res.externalOwnerPartnerId || 'none'); setExternalOwnerContactId(res.externalOwnerContactId || 'none');
+    setExternalOwnerAreaId(res.externalOwnerAreaId || 'none'); setNotes(res.notes || ''); setUrl(res.url || ''); setIsDialogOpen(true);
   };
 
   const resetForm = () => {
-    setSelectedResource(null);
-    setName(''); setAssetType(''); setCategory('Fachanwendung'); setOperatingModel('');
-    setDataClassification('internal');
-    setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
-    setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false);
-    setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerRoleId('none'); setRiskOwnerRoleId('none');
-    setExternalOwnerPartnerId('none'); setExternalOwnerContactId('none'); setExternalOwnerAreaId('none');
-    setBackupRequired(false); setUpdatesRequired(false);
-    setLocalBackupJobs([]); setSelectedUpdateProcessIds([]);
-    setNotes(''); setUrl('');
+    setSelectedResource(null); setName(''); setAssetType(''); setCategory('Fachanwendung'); setOperatingModel('');
+    setDataClassification('internal'); setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
+    setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false); setIdentityProviderId('none');
+    setDataLocation(''); setSystemOwnerRoleId('none'); setRiskOwnerRoleId('none'); setExternalOwnerPartnerId('none');
+    setExternalOwnerContactId('none'); setExternalOwnerAreaId('none'); setBackupRequired(false); setUpdatesRequired(false);
+    setLocalBackupJobs([]); setSelectedUpdateProcessIds([]); setNotes(''); setUrl('');
   };
 
   const handleOpenBackupModal = (idx: number | null = null) => {
@@ -356,7 +296,9 @@ function ResourcesPageContent() {
       setCurrentBackupIdx(idx);
     } else {
       setBackupForm({
-        name: '', cycle: 'Täglich', storage_location: '', description: '', responsible_id: '', lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
+        name: '', cycle: 'Täglich', custom_cycle: '', storage_location: '', description: '', 
+        responsible_type: 'internal', responsible_id: 'none', external_contact_id: 'none',
+        lastReviewDate: '', it_process_id: 'none', detail_process_id: 'none'
       });
       setCurrentBackupIdx(null);
     }
@@ -364,8 +306,8 @@ function ResourcesPageContent() {
   };
 
   const saveBackupForm = () => {
-    if (!backupForm.name || !backupForm.responsible_id) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name und Verantwortlicher sind erforderlich." });
+    if (!backupForm.name) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
       return;
     }
     const next = [...localBackupJobs];
@@ -388,6 +330,8 @@ function ResourcesPageContent() {
   }, [resources, search, activeTenantId, showArchived, assetTypeFilter]);
 
   if (!mounted) return null;
+
+  const detailProcesses = allProcesses?.filter(p => p.status !== 'archived');
 
   return (
     <div className="space-y-6 pb-10">
@@ -457,7 +401,6 @@ function ResourcesPageContent() {
                 const inherited = getInheritedStats(res.id);
                 const crit = inherited ? inherited.criticality : 'low';
                 const hasPB = inherited ? inherited.hasPersonalData : !!res.hasPersonalData;
-
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -642,7 +585,7 @@ function ResourcesPageContent() {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Service Partner</Label>
-                          <Select value={externalOwnerPartnerId} onValueChange={setExternalOwnerPartnerId}>
+                          <Select value={externalOwnerPartnerId} onValueChange={v => { setExternalOwnerPartnerId(v); setExternalOwnerContactId('none'); }}>
                             <SelectTrigger className="rounded-xl h-11 bg-white border-indigo-100"><SelectValue placeholder="Partner wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Kein externer Partner</SelectItem>
@@ -666,13 +609,17 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="maintenance" className="mt-0 space-y-10 pb-20">
+                  {/* Datensicherung Section */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-2">
                         <HardDrive className="w-4 h-4 text-orange-600" />
                         <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung (Backup)</h4>
                       </div>
-                      <Switch checked={backupRequired} onCheckedChange={setBackupRequired} className="data-[state=checked]:bg-orange-600" />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="backup-req" className="text-[10px] font-bold uppercase text-slate-400">Erforderlich</Label>
+                        <Switch id="backup-req" checked={backupRequired} onCheckedChange={setBackupRequired} className="data-[state=checked]:bg-orange-600" />
+                      </div>
                     </div>
                     {backupRequired && (
                       <div className="space-y-4">
@@ -681,20 +628,64 @@ function ResourcesPageContent() {
                         </Button>
                         <div className="grid grid-cols-1 gap-3">
                           {localBackupJobs.map((job, idx) => (
-                            <div key={idx} className="p-4 bg-slate-50 border rounded-xl flex items-center justify-between">
+                            <div key={idx} className="p-4 bg-slate-50 border rounded-xl flex items-center justify-between shadow-sm">
                               <div className="flex items-center gap-4">
-                                <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-orange-600 border shadow-inner"><HardDrive className="w-4 h-4" /></div>
+                                <div className="w-10 h-10 rounded-xl bg-white border flex items-center justify-center text-orange-600 shadow-inner"><HardDrive className="w-5 h-5" /></div>
                                 <div>
                                   <p className="text-sm font-bold text-slate-800">{job.name}</p>
-                                  <div className="flex items-center gap-3 mt-0.5">
-                                    <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 uppercase">{job.cycle}</Badge>
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1"><UserCircle className="w-2.5 h-2.5" /> {jobTitles?.find(r => r.id === job.responsible_id)?.name || 'N/A'}</span>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 uppercase">{job.cycle === 'Benutzerdefiniert' ? job.custom_cycle : job.cycle}</Badge>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                                      <UserCircle className="w-3 h-3" /> 
+                                      {job.responsible_type === 'internal' 
+                                        ? jobTitles?.find(r => r.id === job.responsible_id)?.name || 'Interner Verantwortlicher'
+                                        : contacts?.find(c => c.id === job.external_contact_id)?.name || 'Externer Verantwortlicher'}
+                                    </span>
                                   </div>
                                 </div>
                               </div>
                               <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => handleOpenBackupModal(idx)}><Pencil className="w-3.5 h-3.5" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-3.5 h-3.5" /></Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Patch-Management Section */}
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Patch-Management (Updates)</h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="updates-req" className="text-[10px] font-bold uppercase text-slate-400">Erforderlich</Label>
+                        <Switch id="updates-req" checked={updatesRequired} onCheckedChange={setUpdatesRequired} className="data-[state=checked]:bg-blue-600" />
+                      </div>
+                    </div>
+                    {updatesRequired && (
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Verknüpfte Detailprozesse</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {detailProcesses?.map(proc => (
+                            <div 
+                              key={proc.id} 
+                              className={cn(
+                                "p-3 border rounded-xl flex items-center gap-3 cursor-pointer transition-all shadow-sm",
+                                selectedUpdateProcessIds.includes(proc.id) ? "border-blue-500 bg-blue-50/20" : "bg-white border-slate-100 hover:border-slate-200"
+                              )}
+                              onClick={() => setSelectedUpdateProcessIds(prev => 
+                                prev.includes(proc.id) ? prev.filter(id => id !== proc.id) : [...prev, proc.id]
+                              )}
+                            >
+                              <Checkbox checked={selectedUpdateProcessIds.includes(proc.id)} />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-bold text-slate-800 truncate">{proc.title}</p>
+                                <p className="text-[8px] text-slate-400 font-black uppercase">V{proc.currentVersion}.0</p>
                               </div>
                             </div>
                           ))}
@@ -715,37 +706,116 @@ function ResourcesPageContent() {
         </DialogContent>
       </Dialog>
 
+      {/* Backup Job Modal */}
       <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
-        <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
+        <DialogContent className="max-w-3xl rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
           <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
-            <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">Backup-Job Details</DialogTitle>
+            <div className="flex items-center gap-4">
+              <HardDrive className="w-6 h-6" />
+              <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Backup-Job Konfiguration</DialogTitle>
+            </div>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Name des Jobs</Label>
-              <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. SQL Full Dump" className="h-11 rounded-xl font-bold" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <ScrollArea className="max-h-[75vh]">
+            <div className="p-8 space-y-8">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Zyklus</Label>
-                <Select value={backupForm.cycle} onValueChange={(v:any) => setBackupForm({...backupForm, cycle: v})}>
-                  <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl">{['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1">Job-Bezeichnung</Label>
+                <Input value={backupForm.name} onChange={e => setBackupForm({...backupForm, name: e.target.value})} placeholder="z.B. SQL Full Dump" className="h-11 rounded-xl font-bold" />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Sicherungs-Zyklus</Label>
+                  <Select value={backupForm.cycle} onValueChange={(v:any) => setBackupForm({...backupForm, cycle: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {['Täglich', 'Wöchentlich', 'Monatlich', 'Manuell', 'Benutzerdefiniert'].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {backupForm.cycle === 'Benutzerdefiniert' && (
+                  <div className="space-y-2 animate-in slide-in-from-top-1">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Eigener Zyklus</Label>
+                    <Input value={backupForm.custom_cycle} onChange={e => setBackupForm({...backupForm, custom_cycle: e.target.value})} placeholder="z.B. Alle 12 Stunden" className="h-11 rounded-xl" />
+                  </div>
+                )}
+              </div>
+
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-6">
+                <div className="flex items-center gap-3 border-b pb-3">
+                  <UserCircle className="w-4 h-4 text-orange-600" />
+                  <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortliche Stelle</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Art der Verantwortung</Label>
+                    <Select value={backupForm.responsible_type} onValueChange={(v:any) => setBackupForm({...backupForm, responsible_type: v, responsible_id: 'none', external_contact_id: 'none'})}>
+                      <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="internal">Intern (Organisation)</SelectItem>
+                        <SelectItem value="external">Extern (Dienstleister)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {backupForm.responsible_type === 'internal' ? (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Interne Rolle</Label>
+                      <Select value={backupForm.responsible_id || 'none'} onValueChange={v => setBackupForm({...backupForm, responsible_id: v})}>
+                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Externer Ansprechpartner</Label>
+                      <Select value={backupForm.external_contact_id || 'none'} onValueChange={v => setBackupForm({...backupForm, external_contact_id: v})}>
+                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Kontakt wählen..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                          {contacts?.map(c => {
+                            const partner = partners?.find(p => p.id === c.partnerId);
+                            return <SelectItem key={c.id} value={c.id}>{partner?.name}: {c.name}</SelectItem>;
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Übergeordneter IT-Prozess</Label>
+                  <Select value={backupForm.it_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, it_process_id: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="IT-Leitfaden wählen..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Bezug</SelectItem>
+                      {allProcesses?.filter(p => p.process_type_id === 'pt-3').map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Operativer Detailprozess</Label>
+                  <Select value={backupForm.detail_process_id || 'none'} onValueChange={v => setBackupForm({...backupForm, detail_process_id: v})}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Detail-Workflow wählen..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Bezug</SelectItem>
+                      {detailProcesses?.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher</Label>
-                <Select value={backupForm.responsible_id} onValueChange={v => setBackupForm({...backupForm, responsible_id: v})}>
-                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                  <SelectContent className="rounded-xl">{sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Physischer Speicherort</Label>
+                <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/path/..." className="h-11 rounded-xl font-mono text-xs" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Speicherort</Label>
-              <Input value={backupForm.storage_location} onChange={e => setBackupForm({...backupForm, storage_location: e.target.value})} placeholder="/backup/path/..." className="h-11 rounded-xl font-mono text-xs" />
-            </div>
-          </div>
+          </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
             <Button variant="ghost" onClick={() => setIsBackupModalOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
             <Button onClick={saveBackupForm} className="rounded-xl h-11 px-12 bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px] uppercase shadow-lg">Job Speichern</Button>

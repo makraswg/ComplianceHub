@@ -47,7 +47,8 @@ import {
   ClipboardList,
   History,
   Phone,
-  MapPin
+  MapPin,
+  ListChecks
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -99,11 +100,8 @@ export default function ResourceDetailPage() {
 
   const resourceRisks = useMemo(() => risks?.filter(r => r.assetId === id) || [], [risks, id]);
   
-  // --- INHERITANCE LOGIC (DATA & GDPR) ---
   const inheritedData = useMemo(() => {
     if (!resource || !versions || !featureLinks || !features) return null;
-
-    // 1. Find all processes using this resource
     const usedInProcessIds = new Set<string>();
     versions.forEach(v => {
       const nodes = v.model_json?.nodes || [];
@@ -111,22 +109,15 @@ export default function ResourceDetailPage() {
         usedInProcessIds.add(v.process_id);
       }
     });
-
-    // 2. Find all features linked to these processes
     const linkedFeatureIds = new Set<string>();
     featureLinks.forEach((link: any) => {
       if (usedInProcessIds.has(link.processId)) {
         linkedFeatureIds.add(link.featureId);
       }
     });
-
     const linkedFeatures = Array.from(linkedFeatureIds).map(fid => features.find(f => f.id === fid)).filter(Boolean) as Feature[];
-
     if (linkedFeatures.length === 0) return null;
-
-    // 3. Aggregate values
     const hasPersonalData = linkedFeatures.some(f => !!f.hasPersonalData);
-    
     const classificationOrder = { strictly_confidential: 4, confidential: 3, internal: 2, public: 1 };
     let maxClass: Resource['dataClassification'] = 'internal';
     let maxVal = 0;
@@ -137,30 +128,17 @@ export default function ResourceDetailPage() {
         maxClass = f.dataClassification as any;
       }
     });
-
     const reqOrder = { high: 3, medium: 2, low: 1 };
     const getReq = (prop: 'confidentialityReq' | 'integrityReq' | 'availabilityReq') => {
       let maxReq: 'low' | 'medium' | 'high' = 'low';
       let maxV = 0;
       linkedFeatures.forEach(f => {
         const val = reqOrder[f[prop] as keyof typeof reqOrder] || 0;
-        if (val > maxV) {
-          maxV = val;
-          maxReq = f[prop] as any;
-        }
+        if (val > maxV) { maxV = val; maxReq = f[prop] as any; }
       });
       return maxReq;
     };
-
-    return {
-      hasPersonalData,
-      dataClassification: maxClass,
-      confidentialityReq: getReq('confidentialityReq'),
-      integrityReq: getReq('integrityReq'),
-      availabilityReq: getReq('availabilityReq'),
-      featureCount: linkedFeatures.length,
-      processCount: usedInProcessIds.size
-    };
+    return { hasPersonalData, dataClassification: maxClass, confidentialityReq: getReq('confidentialityReq'), integrityReq: getReq('integrityReq'), availabilityReq: getReq('availabilityReq'), featureCount: linkedFeatures.length, processCount: usedInProcessIds.size };
   }, [resource, versions, featureLinks, features]);
 
   const inheritedCriticality = useMemo(() => {
@@ -173,7 +151,6 @@ export default function ResourceDetailPage() {
 
   const internalOwner = useMemo(() => jobTitles?.find(j => j.id === resource?.systemOwnerRoleId), [jobTitles, resource]);
   const internalRiskOwner = useMemo(() => jobTitles?.find(j => j.id === resource?.riskOwnerRoleId), [jobTitles, resource]);
-  
   const externalPartner = useMemo(() => partners?.find(p => p.id === resource?.externalOwnerPartnerId), [partners, resource]);
   const externalContact = useMemo(() => contacts?.find(c => c.id === resource?.externalOwnerContactId), [contacts, resource]);
   const externalArea = useMemo(() => areas?.find(a => a.id === resource?.externalOwnerAreaId), [areas, resource]);
@@ -349,7 +326,6 @@ export default function ResourceDetailPage() {
 
             <TabsContent value="ownership" className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Internal Ownership */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-900 text-white p-6">
                     <div className="flex items-center gap-3">
@@ -380,7 +356,6 @@ export default function ResourceDetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* External Ownership */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-indigo-600 text-white p-6">
                     <div className="flex items-center gap-3">
@@ -406,8 +381,8 @@ export default function ResourceDetailPage() {
                       <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
                         <UserIcon className="w-4 h-4 text-slate-400" />
                         <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-slate-800">{externalContact?.name || 'Kein Kontakt'}</p>
-                          <p className="text-[9px] text-slate-400 truncate">{externalContact?.email}</p>
+                          <p className="text-[10px] font-bold text-slate-800 dark:text-slate-100">{externalContact?.name || 'Kein Kontakt'}</p>
+                          <p className="text-[9px] text-slate-400 font-medium truncate italic">{externalContact?.email}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm">
@@ -430,43 +405,70 @@ export default function ResourceDetailPage() {
                   <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[9px] px-2 h-5">{resourceBackups.length} Jobs</Badge>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-slate-50/30">
-                      <TableRow>
-                        <TableHead className="py-3 px-6 text-[10px] font-black uppercase text-slate-400">Bezeichnung</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Zyklus</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-400">Verantwortlich</TableHead>
-                        <TableHead className="text-[10px] font-black uppercase text-slate-400">IT-Leitfaden</TableHead>
-                        <TableHead className="text-right px-6 text-[10px] font-black uppercase text-slate-400">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {resourceBackups.map(job => (
-                        <TableRow key={job.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                          <TableCell className="py-4 px-6">
-                            <div className="font-bold text-xs text-slate-800">{job.name}</div>
-                            <p className="text-[9px] text-slate-400 truncate max-w-[150px]">{job.storage_location}</p>
-                          </TableCell>
-                          <TableCell className="text-center"><Badge variant="outline" className="text-[9px] font-black uppercase h-5 border-slate-200 bg-white">{job.cycle}</Badge></TableCell>
-                          <TableCell><span className="text-[10px] font-bold text-slate-600">{getJobName(job.responsible_id)}</span></TableCell>
-                          <TableCell>
-                            {job.it_process_id ? (
-                              <button className="text-[9px] text-primary font-bold flex items-center gap-1 hover:underline" onClick={() => router.push(`/processhub/view/${job.it_process_id}`)}>
-                                <Workflow className="w-3 h-3" /> {getProcessTitle(job.it_process_id)}
-                              </button>
-                            ) : <span className="text-slate-300">-</span>}
-                          </TableCell>
-                          <TableCell className="text-right px-6">
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className="text-[10px] font-black text-slate-800">{job.lastReviewDate || 'Offen'}</span>
-                              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Review</span>
+                  <div className="divide-y divide-slate-100">
+                    {resourceBackups.map(job => {
+                      const itProc = processes?.find(p => p.id === job.it_process_id);
+                      const detailProc = processes?.find(p => p.id === job.detail_process_id);
+                      const contact = contacts?.find(c => c.id === job.external_contact_id);
+                      const partner = partners?.find(p => p.id === contact?.partnerId);
+                      const role = jobTitles?.find(r => r.id === job.responsible_id);
+
+                      return (
+                        <div key={job.id} className="p-6 hover:bg-slate-50/50 transition-colors">
+                          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                            <div className="space-y-4 flex-1">
+                              <div>
+                                <h5 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                                  {job.name} 
+                                  <Badge variant="outline" className="bg-white border-orange-200 text-orange-700 font-black text-[8px] h-4 px-1.5 uppercase">
+                                    {job.cycle === 'Benutzerdefiniert' ? job.custom_cycle : job.cycle}
+                                  </Badge>
+                                </h5>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 flex items-center gap-1.5">
+                                  <MapPin className="w-2.5 h-2.5" /> {job.storage_location}
+                                </p>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="p-3 rounded-xl bg-white border border-slate-100 shadow-sm space-y-1">
+                                  <p className="text-[8px] font-black uppercase text-slate-400">Verantwortung</p>
+                                  <div className="flex items-center gap-2">
+                                    {job.responsible_type === 'internal' ? (
+                                      <><Building2 className="w-3.5 h-3.5 text-primary" /><span className="text-[11px] font-bold text-slate-700">{role?.name || 'Intern'}</span></>
+                                    ) : (
+                                      <><Globe className="w-3.5 h-3.5 text-indigo-600" /><span className="text-[11px] font-bold text-slate-700">{partner?.name}: {contact?.name || 'Extern'}</span></>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="p-3 rounded-xl bg-white border border-slate-100 shadow-sm space-y-1">
+                                  <p className="text-[8px] font-black uppercase text-slate-400">Review</p>
+                                  <div className="flex items-center gap-2 text-[11px] font-bold text-slate-700">
+                                    <History className="w-3.5 h-3.5 text-slate-400" /> {job.lastReviewDate || 'Noch nie geprüft'}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {resourceBackups.length === 0 && <TableRow><TableCell colSpan={5} className="py-16 text-center text-xs text-slate-400 italic">Keine Backup-Jobs konfiguriert</TableCell></TableRow>}
-                    </TableBody>
-                  </Table>
+
+                            <div className="w-full md:w-64 space-y-2">
+                              <p className="text-[8px] font-black uppercase text-slate-400 ml-1">Dokumentierte Workflows</p>
+                              {itProc && (
+                                <Button variant="outline" className="w-full h-9 justify-start text-[10px] font-bold gap-2 bg-white border-slate-100" onClick={() => router.push(`/processhub/view/${itProc.id}`)}>
+                                  <Workflow className="w-3.5 h-3.5 text-indigo-600" /> IT-Leitfaden
+                                </Button>
+                              )}
+                              {detailProc && (
+                                <Button variant="outline" className="w-full h-9 justify-start text-[10px] font-bold gap-2 bg-white border-slate-100" onClick={() => router.push(`/processhub/view/${detailProc.id}`)}>
+                                  <ListChecks className="w-3.5 h-3.5 text-emerald-600" /> Detailprozess
+                                </Button>
+                              )}
+                              {!itProc && !detailProc && <p className="text-[10px] text-slate-300 italic text-center py-2 border border-dashed rounded-lg">Keine Workflows verknüpft</p>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {resourceBackups.length === 0 && <div className="py-16 text-center text-xs text-slate-400 italic">Keine Backup-Jobs konfiguriert</div>}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -474,25 +476,35 @@ export default function ResourceDetailPage() {
                 <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Activity className="w-5 h-5 text-blue-600" />
-                    <CardTitle className="text-sm font-bold uppercase tracking-widest">Patch-Management Workflows</CardTitle>
+                    <CardTitle className="text-sm font-bold uppercase tracking-widest">Update- & Patch-Management</CardTitle>
                   </div>
+                  <Badge variant={resource.updatesRequired ? 'default' : 'outline'} className={cn("rounded-full px-3 h-6 text-[10px] font-black border-none", resource.updatesRequired ? "bg-blue-100 text-blue-700" : "text-slate-300")}>
+                    {resource.updatesRequired ? 'AKTIV' : 'NICHT ERFORDERLICH'}
+                  </Badge>
                 </CardHeader>
                 <CardContent className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {resourceUpdates.map(p => (
-                      <div key={p.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/processhub/view/${p.id}`)}>
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-white border flex items-center justify-center text-blue-600 shadow-sm"><Workflow className="w-5 h-5" /></div>
-                          <div>
-                            <span className="text-[11px] font-bold text-slate-800">{p.title}</span>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">IT-Leitfaden</p>
+                  {resource.updatesRequired ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {resourceUpdates.map(p => (
+                        <div key={p.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-blue-300 transition-all cursor-pointer shadow-sm" onClick={() => router.push(`/processhub/view/${p.id}`)}>
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border flex items-center justify-center text-blue-600 shadow-sm"><Workflow className="w-5 h-5" /></div>
+                            <div>
+                              <span className="text-[11px] font-bold text-slate-800">{p.title}</span>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">Wartungs-Workflow</p>
+                            </div>
                           </div>
+                          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-all" />
                         </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-600 transition-all" />
-                      </div>
-                    ))}
-                    {resourceUpdates.length === 0 && <div className="col-span-full py-10 text-center text-xs text-slate-400 italic border-2 border-dashed rounded-2xl">Keine Update-Prozesse verknüpft</div>}
-                  </div>
+                      ))}
+                      {resourceUpdates.length === 0 && <div className="col-span-full py-10 text-center text-xs text-slate-400 italic border-2 border-dashed rounded-2xl">Keine Update-Prozesse verknüpft</div>}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center border-2 border-dashed rounded-2xl opacity-20">
+                      <ShieldX className="w-10 h-10 mx-auto mb-2" />
+                      <p className="text-xs font-bold uppercase">Für dieses Asset wurde kein Patch-Bedarf definiert.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
