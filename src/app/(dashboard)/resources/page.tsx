@@ -29,7 +29,11 @@ import {
   Activity,
   History,
   Trash2,
-  Workflow
+  Workflow,
+  X,
+  PlusCircle,
+  Settings2,
+  Clock
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, UpdateProcess } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
@@ -102,6 +106,10 @@ export default function ResourcesPage() {
   const [backupRequired, setBackupRequired] = useState(false);
   const [updatesRequired, setUpdatesRequired] = useState(false);
 
+  // Local Lists for Jobs
+  const [localBackupJobs, setLocalBackupJobs] = useState<Partial<BackupJob>[]>([]);
+  const [localUpdateProcesses, setLocalUpdateProcesses] = useState<Partial<UpdateProcess>[]>([]);
+
   const [notes, setNotes] = useState('');
   const [url, setUrl] = useState('');
 
@@ -113,7 +121,9 @@ export default function ResourcesPage() {
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: assetTypeOptions } = usePluggableCollection<AssetTypeOption>('assetTypeOptions');
   const { data: operatingModelOptions } = usePluggableCollection<OperatingModelOption>('operatingModelOptions');
-  const { data: itProcesses } = usePluggableCollection<Process>('processes');
+  const { data: allProcesses } = usePluggableCollection<Process>('processes');
+  const { data: allBackupJobs, refresh: refreshBackups } = usePluggableCollection<BackupJob>('backup_jobs');
+  const { data: allUpdateProcesses, refresh: refreshUpdates } = usePluggableCollection<UpdateProcess>('update_processes');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -127,49 +137,9 @@ export default function ResourcesPage() {
     });
   }, [jobTitles, departmentsData]);
 
-  const getFullRoleName = (roleId?: string) => {
-    if (!roleId || roleId === 'none') return '---';
-    const role = jobTitles?.find(j => j.id === roleId);
-    if (!role) return roleId;
-    const dept = departmentsData?.find(d => d.id === role.departmentId);
-    return dept ? `${dept.name} — ${role.name}` : role.name;
-  };
-
-  const getTenantSlug = (id?: string | null) => {
-    if (!id || id === 'all' || id === 'global') return 'alle Standorte';
-    const tenant = tenants?.find((t: any) => t.id === id);
-    return tenant ? tenant.slug : id;
-  };
-
-  const identityProviders = useMemo(() => {
-    return resources?.filter(r => r.isIdentityProvider === true || r.isIdentityProvider === 1) || [];
-  }, [resources]);
-
-  const resetForm = () => {
-    setSelectedResource(null);
-    setName('');
-    setAssetType('');
-    setCategory('Fachanwendung');
-    setOperatingModel('');
-    setCriticality('medium');
-    setDataClassification('internal');
-    setConfidentialityReq('medium');
-    setIntegrityReq('medium');
-    setAvailabilityReq('medium');
-    setHasPersonalData(false);
-    setIsDataRepository(false);
-    setIsIdentityProvider(false);
-    setIdentityProviderId('none');
-    setDataLocation('');
-    setSystemOwnerType('internal');
-    setSystemOwnerRoleId('');
-    setExternalRefId('none');
-    setRiskOwnerRoleId('');
-    setBackupRequired(false);
-    setUpdatesRequired(false);
-    setNotes('');
-    setUrl('');
-  };
+  const itProcesses = useMemo(() => {
+    return allProcesses?.filter(p => p.status !== 'archived') || [];
+  }, [allProcesses]);
 
   const handleSave = async () => {
     if (!name || !assetType) {
@@ -178,6 +148,7 @@ export default function ResourcesPage() {
     }
 
     setIsSaving(true);
+    const id = selectedResource?.id || `res-${Math.random().toString(36).substring(2, 9)}`;
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
     let externalOwnerPartnerId = undefined;
@@ -191,46 +162,41 @@ export default function ResourcesPage() {
 
     const resourceData: Resource = {
       ...selectedResource,
-      id: selectedResource?.id || '',
+      id,
       tenantId: targetTenantId,
-      name,
-      assetType,
-      category,
-      operatingModel,
-      criticality,
-      dataClassification,
-      confidentialityReq,
-      integrityReq,
-      availabilityReq,
-      hasPersonalData,
-      isDataRepository,
-      isIdentityProvider,
-      backupRequired,
-      updatesRequired,
-      identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? (selectedResource?.id || 'self') : identityProviderId),
+      name, assetType, category, operatingModel, criticality, dataClassification,
+      confidentialityReq, integrityReq, availabilityReq,
+      hasPersonalData, isDataRepository, isIdentityProvider,
+      backupRequired, updatesRequired,
+      identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? id : identityProviderId),
       dataLocation,
       systemOwnerRoleId: systemOwnerType === 'internal' && systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       externalOwnerPartnerId: systemOwnerType === 'external' ? externalOwnerPartnerId : undefined,
       externalOwnerAreaId: systemOwnerType === 'external' ? externalOwnerAreaId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
-      notes,
-      url,
-      status: selectedResource?.status || 'active',
+      notes, url, status: selectedResource?.status || 'active',
       createdAt: selectedResource?.createdAt || new Date().toISOString(),
-      operatorId: '',
-      riskOwner: '',
-      dataOwner: '',
-      mfaType: 'none',
-      authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
+      operatorId: '', riskOwner: '', dataOwner: '', mfaType: 'none', authMethod: identityProviderId === 'none' ? 'direct' : 'idp'
     } as Resource;
 
     try {
       const res = await saveResourceAction(resourceData, dataSource, user?.email || 'system');
       if (res.success) {
+        // Save sub-items (Backups & Updates)
+        for (const job of localBackupJobs) {
+          const jobId = job.id || `bj-${Math.random().toString(36).substring(2, 7)}`;
+          await saveCollectionRecord('backup_jobs', jobId, { ...job, id: jobId, resourceId: id }, dataSource);
+        }
+        for (const proc of localUpdateProcesses) {
+          const procId = proc.id || `up-${Math.random().toString(36).substring(2, 7)}`;
+          await saveCollectionRecord('update_processes', procId, { ...proc, id: procId, resourceId: id }, dataSource);
+        }
+
         toast({ title: selectedResource ? "Ressource aktualisiert" : "Ressource registriert" });
         setIsDialogOpen(false);
-        resetForm();
         refresh();
+        refreshBackups();
+        refreshUpdates();
       }
     } finally {
       setIsSaving(false);
@@ -254,24 +220,36 @@ export default function ResourcesPage() {
     setBackupRequired(!!res.backupRequired);
     setUpdatesRequired(!!res.updatesRequired);
     
+    setLocalBackupJobs(allBackupJobs?.filter(b => b.resourceId === res.id) || []);
+    setLocalUpdateProcesses(allUpdateProcesses?.filter(u => u.resourceId === res.id) || []);
+
     if (res.identityProviderId === res.id) setIdentityProviderId('self');
     else setIdentityProviderId(res.identityProviderId || 'none');
 
     setDataLocation(res.dataLocation || '');
-    
     const hasExternal = !!(res.externalOwnerPartnerId || res.externalOwnerAreaId);
     setSystemOwnerType(hasExternal ? 'external' : 'internal');
     setSystemOwnerRoleId(res.systemOwnerRoleId || 'none');
-    
     if (res.externalOwnerAreaId) setExternalRefId(`a:${res.externalOwnerAreaId}`);
     else if (res.externalOwnerPartnerId) setExternalRefId(`p:${res.externalOwnerPartnerId}`);
     else setExternalRefId('none');
-    
     setRiskOwnerRoleId(res.riskOwnerRoleId || 'none');
-
     setNotes(res.notes || '');
     setUrl(res.url || '');
     setIsDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setSelectedResource(null);
+    setName(''); setAssetType(''); setCategory('Fachanwendung'); setOperatingModel('');
+    setCriticality('medium'); setDataClassification('internal');
+    setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
+    setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false);
+    setIdentityProviderId('none'); setDataLocation(''); setSystemOwnerType('internal');
+    setSystemOwnerRoleId(''); setExternalRefId('none'); setRiskOwnerRoleId('');
+    setBackupRequired(false); setUpdatesRequired(false);
+    setLocalBackupJobs([]); setLocalUpdateProcesses([]);
+    setNotes(''); setUrl('');
   };
 
   const filteredResources = useMemo(() => {
@@ -356,16 +334,14 @@ export default function ResourcesPage() {
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Anwendung / Asset</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (CIA)</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">System Owner</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Wartung/Backup</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredResources.map((res) => {
-                const internalOwnerName = getFullRoleName(res.systemOwnerRoleId);
-                const externalPartner = partners?.find(p => p.id === res.externalOwnerPartnerId);
-                const externalArea = areas?.find(a => a.id === res.externalOwnerAreaId);
-                
+                const backups = allBackupJobs?.filter(b => b.resourceId === res.id).length || 0;
+                const updates = allUpdateProcesses?.filter(u => u.resourceId === res.id).length || 0;
                 return (
                   <TableRow key={res.id} className={cn("group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer", res.status === 'archived' && "opacity-60")} onClick={() => router.push(`/resources/${res.id}`)}>
                     <TableCell className="py-4 px-6">
@@ -374,11 +350,7 @@ export default function ResourcesPage() {
                           <Server className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
-                            <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
-                            {(res.isIdentityProvider === true || res.isIdentityProvider === 1) && <Fingerprint className="w-3.5 h-3.5 text-blue-600" />}
-                            {(res.isDataRepository === true || res.isDataRepository === 1) && <Database className="w-3.5 h-3.5 text-indigo-600" />}
-                          </div>
+                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
                           <div className="text-[9px] text-slate-400 font-bold uppercase">{res.assetType} • {res.operatingModel}</div>
                         </div>
                       </div>
@@ -389,22 +361,11 @@ export default function ResourcesPage() {
                         <Badge className={cn("text-[8px] font-black h-4 border-none uppercase", res.criticality === 'high' ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")}>{res.criticality}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {externalPartner ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-indigo-600 text-white border-none rounded-full h-3.5 px-1 text-[6px] font-black uppercase">EXTERN</Badge>
-                            <span className="text-[10px] font-bold text-slate-600">{externalPartner.name}</span>
-                          </div>
-                          {externalArea && <span className="text-[8px] font-black uppercase text-indigo-400 pl-6">{externalArea.name}</span>}
-                        </div>
-                      ) : res.systemOwnerRoleId ? (
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                          <Briefcase className="w-3.5 h-3.5 text-primary opacity-50" /> {internalOwnerName}
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-slate-300 italic">Nicht zugewiesen</span>
-                      )}
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {res.backupRequired && <Badge variant="outline" className="h-4 px-1.5 text-[7px] font-black gap-1 border-orange-200 text-orange-600"><HardDrive className="w-2 h-2" /> {backups}</Badge>}
+                        {res.updatesRequired && <Badge variant="outline" className="h-4 px-1.5 text-[7px] font-black gap-1 border-blue-200 text-blue-600"><Activity className="w-2 h-2" /> {updates}</Badge>}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
@@ -433,8 +394,8 @@ export default function ResourcesPage() {
                   <Server className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">{selectedResource ? 'Ressource aktualisieren' : 'Ressource registrieren'}</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Asset-Management &amp; Schutzbedarfsfeststellung</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Asset Governance</DialogTitle>
+                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Stammdaten & Wartungsprozesse</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="resource" currentData={{ name, assetType, category, operatingModel }} onApply={(s) => { if(s.name) setName(s.name); if(s.category) setCategory(s.category); }} />
@@ -445,14 +406,13 @@ export default function ResourcesPage() {
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basisdaten</TabsTrigger>
-                <TabsTrigger value="governance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf</TabsTrigger>
-                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Verantwortung &amp; Auth</TabsTrigger>
-                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Wartung &amp; Backup</TabsTrigger>
+                <TabsTrigger value="maintenance" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Wartung & Backup</TabsTrigger>
+                <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-slate-900 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-slate-900 transition-all">Ownership & Auth</TabsTrigger>
               </TabsList>
             </div>
 
             <ScrollArea className="flex-1 bg-slate-50/30">
-              <div className="p-8 space-y-10">
+              <div className="p-8 space-y-10 pb-32">
                 <TabsContent value="base" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2 md:col-span-2">
@@ -473,33 +433,161 @@ export default function ResourcesPage() {
                         <SelectContent>{operatingModelOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
-                      <div className="flex items-center gap-2 border-b pb-3"><Database className="w-4 h-4 text-indigo-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Governance Rollen</h4></div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                          <div className="space-y-0.5"><Label className="text-[10px] font-bold uppercase text-slate-900">Datenmanagement Quelle</Label><p className="text-[8px] text-slate-400 uppercase font-black">Feature Repository</p></div>
-                          <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} />
-                        </div>
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                          <div className="space-y-0.5"><Label className="text-[10px] font-bold uppercase text-slate-900">Identitätsanbieter (IdP)</Label><p className="text-[8px] text-slate-400 uppercase font-black">Authentifizierungs-Quelle</p></div>
-                          <Switch checked={isIdentityProvider} onCheckedChange={setIsIdentityProvider} />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="governance" className="mt-0 space-y-10">
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <div className="flex items-center gap-2 border-b pb-3"><ShieldCheck className="w-4 h-4 text-indigo-600" /><h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarfsfeststellung (CIA)</h4></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label><Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label><Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label><Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent>{['low', 'medium', 'high'].map(v => <SelectItem key={v} value={v} className="uppercase font-bold text-[10px]">{v}</SelectItem>)}</SelectContent></Select></div>
+                <TabsContent value="maintenance" className="mt-0 space-y-10">
+                  <div className="space-y-10">
+                    {/* Backup Section */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <div className="flex items-center gap-2">
+                          <HardDrive className="w-4 h-4 text-orange-600" />
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung (Backups)</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Erforderlich</Label>
+                          <Switch checked={backupRequired} onCheckedChange={setBackupRequired} className="data-[state=checked]:bg-orange-600" />
+                        </div>
+                      </div>
+                      {backupRequired && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-2">
+                            {localBackupJobs.map((job, idx) => (
+                              <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Job Name</Label>
+                                      <Input value={job.name || ''} onChange={e => {
+                                        const next = [...localBackupJobs];
+                                        next[idx] = { ...next[idx], name: e.target.value };
+                                        setLocalBackupJobs(next);
+                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Tägliches DB-Backup" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Intervall / Zyklus</Label>
+                                      <Input value={job.cycle || ''} onChange={e => {
+                                        const next = [...localBackupJobs];
+                                        next[idx] = { ...next[idx], cycle: e.target.value };
+                                        setLocalBackupJobs(next);
+                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Täglich 23:00 Uhr" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Verantwortlich</Label>
+                                      <Select value={job.responsibleRoleId || 'none'} onValueChange={v => {
+                                        const next = [...localBackupJobs];
+                                        next[idx] = { ...next[idx], responsibleRoleId: v === 'none' ? undefined : v };
+                                        setLocalBackupJobs(next);
+                                      }}>
+                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">IT-Prozess (Referenz)</Label>
+                                      <Select value={job.processId || 'none'} onValueChange={v => {
+                                        const next = [...localBackupJobs];
+                                        next[idx] = { ...next[idx], processId: v === 'none' ? undefined : v };
+                                        setLocalBackupJobs(next);
+                                      }}>
+                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Kein Bezug</SelectItem>
+                                          {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalBackupJobs(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <Button variant="outline" size="sm" className="w-full rounded-xl h-9 text-[10px] font-black uppercase border-orange-200 text-orange-700 hover:bg-orange-50 gap-2" onClick={() => setLocalBackupJobs([...localBackupJobs, { name: '', cycle: '', location: '', status: 'active' }])}>
+                            <PlusCircle className="w-3.5 h-3.5" /> Sicherungs-Job hinzufügen
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-                      <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Datenklassifizierung</Label><Select value={dataClassification} onValueChange={(v:any) => setDataClassification(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="public">Öffentlich</SelectItem><SelectItem value="internal">Intern</SelectItem><SelectItem value="confidential">Vertraulich</SelectItem><SelectItem value="strictly_confidential">Streng Vertraulich</SelectItem></SelectContent></Select></div>
-                      <div className="space-y-2"><Label className="text-[10px) font-bold uppercase text-slate-400 ml-1">Gesamt-Kritikalität</Label><Select value={criticality} onValueChange={(v:any) => setCriticality(v)}><SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Niedrig</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch</SelectItem></SelectContent></Select></div>
+
+                    {/* Update Section */}
+                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-blue-600" />
+                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Patch-Management (Updates)</h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-[10px] font-bold uppercase text-slate-400">Aktiv</Label>
+                          <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} className="data-[state=checked]:bg-blue-600" />
+                        </div>
+                      </div>
+                      {updatesRequired && (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 gap-2">
+                            {localUpdateProcesses.map((proc, idx) => (
+                              <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Prozessbezeichnung</Label>
+                                      <Input value={proc.name || ''} onChange={e => {
+                                        const next = [...localUpdateProcesses];
+                                        next[idx] = { ...next[idx], name: e.target.value };
+                                        setLocalUpdateProcesses(next);
+                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Monatliche Sicherheits-Patches" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Intervall</Label>
+                                      <Input value={proc.frequency || ''} onChange={e => {
+                                        const next = [...localUpdateProcesses];
+                                        next[idx] = { ...next[idx], frequency: e.target.value };
+                                        setLocalUpdateProcesses(next);
+                                      }} className="h-8 text-xs bg-white" placeholder="z.B. Alle 30 Tage" />
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">Verantwortlich</Label>
+                                      <Select value={proc.responsibleRoleId || 'none'} onValueChange={v => {
+                                        const next = [...localUpdateProcesses];
+                                        next[idx] = { ...next[idx], responsibleRoleId: v === 'none' ? undefined : v };
+                                        setLocalUpdateProcesses(next);
+                                      }}>
+                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Nicht zugewiesen</SelectItem>
+                                          {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <Label className="text-[8px] font-black uppercase text-slate-400">IT-Workflow (Referenz)</Label>
+                                      <Select value={proc.processId || 'none'} onValueChange={v => {
+                                        const next = [...localUpdateProcesses];
+                                        next[idx] = { ...next[idx], processId: v === 'none' ? undefined : v };
+                                        setLocalUpdateProcesses(next);
+                                      }}>
+                                        <SelectTrigger className="h-8 text-xs bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="none">Kein Bezug</SelectItem>
+                                          {itProcesses.map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => setLocalUpdateProcesses(prev => prev.filter((_, i) => i !== idx))}><Trash2 className="w-4 h-4" /></Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <Button variant="outline" size="sm" className="w-full rounded-xl h-9 text-[10px] font-black uppercase border-blue-200 text-blue-700 hover:bg-blue-50 gap-2" onClick={() => setLocalUpdateProcesses([...localUpdateProcesses, { name: '', frequency: '' }])}>
+                            <PlusCircle className="w-3.5 h-3.5" /> Wartungsprozess hinzufügen
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -521,7 +609,7 @@ export default function ResourcesPage() {
                               <SelectContent>
                                 <SelectItem value="none">Keine</SelectItem>
                                 {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(job => (
-                                  <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>
+                                  <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -544,54 +632,6 @@ export default function ResourcesPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="maintenance" className="mt-0 space-y-10">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    {/* Backup Config */}
-                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                      <div className="flex items-center justify-between border-b pb-3">
-                        <div className="flex items-center gap-2">
-                          <HardDrive className="w-4 h-4 text-orange-600" />
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Datensicherung</h4>
-                        </div>
-                        <Switch checked={backupRequired} onCheckedChange={setBackupRequired} />
-                      </div>
-                      {backupRequired ? (
-                        <div className="space-y-4 animate-in fade-in">
-                          <p className="text-[10px] text-slate-500 italic">Sicherungs-Jobs können in der Detailansicht verwaltet werden.</p>
-                          <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-3">
-                            <Info className="w-4 h-4 text-orange-600" />
-                            <p className="text-[10px] font-bold text-orange-800">Review alle 180 Tage empfohlen.</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center opacity-30"><p className="text-[10px] font-black uppercase">Keine Sicherung gefordert</p></div>
-                      )}
-                    </div>
-
-                    {/* Update Config */}
-                    <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                      <div className="flex items-center justify-between border-b pb-3">
-                        <div className="flex items-center gap-2">
-                          <Activity className="w-4 h-4 text-blue-600" />
-                          <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Patch-Management</h4>
-                        </div>
-                        <Switch checked={updatesRequired} onCheckedChange={setUpdatesRequired} />
-                      </div>
-                      {updatesRequired ? (
-                        <div className="space-y-4 animate-in fade-in">
-                          <p className="text-[10px] text-slate-500 italic">Wartungszyklen und Prozesse können in der Detailansicht hinterlegt werden.</p>
-                          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-3">
-                            <ShieldCheck className="w-4 h-4 text-blue-600" />
-                            <p className="text-[10px] font-bold text-blue-800">Überwachung der Patch-Level aktiv.</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center opacity-30"><p className="text-[10px] font-black uppercase">Kein Patch-Management gefordert</p></div>
-                      )}
                     </div>
                   </div>
                 </TabsContent>

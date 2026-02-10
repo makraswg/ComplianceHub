@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -37,6 +38,20 @@ import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+function escapeXml(unsafe: string) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
+}
+
 function generateMapXml(processes: Process[], relations: { fromId: string; toId: string; label: string }[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   
@@ -57,7 +72,7 @@ function generateMapXml(processes: Process[], relations: { fromId: string; toId:
       style += 'fillColor=#f0fdf4;strokeColor=#166534;';
     }
 
-    xml += `<mxCell id="${proc.id}" value="${proc.title}" style="${style}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${proc.id}" value="${escapeXml(proc.title)}" style="${style}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
   });
 
   relations.forEach((rel, idx) => {
@@ -65,7 +80,7 @@ function generateMapXml(processes: Process[], relations: { fromId: string; toId:
     const targetExists = processes.some(p => p.id === rel.toId);
     
     if (sourceExists && targetExists) {
-      xml += `<mxCell id="rel-${idx}" value="${rel.label}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontSize=9;fontColor=#1e40af;" edge="1" parent="1" source="${rel.fromId}" target="${rel.toId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="rel-${idx}" value="${escapeXml(rel.label)}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontSize=9;fontColor=#1e40af;" edge="1" parent="1" source="${rel.fromId}" target="${rel.toId}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
     }
   });
 

@@ -60,6 +60,20 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 
 export const dynamic = 'force-dynamic';
 
+function escapeXml(unsafe: string) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
+}
+
 function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
   let xml = `<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/>`;
   const NODE_W = 180;
@@ -70,20 +84,20 @@ function generateOrgChartXml(tenants: any[], depts: any[], jobs: any[]) {
   tenants.forEach((tenant, tIdx) => {
     const tX = 50;
     const tY = 50 + (tIdx * 400);
-    xml += `<mxCell id="${tenant.id}" value="${tenant.name}" style="rounded=1;fillColor=#0f172a;strokeColor=#1e293b;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1"><mxGeometry x="${tX}" y="${tY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="${tenant.id}" value="${escapeXml(tenant.name)}" style="rounded=1;fillColor=#0f172a;strokeColor=#1e293b;fontColor=#ffffff;fontStyle=1;fontSize=12;" vertex="1" parent="1"><mxGeometry x="${tX}" y="${tY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
 
     const tDepts = depts.filter(d => d.tenantId === tenant.id);
     tDepts.forEach((dept, dIdx) => {
       const dX = tX + GAP_X;
       const dY = tY + (dIdx * 150);
-      xml += `<mxCell id="${dept.id}" value="${dept.name}" style="rounded=1;fillColor=#f0fdf4;strokeColor=#166534;fontColor=#166534;fontStyle=1;fontSize=11;" vertex="1" parent="1"><mxGeometry x="${dX}" y="${dY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${dept.id}" value="${escapeXml(dept.name)}" style="rounded=1;fillColor=#f0fdf4;strokeColor=#166534;fontColor=#166534;fontStyle=1;fontSize=11;" vertex="1" parent="1"><mxGeometry x="${dX}" y="${dY}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`;
       xml += `<mxCell id="edge-t-d-${dept.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94a3b8;strokeWidth=1.5;endArrow=none;" edge="1" parent="1" source="${tenant.id}" target="${dept.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
 
       const dJobs = jobs.filter(j => j.departmentId === dept.id);
       dJobs.forEach((job, jIdx) => {
         const jX = dX + GAP_X;
         const jY = dY + (jIdx * 70);
-        xml += `<mxCell id="${job.id}" value="${job.name}" style="rounded=1;fillColor=#ffffff;strokeColor=#3b82f6;fontColor=#1e40af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${jX}" y="${jY}" width="${NODE_W}" height="40" as="geometry"/></mxCell>`;
+        xml += `<mxCell id="${job.id}" value="${escapeXml(job.name)}" style="rounded=1;fillColor=#ffffff;strokeColor=#3b82f6;fontColor=#1e40af;fontSize=10;" vertex="1" parent="1"><mxGeometry x="${jX}" y="${jY}" width="${NODE_W}" height="40" as="geometry"/></mxCell>`;
         xml += `<mxCell id="edge-d-j-${job.id}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#cbd5e1;strokeWidth=1.5;endArrow=none;" edge="1" parent="1" source="${dept.id}" target="${job.id}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
       });
     });
@@ -142,7 +156,6 @@ export default function UnifiedOrganizationPage() {
   const filteredData = useMemo(() => {
     if (!tenants) return [];
     
-    // Efficiency: Pre-group jobs and depts using Maps O(N)
     const jobsByDept = new Map<string, JobTitle[]>();
     (jobTitles || []).forEach(j => {
       const matchStatus = showArchived ? j.status === 'archived' : j.status !== 'archived';

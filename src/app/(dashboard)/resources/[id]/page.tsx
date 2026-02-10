@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -42,15 +43,18 @@ import {
   Save,
   Fingerprint,
   KeyRound,
-  ShieldX
+  ShieldX,
+  HardDrive,
+  ClipboardList,
+  History
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department, Entitlement } from '@/lib/types';
+import { Resource, Process, ProcessVersion, ProcessNode, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, FeatureProcessStep, ServicePartnerArea, Department, Entitlement, BackupJob, UpdateProcess } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { calculateProcessMaturity } from '@/lib/process-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -103,11 +107,15 @@ export default function ResourceDetailPage() {
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
   const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
   const { data: entitlements, refresh: refreshRoles } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: backupJobs } = usePluggableCollection<BackupJob>('backup_jobs');
+  const { data: updateProcesses } = usePluggableCollection<UpdateProcess>('update_processes');
 
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
   const resourceRoles = useMemo(() => entitlements?.filter(e => e.resourceId === id) || [], [entitlements, id]);
+  const resourceBackups = useMemo(() => backupJobs?.filter(b => b.resourceId === id) || [], [backupJobs, id]);
+  const resourceUpdates = useMemo(() => updateProcesses?.filter(u => u.resourceId === id) || [], [updateProcesses, id]);
   
   // Resolved Internal System Owner
   const systemOwnerRole = useMemo(() => jobs?.find(j => j.id === resource?.systemOwnerRoleId), [jobs, resource]);
@@ -262,6 +270,16 @@ export default function ResourceDetailPage() {
     setIsRoleDialogOpen(true);
   };
 
+  const getJobName = (roleId?: string) => {
+    if (!roleId) return '---';
+    return jobs?.find(j => j.id === roleId)?.name || roleId;
+  };
+
+  const getProcessTitle = (procId?: string) => {
+    if (!procId) return '---';
+    return processes?.find(p => p.id === procId)?.title || procId;
+  };
+
   if (!mounted) return null;
 
   if (isResLoading) {
@@ -308,7 +326,7 @@ export default function ResourceDetailPage() {
             Die verarbeiteten Datenobjekte in den verknüpften Prozessen erfordern eine höhere Klassifizierung (<strong className="uppercase">{effectiveInheritance?.classification}</strong>). 
             <div className="mt-3">
               <Button size="sm" onClick={handleApplyInheritance} disabled={isInheriting} className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase h-8 px-4 rounded-lg shadow-md gap-2 transition-all">
-                {isInheriting ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Werte übernehmen
+                {isInheriting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Werte übernehmen
               </Button>
             </div>
           </AlertDescription>
@@ -322,7 +340,6 @@ export default function ResourceDetailPage() {
               <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verantwortung & Ownership</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-8">
-              {/* System Owner Display */}
               <div className="space-y-1">
                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">System Owner</p>
                 {systemOwnerPartner ? (
@@ -350,7 +367,6 @@ export default function ResourceDetailPage() {
                 )}
               </div>
 
-              {/* Risk Owner Display */}
               <div className="space-y-1">
                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Risk Owner (Intern)</p>
                 {riskOwnerRole ? (
@@ -367,7 +383,6 @@ export default function ResourceDetailPage() {
 
               <Separator />
 
-              {/* Identity Provider Display */}
               <div className="space-y-1">
                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Authentifizierung (IdP)</p>
                 {identityProvider ? (
@@ -420,18 +435,146 @@ export default function ResourceDetailPage() {
         </aside>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="roles" className="space-y-6">
+          <Tabs defaultValue="maintenance" className="space-y-6">
             <TabsList className="bg-slate-100 p-1 h-11 rounded-xl border w-full justify-start gap-1 shadow-inner">
+              <TabsTrigger value="maintenance" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                <Settings2 className="w-3.5 h-3.5 text-orange-600" /> Wartung & Backup
+              </TabsTrigger>
               <TabsTrigger value="roles" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Rollen & Berechtigungen
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Systemrollen ({resourceRoles.length})
               </TabsTrigger>
               <TabsTrigger value="impact" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Zap className="w-3.5 h-3.5 text-primary" /> Impact & Datenlast
               </TabsTrigger>
-              <TabsTrigger value="details" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Info className="w-3.5 h-3.5" /> Technische Daten
-              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="maintenance" className="space-y-8 animate-in fade-in duration-500">
+              {resource.backupRequired ? (
+                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                  <CardHeader className="bg-slate-50/50 border-b p-6">
+                    <div className="flex items-center gap-3">
+                      <HardDrive className="w-5 h-5 text-orange-600" />
+                      <div>
+                        <CardTitle className="text-sm font-bold">Aktive Datensicherung (Backup Jobs)</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase">Dokumentierte Sicherungszyklen und Speicherorte</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="bg-slate-50/30">
+                        <TableRow>
+                          <TableHead className="py-3 px-6 text-[10px] font-black uppercase text-slate-400">Job Bezeichnung</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">Zyklus</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">Verantwortlich</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">Dokumentation</TableHead>
+                          <TableHead className="text-right px-6 text-[10px] font-black uppercase text-slate-400">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resourceBackups.map(job => (
+                          <TableRow key={job.id} className="border-b last:border-0">
+                            <TableCell className="py-4 px-6">
+                              <div className="font-bold text-xs text-slate-800">{job.name}</div>
+                              <div className="text-[9px] text-slate-400 font-medium truncate max-w-xs">{job.location}</div>
+                            </TableCell>
+                            <TableCell><Badge variant="outline" className="text-[9px] font-bold uppercase">{job.cycle}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                                <Briefcase className="w-3 h-3 text-slate-300" /> {getJobName(job.responsibleRoleId)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {job.processId ? (
+                                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-primary gap-1.5" onClick={() => router.push(`/processhub/view/${job.processId}`)}>
+                                  <Workflow className="w-3 h-3" /> Leitfaden
+                                </Button>
+                              ) : <span className="text-[9px] text-slate-300 italic">Keine Verknüpfung</span>}
+                            </TableCell>
+                            <TableCell className="text-right px-6">
+                              <Badge className="bg-emerald-50 text-emerald-700 border-none text-[8px] font-black h-4 px-1.5 uppercase">Aktiv</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {resourceBackups.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="py-10 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Backup Jobs definiert</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Alert className="bg-slate-50 border-slate-200">
+                  <HardDrive className="h-4 w-4 text-slate-400" />
+                  <AlertTitle className="text-xs font-bold text-slate-500 uppercase">Backup Governance</AlertTitle>
+                  <AlertDescription className="text-[10px] font-medium text-slate-400">Für diese Ressource wurde keine explizite Datensicherung gefordert.</AlertDescription>
+                </Alert>
+              )}
+
+              {resource.updatesRequired ? (
+                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                  <CardHeader className="bg-slate-50/50 border-b p-6">
+                    <div className="flex items-center gap-3">
+                      <Activity className="w-5 h-5 text-blue-600" />
+                      <div>
+                        <CardTitle className="text-sm font-bold">Patch-Management & Wartung</CardTitle>
+                        <CardDescription className="text-[10px] font-bold uppercase">Prozesse zur Aktualisierung und Absicherung</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader className="bg-slate-50/30">
+                        <TableRow>
+                          <TableHead className="py-3 px-6 text-[10px] font-black uppercase text-slate-400">Wartungsprozess</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">Intervall</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">Verantwortlich</TableHead>
+                          <TableHead className="text-[10px] font-black uppercase text-slate-400">IT-Dokumentation</TableHead>
+                          <TableHead className="text-right px-6 text-[10px] font-black uppercase text-slate-400">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {resourceUpdates.map(proc => (
+                          <TableRow key={proc.id} className="border-b last:border-0">
+                            <TableCell className="py-4 px-6">
+                              <div className="font-bold text-xs text-slate-800">{proc.name}</div>
+                            </TableCell>
+                            <TableCell><Badge variant="outline" className="text-[9px] font-bold uppercase">{proc.frequency}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                                <Briefcase className="w-3 h-3 text-slate-300" /> {getJobName(proc.responsibleRoleId)}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {proc.processId ? (
+                                <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-indigo-600 gap-1.5" onClick={() => router.push(`/processhub/view/${proc.processId}`)}>
+                                  <Workflow className="w-3 h-3" /> IT-Workflow
+                                </Button>
+                              ) : <span className="text-[9px] text-slate-300 italic">Keine Verknüpfung</span>}
+                            </TableCell>
+                            <TableCell className="text-right px-6">
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge className="bg-blue-50 text-blue-700 border-none text-[8px] font-black h-4 px-1.5 uppercase">Überwacht</Badge>
+                                {proc.lastReviewDate && <span className="text-[8px] text-slate-400 italic">Check: {proc.lastReviewDate}</span>}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {resourceUpdates.length === 0 && (
+                          <TableRow><TableCell colSpan={5} className="py-10 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Update-Prozesse definiert</TableCell></TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Alert className="bg-slate-50 border-slate-200">
+                  <Activity className="h-4 w-4 text-slate-400" />
+                  <AlertTitle className="text-xs font-bold text-slate-500 uppercase">Patch Governance</AlertTitle>
+                  <AlertDescription className="text-[10px] font-medium text-slate-400">Regelmäßiges Patching wurde für dieses Asset nicht explizit konfiguriert.</AlertDescription>
+                </Alert>
+              )}
+            </TabsContent>
 
             <TabsContent value="roles" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">

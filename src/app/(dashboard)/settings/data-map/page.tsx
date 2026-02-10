@@ -44,10 +44,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
-/**
- * Generates mxGraph XML for the Ecosystem 2.0 (The Golden Chain).
- * Uses a columnar layout: Users/Roles -> Processes -> Assets/Data -> Risks -> Controls.
- */
+function escapeXml(unsafe: string) {
+  if (!unsafe) return '';
+  return unsafe.replace(/[<>&"']/g, (c) => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '"': return '&quot;';
+      case "'": return '&apos;';
+      default: return c;
+    }
+  });
+}
+
 function generateEcosystemXml(data: {
   users: any[],
   roles: any[],
@@ -104,13 +114,13 @@ function generateEcosystemXml(data: {
       else if ('isTom' in item) type = 'measure';
 
       const label = item.name || item.title || item.displayName;
-      xml += `<mxCell id="${item.id}" value="${label}" style="${styles[type]}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
+      xml += `<mxCell id="${item.id}" value="${escapeXml(label)}" style="${styles[type]}" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/></mxCell>`;
     });
   });
 
   // Render Links
   data.links.forEach((link, idx) => {
-    xml += `<mxCell id="link-${idx}" value="${link.label || ''}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94a3b8;strokeWidth=1.5;fontSize=9;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${link.from}" target="${link.to}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
+    xml += `<mxCell id="link-${idx}" value="${escapeXml(link.label || '')}" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94a3b8;strokeWidth=1.5;fontSize=9;endArrow=block;endFill=1;curved=1;" edge="1" parent="1" source="${link.from}" target="${link.to}"><mxGeometry relative="1" as="geometry"/></mxCell>`;
   });
 
   xml += `</root></mxGraphModel>`;
