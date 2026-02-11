@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -43,7 +42,6 @@ import { toast } from '@/hooks/use-toast';
 import { Tenant, Department, JobTitle, Entitlement, Resource, Process, ProcessVersion } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { 
   AlertDialog,
@@ -62,6 +60,7 @@ import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/comp
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { useRouter } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -201,18 +200,13 @@ export default function UnifiedOrganizationPage() {
       });
   }, [tenants, departments, jobTitles, search, showArchived]);
 
-  // Helper to calculate process associations
   const getJobProcessCount = useCallback((jobId: string) => {
     if (!processes) return 0;
     
     const associated = processes.filter(p => {
-      // 1. Is owner?
       if (p.ownerRoleId === jobId) return true;
-      
-      // 2. Is used in any step?
       const ver = versions?.find(v => v.process_id === p.id && v.version === p.currentVersion);
       if (ver?.model_json?.nodes?.some(n => n.roleId === jobId)) return true;
-      
       return false;
     });
     
