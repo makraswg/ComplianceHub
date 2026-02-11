@@ -183,7 +183,7 @@ export default function RoleDetailPage() {
                   <div className="h-full w-full bg-primary" />
                 </div>
                 <p className="text-[9px] text-slate-400 leading-relaxed italic">
-                  Diese Rolle ist vollständig dokumentiert und in die Blueprints integriert.
+                  Diese Rolle ist vollständig dokumentiert und in die Standardzuweisungen integriert.
                 </p>
               </div>
             </CardContent>
@@ -198,7 +198,7 @@ export default function RoleDetailPage() {
                 <Users className="w-3.5 h-3.5 text-primary" /> Berechtigte Benutzer ({assignedUsers.length})
               </TabsTrigger>
               <TabsTrigger value="usage" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
-                <Package className="w-3.5 h-3.5 text-indigo-600" /> Verwendung in Blueprints
+                <Package className="w-3.5 h-3.5 text-indigo-600" /> Verwendung in Standardzuweisungen
               </TabsTrigger>
               <TabsTrigger value="details" className="rounded-lg px-6 gap-2 text-[11px] font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">
                 <Info className="w-3.5 h-3.5 text-slate-500" /> Beschreibung & Umfang
@@ -243,7 +243,7 @@ export default function RoleDetailPage() {
                             <Badge variant="outline" className={cn(
                               "text-[8px] font-black h-4 px-1.5 border-none uppercase shadow-none",
                               u.assignment.syncSource === 'blueprint' || u.assignment.syncSource === 'group' ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
-                            )}>{u.assignment.syncSource === 'blueprint' ? 'Blueprint' : u.assignment.syncSource === 'group' ? 'Gruppe' : 'Direkt'}</Badge>
+                            )}>{u.assignment.syncSource === 'blueprint' || u.assignment.syncSource === 'group' ? 'Standard' : 'Direkt'}</Badge>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
@@ -267,11 +267,11 @@ export default function RoleDetailPage() {
 
             <TabsContent value="usage" className="space-y-6 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Bundles */}
+                {/* Rollen-Standardzuweisungen (Bundles) */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50/50 border-b p-6">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Package className="w-4 h-4 text-primary" /> Onboarding-Pakete
+                      <Package className="w-4 h-4 text-primary" /> Ergänzende Standardzuweisungen
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
@@ -283,7 +283,7 @@ export default function RoleDetailPage() {
                             <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" />
                           </div>
                         ))}
-                        {usageInPackages.bundles.length === 0 && <div className="p-10 text-center opacity-20 italic text-xs">In keinem Paket enthalten.</div>}
+                        {usageInPackages.bundles.length === 0 && <div className="p-10 text-center opacity-20 italic text-xs">In keiner weiteren Zuweisung enthalten.</div>}
                       </div>
                     </ScrollArea>
                   </CardContent>
@@ -311,11 +311,11 @@ export default function RoleDetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* Blueprints */}
+                {/* Blueprints (Basis-Standardzuweisungen) */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden md:col-span-2">
                   <CardHeader className="bg-slate-900 text-white p-6">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <Briefcase className="w-4 h-4 text-primary" /> Standard-Recht in Rollenprofilen (Blueprints)
+                      <Briefcase className="w-4 h-4 text-primary" /> Basis-Standardzuweisungen (Organisation)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
@@ -332,7 +332,7 @@ export default function RoleDetailPage() {
                           </div>
                         );
                       })}
-                      {usageInPackages.blueprints.length === 0 && <p className="col-span-full py-10 text-center opacity-30 italic text-xs">Diese Rolle ist in keinem Stellenprofil als Standard definiert.</p>}
+                      {usageInPackages.blueprints.length === 0 && <p className="col-span-full py-10 text-center opacity-30 italic text-xs">Diese Rolle ist in keiner Basis-Standardzuweisung definiert.</p>}
                     </div>
                   </CardContent>
                 </Card>

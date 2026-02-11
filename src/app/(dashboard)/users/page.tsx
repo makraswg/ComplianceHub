@@ -109,7 +109,7 @@ export default function UsersPage() {
     const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${role.name}` : job.name;
+    return dept ? `${dept.name} — ${job.name}` : job.name;
   };
 
   const sortedRoles = useMemo(() => {
@@ -306,7 +306,7 @@ export default function UsersPage() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Identität</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400">Rollenprofil</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Rollen-Standardzuweisung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Integrität (AD Sync)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
@@ -426,9 +426,9 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
               <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
                 <SelectContent>
                   {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
                     <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>

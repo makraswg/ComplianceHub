@@ -98,7 +98,7 @@ export default function AccessHubDashboard() {
     const manual = active.length - blueprint;
 
     return [
-      { name: 'Automatisch', value: blueprint, color: '#3b82f6' },
+      { name: 'Standardzuweisung', value: blueprint, color: '#3b82f6' },
       { name: 'Einzelzuweisung', value: manual, color: '#10b981' }
     ].filter(d => d.value > 0);
   }, [assignments, activeTenantId]);
@@ -270,7 +270,7 @@ export default function AccessHubDashboard() {
                 <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100"><UserPlus className="w-5 h-5" /></div>
                 <div>
                   <h4 className="text-sm font-bold text-indigo-900">Lifecycle Automation</h4>
-                  <p className="text-[10px] text-indigo-700 font-medium">Onboarding-Pakete für schnelleren Zugriff definieren.</p>
+                  <p className="text-[10px] text-indigo-700 font-medium">Standardzuweisungen für schnelleren Zugriff definieren.</p>
                 </div>
               </div>
               <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform" />

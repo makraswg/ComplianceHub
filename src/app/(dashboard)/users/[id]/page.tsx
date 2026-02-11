@@ -168,7 +168,7 @@ export default function UserDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Rollenprofil (Stelle)</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Standardzuweisung</p>
                   <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <Briefcase className="w-4 h-4 text-indigo-600" /> {user.title || '---'}
                   </div>
@@ -267,7 +267,7 @@ export default function UserDetailPage() {
                               <Badge variant="outline" className={cn(
                                 "text-[8px] font-black h-4 px-1.5 border-none uppercase shadow-none",
                                 isBlueprint ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
-                              )}>{isBlueprint ? 'Blueprint' : 'Direkt'}</Badge>
+                              )}>{isBlueprint ? 'Standard' : 'Direkt'}</Badge>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500">
@@ -298,7 +298,7 @@ export default function UserDetailPage() {
                       <ShieldAlert className="w-5 h-5 text-amber-600" />
                       <div>
                         <CardTitle className="text-sm font-bold uppercase tracking-tight">Fehlende Rollen (AD Drift)</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">Im Hub definiert, aber im AD nicht vorhanden</CardDescription>
+                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">In Standardzuweisung definiert, aber im AD nicht vorhanden</CardDescription>
                       </div>
                     </div>
                   </CardHeader>

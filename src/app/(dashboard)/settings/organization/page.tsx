@@ -176,7 +176,6 @@ export default function UnifiedOrganizationPage() {
     const jobsByDept = new Map<string, JobTitle[]>();
     (jobTitles || []).forEach(job => {
       const isArchived = job.status === 'archived';
-      // In Archive mode, show if archived. In Active mode, show if active.
       if (showArchived === isArchived) {
         if (!jobsByDept.has(job.departmentId)) jobsByDept.set(job.departmentId, []);
         jobsByDept.get(job.departmentId)?.push(job);
@@ -188,9 +187,6 @@ export default function UnifiedOrganizationPage() {
     (departments || []).forEach(dept => {
       const isArchived = dept.status === 'archived';
       const hasArchivedJobs = (jobTitles || []).some(j => j.departmentId === dept.id && j.status === 'archived');
-      
-      // Show in Archive View if dept is archived OR it contains archived jobs
-      // Show in Active View if dept is active
       const matchesMode = showArchived ? (isArchived || hasArchivedJobs) : !isArchived;
 
       if (matchesMode) {
@@ -207,8 +203,6 @@ export default function UnifiedOrganizationPage() {
       .map(tenant => {
         const isArchived = tenant.status === 'archived';
         const tenantDepts = deptsByTenant.get(tenant.id) || [];
-        
-        // Show in Archive View if tenant is archived OR has departments/jobs to show
         const matchesMode = showArchived ? (isArchived || tenantDepts.length > 0) : !isArchived;
 
         if (matchesMode) {
@@ -307,16 +301,16 @@ export default function UnifiedOrganizationPage() {
       if (hasDepts) errors.push("Mandant enthält noch aktive Abteilungen.");
     } else if (target.type === 'departments') {
       const hasJobs = jobTitles?.some(j => j.departmentId === target.id && j.status !== 'archived');
-      if (hasJobs) errors.push("Abteilung enthält noch aktive Stellenprofile.");
+      if (hasJobs) errors.push("Abteilung enthält noch aktive Rollen-Standardzuweisungen.");
     } else if (target.type === 'jobTitles') {
       const hasUsers = users?.some((u: any) => u.title === target.label && u.tenantId === activeTenantId);
-      if (hasUsers) errors.push("Es sind noch Mitarbeiter mit diesem Profil verknüpft.");
+      if (hasUsers) errors.push("Es sind noch Mitarbeiter mit dieser Zuweisung verknüpft.");
       const isOwner = processes?.some((p: any) => p.ownerRoleId === target.id);
-      if (isOwner) errors.push("Profil ist als Verantwortlicher (Owner) in Prozessen eingetragen.");
+      if (isOwner) errors.push("Zuweisung ist als Verantwortlicher (Owner) in Prozessen eingetragen.");
       const isUsedInNodes = versions?.some((v: any) => v.model_json?.nodes?.some((n: any) => n.roleId === target.id));
-      if (isUsedInNodes) errors.push("Profil wird aktiv in Prozess-Schritten verwendet.");
+      if (isUsedInNodes) errors.push("Zuweisung wird aktiv in Prozess-Schritten verwendet.");
       const isInBundle = bundles?.some((b: any) => b.entitlementIds?.includes(target.id));
-      if (isInBundle) errors.push("Profil ist Bestandteil eines Erweiterungs-Pakets.");
+      if (isInBundle) errors.push("Zuweisung ist Bestandteil einer anderen Standardzuweisung.");
     }
     return errors;
   };
@@ -357,7 +351,7 @@ export default function UnifiedOrganizationPage() {
     if (res.success) {
       setIsEditorOpen(false);
       refreshJobs();
-      toast({ title: "Stellenprofil gespeichert" });
+      toast({ title: "Rollen-Standardzuweisung gespeichert" });
     }
     setIsSavingJob(false);
   };
@@ -396,8 +390,8 @@ export default function UnifiedOrganizationPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten &amp; Rollenplan</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Stellenprofile.</p>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Mandanten &amp; Rollen-Standardzuweisungen</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung der Standorte, Abteilungen und Rollen-Zuweisungsprofile.</p>
         </div>
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 h-10 rounded-xl border gap-1">
           <button className={cn("px-4 rounded-lg text-[10px] font-bold uppercase transition-all", activeTab === 'list' ? "bg-white dark:bg-slate-700 shadow-sm text-primary" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('list')}>Liste</button>
@@ -471,7 +465,7 @@ export default function UnifiedOrganizationPage() {
                         <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 transition-colors group/dept">
                           <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
                           <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
-                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase text-emerald-600 hover:bg-emerald-50 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3.5 h-3.5" /> Rolle</Button>
+                            <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase text-emerald-600 hover:bg-emerald-50 gap-1" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3.5 h-3.5" /> Zuweisung</Button>
                             <Button variant="ghost" size="icon" className={cn("h-7 w-7", dept.status === 'archived' ? "text-emerald-600" : "text-slate-300")} onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}>
                               {dept.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                             </Button>
@@ -525,7 +519,7 @@ export default function UnifiedOrganizationPage() {
                             {activeAddParent?.id === dept.id && activeAddParent.type === 'dept' && (
                               <div className="col-span-full pt-2">
                                 <div className="flex gap-2 p-2 bg-white dark:bg-slate-950 rounded-lg border-2 border-primary shadow-sm">
-                                  <Input autoFocus placeholder="Bezeichnung der Rolle..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
+                                  <Input autoFocus placeholder="Bezeichnung der Standardzuweisung..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
                                   <Button size="sm" className="h-8 px-4 rounded-md font-bold text-[10px]" onClick={handleCreateSub}>Hinzufügen</Button>
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setActiveAddParent(null)}><X className="w-3.5 h-3.5" /></Button>
                                 </div>
@@ -582,7 +576,7 @@ export default function UnifiedOrganizationPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Stellenprofil Editor Dialog */}
+      {/* Standardzuweisung Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
@@ -592,8 +586,8 @@ export default function UnifiedOrganizationPage() {
                   <Briefcase className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight truncate">Stellenprofil: {jobName}</DialogTitle>
-                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Standard-Rollen für dieses Profil</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight truncate">Rollen-Standardzuweisung: {jobName}</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Vordefinierte Berechtigungs-Bündel</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="entitlement" currentData={{ name: jobName, description: jobDesc }} onApply={(s) => { if(s.name) setJobName(s.name); if(s.description) setJobDesc(s.description); }} />
@@ -603,11 +597,11 @@ export default function UnifiedOrganizationPage() {
             <div className="p-8 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung</Label><Input value={jobName} onChange={e => setJobName(e.target.value)} className="h-11 rounded-xl font-bold border-slate-200 bg-white" /></div>
-                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Stellenbeschreibung</Label><Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" /></div>
+                <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Beschreibung der Zuweisungs-Logik</Label><Textarea value={jobDesc} onChange={e => setJobDesc(e.target.value)} className="min-h-[100px] rounded-xl text-xs bg-white" /></div>
               </div>
               <div className="space-y-6 pt-6 border-t border-slate-200">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div><Label className="text-[11px] font-bold text-primary flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Enthaltene Berechtigungen ({jobEntitlementIds.length} gewählt)</Label><p className="text-[10px] text-slate-400 mt-0.5">Standard-Zugriffe für diese Stelle.</p></div>
+                  <div><Label className="text-[11px] font-bold text-primary flex items-center gap-2"><ShieldCheck className="w-4 h-4" /> Enthaltene Berechtigungen ({jobEntitlementIds.length} gewählt)</Label><p className="text-[10px] text-slate-400 mt-0.5">Standard-Zugriffe für dieses Profil.</p></div>
                   <div className="relative group"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" /><Input placeholder="Rollen filtern..." value={roleSearch} onChange={e => setRoleSearch(e.target.value)} className="h-9 pl-9 text-[11px] rounded-lg min-w-[220px]" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
