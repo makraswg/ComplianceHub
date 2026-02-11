@@ -10,6 +10,16 @@ export interface AppSchema {
 }
 
 export const appSchema: AppSchema = {
+  users: {
+    columns: {
+    id: 'VARCHAR(255) PRIMARY KEY',
+    tenantId: 'VARCHAR(255) NOT NULL',
+    displayName: 'VARCHAR(255) NOT NULL',
+    email: 'VARCHAR(255) NOT NULL',
+    title: 'VARCHAR(255)',
+    enabled: 'BOOLEAN DEFAULT TRUE',
+    },
+  },
   tenants: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
