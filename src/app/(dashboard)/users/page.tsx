@@ -109,7 +109,7 @@ export default function UsersPage() {
     const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${job.name}` : job.name;
+    return dept ? `${dept.name} — ${role.name}` : job.name;
   };
 
   const sortedRoles = useMemo(() => {
@@ -433,7 +433,7 @@ export default function UsersPage() {
 =======
 <<<<<<< HEAD
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
-              <Select value={userTitle} onValueChange={setUserTitle}>
+              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
 =======
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
