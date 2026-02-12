@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -43,7 +44,8 @@ import {
   ArrowLeftCircle,
   Terminal,
   Focus,
-  BrainCircuit
+  BrainCircuit,
+  ChevronDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,7 +61,8 @@ import {
   Feature, 
   Resource, 
   ProcessingActivity, 
-  JobTitle
+  JobTitle,
+  UiConfig
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -92,6 +95,7 @@ export default function ProcessDetailViewPage() {
   
   const hasAutoCentered = useRef(false);
 
+  const { data: uiConfigs } = usePluggableCollection<UiConfig>('uiConfigs');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
@@ -103,6 +107,11 @@ export default function ProcessDetailViewPage() {
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+
+  const animationsEnabled = useMemo(() => {
+    if (!uiConfigs || uiConfigs.length === 0) return true;
+    return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
+  }, [uiConfigs]);
 
   const getFullRoleName = useCallback((roleId?: string) => {
     if (!roleId) return '---';
@@ -168,9 +177,7 @@ export default function ProcessDetailViewPage() {
 
     const H_GAP = 350;
     const V_GAP = 160; 
-    const EXPANDED_WIDTH = 600;
-    const COLLAPSED_WIDTH = 256;
-    const WIDTH_DIFF = EXPANDED_WIDTH - COLLAPSED_WIDTH;
+    const WIDTH_DIFF = 600 - 256;
 
     return nodes.map(n => {
       const lane = lanes[n.id] || 0;
@@ -200,18 +207,24 @@ export default function ProcessDetailViewPage() {
     const node = gridNodes.find(n => n.id === nodeId);
     if (!node || !containerRef.current) return;
 
-    setIsProgrammaticMove(true);
-    const targetScale = 1.0;
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
+    if (guideMode === 'structure') {
+      setIsProgrammaticMove(true);
+      const targetScale = 1.0;
+      const containerWidth = containerRef.current.clientWidth;
+      const containerHeight = containerRef.current.clientHeight;
 
-    setPosition({
-      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
-      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
-    });
-    setScale(targetScale);
-    setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes]);
+      setPosition({
+        x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
+        y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
+      });
+      setScale(targetScale);
+      setTimeout(() => setIsProgrammaticMove(false), 850);
+    } else {
+      // Scroll to node in list view
+      const el = document.getElementById(`list-node-${nodeId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [gridNodes, guideMode]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
     if (activeNodeId === nodeId) {
@@ -223,7 +236,7 @@ export default function ProcessDetailViewPage() {
   }, [activeNodeId, centerOnNode]);
 
   const resetViewport = useCallback(() => {
-    if (gridNodes.length === 0 || !containerRef.current) return;
+    if (gridNodes.length === 0 || !containerRef.current || guideMode !== 'structure') return;
     
     setIsProgrammaticMove(true);
     const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
@@ -235,12 +248,19 @@ export default function ProcessDetailViewPage() {
       y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
     });
     setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes, scale]);
+  }, [gridNodes, scale, guideMode]);
 
   useEffect(() => { setMounted(true); }, []);
 
+  // Sync scroll on mode switch
   useEffect(() => {
-    if (mounted && guideMode === 'structure' && !hasAutoCentered.current && gridNodes.length > 0) {
+    if (mounted && activeNodeId) {
+      setTimeout(() => centerOnNode(activeNodeId), 100);
+    }
+  }, [guideMode, mounted, activeNodeId, centerOnNode]);
+
+  useEffect(() => {
+    if (mounted && !hasAutoCentered.current && gridNodes.length > 0) {
       const initialTargetId = searchParams.get('activeNode') || gridNodes.find(n => n.type === 'start')?.id || gridNodes[0]?.id;
       if (initialTargetId) {
         handleNodeClick(initialTargetId);
@@ -249,7 +269,7 @@ export default function ProcessDetailViewPage() {
       }
       hasAutoCentered.current = true;
     }
-  }, [guideMode, mounted, gridNodes, resetViewport, searchParams, handleNodeClick]);
+  }, [mounted, gridNodes, resetViewport, searchParams, handleNodeClick]);
 
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || gridNodes.length === 0) {
@@ -322,10 +342,8 @@ export default function ProcessDetailViewPage() {
     
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
     const pivotX = (mouseX - position.x) / scale;
     const pivotY = (mouseY - position.y) / scale;
-    
     const newX = mouseX - pivotX * newScale;
     const newY = mouseY - pivotY * newScale;
     
@@ -384,7 +402,7 @@ export default function ProcessDetailViewPage() {
         <main 
           ref={containerRef}
           className={cn(
-            "flex-1 relative overflow-hidden",
+            "flex-1 relative overflow-hidden transition-colors duration-500",
             guideMode === 'structure' ? "bg-slate-200 cursor-grab active:cursor-grabbing" : "bg-slate-50"
           )} 
           onMouseDown={handleMouseDown}
@@ -399,9 +417,37 @@ export default function ProcessDetailViewPage() {
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
-              <div className="max-w-5xl mx-auto space-y-8 pb-40">
-                {gridNodes.map(node => (
-                  <ProcessStepCard key={node.id} node={node} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} expandedByDefault />
+              <div className="max-w-5xl mx-auto space-y-12 pb-40">
+                {gridNodes.map((node, i) => (
+                  <div key={node.id} id={`list-node-${node.id}`} className="relative">
+                    <ProcessStepCard 
+                      node={node} 
+                      activeNodeId={activeNodeId} 
+                      setActiveNodeId={setActiveNodeId} 
+                      resources={resources} 
+                      allFeatures={allFeatures} 
+                      getFullRoleName={getFullRoleName} 
+                      allNodes={gridNodes}
+                      expandedByDefault 
+                      animationsEnabled={animationsEnabled}
+                    />
+                    {i < gridNodes.length - 1 && (
+                      <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
+                        <div className={cn(
+                          "w-0.5 h-12 bg-slate-200 relative",
+                          animationsEnabled && activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && "bg-primary overflow-hidden"
+                        )}>
+                          {animationsEnabled && activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && (
+                            <div className="absolute top-0 left-0 w-full h-full bg-primary animate-flow-dash origin-top" style={{ height: '200%' }} />
+                          )}
+                        </div>
+                        <ChevronDown className={cn(
+                          "w-4 h-4 text-slate-200 -mt-1.5",
+                          activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && "text-primary"
+                        )} />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </ScrollArea>
@@ -432,9 +478,9 @@ export default function ProcessDetailViewPage() {
                     markerEnd="url(#arrowhead)" 
                     className={cn(
                       "transition-all duration-500",
-                      p.isActive && "animate-flow-dash"
+                      animationsEnabled && p.isActive && "animate-flow-dash"
                     )}
-                    style={p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
+                    style={animationsEnabled && p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#94a3b8" }}
                   />
                 ))}
               </svg>
@@ -448,6 +494,7 @@ export default function ProcessDetailViewPage() {
                     resources={resources} 
                     allFeatures={allFeatures} 
                     getFullRoleName={getFullRoleName} 
+                    animationsEnabled={animationsEnabled}
                   />
                 </div>
               ))}
@@ -485,7 +532,7 @@ export default function ProcessDetailViewPage() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, expandedByDefault = false }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, expandedByDefault = false, allNodes, animationsEnabled }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = expandedByDefault || (isMapMode && isActive);
   
@@ -493,11 +540,21 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
 
+  // GRC Context Info
+  const predecessors = useMemo(() => 
+    allNodes?.filter((n: any) => node.predecessorIds?.includes(n.id)) || [], 
+    [allNodes, node.predecessorIds]
+  );
+  const successors = useMemo(() => 
+    allNodes?.filter((n: any) => n.predecessorIds?.includes(node.id)) || [], 
+    [allNodes, node.id]
+  );
+
   return (
     <Card 
       className={cn(
         "rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden",
-        isActive ? "active-flow-card z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
+        isActive ? (animationsEnabled ? "active-flow-card z-[100]" : "border-primary border-2 shadow-lg z-[100]") : "border-slate-100 shadow-sm hover:border-primary/20",
         isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]")
       )}
       style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}}
@@ -545,6 +602,26 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                 <Label className="text-[9px] font-black uppercase text-slate-400">Tätigkeitsbeschreibung</Label>
                 <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine detaillierte Beschreibung vorhanden.'}"</p>
               </div>
+              
+              {!isMapMode && (predecessors.length > 0 || successors.length > 0) && (
+                <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-100">
+                  <div className="space-y-1.5">
+                    <Label className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5"><ArrowLeftCircle className="w-3 h-3" /> Input von</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {predecessors.map((p: any) => <Badge key={p.id} variant="outline" className="text-[8px] h-4 bg-slate-50">{p.title}</Badge>)}
+                      {predecessors.length === 0 && <span className="text-[9px] text-slate-300 italic">Startpunkt</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5">Output nach <ArrowRightCircle className="w-3 h-3" /></Label>
+                    <div className="flex flex-wrap gap-1">
+                      {successors.map((s: any) => <Badge key={s.id} variant="outline" className="text-[8px] h-4 bg-slate-50">{s.title}</Badge>)}
+                      {successors.length === 0 && <span className="text-[9px] text-slate-300 italic">Prozessende</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {node.checklist && node.checklist.length > 0 && (
                 <div className="space-y-3">
                   <Label className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-2"><CheckCircle2 className="w-3 h-3" /> Operative Checkliste</Label>
