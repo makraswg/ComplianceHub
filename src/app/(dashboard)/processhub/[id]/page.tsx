@@ -170,8 +170,6 @@ export default function ProcessDesignerPage() {
   const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
   const [metaVolume, setMetaDataVolume] = useState<'low' | 'medium' | 'high'>('low');
   const [metaFrequency, setMetaFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'on_demand'>('on_demand');
-  const [metaTags, setMetaTags] = useState('');
-  const [metaQuestions, setMetaQuestions] = useState('');
   const [metaVvtId, setMetaVvtId] = useState('');
   const [metaOwnerRoleId, setMetaOwnerRoleId] = useState('');
 
@@ -183,6 +181,16 @@ export default function ProcessDesignerPage() {
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const currentVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+
+  const sortedRoles = useMemo(() => {
+    if (!jobTitles || !departments) return [];
+    return [...jobTitles].sort((a, b) => {
+      const deptA = departments.find(d => d.id === a.departmentId)?.name || '';
+      const deptB = departments.find(d => d.id === b.departmentId)?.name || '';
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [jobTitles, departments]);
 
   useEffect(() => {
     if (currentProcess) {
@@ -196,8 +204,6 @@ export default function ProcessDesignerPage() {
       setMetaAutomation(currentProcess.automationLevel || 'manual');
       setMetaDataVolume(currentProcess.dataVolume || 'low');
       setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
-      setMetaTags(currentProcess.tags || '');
-      setMetaQuestions(currentProcess.openQuestions || '');
       setMetaVvtId(currentProcess.vvtId || 'none');
       setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
     }
@@ -293,8 +299,6 @@ export default function ProcessDesignerPage() {
         automationLevel: metaAutomation,
         dataVolume: metaVolume,
         processingFrequency: metaFrequency,
-        tags: metaTags,
-        openQuestions: metaQuestions,
         vvtId: metaVvtId === 'none' ? undefined : metaVvtId,
         ownerRoleId: metaOwnerRoleId === 'none' ? undefined : metaOwnerRoleId
       }, dataSource);
@@ -411,11 +415,11 @@ export default function ProcessDesignerPage() {
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
-                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl" />
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl shadow-sm border-slate-200" />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
-                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed rounded-2xl" />
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed rounded-2xl shadow-inner border-slate-100" />
                     </div>
                     <Separator />
                     <div className="space-y-1.5">
@@ -444,8 +448,8 @@ export default function ProcessDesignerPage() {
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="px-6 py-3 border-b bg-white flex items-center justify-start shrink-0">
                 <div className="flex gap-1.5">
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
-                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md shadow-sm" onClick={() => handleQuickAdd('step')}>+ Schritt</Button>
+                  <Button variant="outline" size="sm" className="h-7 text-[9px] font-bold rounded-md shadow-sm" onClick={() => handleQuickAdd('decision')}>+ Weiche</Button>
                 </div>
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
@@ -476,7 +480,7 @@ export default function ProcessDesignerPage() {
             <div className="h-full flex flex-col items-center justify-center p-10 text-center">
               <Workflow className="w-16 h-16 text-slate-200 mb-4" />
               <h2 className="text-xl font-headline font-bold text-slate-900">Modellierung starten</h2>
-              <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Prozessschritt anlegen</Button>
+              <Button className="mt-6 rounded-xl h-11 px-8 font-bold text-xs shadow-lg" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-4 h-4 mr-2" /> Ersten Prozessschritt anlegen</Button>
             </div>
           )}
         </main>

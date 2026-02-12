@@ -112,16 +112,16 @@ export default function ProcessDetailViewPage() {
 
     const queue = [{ id: startNode.id, level: 0, col: 0 }];
     while (queue.length > 0) {
-      const { id: nodeId, level, col } = queue.shift()!;
-      if (processed.has(nodeId)) continue;
-      processed.add(nodeId);
-      levels[nodeId] = level;
-      cols[nodeId] = col;
+      const current = queue.shift()!;
+      if (processed.has(current.id)) continue;
+      processed.add(current.id);
+      levels[current.id] = current.level;
+      cols[current.id] = current.col;
       
-      const outgoingEdges = edges.filter(e => e.source === nodeId);
+      const outgoingEdges = edges.filter(e => e.source === current.id);
       outgoingEdges.forEach((e, i) => {
         const siblings = outgoingEdges.length;
-        queue.push({ id: e.target, level: level + 1, col: col + i - (siblings - 1) / 2 });
+        queue.push({ id: e.target, level: current.level + 1, col: current.col + i - (siblings - 1) / 2 });
       });
     }
 
@@ -170,6 +170,7 @@ export default function ProcessDetailViewPage() {
         let tPortX = tNode.x + OFFSET_X + 128; // Center
         let tPortY = tNode.y + OFFSET_Y;       // Top
 
+        // Seitliches Routing bei großen Abständen
         if (Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + 256;
@@ -245,14 +246,12 @@ export default function ProcessDetailViewPage() {
     return (
       <Card 
         className={cn(
-          "rounded-2xl border shadow-sm transition-all duration-300 bg-white cursor-pointer relative",
-          isMapMode 
-            ? (isActive ? "ring-4 ring-primary border-primary shadow-xl z-50 w-[600px] scale-110" : "hover:border-primary/20 w-64")
-            : (isActive ? "ring-4 ring-primary border-primary w-full shadow-md" : "w-full border-slate-100 shadow-md"),
+          "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative",
+          isActive ? "ring-4 ring-primary border-primary shadow-lg" : "border-slate-100 shadow-sm hover:border-primary/20",
+          isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
         )}
         onClick={(e) => {
           e.stopPropagation();
-          console.log(`[DEBUG] Clicked node: ${node.id}`);
           setActiveNodeId(isActive ? null : node.id);
         }}
       >
@@ -336,12 +335,12 @@ export default function ProcessDetailViewPage() {
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
-          <span className="font-black uppercase tracking-widest">Map Debugger</span>
+          <span className="font-black uppercase tracking-widest">Map Monitor</span>
         </div>
         <div className="flex justify-between gap-4"><span>Active ID:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
         <div className="flex justify-between gap-4"><span>Scale:</span> <span>{scale.toFixed(2)}</span></div>
         <div className="flex justify-between gap-4"><span>Position:</span> <span>X:{Math.floor(position.x)} Y:{Math.floor(position.y)}</span></div>
-        <div className="flex justify-between gap-4"><span>Dragging:</span> <span className={cn(isDragging ? "text-emerald-400" : "text-red-400")}>{String(isDragging)}</span></div>
+        <div className="flex justify-between gap-4"><span>Drag:</span> <span className={cn(isDragging ? "text-emerald-400" : "text-red-400")}>{String(isDragging)}</span></div>
       </div>
 
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -397,7 +396,6 @@ export default function ProcessDetailViewPage() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onClick={() => {
-            console.log("[DEBUG] Clicked map background");
             setActiveNodeId(null);
           }}
         >
@@ -433,7 +431,7 @@ export default function ProcessDetailViewPage() {
           )}
 
           {guideMode === 'structure' && (
-            <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
+            <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-lg flex flex-col gap-1.5">
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.3, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
               <Separator />
