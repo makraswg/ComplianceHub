@@ -1,3 +1,4 @@
+
 import mysql from 'mysql2/promise';
 
 // Die Zugangsdaten werden direkt aus den Umgebungsvariablen (.env) geladen.
@@ -10,10 +11,15 @@ function getPool() {
 
   try {
     const host = process.env.MYSQL_HOST || '127.0.0.1';
-    const port = Number(process.env.MYSQL_PORT || 3306);
+    let port = Number(process.env.MYSQL_PORT || 3306);
     const database = process.env.MYSQL_DATABASE;
     const user = process.env.MYSQL_USER;
     const password = process.env.MYSQL_PASSWORD;
+
+    // Fix for Docker environment: If host is the service name, use internal port 3306
+    if (host === 'compliance-db' || host === 'compliance-hub-db') {
+      port = 3306;
+    }
 
     pool = mysql.createPool({
       host,

@@ -270,7 +270,7 @@ export default function ProcessDetailViewPage() {
         >
           <div className={cn(
             "flex items-center justify-center shadow-lg border-2 transition-all cursor-pointer",
-            isEvent ? "w-14 h-14 rounded-full" : isDecision ? "w-16 h-16 rotate-45" : "w-48 h-24 rounded-xl",
+            isEvent ? "w-14 h-14 rounded-full" : isDecision ? "w-16 h-16 rotate-45" : "w-48 h-24 rounded-2xl",
             node.type === 'start' ? "bg-emerald-50 border-emerald-500 text-emerald-600" :
             node.type === 'end' ? "bg-red-50 border-red-500 text-red-600" :
             isDecision ? "bg-amber-50 border-amber-500 text-amber-600" :
@@ -290,7 +290,7 @@ export default function ProcessDetailViewPage() {
           </div>
           {!isEvent && !isDecision && (
             <div className="flex flex-wrap gap-1 justify-center max-w-[180px]">
-              {nodeResources?.slice(0, 2).map(res => <Badge key={res.id} variant="outline" className="text-[7px] font-black h-3.5 border-slate-200 bg-white">{res.name}</Badge>)}
+              {nodeResources?.slice(0, 2).map(res => <Badge key={res.id} variant="outline" className="text-[7px] font-black h-3.5 border-slate-200 bg-white rounded-md">{res.name}</Badge>)}
             </div>
           )}
         </div>
@@ -322,7 +322,7 @@ export default function ProcessDetailViewPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h4 className="text-sm font-black uppercase tracking-tight text-slate-900 truncate">{node.title}</h4>
-                <Badge variant="outline" className="text-[8px] font-black border-none bg-slate-100 text-slate-500 h-4 uppercase">
+                <Badge variant="outline" className="text-[8px] font-black border-none bg-slate-100 text-slate-500 h-4 uppercase rounded-md">
                   {isDecision ? 'Entscheidung' : 'Prozessschritt'}
                 </Badge>
               </div>
@@ -336,7 +336,7 @@ export default function ProcessDetailViewPage() {
           <div className="flex flex-wrap gap-1.5 justify-end shrink-0">
             {nodeResources?.map(res => (
               <Badge key={res.id} className={cn(
-                "h-6 px-2 text-[9px] font-black gap-1.5 border-none shadow-sm",
+                "h-6 px-2 text-[9px] font-black gap-1.5 border-none shadow-sm rounded-md",
                 res.criticality === 'high' ? "bg-red-50 text-red-700" : "bg-indigo-50 text-indigo-700"
               )}>
                 <Server className="w-3 h-3" /> {res.name}
@@ -362,7 +362,7 @@ export default function ProcessDetailViewPage() {
                   </Label>
                   <div className="grid grid-cols-1 gap-2">
                     {node.checklist.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-xl group/item hover:bg-emerald-50 transition-all">
+                      <div key={idx} className="flex items-center gap-3 p-3 bg-emerald-50/30 border border-emerald-100/50 rounded-2xl group/item hover:bg-emerald-50 transition-all">
                         <Checkbox id={`${node.id}-check-${idx}`} className="rounded-md border-emerald-300" />
                         <label htmlFor={`${node.id}-check-${idx}`} className="text-xs font-bold text-slate-700 cursor-pointer">{item}</label>
                       </div>
@@ -379,13 +379,13 @@ export default function ProcessDetailViewPage() {
                     <Lightbulb className="w-3.5 h-3.5" /> Expertise
                   </Label>
                   {node.tips && (
-                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-1">
+                    <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl space-y-1">
                       <p className="text-[10px] font-bold text-blue-800">Tipp</p>
                       <p className="text-[10px] text-blue-700 italic">{node.tips}</p>
                     </div>
                   )}
                   {node.errors && (
-                    <div className="p-3 bg-red-50 border border-red-100 rounded-xl space-y-1">
+                    <div className="p-3 bg-red-50 border border-red-100 rounded-2xl space-y-1">
                       <p className="text-[10px] font-bold text-red-800">Fehlerquelle</p>
                       <p className="text-[10px] text-red-700 italic">{node.errors}</p>
                     </div>
@@ -398,8 +398,8 @@ export default function ProcessDetailViewPage() {
                   <ShieldCheck className="w-3.5 h-3.5" /> Compliance
                 </Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {nodeFeatures?.map(f => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5 px-2 uppercase">{f.name}</Badge>)}
-                  {nodeCats?.map(c => <Badge key={c.id} variant="outline" className="bg-white text-blue-700 text-[8px] font-black h-5 px-2 uppercase">{c.name}</Badge>)}
+                  {nodeFeatures?.map(f => <Badge key={f.id} variant="outline" className="bg-white text-sky-700 text-[8px] font-black h-5 px-2 uppercase rounded-md">{f.name}</Badge>)}
+                  {nodeCats?.map(c => <Badge key={c.id} variant="outline" className="bg-white text-blue-700 text-[8px] font-black h-5 px-2 uppercase rounded-md">{c.name}</Badge>)}
                 </div>
               </div>
             </div>
@@ -412,7 +412,7 @@ export default function ProcessDetailViewPage() {
               <div className="flex items-center gap-1.5 overflow-hidden">
                 <span className="text-[8px] font-black text-slate-400 uppercase">Eingang von:</span>
                 {predecessors.map((p: any) => (
-                  <Badge key={p?.id} variant="ghost" className="bg-white border border-slate-200 text-[8px] font-bold h-5 px-1.5 truncate max-w-[100px]">{p?.title}</Badge>
+                  <Badge key={p?.id} variant="ghost" className="bg-white border border-slate-200 text-[8px] font-bold h-5 px-1.5 truncate max-w-[100px] rounded-md">{p?.title}</Badge>
                 ))}
               </div>
             )}
@@ -423,7 +423,7 @@ export default function ProcessDetailViewPage() {
                 key={s.id} 
                 variant="outline" 
                 size="sm" 
-                className="h-7 rounded-lg text-[9px] font-black uppercase bg-white border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
+                className="h-7 rounded-xl text-[9px] font-black uppercase bg-white border-primary/20 text-primary hover:bg-primary hover:text-white transition-all shadow-sm"
                 onClick={(e) => { e.stopPropagation(); setActiveNodeId(s.id || null); }}
               >
                 {s.title} <ArrowRight className="w-2.5 h-2.5 ml-1" />
@@ -470,18 +470,18 @@ export default function ProcessDetailViewPage() {
             <div className="p-6 space-y-8">
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 border-b pb-2 flex items-center gap-2"><FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext</h3>
-                <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-100 space-y-2 shadow-inner">
+                <div className="p-3 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-2 shadow-inner">
                   <Label className="text-[8px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
                   <Select value={currentProcess?.vvtId || 'none'} onValueChange={handleUpdateVvtLink}>
-                    <SelectTrigger className="h-8 text-[10px] font-bold px-2 bg-white border-emerald-100"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
-                    <SelectContent><SelectItem value="none">Kein Bezug</SelectItem>{vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
+                    <SelectTrigger className="h-8 text-[10px] font-bold px-2 bg-white border-emerald-100 rounded-xl"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
+                    <SelectContent className="rounded-xl"><SelectItem value="none">Kein Bezug</SelectItem>{vvts?.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </section>
 
               <section className="space-y-3">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-primary border-b pb-2 flex items-center gap-2"><UserCircle className="w-3.5 h-3.5" /> Verantwortung</h3>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-2">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
                   <p className="text-[8px] font-black uppercase text-slate-400">Owner Rolle</p>
                   <p className="text-[11px] font-bold text-slate-900">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
                 </div>
@@ -491,7 +491,7 @@ export default function ProcessDetailViewPage() {
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2"><Server className="w-3.5 h-3.5" /> Involvierte Systeme</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {processResources.map((res: any) => (
-                    <Badge key={res.id} variant="outline" className="bg-white border-slate-100 text-[9px] font-bold h-6 px-2 text-slate-600 shadow-sm cursor-help" onClick={() => router.push(`/resources?search=${res.name}`)}>
+                    <Badge key={res.id} variant="outline" className="bg-white border-slate-100 text-[9px] font-bold h-6 px-2 text-slate-600 shadow-sm cursor-help rounded-md" onClick={() => router.push(`/resources?search=${res.name}`)}>
                       {res.name}
                     </Badge>
                   ))}

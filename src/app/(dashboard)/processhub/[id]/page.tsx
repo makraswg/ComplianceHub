@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -602,46 +603,46 @@ export default function ProcessDesignerPage() {
                     <div className="space-y-4">
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
-                        <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold" />
+                        <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl" />
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Fachliche Beschreibung</Label>
-                        <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed" />
+                        <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[100px] text-xs leading-relaxed rounded-2xl" />
                       </div>
 
                       <Separator />
                       
-                      <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-xl">
+                      <div className="space-y-4 p-4 bg-indigo-50/30 border border-indigo-100 rounded-2xl">
                         <h4 className="text-[10px] font-black uppercase text-indigo-700 flex items-center gap-2">
                           <Settings2 className="w-3.5 h-3.5" /> ISO 9001:2015 Anforderungen
                         </h4>
                         <div className="space-y-3">
                           <div className="space-y-1.5">
                             <Label className="text-[9px] font-black uppercase text-slate-400">Inputs (Eingaben)</Label>
-                            <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                            <Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-[9px] font-black uppercase text-slate-400">Outputs (Ergebnisse)</Label>
-                            <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                            <Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was kommt raus?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-[9px] font-black uppercase text-slate-400">Leistungskennzahlen (KPIs)</Label>
-                            <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100" />
+                            <Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Messbarkeit des Prozesses?..." className="min-h-[60px] text-[11px] bg-white border-indigo-100 rounded-xl" />
                           </div>
                         </div>
                       </div>
 
                       <Separator />
 
-                      <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl">
+                      <div className="space-y-4 p-4 bg-emerald-50/30 border border-emerald-100 rounded-2xl">
                         <h4 className="text-[10px] font-black uppercase text-emerald-700 flex items-center gap-2">
                           <FileCheck className="w-3.5 h-3.5" /> DSGVO Kontext
                         </h4>
                         <div className="space-y-1.5">
                           <Label className="text-[9px] font-black uppercase text-slate-400">Verarbeitungszweck (VVT)</Label>
                           <Select value={metaVvtId} onValueChange={setMetaVvtId}>
-                            <SelectTrigger className="h-10 text-xs bg-white border-emerald-100"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
-                            <SelectContent>
+                            <SelectTrigger className="h-10 text-xs bg-white border-emerald-100 rounded-xl"><SelectValue placeholder="Zweck wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
                               <SelectItem value="none">Kein VVT Bezug</SelectItem>
                               {vvts?.filter(v => activeTenantId === 'all' || v.tenantId === activeTenantId).map(v => (
                                 <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
@@ -654,8 +655,8 @@ export default function ProcessDesignerPage() {
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Prozessverantwortlicher (Owner Rolle)</Label>
                         <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="none">Nicht zugewiesen</SelectItem>
                             {sortedRoles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(role => (
                               <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
@@ -667,8 +668,8 @@ export default function ProcessDesignerPage() {
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
                         <Select value={metaDeptId} onValueChange={setMetaDeptId}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="none">Keine Abteilung</SelectItem>
                             {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
                               <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
@@ -679,8 +680,8 @@ export default function ProcessDesignerPage() {
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Regulatorik / Standard</Label>
                         <Select value={metaFramework} onValueChange={setMetaFramework}>
-                          <SelectTrigger className="h-10 text-xs"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="none">Kein Standard</SelectItem>
                             {regulatoryOptions?.filter(o => o.enabled).map(o => (
                               <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
@@ -693,8 +694,8 @@ export default function ProcessDesignerPage() {
                         <div className="space-y-1.5">
                           <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierung</Label>
                           <Select value={metaAutomation} onValueChange={(v: any) => setMetaAutomation(v)}>
-                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
+                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
                               <SelectItem value="manual">Manuell</SelectItem>
                               <SelectItem value="partial">Teil-Automatisiert</SelectItem>
                               <SelectItem value="full">Voll-Automatisiert</SelectItem>
@@ -704,8 +705,8 @@ export default function ProcessDesignerPage() {
                         <div className="space-y-1.5">
                           <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
                           <Select value={metaVolume} onValueChange={(v: any) => setMetaDataVolume(v)}>
-                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
+                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
                               <SelectItem value="low">Niedrig (Low)</SelectItem>
                               <SelectItem value="medium">Mittel (Medium)</SelectItem>
                               <SelectItem value="high">Hoch (High)</SelectItem>
@@ -715,8 +716,8 @@ export default function ProcessDesignerPage() {
                         <div className="space-y-1.5">
                           <Label className="text-[10px] font-black uppercase text-slate-400">Frequenz</Label>
                           <Select value={metaFrequency} onValueChange={(v: any) => setMetaFrequency(v)}>
-                            <SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
+                            <SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
                               <SelectItem value="daily">Täglich</SelectItem>
                               <SelectItem value="weekly">Wöchentlich</SelectItem>
                               <SelectItem value="monthly">Monatlich</SelectItem>
@@ -727,7 +728,7 @@ export default function ProcessDesignerPage() {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Klärungsbedarf</Label>
-                        <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs" placeholder="Was muss noch geklärt werden?..." />
+                        <Textarea value={metaQuestions} onChange={e => setMetaQuestions(e.target.value)} className="min-h-[100px] text-xs rounded-2xl" placeholder="Was muss noch geklärt werden?..." />
                       </div>
                     </div>
                   </div>
@@ -794,7 +795,7 @@ export default function ProcessDesignerPage() {
                   {processTasks.map(t => (
                     <div key={t.id} className="p-3 bg-white rounded-xl border border-slate-100 shadow-sm group hover:border-amber-300 transition-all cursor-pointer" onClick={() => router.push('/tasks')}>
                       <div className="flex items-center justify-between mb-1">
-                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : t.priority === 'critical' ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
+                        <Badge variant="outline" className={cn("text-[7px] font-black uppercase h-3.5 px-1 border-none rounded-md", t.status === 'done' ? "bg-emerald-50 text-emerald-600" : t.priority === 'critical' ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600")}>{t.status}</Badge>
                         <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2 h-2" /> {t.dueDate || '∞'}</span>
                       </div>
                       <p className="text-[11px] font-bold text-slate-800 leading-tight">{t.title}</p>
@@ -882,7 +883,7 @@ export default function ProcessDesignerPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400">Verantwortliche Rolle</Label>
                         <Select value={localNodeEdits.roleId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, roleId: val})}>
                           <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             {sortedRoles?.map(role => (
                               <SelectItem key={role.id} value={role.id}>{getFullRoleName(role.id)}</SelectItem>
                             ))}
@@ -895,7 +896,7 @@ export default function ProcessDesignerPage() {
                         <Label className="text-[10px] font-bold uppercase text-indigo-600">Referenzierter Ziel-Prozess (Handover)</Label>
                         <Select value={localNodeEdits.targetProcessId} onValueChange={(val) => setLocalNodeEdits({...localNodeEdits, targetProcessId: val})}>
                           <SelectTrigger className="h-11 rounded-xl bg-indigo-50 border-indigo-100"><SelectValue placeholder="Zielprozess wählen..." /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="none">Keine Referenz</SelectItem>
                             {processes?.filter(p => p.id !== id).map(p => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                           </SelectContent>
@@ -915,7 +916,7 @@ export default function ProcessDesignerPage() {
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
                               <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, predecessorIds: prev.predecessorIds.includes(n.id) ? prev.predecessorIds.filter(id => id !== n.id) : [...prev.predecessorIds, n.id] }))}>
-                                <Checkbox checked={localNodeEdits.predecessorIds.includes(n.id)} />
+                                <Checkbox checked={localNodeEdits.predecessorIds.includes(n.id)} className="rounded-md" />
                                 <span className="text-[11px] font-bold truncate">{n.title}</span>
                               </div>
                             ))}
@@ -926,7 +927,7 @@ export default function ProcessDesignerPage() {
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {currentVersion?.model_json?.nodes?.filter((n: any) => n.id !== selectedNodeId).map((n: any) => (
                               <div key={n.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, successorIds: prev.successorIds.includes(n.id) ? prev.successorIds.filter(id => id !== n.id) : [...prev.successorIds, n.id] }))}>
-                                <Checkbox checked={localNodeEdits.successorIds.includes(n.id)} />
+                                <Checkbox checked={localNodeEdits.successorIds.includes(n.id)} className="rounded-md" />
                                 <span className="text-[11px] font-bold truncate">{n.title}</span>
                               </div>
                             ))}
@@ -951,7 +952,7 @@ export default function ProcessDesignerPage() {
                             {filteredResources.map(res => (
                               <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} />
+                                  <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
                                   <div className="min-w-0">
                                     <p className="text-[11px] font-bold text-slate-800 truncate">{res.name}</p>
                                     <p className="text-[8px] text-slate-400 font-black uppercase">{res.assetType}</p>
@@ -970,7 +971,7 @@ export default function ProcessDesignerPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
                             <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
-                              <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} />
+                              <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
                               <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{feat.name}</p></div>
                             </div>
                           ))}
@@ -983,7 +984,7 @@ export default function ProcessDesignerPage() {
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {subjectGroups?.filter(g => g.status === 'active').map(g => (
                               <div key={g.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, subjectGroupIds: prev.subjectGroupIds.includes(g.id) ? prev.subjectGroupIds.filter(id => id !== g.id) : [...prev.subjectGroupIds, g.id] }))}>
-                                <Checkbox checked={localNodeEdits.subjectGroupIds.includes(g.id)} />
+                                <Checkbox checked={localNodeEdits.subjectGroupIds.includes(g.id)} className="rounded-md" />
                                 <span className="text-[11px] font-bold truncate">{g.name}</span>
                               </div>
                             ))}
@@ -994,7 +995,7 @@ export default function ProcessDesignerPage() {
                           <ScrollArea className="h-48 border rounded-xl bg-slate-50/50 p-2">
                             {dataCategories?.filter(c => c.status === 'active').map(c => (
                               <div key={c.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer" onClick={() => setLocalNodeEdits(prev => ({ ...prev, dataCategoryIds: prev.dataCategoryIds.includes(c.id) ? prev.dataCategoryIds.filter(id => id !== c.id) : [...prev.dataCategoryIds, c.id] }))}>
-                                <Checkbox checked={localNodeEdits.dataCategoryIds.includes(c.id)} />
+                                <Checkbox checked={localNodeEdits.dataCategoryIds.includes(c.id)} className="rounded-md" />
                                 <span className="text-[11px] font-bold truncate">{c.name}</span>
                               </div>
                             ))}
@@ -1068,7 +1069,7 @@ export default function ProcessDesignerPage() {
               <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortlicher</Label>
               <Select value={taskAssigneeId} onValueChange={setTaskAssigneeId}>
                 <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl">
                   {pUsers?.map(u => <SelectItem key={u.id} value={u.id} className="text-xs font-bold">{u.displayName}</SelectItem>)}
                 </SelectContent>
               </Select>
