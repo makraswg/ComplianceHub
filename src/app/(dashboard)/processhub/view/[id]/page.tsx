@@ -148,6 +148,37 @@ export default function ProcessDetailViewPage() {
     } catch(e) {}
   };
 
+  // --- Grid Layout Logic (MOVED UP to comply with Rules of Hooks) ---
+  const gridNodes = useMemo(() => {
+    if (!activeVersion) return [];
+    const nodes = activeVersion.model_json.nodes || [];
+    const edges = activeVersion.model_json.edges || [];
+    const levels: Record<string, number> = {};
+    const cols: Record<string, number> = {};
+    const processed = new Set<string>();
+    
+    const startNode = nodes.find(n => n.type === 'start') || nodes[0];
+    if (!startNode) return [];
+
+    const queue = [{ id: startNode.id, level: 0, col: 0 }];
+    while (queue.length > 0) {
+      const { id, level, col } = queue.shift()!;
+      if (processed.has(id)) continue;
+      processed.add(id);
+      levels[id] = level;
+      cols[id] = col;
+      edges.filter(e => e.source === id).forEach((e, i) => {
+        queue.push({ id: e.target, level: level + 1, col: col + i - (edges.filter(ee => ee.source === id).length-1)/2 });
+      });
+    }
+
+    return nodes.map(n => ({
+      ...n,
+      x: (cols[n.id] || 0) * 350,
+      y: (levels[n.id] || 0) * 250
+    }));
+  }, [activeVersion]);
+
   // --- Map Controls ---
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
@@ -177,7 +208,6 @@ export default function ProcessDetailViewPage() {
     setPosition({ x: 0, y: 0 });
   };
 
-  // --- Logic for Connections ---
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || viewMode !== 'guide' || !containerRef.current) {
       setConnectionPaths([]);
@@ -208,7 +238,6 @@ export default function ProcessDetailViewPage() {
           tX = tRect.left - containerRect.left + (tRect.width / 2);
           tY = tRect.top - containerRect.top + scrollTop;
         } else {
-          // In Map mode, coordinates are relative to the transformed div
           const mapRect = mapRef.current?.getBoundingClientRect();
           if (!mapRect) return;
           sX = (sRect.left - mapRect.left + (sRect.width / 2)) / scale;
@@ -240,37 +269,6 @@ export default function ProcessDetailViewPage() {
   }, [activeNodeId, activeVersion, viewMode, guideMode, scale, updateFlowLines]);
 
   if (!mounted) return null;
-
-  // --- Grid Layout Logic ---
-  const gridNodes = useMemo(() => {
-    if (!activeVersion) return [];
-    const nodes = activeVersion.model_json.nodes || [];
-    const edges = activeVersion.model_json.edges || [];
-    const levels: Record<string, number> = {};
-    const cols: Record<string, number> = {};
-    const processed = new Set<string>();
-    
-    const startNode = nodes.find(n => n.type === 'start') || nodes[0];
-    if (!startNode) return [];
-
-    const queue = [{ id: startNode.id, level: 0, col: 0 }];
-    while (queue.length > 0) {
-      const { id, level, col } = queue.shift()!;
-      if (processed.has(id)) continue;
-      processed.add(id);
-      levels[id] = level;
-      cols[id] = col;
-      edges.filter(e => e.source === id).forEach((e, i) => {
-        queue.push({ id: e.target, level: level + 1, col: col + i - (edges.filter(ee => ee.source === id).length-1)/2 });
-      });
-    }
-
-    return nodes.map(n => ({
-      ...n,
-      x: (cols[n.id] || 0) * 350,
-      y: (levels[n.id] || 0) * 250
-    }));
-  }, [activeVersion]);
 
   const GuideCard = ({ node, isMapMode = false }: { node: ProcessNode, isMapMode?: boolean }) => {
     const isActive = activeNodeId === node.id;
@@ -596,7 +594,7 @@ export default function ProcessDetailViewPage() {
                   <div><h2 className="text-2xl font-headline font-bold uppercase tracking-tight">Risikoanalyse</h2><p className="text-xs text-slate-500">Betrachtung der prozessspezifischen Gefahrenlage.</p></div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Risks Logic OMITTED for brevity but maintained */}
+                  {/* Risks Logic would go here */}
                 </div>
               </div>
             </ScrollArea>

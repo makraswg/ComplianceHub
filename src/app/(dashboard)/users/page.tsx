@@ -442,7 +442,7 @@ export default function UsersPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isSaving} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSaveUser} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-sm">
-              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
               {selectedUser ? 'Aktualisieren' : 'Speichern'}
             </Button>
           </DialogFooter>
