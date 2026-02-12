@@ -286,7 +286,7 @@ function AssignmentsPageContent() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
+    <div className="p-4 md:p-8 space-y-6 pb-10 w-full mx-auto">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
@@ -345,7 +345,7 @@ function AssignmentsPageContent() {
         </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Main Table Area */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
@@ -561,7 +561,7 @@ function AssignmentsPageContent() {
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
                   <Label className="text-[10px] font-bold text-slate-400 mb-1.5 block">Mandant</Label>
                   <div className="flex items-center gap-1.5 font-bold text-[11px] text-primary">
-                    <Building2 className="w-3 h-3" /> {getTenantSlug(selectedAssignment?.tenantId)}
+                    <Building2 className="w-3.5 h-3.5" /> {getTenantSlug(selectedAssignment?.tenantId)}
                   </div>
                 </div>
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
@@ -593,7 +593,7 @@ function AssignmentsPageContent() {
                           <p className="font-bold text-xs text-slate-800 truncate">{res?.name}</p>
                           <div className="flex items-center gap-1.5">
                             <p className="text-[10px] text-slate-400 font-bold truncate">{ent?.name}</p>
-                            {ent?.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] h-4 font-bold px-1.5">Admin</Badge>}
+                            {ent?.isAdmin && <Badge className="bg-red-600 text-white border-none rounded-full text-[8px] h-4 px-1.5 font-bold">Admin</Badge>}
                           </div>
                         </div>
                       );

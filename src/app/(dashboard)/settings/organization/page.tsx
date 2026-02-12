@@ -383,7 +383,7 @@ export default function UnifiedOrganizationPage() {
   if (!mounted) return null;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 w-full mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Organisationsstruktur</Badge>
@@ -540,7 +540,7 @@ export default function UnifiedOrganizationPage() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] relative overflow-hidden shadow-inner">
+        <div className="flex-1 bg-white border rounded-2xl h-[calc(100vh-250px)] w-full relative overflow-hidden shadow-inner">
           <div className="absolute top-6 right-6 z-10 bg-white/95 backdrop-blur-md shadow-2xl border rounded-xl p-1.5 flex flex-col gap-1.5">
             <Button variant="ghost" size="icon" onClick={() => setIsLocked(!isLocked)} className={cn("h-9 w-9 rounded-xl transition-all", isLocked && "bg-amber-50 text-amber-600")}><Lock className="w-4 h-4" /></Button>
             <Button variant="ghost" size="icon" onClick={syncChart} className="h-9 w-9 rounded-xl"><RefreshCw className="w-4 h-4" /></Button>
