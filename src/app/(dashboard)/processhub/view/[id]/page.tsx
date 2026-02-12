@@ -125,8 +125,8 @@ export default function ProcessDetailViewPage() {
 
     return nodes.map(n => ({
       ...n,
-      x: (cols[n.id] || 0) * 320,
-      y: (levels[n.id] || 0) * 220
+      x: (cols[n.id] || 0) * 300,
+      y: (levels[n.id] || 0) * 160 // Compact vertical spacing
     }));
   }, [activeVersion]);
 
@@ -141,7 +141,7 @@ export default function ProcessDetailViewPage() {
     const OFFSET_Y = 2500;
 
     setPosition({
-      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (140 * scale),
+      x: -(targetNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
       y: -(targetNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
     });
   }, [gridNodes, scale, activeNodeId]);
@@ -163,20 +163,32 @@ export default function ProcessDetailViewPage() {
         const OFFSET_X = 2500;
         const OFFSET_Y = 2500;
         
+        const isDecision = sNode.type === 'decision';
+        
+        // Output port selection
         let sPortX = sNode.x + OFFSET_X + 128; 
-        let sPortY = sNode.y + OFFSET_Y + 80;  
-        let tPortX = tNode.x + OFFSET_X + 128; 
-        let tPortY = tNode.y + OFFSET_Y;       
+        let sPortY = sNode.y + OFFSET_Y + 80;  // Standard bottom middle
 
-        if (Math.abs(tNode.x - sNode.x) > 100) {
+        // Decision logic: Always exit bottom
+        if (!isDecision && Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + 256;
             sPortY = sNode.y + OFFSET_Y + 40;
-            tPortX = tNode.x + OFFSET_X;
-            tPortY = tNode.y + OFFSET_Y + 40;
           } else {
             sPortX = sNode.x + OFFSET_X;
             sPortY = sNode.y + OFFSET_Y + 40;
+          }
+        }
+
+        // Input port selection
+        let tPortX = tNode.x + OFFSET_X + 128;
+        let tPortY = tNode.y + OFFSET_Y;
+
+        if (Math.abs(tNode.x - sNode.x) > 100) {
+          if (tNode.x > sNode.x) {
+            tPortX = tNode.x + OFFSET_X;
+            tPortY = tNode.y + OFFSET_Y + 40;
+          } else {
             tPortX = tNode.x + OFFSET_X + 256;
             tPortY = tNode.y + OFFSET_Y + 40;
           }
@@ -219,11 +231,29 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseUp = () => setIsDragging(false);
 
+  // Zoom to cursor logic like Google Maps
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
+    e.preventDefault();
+    
     const delta = e.deltaY * -0.001;
     const newScale = Math.min(Math.max(0.3, scale + delta), 2);
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Calculate pivot points in unscaled space
+    const pivotX = (mouseX - position.x) / scale;
+    const pivotY = (mouseY - position.y) / scale;
+    
+    const newX = mouseX - pivotX * newScale;
+    const newY = mouseY - pivotY * newScale;
+    
     setScale(newScale);
+    setPosition({ x: newX, y: newY });
   };
 
   const getFullRoleName = useCallback((roleId?: string) => {
@@ -241,12 +271,11 @@ export default function ProcessDetailViewPage() {
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
-          <span className="font-black uppercase tracking-widest">Map Monitor</span>
+          <span className="font-black uppercase tracking-widest">Map Monitor (Debug)</span>
         </div>
         <div className="flex justify-between gap-4"><span>Active ID:</span> <span className="text-primary">{activeNodeId || 'none'}</span></div>
         <div className="flex justify-between gap-4"><span>Scale:</span> <span>{scale.toFixed(2)}</span></div>
-        <div className="flex justify-between gap-4"><span>Position:</span> <span>X:{Math.floor(position.x)} Y:{Math.floor(position.y)}</span></div>
-        <div className="flex justify-between gap-4"><span>Drag:</span> <span className={cn(isDragging ? "text-emerald-400" : "text-red-400")}>{String(isDragging)}</span></div>
+        <div className="flex justify-between gap-4"><span>X / Y:</span> <span>{Math.floor(position.x)} / {Math.floor(position.y)}</span></div>
       </div>
 
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
@@ -309,7 +338,7 @@ export default function ProcessDetailViewPage() {
             <ScrollArea className="h-full p-10">
               <div className="max-w-5xl mx-auto space-y-8 pb-40">
                 {gridNodes.map(node => (
-                  <ProcessStepCard key={node.id} node={node} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
+                  <ProcessStepCard key={node.id} node={node} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} expandedByDefault />
                 ))}
               </div>
             </ScrollArea>
@@ -320,7 +349,7 @@ export default function ProcessDetailViewPage() {
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                     <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
                   </marker>
                 </defs>
@@ -350,9 +379,9 @@ export default function ProcessDetailViewPage() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, expandedByDefault = false }: any) {
   const isActive = activeNodeId === node.id;
-  const isExpanded = !isMapMode || isActive;
+  const isExpanded = expandedByDefault || (isMapMode && isActive) || (!isMapMode && isActive);
   
   const roleName = getFullRoleName(node.roleId);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
@@ -361,7 +390,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   return (
     <Card 
       className={cn(
-        "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative",
+        "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative overflow-hidden",
         isActive ? "ring-4 ring-primary border-primary shadow-lg" : "border-slate-100 shadow-sm hover:border-primary/20",
         isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
       )}
@@ -370,7 +399,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         setActiveNodeId(isActive ? null : node.id);
       }}
     >
-      <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 rounded-t-2xl bg-white", isExpanded && "bg-slate-50/50")}>
+      <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 bg-white", isExpanded && "bg-slate-50/50")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner",
