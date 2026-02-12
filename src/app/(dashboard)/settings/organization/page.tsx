@@ -244,15 +244,17 @@ export default function UnifiedOrganizationPage() {
     }
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
-    const data: Tenant = {
-      ...editingTenant,
+    
+    // Wir bauen das Objekt explizit ohne "region" oder "editingTenant" Spreads,
+    // um sicherzustellen, dass keine ungültigen Felder an die DB gehen.
+    const data: Partial<Tenant> = {
       id,
       name: tenantName,
       slug: tenantSlug || tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
       companyDescription: tenantDescription,
-      status: editingTenant?.status || 'active',
+      status: (editingTenant?.status as any) || 'active',
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
-    } as Tenant;
+    };
 
     try {
       const res = await saveCollectionRecord('tenants', id, data, dataSource);
@@ -433,7 +435,7 @@ export default function UnifiedOrganizationPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive Ansicht' : 'Archiv anzeigen'}</Button>
-              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
+              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setTenantName(''); setTenantSlug(''); setTenantDescription(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
 

@@ -6,6 +6,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/fi
 import { getMockCollection } from '@/lib/mock-db';
 import { DataSource, User, PlatformUser } from '@/lib/types';
 import bcrypt from 'bcryptjs';
+import { appSchema } from '@/lib/schema';
 
 /**
  * Mapping von Frontend-Kollektionsnamen zu echten MySQL-Tabellennamen.
@@ -191,16 +192,25 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
   }
   const tableName = collectionToTableMap[collectionName];
   if (!tableName) return { success: false, error: `Invalid table mapping for collection: ${collectionName}` };
+  
+  const tableDef = appSchema[tableName];
+  if (!tableDef) return { success: false, error: `Kein Schema für Tabelle ${tableName} definiert.` };
+  const validColumns = Object.keys(tableDef.columns);
+
   let connection;
   try {
     connection = await getMysqlConnection();
     
-    const preparedData: any = { id };
-    Object.keys(data).forEach(key => {
-      if (data[key] !== undefined) {
-        preparedData[key] = data[key];
+    const preparedData: any = {};
+    // Nur Felder übernehmen, die laut Schema in der Datenbank existieren
+    validColumns.forEach(col => {
+      if (data[col] !== undefined) {
+        preparedData[col] = data[col];
       }
     });
+    
+    // Sicherstellen, dass die ID immer gesetzt ist
+    preparedData.id = id;
     
     const jsonFields: Record<string, string[]> = {
       users: ['adGroups'],
