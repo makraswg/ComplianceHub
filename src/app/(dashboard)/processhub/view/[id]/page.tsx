@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -73,6 +73,7 @@ const OFFSET_Y = 2500;
 export default function ProcessDetailViewPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { dataSource, activeTenantId } = useSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -195,6 +196,61 @@ export default function ProcessDetailViewPage() {
     });
   }, [activeVersion, activeNodeId]);
 
+  const centerOnNode = useCallback((nodeId: string) => {
+    const node = gridNodes.find(n => n.id === nodeId);
+    if (!node || !containerRef.current) return;
+
+    setIsProgrammaticMove(true);
+    const targetScale = 1.0;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    setPosition({
+      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
+      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
+    });
+    setScale(targetScale);
+    setTimeout(() => setIsProgrammaticMove(false), 850);
+  }, [gridNodes]);
+
+  const handleNodeClick = useCallback((nodeId: string) => {
+    if (activeNodeId === nodeId) {
+      setActiveNodeId(null);
+    } else {
+      setActiveNodeId(nodeId);
+      setTimeout(() => centerOnNode(nodeId), 50);
+    }
+  }, [activeNodeId, centerOnNode]);
+
+  const resetViewport = useCallback(() => {
+    if (gridNodes.length === 0 || !containerRef.current) return;
+    
+    setIsProgrammaticMove(true);
+    const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    setPosition({
+      x: -(startNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
+      y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
+    });
+    setTimeout(() => setIsProgrammaticMove(false), 850);
+  }, [gridNodes, scale]);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (mounted && guideMode === 'structure' && !hasAutoCentered.current && gridNodes.length > 0) {
+      const initialTargetId = searchParams.get('activeNode') || gridNodes.find(n => n.type === 'start')?.id || gridNodes[0]?.id;
+      if (initialTargetId) {
+        handleNodeClick(initialTargetId);
+      } else {
+        resetViewport();
+      }
+      hasAutoCentered.current = true;
+    }
+  }, [guideMode, mounted, gridNodes, resetViewport, searchParams, handleNodeClick]);
+
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || gridNodes.length === 0) {
       setConnectionPaths([]);
@@ -230,47 +286,6 @@ export default function ProcessDetailViewPage() {
 
     setConnectionPaths(newPaths);
   }, [activeVersion, gridNodes, activeNodeId]);
-
-  const centerOnNode = useCallback((nodeId: string) => {
-    const node = gridNodes.find(n => n.id === nodeId);
-    if (!node || !containerRef.current) return;
-
-    setIsProgrammaticMove(true);
-    const targetScale = 1.0;
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-
-    setPosition({
-      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
-      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
-    });
-    setScale(targetScale);
-    setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes]);
-
-  const resetViewport = useCallback(() => {
-    if (gridNodes.length === 0 || !containerRef.current) return;
-    
-    setIsProgrammaticMove(true);
-    const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-
-    setPosition({
-      x: -(startNode.x + OFFSET_X) * scale + containerWidth / 2 - (128 * scale),
-      y: -(startNode.y + OFFSET_Y) * scale + containerHeight / 2 - (40 * scale)
-    });
-    setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes, scale]);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    if (mounted && guideMode === 'structure' && !hasAutoCentered.current && gridNodes.length > 0) {
-      resetViewport();
-      hasAutoCentered.current = true;
-    }
-  }, [guideMode, mounted, gridNodes, resetViewport]);
 
   useEffect(() => {
     updateFlowLines();
@@ -316,15 +331,6 @@ export default function ProcessDetailViewPage() {
     
     setScale(newScale);
     setPosition({ x: newX, y: newY });
-  };
-
-  const handleNodeClick = (nodeId: string) => {
-    if (activeNodeId === nodeId) {
-      setActiveNodeId(null);
-    } else {
-      setActiveNodeId(nodeId);
-      setTimeout(() => centerOnNode(nodeId), 50);
-    }
   };
 
   if (!mounted) return null;
@@ -387,7 +393,8 @@ export default function ProcessDetailViewPage() {
           onWheel={handleWheel}
           onClick={(e) => { 
             const dist = Math.sqrt(Math.pow(e.clientX - lastMousePos.x, 2) + Math.pow(e.clientY - lastMousePos.y, 2));
-            if (dist < 5) setActiveNodeId(null); 
+            const time = Date.now() - mouseDownTime;
+            if (dist < 5 && time < 200) setActiveNodeId(null); 
           }}
         >
           {guideMode === 'list' ? (
@@ -499,7 +506,10 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         setActiveNodeId(node.id);
       }}
     >
-      <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 bg-white", isExpanded && "bg-slate-50/50")}>
+      <CardHeader className={cn(
+        "p-4 flex flex-row items-center justify-between gap-4 bg-white transition-colors duration-500", 
+        isExpanded ? "bg-slate-50/50 border-b" : "border-b-0"
+      )}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn(
             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-inner transition-transform duration-500",
