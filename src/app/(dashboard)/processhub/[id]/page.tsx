@@ -41,8 +41,7 @@ import {
   X,
   ClipboardCheck,
   Layers,
-  ShieldAlert,
-  Save
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -395,7 +394,7 @@ export default function ProcessDesignerPage() {
             {isDiagramLocked ? 'Layout gesperrt' : 'Layout frei'}
           </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm transition-all gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
-            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
+            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
             Speichern & Loggen
           </Button>
         </div>
@@ -439,7 +438,7 @@ export default function ProcessDesignerPage() {
               </ScrollArea>
               <div className="p-4 border-t bg-slate-50 shrink-0">
                 <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
-                  {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
+                  {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
                   Stammdaten sichern
                 </Button>
               </div>

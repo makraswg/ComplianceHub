@@ -6,14 +6,13 @@ import { getCollectionData } from '@/app/actions/mysql-actions';
 
 // Global cache to persist data across hook instances and prevent flickering
 const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
-const CACHE_TTL = 10000; 
+const CACHE_TTL = 30000; 
 
 /**
  * Enhanced MySQL data hook with deep stability.
  * Prevents UI flickering by ensuring reference stability and silent background updates.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
-  // Use cached data as initial state to avoid empty state on fast navigation
   const [data, setData] = useState<T[] | null>(() => {
     const cached = mysqlCache[collectionName];
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -22,7 +21,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     return null;
   });
   
-  // Only show loading if we don't have any data yet
   const [isLoading, setIsLoading] = useState(enabled && data === null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -76,12 +74,11 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     fetchData();
 
-    // Polling for updates (silent background refresh)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 
       }
-    }, 30000); 
+    }, 15000); 
 
     pollingInterval.current = interval;
     return () => {

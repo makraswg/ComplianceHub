@@ -85,6 +85,7 @@ export default function ProcessDetailViewPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const hasAutoCentered = useRef(false);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
@@ -98,8 +99,6 @@ export default function ProcessDetailViewPage() {
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
 
-  // --- Grid Layout Logic ---
-  // Memoized nodes with calculated grid positions
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -166,12 +165,11 @@ export default function ProcessDetailViewPage() {
         const OFFSET_X = 2500;
         const OFFSET_Y = 2500;
         
-        let sPortX = sNode.x + OFFSET_X + 128; // Center
-        let sPortY = sNode.y + OFFSET_Y + 80;  // Bottom
-        let tPortX = tNode.x + OFFSET_X + 128; // Center
-        let tPortY = tNode.y + OFFSET_Y;       // Top
+        let sPortX = sNode.x + OFFSET_X + 128; 
+        let sPortY = sNode.y + OFFSET_Y + 80;  
+        let tPortX = tNode.x + OFFSET_X + 128; 
+        let tPortY = tNode.y + OFFSET_Y;       
 
-        // Side routing for large distances (BPMN style)
         if (Math.abs(tNode.x - sNode.x) > 100) {
           if (tNode.x > sNode.x) {
             sPortX = sNode.x + OFFSET_X + 256;
@@ -197,9 +195,15 @@ export default function ProcessDetailViewPage() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (mounted && guideMode === 'structure') {
-      const timer = setTimeout(resetViewport, 100);
+    if (mounted && guideMode === 'structure' && !hasAutoCentered.current) {
+      const timer = setTimeout(() => {
+        resetViewport();
+        hasAutoCentered.current = true;
+      }, 100);
       return () => clearTimeout(timer);
+    }
+    if (guideMode !== 'structure') {
+      hasAutoCentered.current = false;
     }
   }, [guideMode, mounted, resetViewport]);
 
@@ -252,7 +256,7 @@ export default function ProcessDetailViewPage() {
           isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
         )}
         onClick={(e) => {
-          e.stopPropagation(); // CRITICAL: Stop propagation to prevent background click from unselecting immediately
+          e.stopPropagation();
           setActiveNodeId(isActive ? null : node.id);
         }}
       >
@@ -332,7 +336,6 @@ export default function ProcessDetailViewPage() {
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
-      {/* Debug HUD: Top Left Fixed */}
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
@@ -397,7 +400,7 @@ export default function ProcessDetailViewPage() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onClick={() => {
-            setActiveNodeId(null); // Unselect when clicking background
+            if (!isDragging) setActiveNodeId(null);
           }}
         >
           {guideMode === 'list' ? (
