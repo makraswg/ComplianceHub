@@ -42,7 +42,8 @@ import {
   Edit3,
   ArrowRightCircle,
   ArrowLeftCircle,
-  Terminal
+  Terminal,
+  Focus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,7 +79,7 @@ export default function ProcessDetailViewPage() {
   const [mounted, setMounted] = useState(false);
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string }[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string }[]>([]);
 
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -109,7 +110,9 @@ export default function ProcessDetailViewPage() {
 
   /**
    * Enhanced Hierarchical Layout Engine.
-   * Forces branches to be side-by-side using unique lanes.
+   * Logic: 
+   * 1. Calculate vertical level via Longest Path (ensures merges are below all ancestors).
+   * 2. Distribute nodes horizontally into unique lanes based on path discovery.
    */
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
@@ -120,7 +123,7 @@ export default function ProcessDetailViewPage() {
     const lanes: Record<string, number> = {};
     const occupiedLanesPerLevel = new Map<number, Set<number>>();
 
-    // 1. Level Calculation (Longest Path)
+    // 1. Ranking (Longest Path)
     nodes.forEach(n => levels[n.id] = 0);
     let changed = true;
     let limit = nodes.length * 2;
@@ -135,7 +138,7 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Lane Assignment (Breadth-First to handle branching)
+    // 2. Lane Assignment (BFS to maintain branch order)
     const processed = new Set<string>();
     const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
     
@@ -150,7 +153,7 @@ export default function ProcessDetailViewPage() {
       const levelOccupancy = occupiedLanesPerLevel.get(lv)!;
       
       while (levelOccupancy.has(finalLane)) {
-        finalLane++; // Find next free lane at this level
+        finalLane++; 
       }
       
       lanes[id] = finalLane;
@@ -163,32 +166,31 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // 3. Coordinate Projection
-    const H_GAP = 450;
-    const V_GAP = 220;
-    const EXPANDED_W = 600;
-    const COLLAPSED_W = 256;
-    const EXTRA_W = (EXPANDED_W - COLLAPSED_W);
+    // 3. Coordinate Projection with Expansion Logic
+    const H_GAP = 400;
+    const V_GAP = 240;
+    const EXPANDED_WIDTH = 600;
+    const COLLAPSED_WIDTH = 256;
+    const WIDTH_DIFF = EXPANDED_WIDTH - COLLAPSED_WIDTH;
 
     return nodes.map(n => {
       const lane = lanes[n.id] || 0;
       const lv = levels[n.id] || 0;
       
-      // Horizontal centering around start point
-      let x = (lane * H_GAP);
+      let x = lane * H_GAP;
       let y = lv * V_GAP;
 
-      // Symmetrical Expansion handling
+      // Handle dynamic expansion shift for neighbors
       if (activeNodeId) {
         const activeLv = levels[activeNodeId];
         const activeLane = lanes[activeNodeId];
         
         if (lv === activeLv) {
-          if (lane > activeLane) x += (EXTRA_W / 2) + 20;
-          if (lane < activeLane) x -= (EXTRA_W / 2) + 20;
+          if (lane > activeLane) x += (WIDTH_DIFF / 2) + 40;
+          if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
         if (lv > activeLv) {
-          y += 350; // Push lower levels down
+          y += 380; 
         }
       }
 
@@ -203,7 +205,7 @@ export default function ProcessDetailViewPage() {
     }
 
     const edges = activeVersion.model_json.edges || [];
-    const newPaths: { path: string, sourceId: string, targetId: string }[] = [];
+    const newPaths: { path: string, sourceId: string, targetId: string, label?: string }[] = [];
 
     edges.forEach(edge => {
       const sNode = gridNodes.find(n => n.id === edge.source);
@@ -217,7 +219,7 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExp ? 600 : 256;
         const sH = sIsExp ? 400 : 80;
 
-        // Routing: Exit Bottom Center, Entry Top Center
+        // Routing: Bottom Middle to Top Middle
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -227,8 +229,9 @@ export default function ProcessDetailViewPage() {
         const dy = tY - sY;
         const stub = 40; 
         
+        // Dynamic Cubic Bezier for smooth enterprise flow
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
-        newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
+        newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label });
       }
     });
 
@@ -303,7 +306,9 @@ export default function ProcessDetailViewPage() {
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-lg font-headline font-bold text-slate-900">{currentProcess?.title}</h1>
@@ -387,11 +392,28 @@ export default function ProcessDetailViewPage() {
           )}
 
           {guideMode === 'structure' && (
-            <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-lg flex flex-col gap-1.5">
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
-              <Separator />
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); resetViewport(); }}><Maximize2 className="w-5 h-5" /></Button>
+            <div className="absolute bottom-8 right-8 z-50 bg-white/95 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left"><p className="text-[10px] font-bold uppercase">Vergrößern</p></TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-slate-100" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left"><p className="text-[10px] font-bold uppercase">Verkleinern</p></TooltipContent>
+                </Tooltip>
+                <Separator className="my-1" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-primary/10 text-primary" onClick={(e) => { e.stopPropagation(); resetViewport(); }}><Maximize2 className="w-5 h-5" /></Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left"><p className="text-[10px] font-bold uppercase">Zentrieren</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
         </main>
