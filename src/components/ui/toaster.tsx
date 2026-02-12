@@ -19,9 +19,11 @@ export function Toaster() {
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const handleCopy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopiedId(id)
-    setTimeout(() => setCopiedId(null), 2000)
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
   }
 
   return (

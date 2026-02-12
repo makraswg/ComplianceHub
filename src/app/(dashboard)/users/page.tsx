@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -109,7 +108,7 @@ export default function UsersPage() {
     const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${role.name}` : job.name;
+    return dept ? `${dept.name} — ${job.name}` : job.name;
   };
 
   const sortedRoles = useMemo(() => {
@@ -426,21 +425,9 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="space-y-2">
-<<<<<<< HEAD
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
               <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
-=======
-<<<<<<< HEAD
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
-              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-=======
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
-              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
->>>>>>> 7a87634 (nenne die stellenprofile/blueprints/erweiterungsprofile überall Rollen-S)
->>>>>>> c024792 (error)
                 <SelectContent>
                   {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
                     <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>

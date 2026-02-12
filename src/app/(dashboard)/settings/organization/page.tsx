@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -33,7 +32,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Workflow,
-  Shield
+  Shield,
+  LayoutGrid
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -172,7 +172,6 @@ export default function UnifiedOrganizationPage() {
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
-    // 1. Filter jobs by current view mode
     const jobsByDept = new Map<string, JobTitle[]>();
     (jobTitles || []).forEach(job => {
       const isArchived = job.status === 'archived';
@@ -182,7 +181,6 @@ export default function UnifiedOrganizationPage() {
       }
     });
 
-    // 2. Filter depts
     const deptsByTenant = new Map<string, any[]>();
     (departments || []).forEach(dept => {
       const isArchived = dept.status === 'archived';
@@ -198,7 +196,6 @@ export default function UnifiedOrganizationPage() {
       }
     });
 
-    // 3. Filter tenants
     return tenants
       .map(tenant => {
         const isArchived = tenant.status === 'archived';
@@ -432,7 +429,7 @@ export default function UnifiedOrganizationPage() {
                 <p className="text-[10px] text-slate-400 mt-1">Legen Sie einen Mandanten an oder passen Sie den Filter an.</p>
               </div>
             ) : groupedData.map(tenant => (
-              <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl">
+              <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl group">
                 <CardHeader className="bg-slate-50 dark:bg-slate-900/80 border-b p-4 px-6 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary border shadow-sm">
