@@ -84,9 +84,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
 
-/**
- * Hilfsfunktion zur Generierung einer eindeutigen ID innerhalb eines Modells.
- */
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
   const idStr = String(requestedId || '').trim().toLowerCase();
   const isInvalid = !requestedId || 
@@ -128,7 +125,6 @@ export default function ProcessDesignerPage() {
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   const hasAutoCentered = useRef(false);
   
-  // Ref for native listener state
   const stateRef = useRef({ position, scale, isDiagramLocked });
   useEffect(() => {
     stateRef.current = { position, scale, isDiagramLocked };
@@ -202,7 +198,6 @@ export default function ProcessDesignerPage() {
     return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
-  // Master Data Effect
   useEffect(() => {
     if (currentProcess) {
       setMetaTitle(currentProcess.title);
@@ -222,7 +217,6 @@ export default function ProcessDesignerPage() {
     }
   }, [currentProcess]);
 
-  // Map Calculation Logic (Topological Layout)
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -326,7 +320,6 @@ export default function ProcessDesignerPage() {
     }
   }, [mounted, gridNodes, centerOnNode]);
 
-  // NATIVE NON-PASSIVE WHEEL LISTENER
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -395,7 +388,6 @@ export default function ProcessDesignerPage() {
     }
   }, [selectedNodeId, centerOnNode]);
 
-  // --- Node Editor Logic ---
   const openNodeEditor = (node: any) => {
     setEditingNode(node);
     setEditTitle(node.title || '');
@@ -656,23 +648,6 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-<<<<<<< HEAD
-                  {sortedSidebarNodes.map((node: any) => (
-                    <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border", node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500")}>
-                        {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : node.type === 'start' ? <PlayCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                        <p className="text-[8px] font-bold uppercase text-slate-400 mt-0.5">{node.type}</p>
-                      </div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </div>
-                  ))}
-=======
                   {sortedSidebarNodes.map((node: any) => {
                     const hasMedia = mediaFiles?.some(m => m.subEntityId === node.id);
                     const hasChecklist = node.checklist && node.checklist.length > 0;
@@ -682,13 +657,11 @@ export default function ProcessDesignerPage() {
                         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
                           node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
                           node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
-                          node.type === 'end' ? "bg-red-50 text-red-600" :
                           node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
                         )}>
                           {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
                            node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
-                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> :
-                           node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -698,7 +671,7 @@ export default function ProcessDesignerPage() {
                               {hasChecklist && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
                             </div>
                           </div>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{node.type}</p>
+                          <p className="text-[8px] font-bold uppercase text-slate-400 mt-0.5">{node.type}</p>
                         </div>
                         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/5" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
@@ -707,7 +680,6 @@ export default function ProcessDesignerPage() {
                       </div>
                     );
                   })}
->>>>>>> ac90cf6 (weiter)
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -805,10 +777,6 @@ export default function ProcessDesignerPage() {
               ))}
             </svg>
             {gridNodes.map(node => (
-<<<<<<< HEAD
-              <div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
-                <ProcessStepCard node={node} activeNodeId={selectedNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0} isMapMode />
-=======
               <div key={node.id} className="absolute transition-all duration-500 ease-in-out" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
                 <ProcessStepCard 
                   node={node} isMapMode={{ activeNodeId: selectedNodeId }} activeNodeId={selectedNodeId} 
@@ -821,7 +789,6 @@ export default function ProcessDesignerPage() {
                   animationsEnabled={animationsEnabled}
                   mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0}
                 />
->>>>>>> ac90cf6 (weiter)
               </div>
             ))}
           </div>
@@ -956,11 +923,7 @@ export default function ProcessDesignerPage() {
                               <ImageIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                               <span className="text-[10px] font-bold truncate">{f.fileName}</span>
                             </div>
-<<<<<<< HEAD
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/file:opacity-100 transition-all" onClick={() => { if(confirm("Datei löschen?")) deleteMediaAction(f.id, f.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-=======
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3.5 h-3.5" /></Button>
->>>>>>> ac90cf6 (weiter)
                           </div>
                         ))}
                       </div>
@@ -981,11 +944,7 @@ export default function ProcessDesignerPage() {
   );
 }
 
-<<<<<<< HEAD
-function ProcessStepCard({ node, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, mediaCount, isMapMode = false }: any) {
-=======
 function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount }: any) {
->>>>>>> ac90cf6 (weiter)
   const isActive = activeNodeId === node.id;
   const isExpanded = isMapMode && isActive;
   const roleName = getFullRoleName(node.roleId);
