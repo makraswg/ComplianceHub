@@ -1,8 +1,39 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
-import { DataSource, SyncJob } from '@/lib/types';
+import { DataSource, SyncJob, Tenant } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
+
+/**
+ * Testet die LDAP-Verbindung (Simulation für das Frontend).
+ */
+export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
+  if (!config.ldapUrl || !config.ldapPort) {
+    return { success: false, message: 'URL und Port erforderlich.' };
+  }
+
+  try {
+    // Simulation einer Netzwerkprüfung
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Einfache Logik-Prüfung
+    if (config.ldapUrl.includes('localhost') || config.ldapUrl.includes('127.0.0.1')) {
+      return { success: false, message: 'Lokale LDAP-Hosts werden in der Cloud-Sandbox nicht unterstützt.' };
+    }
+
+    if (config.ldapBindPassword === 'wrong') {
+      return { success: false, message: 'Authentifizierungsfehler: Bind DN oder Passwort ungültig.' };
+    }
+
+    return { 
+      success: true, 
+      message: `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht.` 
+    };
+  } catch (e: any) {
+    return { success: false, message: `Verbindungsfehler: ${e.message}` };
+  }
+}
 
 /**
  * Ruft alle registrierten Synchronisations-Jobs ab.

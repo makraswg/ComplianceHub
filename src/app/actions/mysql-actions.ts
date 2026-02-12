@@ -105,7 +105,8 @@ function normalizeRecord(item: any, tableName: string) {
     'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
     'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
     'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-    'isIdentityProvider', 'backupRequired', 'updatesRequired'
+    'isIdentityProvider', 'backupRequired', 'updatesRequired',
+    'ldapUseTls', 'ldapAllowInvalidSsl'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -231,7 +232,8 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
       'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
       'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-      'isIdentityProvider', 'backupRequired', 'updatesRequired'
+      'isIdentityProvider', 'backupRequired', 'updatesRequired',
+      'ldapUseTls', 'ldapAllowInvalidSsl'
     ];
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     

@@ -22,7 +22,8 @@ import {
   ShieldAlert,
   Server,
   KeyRound,
-  FileCheck
+  FileCheck,
+  Send
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,7 @@ import { toast } from '@/hooks/use-toast';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
-import { triggerSyncJobAction } from '@/app/actions/sync-actions';
+import { triggerSyncJobAction, testLdapConnectionAction } from '@/app/actions/sync-actions';
 import { Tenant, SyncJob } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ export default function SyncSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: authUser } = usePlatformAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [isJobRunning, setIsJobRunning] = useState<string | null>(null);
   
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
@@ -66,6 +68,20 @@ export default function SyncSettingsPage() {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleTestLdap = async () => {
+    setIsTesting(true);
+    try {
+      const res = await testLdapConnectionAction(tenantDraft);
+      toast({ 
+        title: "LDAP Verbindungstest", 
+        description: res.message,
+        variant: res.success ? "default" : "destructive" 
+      });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -196,7 +212,16 @@ export default function SyncSettingsPage() {
             </div>
           </div>
 
-          <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row justify-between items-center pt-10 border-t border-slate-100 dark:border-slate-800 gap-6">
+            <Button 
+              variant="outline" 
+              onClick={handleTestLdap} 
+              disabled={isTesting}
+              className="rounded-xl h-12 px-10 font-black uppercase text-[10px] tracking-widest border-slate-200 dark:border-slate-800 hover:bg-slate-50 transition-all active:scale-95 gap-2"
+            >
+              {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              Verbindung Testen
+            </Button>
             <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-16 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95">
               {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
               LDAP Einstellungen Speichern
