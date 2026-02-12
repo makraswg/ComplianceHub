@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -168,6 +169,15 @@ export default function UnifiedOrganizationPage() {
   const isInitialLoading = (tenantsLoading && tenants === null) || (deptsLoading && departments === null) || (jobsLoading && jobTitles === null);
   const showLoading = isInitialLoading && !anyError;
 
+  const resetForm = () => {
+    setEditingTenant(null);
+    setTenantName('');
+    setTenantSlug('');
+    setTenantDescription('');
+    setActiveAddParent(null);
+    setNewName('');
+  };
+
   const groupedData = useMemo(() => {
     if (!tenants) return [];
     
@@ -245,8 +255,6 @@ export default function UnifiedOrganizationPage() {
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
     
-    // Wir bauen das Objekt explizit ohne "region" oder "editingTenant" Spreads,
-    // um sicherzustellen, dass keine ungültigen Felder an die DB gehen.
     const data: Partial<Tenant> = {
       id,
       name: tenantName,
@@ -435,7 +443,7 @@ export default function UnifiedOrganizationPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive Ansicht' : 'Archiv anzeigen'}</Button>
-              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setTenantName(''); setTenantSlug(''); setTenantDescription(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
+              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
 
