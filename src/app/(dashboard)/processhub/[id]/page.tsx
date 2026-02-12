@@ -38,7 +38,10 @@ import {
   ArrowRightCircle,
   Edit3,
   Check,
-  Database
+  Database,
+  Link as LinkIcon,
+  ArrowDownCircle,
+  ArrowUpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +61,6 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -105,6 +107,7 @@ export default function ProcessDesignerPage() {
   const [newCheckItem, setNewCheckItem] = useState('');
   const [editTips, setEditTips] = useState('');
   const [editErrors, setEditErrors] = useState('');
+  const [editTargetProcessId, setEditTargetProcessId] = useState('');
 
   // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
@@ -281,6 +284,7 @@ export default function ProcessDesignerPage() {
     setEditChecklist(node.checklist || []);
     setEditTips(node.tips || '');
     setEditErrors(node.errors || '');
+    setEditTargetProcessId(node.targetProcessId || '');
     setIsNodeEditorOpen(true);
   };
 
@@ -294,17 +298,43 @@ export default function ProcessDesignerPage() {
           title: editTitle,
           type: editType,
           description: editDesc,
-          roleId: editRoleId,
+          roleId: editRoleId === 'none' ? '' : editRoleId,
           resourceIds: editResIds,
           featureIds: editFeatIds,
           checklist: editChecklist,
           tips: editTips,
-          errors: editErrors
+          errors: editErrors,
+          targetProcessId: editTargetProcessId === 'none' ? '' : editTargetProcessId
         }
       }
     }];
     const success = await handleApplyOps(ops);
     if (success) setIsNodeEditorOpen(false);
+  };
+
+  const handleSubprocessSelect = (targetPid: string) => {
+    setEditTargetProcessId(targetPid);
+    if (targetPid === 'none') return;
+
+    const targetProc = processes?.find(p => p.id === targetPid);
+    if (targetProc) {
+      setEditTitle(`Prozess: ${targetProc.title}`);
+      setEditDesc(targetProc.description || '');
+      setEditRoleId(targetProc.ownerRoleId || '');
+      
+      // Inherit Resources/Features from the target process's current version
+      const targetVer = versions?.find(v => v.process_id === targetPid && v.version === targetProc.currentVersion);
+      if (targetVer) {
+        const aggregatedRes = new Set<string>();
+        const aggregatedFeat = new Set<string>();
+        targetVer.model_json.nodes.forEach(n => {
+          n.resourceIds?.forEach(r => aggregatedRes.add(r));
+          n.featureIds?.forEach(f => aggregatedFeat.add(f));
+        });
+        setEditResIds(Array.from(aggregatedRes));
+        setEditFeatIds(Array.from(aggregatedFeat));
+      }
+    }
   };
 
   const addCheckItem = () => {
@@ -383,12 +413,15 @@ export default function ProcessDesignerPage() {
     const newId = `${type}-${Date.now()}`;
     const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Ende', subprocess: 'Referenz' };
     const nodes = activeVersion.model_json.nodes || [];
+    
+    // Auto-inherit from selected node or last node
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
     
     const newNode: ProcessNode = {
       id: newId, type, title: titles[type], checklist: [],
       roleId: predecessor?.roleId || '',
       resourceIds: predecessor?.resourceIds || [],
+      featureIds: predecessor?.featureIds || [],
       predecessorIds: predecessor ? [predecessor.id] : []
     };
 
@@ -396,6 +429,7 @@ export default function ProcessDesignerPage() {
     if (predecessor) {
       ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
     }
+    
     handleApplyOps(ops).then(s => { 
       if(s) {
         handleNodeClick(newId);
@@ -439,7 +473,8 @@ export default function ProcessDesignerPage() {
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden bg-slate-50 font-body relative">
-      <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
+      {/* Designer Header - Primary Light Design */}
+      <header className="h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b bg-white/80 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
           <div className="min-w-0">
@@ -630,20 +665,17 @@ export default function ProcessDesignerPage() {
       {/* Node Editor Dialog */}
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-5">
-                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-white/10", 
-                  editType === 'decision' ? "bg-amber-500" : editType === 'end' ? "bg-red-500" : "bg-primary"
-                )}>
-                  {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
-                </div>
-                <div>
-                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
-                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">ID: {editingNode?.id}</DialogDescription>
-                </div>
+          <DialogHeader className="p-6 bg-primary/10 text-slate-900 shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-primary/20", 
+                editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-500 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
+              )}>
+                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : editType === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
               </div>
-              <AiFormAssistant formType="process" currentData={{ title: editTitle, description: editDesc }} onApply={(s) => { if(s.title) setEditTitle(s.title); if(s.description) setEditDesc(s.description); }} />
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">ID: {editingNode?.id}</DialogDescription>
+              </div>
             </div>
           </DialogHeader>
 
@@ -653,6 +685,7 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basis & Typ</TabsTrigger>
                 <TabsTrigger value="roles" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Zuständigkeiten</TabsTrigger>
                 <TabsTrigger value="grc" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Ressourcen & Daten</TabsTrigger>
+                <TabsTrigger value="rel" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-amber-600 transition-all">Verknüpfungen</TabsTrigger>
                 <TabsTrigger value="checklist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Checkliste & Hilfen</TabsTrigger>
               </TabsList>
             </div>
@@ -673,11 +706,27 @@ export default function ProcessDesignerPage() {
                           <SelectItem value="start">Startpunkt (Play)</SelectItem>
                           <SelectItem value="step">Arbeitsschritt (Step)</SelectItem>
                           <SelectItem value="decision">Entscheidung (Diamond)</SelectItem>
-                          <SelectItem value="subprocess">Teilprozess / Referenz</SelectItem>
+                          <SelectItem value="subprocess">Referenz (Teilprozess)</SelectItem>
                           <SelectItem value="end">Abschluss (End)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {editType === 'subprocess' && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2">
+                        <Label className="text-[10px] font-bold uppercase text-indigo-600 ml-1">Ziel-Prozess auswählen</Label>
+                        <Select value={editTargetProcessId} onValueChange={handleSubprocessSelect}>
+                          <SelectTrigger className="rounded-xl h-11 bg-indigo-50 border-indigo-100"><SelectValue placeholder="Prozess wählen..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Kein Bezug</SelectItem>
+                            {processes?.filter(p => p.id !== id).map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
                     <div className="space-y-2 md:col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Anweisung / Beschreibung</Label>
                       <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="min-h-[120px] rounded-2xl p-4 text-xs bg-white" placeholder="Was genau passiert in diesem Schritt?" />
@@ -693,7 +742,7 @@ export default function ProcessDesignerPage() {
                     </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortliche Stelle</Label>
-                      <Select value={editRoleId} onValueChange={setEditRoleId}>
+                      <Select value={editRoleId || 'none'} onValueChange={setEditRoleId}>
                         <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
                         <SelectContent className="rounded-xl max-h-[300px]">
                           <SelectItem value="none">Keine spezifische Rolle</SelectItem>
@@ -753,6 +802,51 @@ export default function ProcessDesignerPage() {
                             ))}
                           </div>
                         </ScrollArea>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="rel" className="mt-0 space-y-8 animate-in fade-in">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                          <ArrowUpCircle className="w-4 h-4" /> Vorgänger (Input)
+                        </Label>
+                        <div className="space-y-2">
+                          {activeVersion?.model_json?.edges?.filter((e: any) => e.target === editingNode?.id).map((edge: any) => {
+                            const sourceNode = activeVersion?.model_json?.nodes?.find((n: any) => n.id === edge.source);
+                            return (
+                              <div key={edge.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-700">{sourceNode?.title || edge.source}</span>
+                                <Badge variant="outline" className="text-[8px] font-black">{edge.label || 'Direkt'}</Badge>
+                              </div>
+                            );
+                          })}
+                          {activeVersion?.model_json?.edges?.filter((e: any) => e.target === editingNode?.id).length === 0 && (
+                            <p className="text-[10px] text-slate-400 italic">Keine Vorgänger (Startpunkt)</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                          <ArrowDownCircle className="w-4 h-4" /> Nachfolger (Output)
+                        </Label>
+                        <div className="space-y-2">
+                          {activeVersion?.model_json?.edges?.filter((e: any) => e.source === editingNode?.id).map((edge: any) => {
+                            const targetNode = activeVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
+                            return (
+                              <div key={edge.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
+                                <Badge variant="outline" className="text-[8px] font-black">{edge.label || 'Direkt'}</Badge>
+                              </div>
+                            );
+                          })}
+                          {activeVersion?.model_json?.edges?.filter((e: any) => e.source === editingNode?.id).length === 0 && (
+                            <p className="text-[10px] text-slate-400 italic">Keine Nachfolger (Prozessende)</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -827,9 +921,13 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             isActive && "scale-110",
             node.type === 'start' ? "bg-emerald-50 text-emerald-600" : 
             node.type === 'end' ? "bg-red-50 text-red-600" :
-            node.type === 'decision' ? "bg-amber-50 text-amber-600" : "bg-primary/5 text-primary"
+            node.type === 'decision' ? "bg-amber-50 text-amber-600" :
+            node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary"
           )}>
-            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'end' ? <StopCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
+             node.type === 'end' ? <StopCircle className="w-6 h-6" /> : 
+             node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : 
+             node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
           <div className="min-w-0">
             <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
