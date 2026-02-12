@@ -226,7 +226,9 @@ export default function ProcessDetailViewPage() {
       setTimeout(() => setIsProgrammaticMove(false), 850);
     } else {
       const el = document.getElementById(`list-node-${nodeId}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
   }, [gridNodes, guideMode]);
 
@@ -361,7 +363,7 @@ export default function ProcessDetailViewPage() {
         <Label className="text-[8px] font-black uppercase text-slate-400 tracking-widest">{label}</Label>
         <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner">
           {Icon && <Icon className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-          <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100 leading-tight truncate">{value || '---'}</p>
+          <p className="text-[11px] font-bold text-slate-900 dark:text-white leading-tight truncate">{value || '---'}</p>
         </div>
       </div>
     );
@@ -461,37 +463,44 @@ export default function ProcessDetailViewPage() {
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
               <div className="max-w-5xl mx-auto space-y-12 pb-40">
-                {gridNodes.map((node, i) => (
-                  <div key={node.id} id={`list-node-${node.id}`} className="relative">
-                    <ProcessStepCard 
-                      node={node} 
-                      activeNodeId={activeNodeId} 
-                      setActiveNodeId={setActiveNodeId} 
-                      resources={resources} 
-                      allFeatures={allFeatures} 
-                      getFullRoleName={getFullRoleName} 
-                      allNodes={gridNodes}
-                      expandedByDefault 
-                      animationsEnabled={animationsEnabled}
-                    />
-                    {i < gridNodes.length - 1 && (
-                      <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
-                        <div className={cn(
-                          "w-0.5 h-12 bg-slate-200 relative",
-                          animationsEnabled && activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && "bg-primary overflow-hidden"
-                        )}>
-                          {animationsEnabled && activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && (
-                            <div className="absolute top-0 left-0 w-full h-full bg-primary animate-flow-dash origin-top" style={{ height: '200%' }} />
-                          )}
+                {gridNodes.map((node, i) => {
+                  const isNodeActive = activeNodeId === node.id;
+                  const nextNode = gridNodes[i+1];
+                  // Highlight the line if the next node in list is actually a successor of current node
+                  const isFlowActive = animationsEnabled && activeNodeId && (node.id === activeNodeId) && nextNode && activeVersion?.model_json?.edges?.some((e:any) => e.source === node.id && e.target === nextNode.id);
+
+                  return (
+                    <div key={node.id} id={`list-node-${node.id}`} className="relative">
+                      <ProcessStepCard 
+                        node={node} 
+                        activeNodeId={activeNodeId} 
+                        setActiveNodeId={handleNodeClick} 
+                        resources={resources} 
+                        allFeatures={allFeatures} 
+                        getFullRoleName={getFullRoleName} 
+                        allNodes={gridNodes}
+                        expandedByDefault 
+                        animationsEnabled={animationsEnabled}
+                      />
+                      {i < gridNodes.length - 1 && (
+                        <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
+                          <div className={cn(
+                            "w-0.5 h-12 bg-slate-200 relative",
+                            isFlowActive && "bg-primary overflow-hidden"
+                          )}>
+                            {isFlowActive && (
+                              <div className="absolute top-0 left-0 w-full h-full bg-primary animate-flow-dash origin-top" style={{ height: '200%' }} />
+                            )}
+                          </div>
+                          <ChevronDown className={cn(
+                            "w-4 h-4 text-slate-200 -mt-1.5",
+                            isFlowActive && "text-primary"
+                          )} />
                         </div>
-                        <ChevronDown className={cn(
-                          "w-4 h-4 text-slate-200 -mt-1.5",
-                          activeNodeId && (node.id === activeNodeId || gridNodes[i+1].id === activeNodeId) && "text-primary"
-                        )} />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           ) : (
@@ -583,6 +592,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
 
+  // GRC Context: Predecessors and Successors
   const predecessors = useMemo(() => 
     allNodes?.filter((n: any) => node.predecessorIds?.includes(n.id)) || [], 
     [allNodes, node.predecessorIds]
@@ -650,14 +660,32 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   <div className="space-y-1.5">
                     <Label className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5"><ArrowLeftCircle className="w-3 h-3" /> Input von</Label>
                     <div className="flex flex-wrap gap-1">
-                      {predecessors.map((p: any) => <Badge key={p.id} variant="outline" className="text-[8px] h-4 bg-slate-50">{p.title}</Badge>)}
+                      {predecessors.map((p: any) => (
+                        <Badge 
+                          key={p.id} 
+                          variant="outline" 
+                          className="text-[8px] h-4 bg-slate-50 hover:bg-primary/5 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); setActiveNodeId(p.id); }}
+                        >
+                          {p.title}
+                        </Badge>
+                      ))}
                       {predecessors.length === 0 && <span className="text-[9px] text-slate-300 italic">Startpunkt</span>}
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-1.5">Output nach <ArrowRightCircle className="w-3 h-3" /></Label>
                     <div className="flex flex-wrap gap-1">
-                      {successors.map((s: any) => <Badge key={s.id} variant="outline" className="text-[8px] h-4 bg-slate-50">{s.title}</Badge>)}
+                      {successors.map((s: any) => (
+                        <Badge 
+                          key={s.id} 
+                          variant="outline" 
+                          className="text-[8px] h-4 bg-slate-50 hover:bg-primary/5 cursor-pointer"
+                          onClick={(e) => { e.stopPropagation(); setActiveNodeId(s.id); }}
+                        >
+                          {s.title}
+                        </Badge>
+                      ))}
                       {successors.length === 0 && <span className="text-[9px] text-slate-300 italic">Prozessende</span>}
                     </div>
                   </div>
