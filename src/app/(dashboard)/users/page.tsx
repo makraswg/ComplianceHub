@@ -426,9 +426,21 @@ export default function UsersPage() {
               </Select>
             </div>
             <div className="space-y-2">
+<<<<<<< HEAD
               <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
               <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
                 <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
+=======
+<<<<<<< HEAD
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollenprofil</Label>
+              <Select value={userTitle} onValueChange={setUserTitle}>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+=======
+              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
+              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
+                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
+>>>>>>> 7a87634 (nenne die stellenprofile/blueprints/erweiterungsprofile überall Rollen-S)
+>>>>>>> c024792 (error)
                 <SelectContent>
                   {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
                     <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>
