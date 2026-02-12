@@ -8,7 +8,6 @@ export interface Tenant {
   slug: string;
   createdAt: string;
   status: 'active' | 'archived';
-  region?: string; 
   companyDescription?: string; 
   logoUrl?: string;
   ldapEnabled?: boolean | number;

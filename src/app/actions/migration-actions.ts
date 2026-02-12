@@ -88,8 +88,8 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
     if (tenantRows[0].count === 0) {
       const now = new Date().toISOString();
       await connection.execute(
-        'INSERT INTO `tenants` (id, name, slug, createdAt, status, region) VALUES (?, ?, ?, ?, ?, ?)',
-        ['t1', 'Meine Organisation', 'meine-organisation', now, 'active', 'EU-DSGVO']
+        'INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?)',
+        ['t1', 'Meine Organisation', 'meine-organisation', now, 'active']
       );
       details.push('   ✅ Initialer Mandant erstellt. Sie können diesen in den Einstellungen umbenennen.');
     }

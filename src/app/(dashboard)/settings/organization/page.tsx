@@ -134,7 +134,6 @@ export default function UnifiedOrganizationPage() {
   const [editingTenant, setEditingTenant] = useState<Partial<Tenant> | null>(null);
   const [tenantName, setTenantName] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
-  const [tenantRegion, setTenantRegion] = useState('EU-DSGVO');
   const [tenantDescription, setTenantDescription] = useState('');
   const [isSavingTenant, setIsSavingTenant] = useState(false);
 
@@ -251,7 +250,6 @@ export default function UnifiedOrganizationPage() {
       id,
       name: tenantName,
       slug: tenantSlug || tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-      region: tenantRegion,
       companyDescription: tenantDescription,
       status: editingTenant?.status || 'active',
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
@@ -469,7 +467,7 @@ export default function UnifiedOrganizationPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-base font-bold">{tenant.name}</CardTitle>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setTenantRegion(tenant.region || 'EU-DSGVO'); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantSlug(tenant.slug); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                       </div>
                       <p className="text-[10px] text-slate-400 font-bold uppercase">{tenant.slug}</p>
                     </div>
@@ -597,7 +595,6 @@ export default function UnifiedOrganizationPage() {
           </DialogHeader>
           <div className="p-8 space-y-6">
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Unternehmensname</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 rounded-xl font-bold" /></div>
-            <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Regulatorik</Label><Select value={tenantRegion} onValueChange={setTenantRegion}><SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem><SelectItem value="BSI-IT-Grundschutz">BSI-IT-Grundschutz</SelectItem><SelectItem value="ISO-27001">ISO 27001</SelectItem></SelectContent></Select></div>
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">KI Kontext (Beschreibung)</Label><Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} className="min-h-[100px] rounded-xl text-xs" /></div>
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t">

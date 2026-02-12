@@ -34,7 +34,6 @@ export const appSchema: AppSchema = {
       slug: 'VARCHAR(100) UNIQUE NOT NULL',
       createdAt: 'VARCHAR(50) NOT NULL',
       status: 'VARCHAR(20) DEFAULT "active"',
-      region: 'VARCHAR(100) DEFAULT "EU-DSGVO"',
       companyDescription: 'TEXT',
       logoUrl: 'TEXT',
       ldapEnabled: 'BOOLEAN DEFAULT FALSE',

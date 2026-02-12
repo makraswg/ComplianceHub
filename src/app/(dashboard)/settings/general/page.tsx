@@ -6,14 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save, Building2, Globe, Shield, Info, BrainCircuit } from 'lucide-react';
+import { Loader2, Save, Building2, Globe, Info, BrainCircuit } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { Tenant } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 export default function GeneralSettingsPage() {
@@ -62,7 +61,7 @@ export default function GeneralSettingsPage() {
       </CardHeader>
       <CardContent className="p-8 space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
+          <div className="space-y-3 md:col-span-2">
             <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Unternehmensname</Label>
             <Input 
               value={tenantDraft.name || ''} 
@@ -70,23 +69,6 @@ export default function GeneralSettingsPage() {
               className="rounded-xl h-12 font-bold text-base border-slate-200 dark:border-slate-800 focus:border-primary transition-all" 
               placeholder="z.B. Acme Corp"
             />
-          </div>
-          <div className="space-y-3">
-            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Regulatorischer Rahmen</Label>
-            <Select 
-              value={tenantDraft.region || 'EU-DSGVO'} 
-              onValueChange={v => setTenantDraft({...tenantDraft, region: v})}
-            >
-              <SelectTrigger className="rounded-xl h-12 border-slate-200 dark:border-slate-800 font-bold">
-                <SelectValue placeholder="Wählen..." />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                <SelectItem value="EU-DSGVO">Europa (GDPR / DSGVO)</SelectItem>
-                <SelectItem value="BSI-IT-Grundschutz">Deutschland (BSI Grundschutz)</SelectItem>
-                <SelectItem value="NIST-USA">USA (NIST / HIPAA)</SelectItem>
-                <SelectItem value="ISO-GLOBAL">International (ISO 27001)</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-3 md:col-span-2">
             <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">System-Alias (Slug)</Label>
