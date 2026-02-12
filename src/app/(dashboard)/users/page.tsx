@@ -106,7 +106,7 @@ export default function UsersPage() {
   };
 
   const getFullRoleName = (roleName: string, roleTenantId: string) => {
-    const job = jobTitles?.find(j => j.name === roleName && j.tenantId === roleTenantId);
+    const job = jobTitles?.find((j: any) => j.name === roleName && j.tenantId === roleTenantId);
     if (!job) return roleName;
     const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
     return dept ? `${dept.name} — ${job.name}` : job.name;
@@ -115,8 +115,8 @@ export default function UsersPage() {
   const sortedRoles = useMemo(() => {
     if (!jobTitles || !departmentsData) return [];
     return [...jobTitles].sort((a, b) => {
-      const deptA = departmentsData.find(d => d.id === a.departmentId)?.name || '';
-      const deptB = departmentsData.find(d => d.id === b.departmentId)?.name || '';
+      const deptA = departmentsData.find((d: any) => d.id === a.departmentId)?.name || '';
+      const deptB = departmentsData.find((d: any) => d.id === b.departmentId)?.name || '';
       if (deptA !== deptB) return deptA.localeCompare(deptB);
       return a.name.localeCompare(b.name);
     });
@@ -404,7 +404,9 @@ export default function UsersPage() {
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <UserCircle className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900">{selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-slate-900">
+                {selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}
+              </DialogTitle>
             </div>
           </DialogHeader>
           <div className="p-6 space-y-6">

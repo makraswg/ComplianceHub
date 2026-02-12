@@ -733,7 +733,7 @@ export default function ProcessDesignerPage() {
                   </div>
                 </ScrollArea>
                 <div className="p-4 border-t bg-slate-50 shrink-0">
-                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-sm">
+                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
                     {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
                     Stammdaten sichern
                   </Button>
@@ -949,7 +949,7 @@ export default function ProcessDesignerPage() {
                         <ScrollArea className="h-[300px] border rounded-2xl bg-slate-50/30 p-4 shadow-inner">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {filteredResources.map(res => (
-                              <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
+                              <div key={res.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all shadow-sm group", localNodeEdits.resourceIds.includes(res.id) ? "border-indigo-500 bg-indigo-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, resourceIds: prev.resourceIds.includes(res.id) ? prev.resourceIds.filter(id => id !== res.id) : [...prev.resourceIds, res.id] }))}>
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                   <Checkbox checked={localNodeEdits.resourceIds.includes(res.id)} className="rounded-md" />
                                   <div className="min-w-0">
@@ -969,7 +969,7 @@ export default function ProcessDesignerPage() {
                         <Label className="text-[10px] font-black uppercase text-sky-600 flex items-center gap-2 ml-1"><Tag className="w-4 h-4" /> Verarbeitete Daten</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {allFeatures?.filter(f => f.status !== 'archived').map(feat => (
-                            <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
+                            <div key={feat.id} className={cn("p-3 border rounded-xl flex items-center justify-between cursor-pointer shadow-sm", localNodeEdits.featureIds.includes(feat.id) ? "border-sky-500 bg-sky-50/20" : "bg-white border-slate-100 hover:border-slate-200")} onClick={() => setLocalNodeEdits(prev => ({ ...prev, featureIds: prev.featureIds.includes(feat.id) ? prev.featureIds.filter(id => id !== feat.id) : [...prev.featureIds, feat.id] }))}>
                               <Checkbox checked={localNodeEdits.featureIds.includes(feat.id)} className="rounded-md" />
                               <div className="min-w-0 flex-1 ml-3"><p className="text-[11px] font-bold text-slate-800 truncate">{feat.name}</p></div>
                             </div>
