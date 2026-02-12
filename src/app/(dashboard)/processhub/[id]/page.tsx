@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -587,7 +586,7 @@ export default function ProcessDesignerPage() {
       </header>
 
       <div className="flex-1 flex overflow-hidden h-full relative">
-        <aside style={{ width: isMobile ? '100%' : `${leftWidth}px` }} className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm", isMobile && "hidden")}>
+        <aside className={cn("border-r flex flex-col bg-white shrink-0 overflow-hidden relative group/sidebar h-full shadow-sm hidden md:flex")} style={{ width: `${leftWidth}px` }}>
           <Tabs defaultValue="meta" className="h-full flex flex-col overflow-hidden">
             <TabsList className="h-11 bg-slate-50 border-b gap-0 p-0 w-full justify-start shrink-0 rounded-none overflow-x-auto no-scrollbar">
               <TabsTrigger value="meta" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent h-full px-2 text-[10px] font-bold flex items-center justify-center gap-2 text-slate-500 data-[state=active]:text-blue-600"><Info className="w-3.5 h-3.5" /> Stammdaten</TabsTrigger>
@@ -734,7 +733,7 @@ export default function ProcessDesignerPage() {
                   </div>
                 </ScrollArea>
                 <div className="p-4 border-t bg-slate-50 shrink-0">
-                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">
+                  <Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] uppercase gap-2 shadow-sm">
                     {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} 
                     Stammdaten sichern
                   </Button>
@@ -1040,7 +1039,7 @@ export default function ProcessDesignerPage() {
           </Tabs>
           <DialogFooter className="p-4 bg-slate-50 border-t flex items-center justify-between">
             <Button variant="outline" size="sm" onClick={() => setIsStepDialogOpen(false)} className="rounded-xl h-10 px-6 font-bold text-xs">Abbrechen</Button>
-            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-lg font-bold text-xs gap-2">
+            <Button onClick={handleSaveNodeEdits} className="rounded-xl h-10 px-12 bg-primary text-white shadow-sm font-bold text-xs gap-2">
               <SaveIcon className="w-4 h-4" /> Speichern
             </Button>
           </DialogFooter>
@@ -1077,7 +1076,7 @@ export default function ProcessDesignerPage() {
           </div>
           <DialogFooter className="p-4 bg-slate-50 border-t">
             <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
-            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl bg-primary text-white font-bold text-[10px] h-11 px-8 shadow-lg gap-2">
+            <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle || !taskAssigneeId} className="rounded-xl bg-primary text-white font-bold text-[10px] h-11 px-8 shadow-sm gap-2">
               {isSavingTask ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Speichern
             </Button>
           </DialogFooter>

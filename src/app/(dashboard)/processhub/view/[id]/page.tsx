@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
@@ -269,13 +268,13 @@ export default function ProcessDetailViewPage() {
           onClick={() => setActiveNodeId(isActive ? null : node.id)}
         >
           <div className={cn(
-            "flex items-center justify-center shadow-lg border-2 transition-all cursor-pointer",
+            "flex items-center justify-center shadow-md border-2 transition-all cursor-pointer",
             isEvent ? "w-14 h-14 rounded-full" : isDecision ? "w-16 h-16 rotate-45" : "w-48 h-24 rounded-2xl",
             node.type === 'start' ? "bg-emerald-50 border-emerald-500 text-emerald-600" :
             node.type === 'end' ? "bg-red-50 border-red-500 text-red-600" :
             isDecision ? "bg-amber-50 border-amber-500 text-amber-600" :
             "bg-white border-primary/30 text-slate-800",
-            isActive && "ring-4 ring-primary/20 border-primary"
+            isActive && "ring-4 ring-primary/10 border-primary"
           )}>
             <div className={cn("flex flex-col items-center justify-center text-center px-3", isDecision && "-rotate-45")}>
               {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : 
@@ -302,7 +301,7 @@ export default function ProcessDetailViewPage() {
         id={`card-${node.id}`}
         className={cn(
           "w-full max-w-4xl mx-auto rounded-2xl border shadow-sm transition-all duration-500 bg-white group cursor-pointer relative z-10",
-          isActive ? "ring-4 ring-primary/10 border-primary shadow-xl scale-[1.01]" : "hover:border-primary/20",
+          isActive ? "ring-4 ring-primary/5 border-primary shadow-md scale-[1.01]" : "hover:border-primary/20",
           isDecision && "border-amber-200 bg-amber-50/5"
         )}
         onClick={() => setActiveNodeId(isActive ? null : node.id)}
