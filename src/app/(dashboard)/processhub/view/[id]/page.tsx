@@ -308,7 +308,7 @@ export default function ProcessDetailViewPage() {
   if (!mounted) return null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-50 relative">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-50 relative w-full">
       <header className="h-16 border-b bg-white flex items-center justify-between px-8 shrink-0 z-20 shadow-sm">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-10 w-10 rounded-xl transition-all"><ChevronLeft className="w-6 h-6" /></Button>

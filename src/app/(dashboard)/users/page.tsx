@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -371,7 +372,7 @@ export default function UsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="flex justify-end items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all shadow-sm">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white shadow-sm" onClick={() => router.push(`/users/${u.id}`)}>
                           <Eye className="w-3.5 h-3.5 text-primary" />
                         </Button>
