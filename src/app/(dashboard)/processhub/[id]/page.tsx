@@ -108,6 +108,8 @@ export default function ProcessDesignerPage() {
   const [editTips, setEditTips] = useState('');
   const [editErrors, setEditErrors] = useState('');
   const [editTargetProcessId, setEditTargetProcessId] = useState('');
+  const [editPredecessorIds, setEditPredecessorIds] = useState<string[]>([]);
+  const [editSuccessorIds, setEditSuccessorIds] = useState<string[]>([]);
 
   // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
@@ -285,6 +287,13 @@ export default function ProcessDesignerPage() {
     setEditTips(node.tips || '');
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
+    
+    // Connections from active model edges
+    const preds = activeVersion?.model_json?.edges?.filter((e: any) => e.target === node.id).map((e: any) => e.source) || [];
+    const succs = activeVersion?.model_json?.edges?.filter((e: any) => e.source === node.id).map((e: any) => e.target) || [];
+    setEditPredecessorIds(preds);
+    setEditSuccessorIds(succs);
+    
     setIsNodeEditorOpen(true);
   };
 
@@ -304,10 +313,39 @@ export default function ProcessDesignerPage() {
           checklist: editChecklist,
           tips: editTips,
           errors: editErrors,
-          targetProcessId: editTargetProcessId === 'none' ? '' : editTargetProcessId
+          targetProcessId: editTargetProcessId === 'none' ? '' : editTargetProcessId,
+          predecessorIds: editPredecessorIds
         }
       }
     }];
+
+    // Manage Edges (Connections)
+    const oldEdges = activeVersion?.model_json?.edges || [];
+    const currentPredEdges = oldEdges.filter((e: any) => e.target === editingNode.id);
+    const currentSuccEdges = oldEdges.filter((e: any) => e.source === editingNode.id);
+
+    // Remove obsolete predecessors
+    currentPredEdges.forEach((e: any) => {
+      if (!editPredecessorIds.includes(e.source)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
+    });
+    // Add new predecessors
+    editPredecessorIds.forEach(sourceId => {
+      if (!currentPredEdges.some((e: any) => e.source === sourceId)) {
+        ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${sourceId}`, source: sourceId, target: editingNode.id } } });
+      }
+    });
+
+    // Remove obsolete successors
+    currentSuccEdges.forEach((e: any) => {
+      if (!editSuccessorIds.includes(e.target)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
+    });
+    // Add new successors
+    editSuccessorIds.forEach(targetId => {
+      if (!currentSuccEdges.some((e: any) => e.target === targetId)) {
+        ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${targetId}-s`, source: editingNode.id, target: targetId } } });
+      }
+    });
+
     const success = await handleApplyOps(ops);
     if (success) setIsNodeEditorOpen(false);
   };
@@ -322,7 +360,6 @@ export default function ProcessDesignerPage() {
       setEditDesc(targetProc.description || '');
       setEditRoleId(targetProc.ownerRoleId || '');
       
-      // Inherit Resources/Features from the target process's current version
       const targetVer = versions?.find(v => v.process_id === targetPid && v.version === targetProc.currentVersion);
       if (targetVer) {
         const aggregatedRes = new Set<string>();
@@ -414,7 +451,6 @@ export default function ProcessDesignerPage() {
     const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', end: 'Ende', subprocess: 'Referenz' };
     const nodes = activeVersion.model_json.nodes || [];
     
-    // Auto-inherit from selected node or last node
     const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
     
     const newNode: ProcessNode = {
@@ -433,7 +469,6 @@ export default function ProcessDesignerPage() {
     handleApplyOps(ops).then(s => { 
       if(s) {
         handleNodeClick(newId);
-        openNodeEditor(newNode);
       }
     });
   };
@@ -473,7 +508,6 @@ export default function ProcessDesignerPage() {
 
   return (
     <div className="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden bg-slate-50 font-body relative">
-      {/* Designer Header - Primary Light Design */}
       <header className="h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b bg-white/80 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
@@ -807,46 +841,53 @@ export default function ProcessDesignerPage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="rel" className="mt-0 space-y-8 animate-in fade-in">
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                          <ArrowUpCircle className="w-4 h-4" /> Vorgänger (Input)
-                        </Label>
-                        <div className="space-y-2">
-                          {activeVersion?.model_json?.edges?.filter((e: any) => e.target === editingNode?.id).map((edge: any) => {
-                            const sourceNode = activeVersion?.model_json?.nodes?.find((n: any) => n.id === edge.source);
-                            return (
-                              <div key={edge.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-700">{sourceNode?.title || edge.source}</span>
-                                <Badge variant="outline" className="text-[8px] font-black">{edge.label || 'Direkt'}</Badge>
+                <TabsContent value="rel" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2 ml-1">
+                        <ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)
+                      </Label>
+                      <div className="p-4 rounded-2xl border bg-white shadow-inner">
+                        <ScrollArea className="h-64">
+                          <div className="space-y-1.5">
+                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => (
+                              <div key={n.id} className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
+                                editPredecessorIds.includes(n.id) ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
+                              )} onClick={() => setEditPredecessorIds(prev => editPredecessorIds.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}>
+                                <Checkbox checked={editPredecessorIds.includes(n.id)} />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate">{n.title}</p>
+                                  <p className="text-[8px] font-black uppercase text-slate-400">{n.type}</p>
+                                </div>
                               </div>
-                            );
-                          })}
-                          {activeVersion?.model_json?.edges?.filter((e: any) => e.target === editingNode?.id).length === 0 && (
-                            <p className="text-[10px] text-slate-400 italic">Keine Vorgänger (Startpunkt)</p>
-                          )}
-                        </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
                       </div>
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                          <ArrowDownCircle className="w-4 h-4" /> Nachfolger (Output)
-                        </Label>
-                        <div className="space-y-2">
-                          {activeVersion?.model_json?.edges?.filter((e: any) => e.source === editingNode?.id).map((edge: any) => {
-                            const targetNode = activeVersion?.model_json?.nodes?.find((n: any) => n.id === edge.target);
-                            return (
-                              <div key={edge.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-700">{targetNode?.title || edge.target}</span>
-                                <Badge variant="outline" className="text-[8px] font-black">{edge.label || 'Direkt'}</Badge>
+                    </div>
+
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2 ml-1">
+                        <ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)
+                      </Label>
+                      <div className="p-4 rounded-2xl border bg-white shadow-inner">
+                        <ScrollArea className="h-64">
+                          <div className="space-y-1.5">
+                            {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).map((n: any) => (
+                              <div key={n.id} className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
+                                editSuccessorIds.includes(n.id) ? "bg-amber-50 border-amber-200" : "bg-white border-transparent hover:bg-slate-50"
+                              )} onClick={() => setEditSuccessorIds(prev => editSuccessorIds.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}>
+                                <Checkbox checked={editSuccessorIds.includes(n.id)} />
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate">{n.title}</p>
+                                  <p className="text-[8px] font-black uppercase text-slate-400">{n.type}</p>
+                                </div>
                               </div>
-                            );
-                          })}
-                          {activeVersion?.model_json?.edges?.filter((e: any) => e.source === editingNode?.id).length === 0 && (
-                            <p className="text-[10px] text-slate-400 italic">Keine Nachfolger (Prozessende)</p>
-                          )}
-                        </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
                       </div>
                     </div>
                   </div>
