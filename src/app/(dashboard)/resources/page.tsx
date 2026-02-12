@@ -38,7 +38,8 @@ import {
   Info,
   Building2,
   Mail,
-  Target
+  Target,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion, ServicePartnerContact } from '@/lib/types';
+import { Resource, Tenant, JobTitle, ServicePartner, AssetTypeOption, OperatingModelOption, ServicePartnerArea, Department, Process, BackupJob, ResourceUpdateProcess, Risk, Feature, ProcessVersion, ServicePartnerContact, Assignment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { exportResourcesExcel } from '@/lib/export-utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -131,6 +132,9 @@ function ResourcesPageContent() {
   const [backupProcSearch, setBackupProcSearch] = useState('');
   const [updateProcSearch, setUpdateProcSearch] = useState('');
 
+  // Blocker Dialog
+  const [blockerInfo, setBlockerInfo] = useState<{ title: string, items: string[], isDelete?: boolean, targetId?: string } | null>(null);
+
   const { data: resources, isLoading, refresh } = usePluggableCollection<Resource>('resources');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departmentsData } = usePluggableCollection<Department>('departments');
@@ -140,10 +144,13 @@ function ResourcesPageContent() {
   const { data: allVersions } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: allBackupJobs, refresh: refreshBackups } = usePluggableCollection<BackupJob>('backup_jobs');
   const { data: allUpdateLinks, refresh: refreshUpdates } = usePluggableCollection<ResourceUpdateProcess>('resource_update_processes');
+  const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: partners } = usePluggableCollection<ServicePartner>('servicePartners');
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
-  const { data: areas } = usePluggableCollection<ServicePartnerArea>('servicePartnerAreas');
-  const { data: risks } = usePluggableCollection<Risk>('risks');
+  const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: assignments } = usePluggableCollection<Assignment>('assignments');
+  const { data: users } = usePluggableCollection<any>('users');
+  const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
 
@@ -218,6 +225,91 @@ function ResourcesPageContent() {
     return { hasPersonalData, dataClassification: maxClass, confidentialityReq: getMaxReq('confidentialityReq'), integrityReq: getMaxReq('integrityReq'), availabilityReq: getMaxReq('availabilityReq'), criticality: derivedCrit, featureCount: linkedFeats.length };
   };
 
+  const checkDependencies = (resId: string) => {
+    const blockers: string[] = [];
+    
+    // 1. Roles & Active Assignments
+    const resRoles = entitlements?.filter(e => e.resourceId === resId) || [];
+    const resRoleIds = new Set(resRoles.map(r => r.id));
+    const activeAssignments = assignments?.filter(a => resRoleIds.has(a.entitlementId) && a.status === 'active') || [];
+    
+    if (activeAssignments.length > 0) {
+      blockers.push(`${activeAssignments.length} Mitarbeiter haben noch aktive Berechtigungen für dieses System.`);
+    }
+
+    // 2. Active Risks
+    const resRisks = risks?.filter(r => r.assetId === resId && r.status !== 'closed') || [];
+    if (resRisks.length > 0) {
+      blockers.push(`${resRisks.length} offene Risiken sind mit diesem System verknüpft.`);
+    }
+
+    // 3. Active Processes
+    const activeProcs = allProcesses?.filter(p => p.status !== 'archived') || [];
+    const usedInProcNames: string[] = [];
+    activeProcs.forEach(p => {
+      const ver = allVersions?.find(v => v.process_id === p.id && v.version === p.currentVersion);
+      if (ver?.model_json?.nodes?.some(n => n.resourceIds?.includes(resId))) {
+        usedInProcNames.push(p.title);
+      }
+    });
+
+    if (usedInProcNames.length > 0) {
+      blockers.push(`Das System wird in ${usedInProcNames.length} aktiven Prozessen verwendet: ${usedInProcNames.slice(0, 3).join(', ')}${usedInProcNames.length > 3 ? '...' : ''}`);
+    }
+
+    return blockers;
+  };
+
+  const handleStatusToggle = async (res: Resource) => {
+    if (res.status !== 'archived') {
+      // Trying to archive
+      const blockers = checkDependencies(res.id);
+      if (blockers.length > 0) {
+        setBlockerInfo({ title: "Archivierung nicht möglich", items: blockers });
+        return;
+      }
+      
+      const updated = { ...res, status: 'archived' as const };
+      const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
+      if (result.success) {
+        toast({ title: "Ressource archiviert" });
+        refresh();
+      }
+    } else {
+      // Re-activate
+      const updated = { ...res, status: 'active' as const };
+      const result = await saveCollectionRecord('resources', res.id, updated, dataSource);
+      if (result.success) {
+        toast({ title: "Ressource reaktiviert" });
+        refresh();
+      }
+    }
+  };
+
+  const handleDeleteClick = (res: Resource) => {
+    if (res.status !== 'archived') {
+      toast({ variant: "destructive", title: "Löschen nicht möglich", description: "Nur archivierte Ressourcen können permanent gelöscht werden." });
+      return;
+    }
+    const blockers = checkDependencies(res.id);
+    setBlockerInfo({ title: "Permanent löschen?", items: blockers, isDelete: true, targetId: res.id });
+  };
+
+  const executeDelete = async () => {
+    if (!blockerInfo?.targetId) return;
+    setIsSaving(true);
+    try {
+      const res = await deleteCollectionRecord('resources', blockerInfo.targetId, dataSource);
+      if (res.success) {
+        toast({ title: "Ressource gelöscht" });
+        setBlockerInfo(null);
+        refresh();
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!name || !assetType) {
       toast({ variant: "destructive", title: "Fehler", description: "Bitte Name und Typ angeben." });
@@ -269,7 +361,9 @@ function ResourcesPageContent() {
         setIsDialogOpen(false);
         refresh(); refreshBackups(); refreshUpdates();
       }
-    } finally { setIsSaving(false); }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openEdit = (res: Resource) => {
@@ -442,6 +536,24 @@ function ResourcesPageContent() {
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => openEdit(res)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={() => router.push(`/resources/${res.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className={cn("h-8 w-8 rounded-md transition-colors", res.status === 'archived' ? "text-emerald-600" : "text-slate-400 hover:text-orange-600")}
+                          onClick={() => handleStatusToggle(res)}
+                        >
+                          {res.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                        </Button>
+                        {res.status === 'archived' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 rounded-md text-red-500 hover:bg-red-50"
+                            onClick={() => handleDeleteClick(res)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -570,7 +682,7 @@ function ResourcesPageContent() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Intern)</Label>
                           <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standard-Zuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -580,7 +692,7 @@ function ResourcesPageContent() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Intern)</Label>
                           <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standard-Zuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -791,8 +903,8 @@ function ResourcesPageContent() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Interne Rolle</Label>
                       <Select value={backupForm.responsible_id || 'none'} onValueChange={v => setBackupForm({...backupForm, responsible_id: v})}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
                           <SelectItem value="none">Nicht zugewiesen</SelectItem>
                           {sortedRoles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                         </SelectContent>
@@ -803,7 +915,7 @@ function ResourcesPageContent() {
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Externer Ansprechpartner</Label>
                       <Select value={backupForm.external_contact_id || 'none'} onValueChange={v => setBackupForm({...backupForm, external_contact_id: v})}>
                         <SelectTrigger className="h-11 rounded-xl bg-white"><SelectValue placeholder="Kontakt wählen..." /></SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-xl">
                           <SelectItem value="none">Nicht zugewiesen</SelectItem>
                           {contacts?.map(c => {
                             const partner = partners?.find(p => p.id === c.partnerId);
@@ -850,9 +962,68 @@ function ResourcesPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dependency / Blocker Dialog */}
+      <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
+          <AlertDialogHeader>
+            <div className={cn(
+              "w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4",
+              blockerInfo?.isDelete ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600"
+            )}>
+              {blockerInfo?.isDelete ? <Trash2 className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-center">
+              {blockerInfo?.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-4 text-center" asChild>
+              <div className="space-y-4">
+                <p>Die Aktion kann nicht durchgeführt werden, da folgende aktive Abhängigkeiten bestehen:</p>
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-left space-y-2">
+                  {blockerInfo?.items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs font-bold text-slate-700">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+                {blockerInfo?.isDelete && blockerInfo.items.length === 0 && (
+                  <p className="text-red-600 font-black uppercase text-[10px]">
+                    Warnung: Diese Ressource wird permanent gelöscht. Dies kann nicht rückgängig gemacht werden.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
+            {blockerInfo?.isDelete && blockerInfo.items.length === 0 && (
+              <AlertDialogAction 
+                onClick={executeDelete} 
+                className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 shadow-lg"
+              >
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                Permanent löschen
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function ResourcesPage() {
   return (
