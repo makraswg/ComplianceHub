@@ -177,7 +177,9 @@ export default function ProcessDetailViewPage() {
       let x = lane * H_GAP;
       let y = lv * V_GAP;
 
-      if (activeNodeId) {
+      if (activeNodeId === n.id) {
+        // No movement
+      } else if (activeNodeId) {
         const activeLv = levels[activeNodeId];
         const activeLane = lanes[activeNodeId];
         if (lv === activeLv) {
@@ -212,16 +214,15 @@ export default function ProcessDetailViewPage() {
     }
   }, [gridNodes, guideMode]);
 
-  const handleNodeClick = useCallback((nodeId: string) => {
-    if (activeNodeId === nodeId) {
-      setActiveNodeId(null);
-    } else {
-      setActiveNodeId(nodeId);
-      setTimeout(() => centerOnNode(nodeId), 50);
-    }
-  }, [activeNodeId, centerOnNode]);
-
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (mounted && !hasAutoCentered.current && gridNodes.length > 0) {
+      const startNode = gridNodes.find(n => n.type === 'start') || gridNodes[0];
+      centerOnNode(startNode.id);
+      hasAutoCentered.current = true;
+    }
+  }, [mounted, gridNodes, centerOnNode]);
 
   // NATIVE NON-PASSIVE WHEEL LISTENER
   useEffect(() => {
@@ -270,6 +271,7 @@ export default function ProcessDetailViewPage() {
         const sY = sNode.y + OFFSET_Y + sH;
         const tX = tNode.x + OFFSET_X + 128;
         const tY = tNode.y + OFFSET_Y;
+        
         const dy = tY - sY;
         const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
         newPaths.push({ id: i, path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
