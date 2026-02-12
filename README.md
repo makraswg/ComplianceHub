@@ -1,5 +1,5 @@
 
-# ComplianceHub - Governance Platform
+# ComplianceHub - Governance Platform.
 
 Der ComplianceHub ist eine mandantenfähige Plattform zur Verwaltung von IT-Berechtigungen (IAM), Risikomanagement nach BSI IT-Grundschutz und Datenschutz-Compliance (DSGVO).
 
