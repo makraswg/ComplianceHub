@@ -193,59 +193,23 @@ export default function ProcessDetailViewPage() {
         const OFFSET_X = 2500;
         const OFFSET_Y = 2500;
         
-        const isDecision = sNode.type === 'decision';
         const sIsExpanded = sNode.id === activeNodeId;
         const tIsExpanded = tNode.id === activeNodeId;
         
         const sW = sIsExpanded ? 600 : 256;
         const tW = tIsExpanded ? 600 : 256;
 
-        // Output port selection
-        let sPortX = sNode.x + OFFSET_X + (sW / 2); 
-        let sPortY = sNode.y + OFFSET_Y + 80; // Bottom port
+        // Output port: Always bottom center
+        const sPortX = sNode.x + OFFSET_X + (sW / 2); 
+        const sPortY = sNode.y + OFFSET_Y + 80;
 
-        // Input port selection
-        let tPortX = tNode.x + OFFSET_X + (tW / 2);
-        let tPortY = tNode.y + OFFSET_Y;
+        // Input port: Always top center (as requested)
+        const tPortX = tNode.x + OFFSET_X + (tW / 2);
+        const tPortY = tNode.y + OFFSET_Y;
 
-        let controlPoint1 = { x: sPortX, y: sPortY + 40 };
-        let controlPoint2 = { x: tPortX, y: tPortY - 40 };
-
-        // For non-decision nodes, we allow side routing if it's cleaner. 
-        // For decision nodes, we follow the rule: "lines always go out of bottom"
-        if (!isDecision && Math.abs(tNode.x - sNode.x) > 50) {
-          if (tNode.x > sNode.x) {
-            sPortX = sNode.x + OFFSET_X + sW;
-            sPortY = sNode.y + OFFSET_Y + 40;
-            controlPoint1 = { x: sPortX + 60, y: sPortY };
-            
-            tPortX = tNode.x + OFFSET_X;
-            tPortY = tNode.y + OFFSET_Y + 40;
-            controlPoint2 = { x: tPortX - 60, y: tPortY };
-          } else {
-            sPortX = sNode.x + OFFSET_X;
-            sPortY = sNode.y + OFFSET_Y + 40;
-            controlPoint1 = { x: sPortX - 60, y: sPortY };
-            
-            tPortX = tNode.x + OFFSET_X + tW;
-            tPortY = tNode.y + OFFSET_Y + 40;
-            controlPoint2 = { x: tPortX + 60, y: tPortY };
-          }
-        } else if (isDecision) {
-          // If it's a decision, ensure exit is bottom, but target could be side for loops
-          if (Math.abs(tNode.x - sNode.x) > 100) {
-             // Target port side if far away
-             if (tNode.x > sNode.x) {
-                tPortX = tNode.x + OFFSET_X;
-                tPortY = tNode.y + OFFSET_Y + 40;
-                controlPoint2 = { x: tPortX - 60, y: tPortY };
-             } else {
-                tPortX = tNode.x + OFFSET_X + tW;
-                tPortY = tNode.y + OFFSET_Y + 40;
-                controlPoint2 = { x: tPortX + 60, y: tPortY };
-             }
-          }
-        }
+        // Vertical-focused cubic bezier control points
+        const controlPoint1 = { x: sPortX, y: sPortY + 40 };
+        const controlPoint2 = { x: tPortX, y: tPortY - 40 };
         
         const path = `M ${sPortX} ${sPortY} C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y}, ${tPortX} ${tPortY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });

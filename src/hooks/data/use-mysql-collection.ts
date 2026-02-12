@@ -6,11 +6,10 @@ import { getCollectionData } from '@/app/actions/mysql-actions';
 
 // Global cache to prevent unnecessary re-renders
 const mysqlCache: Record<string, { data: any[], timestamp: number, stringified: string }> = {};
-const CACHE_TTL = 60000; // Increased to 1 minute
+const CACHE_TTL = 60000; 
 
 /**
- * Optimized MySQL Hook with deep content validation.
- * Prevents UI flickering by only triggering state updates when data actually changes.
+ * Optimized MySQL Hook with deep content validation and infinite loop protection.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -25,12 +24,13 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   
+  const isMounted = useRef(true);
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
   const prevDataString = useRef<string>(mysqlCache[collectionName]?.stringified || "");
   const isFetchingRef = useRef(false);
 
   const fetchData = useCallback(async (silent = false) => {
-    if (!enabled || isFetchingRef.current) return;
+    if (!enabled || isFetchingRef.current || !isMounted.current) return;
     
     isFetchingRef.current = true;
     if (!silent && !prevDataString.current) {
@@ -39,13 +39,15 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     
     try {
       const result = await getCollectionData(collectionName);
+      if (!isMounted.current) return;
+
       if (result.error) {
         setError(result.error);
       } else {
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // ONLY update state if content is truly different
+        // ONLY update state if content is truly different to stop flickering
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
@@ -58,10 +60,12 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         setError(null);
       }
     } catch (e: any) {
-      setError(e.message || "Datenbankfehler");
+      if (isMounted.current) setError(e.message || "Datenbankfehler");
     } finally {
-      setIsLoading(false);
-      isFetchingRef.current = false;
+      if (isMounted.current) {
+        setIsLoading(false);
+        isFetchingRef.current = false;
+      }
     }
   }, [collectionName, enabled]);
 
@@ -72,6 +76,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName]);
 
   useEffect(() => {
+    isMounted.current = true;
     if (!enabled) {
       setIsLoading(false);
       return;
@@ -89,6 +94,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
     pollingInterval.current = interval;
     return () => {
+      isMounted.current = false;
       if (pollingInterval.current) clearInterval(pollingInterval.current);
     };
   }, [enabled, version, fetchData]);
