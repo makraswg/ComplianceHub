@@ -20,16 +20,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Restore session from localStorage on mount
-    const savedUser = localStorage.getItem('platform_session');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (e) {
-        localStorage.removeItem('platform_session');
+    // Restore session from localStorage on mount with strictly controlled loading state
+    const restoreSession = () => {
+      const savedUser = localStorage.getItem('platform_session');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch (e) {
+          console.error("Auth: Session restoration failed", e);
+          localStorage.removeItem('platform_session');
+        }
       }
-    }
-    setIsUserLoading(false);
+      setIsUserLoading(false);
+    };
+
+    restoreSession();
   }, []);
 
   const handleSetUser = (newUser: PlatformUser | null) => {

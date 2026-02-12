@@ -13,7 +13,8 @@ import {
   Menu, 
   HelpCircle,
   Search,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/context/settings-context';
@@ -156,6 +157,35 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const isMobile = useIsMobile();
+  const { user, isUserLoading } = usePlatformAuth();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Route Protection logic
+  useEffect(() => {
+    if (mounted && !isUserLoading && !user) {
+      router.push('/');
+    }
+  }, [user, isUserLoading, router, mounted]);
+
+  // Prevent flash of internal content while checking session
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 animate-pulse">Sitzung wird geprüft...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Final check to avoid rendering dashboard content if not authorized
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen bg-background selection:bg-primary/20 transition-colors duration-500 overflow-hidden">
