@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -85,7 +84,8 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [hasMovedDuringClick, setHasMovedDuringClick] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [mouseDownTime, setMouseDownTime] = useState(0);
   
   const hasAutoCentered = useRef(false);
 
@@ -181,8 +181,8 @@ export default function ProcessDetailViewPage() {
         const activeLane = lanes[activeNodeId];
         
         if (lv === activeLv) {
-          if (lane > activeLane) x += (WIDTH_DIFF / 2) + 20;
-          if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 20;
+          if (lane > activeLane) x += (WIDTH_DIFF / 2) + 40;
+          if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
         if (lv > activeLv) {
           y += 350; 
@@ -213,6 +213,7 @@ export default function ProcessDetailViewPage() {
         
         const sH = sIsExp ? 420 : 82; 
 
+        // Always center lines on the box width (256/2 = 128)
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -220,9 +221,9 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 40; 
         
-        const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
+        // Pure smooth Bezier curve without artificial straight segments
+        const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
       }
     });
@@ -274,18 +275,26 @@ export default function ProcessDetailViewPage() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
-    setHasMovedDuringClick(false);
+    setMouseDownTime(Date.now());
+    setLastMousePos({ x: e.clientX, y: e.clientY });
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || guideMode !== 'structure') return;
-    setHasMovedDuringClick(true);
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
     setIsDragging(false);
+    
+    // Logic to distinguish between click and drag
+    const dist = Math.sqrt(Math.pow(e.clientX - lastMousePos.x, 2) + Math.pow(e.clientY - lastMousePos.y, 2));
+    const duration = Date.now() - mouseDownTime;
+    
+    if (dist < 5 && duration < 250) {
+      // It's a click! Let the bubbling or direct check handle it
+    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -312,8 +321,6 @@ export default function ProcessDetailViewPage() {
   };
 
   const handleNodeClick = (nodeId: string) => {
-    if (hasMovedDuringClick) return; 
-    
     if (activeNodeId === nodeId) {
       setActiveNodeId(null);
     } else {
@@ -381,7 +388,9 @@ export default function ProcessDetailViewPage() {
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
           onClick={(e) => { 
-            if (!hasMovedDuringClick) setActiveNodeId(null); 
+            // Distinguish click from drag
+            const dist = Math.sqrt(Math.pow(e.clientX - lastMousePos.x, 2) + Math.pow(e.clientY - lastMousePos.y, 2));
+            if (dist < 5) setActiveNodeId(null); 
           }}
         >
           {guideMode === 'list' ? (
@@ -399,8 +408,8 @@ export default function ProcessDetailViewPage() {
             >
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>
-                  <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
+                  <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <polygon points="0 0, 6 3, 0 6" fill="currentColor" />
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
@@ -408,14 +417,14 @@ export default function ProcessDetailViewPage() {
                     key={i} 
                     d={p.path} 
                     fill="none" 
-                    stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
-                    strokeWidth={p.isActive ? "4" : "2.5"} 
+                    stroke={p.isActive ? "hsl(var(--primary))" : "#cbd5e1"} 
+                    strokeWidth={p.isActive ? "3" : "1.5"} 
                     markerEnd="url(#arrowhead)" 
                     className={cn(
                       "transition-all duration-500",
-                      p.isActive && "animate-dash"
+                      p.isActive && "animate-flow-dash"
                     )}
-                    style={p.isActive ? { strokeDasharray: "10, 5" } : {}}
+                    style={p.isActive ? { strokeDasharray: "10, 5", color: "hsl(var(--primary))" } : { color: "#cbd5e1" }}
                   />
                 ))}
               </svg>
@@ -462,24 +471,13 @@ export default function ProcessDetailViewPage() {
           )}
         </main>
       </div>
-
-      <style jsx global>{`
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -100;
-          }
-        }
-        .animate-dash {
-          animation: dash 5s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }
 
 function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, expandedByDefault = false }: any) {
   const isActive = activeNodeId === node.id;
-  const isExpanded = expandedByDefault || (isMapMode && isActive) || (!isMapMode && isActive);
+  const isExpanded = expandedByDefault || (isMapMode && isActive);
   
   const roleName = getFullRoleName(node.roleId);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
@@ -489,7 +487,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
     <Card 
       className={cn(
         "rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden",
-        isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
+        isActive ? "active-flow-card z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
         isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]")
       )}
       style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}}
@@ -520,9 +518,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </div>
         {isExpanded && (
           <div className="flex gap-1.5 shrink-0">
-            {nodeResources?.slice(0, 2).map((res:any) => (
-              <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md shadow-none">{res.name}</Badge>
-            ))}
+            {nodeResources?.slice(0, 2).map((res:any) => <Badge key={res.id} className="bg-indigo-50 text-indigo-700 text-[8px] font-black border-none h-5 px-1.5 rounded-md">{res.name}</Badge>)}
           </div>
         )}
       </CardHeader>
