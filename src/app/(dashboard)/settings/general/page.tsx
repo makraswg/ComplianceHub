@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -23,19 +22,44 @@ export default function GeneralSettingsPage() {
   const { data: tenants, refresh } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
+    // Find the current tenant based on context. Default to 't1' for initialization scenarios.
     const current = tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId));
-    if (current) setTenantDraft(current);
+    if (current) {
+      setTenantDraft(current);
+    }
   }, [tenants, activeTenantId]);
 
   const handleSave = async () => {
-    if (!tenantDraft.id || !tenantDraft.name) return;
+    if (!tenantDraft.id || !tenantDraft.name) {
+      toast({ variant: "destructive", title: "Eingabefehler", description: "Mandant-ID und Name sind erforderlich." });
+      return;
+    }
+    
     setIsSaving(true);
     try {
-      const res = await saveCollectionRecord('tenants', tenantDraft.id, tenantDraft, dataSource);
+      // Explicitly compose data to avoid passing legacy or forbidden fields
+      const updatePayload = {
+        id: tenantDraft.id,
+        name: tenantDraft.name,
+        companyDescription: tenantDraft.companyDescription || '',
+        status: tenantDraft.status || 'active'
+      };
+
+      const res = await saveCollectionRecord('tenants', tenantDraft.id, updatePayload, dataSource);
       if (res.success) {
-        toast({ title: "Mandant gespeichert" });
+        toast({ title: "Mandant gespeichert", description: "Die Änderungen wurden erfolgreich in die Datenbank geschrieben." });
+        // Force refresh of the data collection
         refresh();
+      } else {
+        throw new Error(res.error || "Datenbank hat den Schreibvorgang abgelehnt.");
       }
+    } catch (e: any) {
+      console.error("Save Tenant Error:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "Speichern fehlgeschlagen", 
+        description: e.message || "Ein technischer Fehler ist aufgetreten. Bitte prüfen Sie die Datenbankverbindung." 
+      });
     } finally {
       setIsSaving(false);
     }
@@ -68,6 +92,7 @@ export default function GeneralSettingsPage() {
               onChange={e => setTenantDraft({...tenantDraft, name: e.target.value})} 
               className="rounded-xl h-12 font-bold text-base border-slate-200 dark:border-slate-800 focus:border-primary transition-all" 
               placeholder="z.B. Acme Corp"
+              autoComplete="off"
             />
           </div>
           <div className="space-y-3 md:col-span-2">
@@ -99,7 +124,7 @@ export default function GeneralSettingsPage() {
             <Textarea 
               value={tenantDraft.companyDescription || ''} 
               onChange={e => setTenantDraft({...tenantDraft, companyDescription: e.target.value})}
-              placeholder="Beispiel: Wir sind ein mittelständisches Logistikunternehmen mit 200 Mitarbeitern. Unsere IT-Infrastruktur ist hybrid (On-Prem SAP und Microsoft 365). Wir legen höchsten Wert auf Ausfallsicherheit der ERP-Systeme..."
+              placeholder="Beispiel: Wir sind ein mittelständisches Logistikunternehmen mit 200 Mitarbeitern..."
               className="min-h-[150px] rounded-xl border-slate-200 focus:border-primary bg-white dark:bg-slate-950 p-4 text-xs font-medium leading-relaxed"
             />
           </div>

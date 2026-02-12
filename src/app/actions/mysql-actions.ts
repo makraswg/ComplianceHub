@@ -202,14 +202,12 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     
     const preparedData: any = {};
-    // Nur Felder übernehmen, die laut Schema in der Datenbank existieren
     validColumns.forEach(col => {
       if (data[col] !== undefined) {
         preparedData[col] = data[col];
       }
     });
     
-    // Sicherstellen, dass die ID immer gesetzt ist
     preparedData.id = id;
     
     const jsonFields: Record<string, string[]> = {
@@ -249,7 +247,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
     
     const keys = Object.keys(preparedData);
-    const values = Object.values(preparedData);
+    const values = keys.map(k => preparedData[k]);
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;

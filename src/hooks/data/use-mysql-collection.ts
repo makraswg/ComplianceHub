@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -76,8 +75,10 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName, notifySubscribers]);
 
   const refresh = useCallback(() => {
+    // Clear global store data before re-fetching
+    globalStore[collectionName].data = null;
     fetchData(true);
-  }, [fetchData]);
+  }, [collectionName, fetchData]);
 
   useEffect(() => {
     if (!enabled) return;
