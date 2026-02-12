@@ -33,7 +33,9 @@ import {
   HelpCircle,
   Search,
   CheckCircle2,
-  Save
+  Save,
+  ArrowLeftCircle,
+  ArrowRightCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,7 +57,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from '@/components/ui/separator';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Checkbox } from '@/components/ui/checkbox';
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
@@ -111,7 +113,8 @@ export default function ProcessDesignerPage() {
 
   const animationsEnabled = useMemo(() => {
     if (!uiConfigs || uiConfigs.length === 0) return true;
-    return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
+    const config = uiConfigs[0];
+    return config.enableAdvancedAnimations === true || config.enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
   useEffect(() => {
@@ -214,8 +217,11 @@ export default function ProcessDesignerPage() {
         const sY = sNode.y + OFFSET_Y + sH;
         const tX = tNode.x + OFFSET_X + 128;
         const tY = tNode.y + OFFSET_Y;
+        
+        // Dynamic path calculation for smooth Bezier curves
         const dy = tY - sY;
         const path = `M ${sX} ${sY} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY}`;
+        
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
       }
     });
@@ -250,7 +256,7 @@ export default function ProcessDesignerPage() {
 
   // --- Interaction Handlers ---
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || isDiagramLocked) return;
     setIsProgrammaticMove(false);
     setIsDragging(true);
     setMouseDownTime(Date.now());
@@ -266,6 +272,7 @@ export default function ProcessDesignerPage() {
   const handleMouseUp = () => { setIsDragging(false); };
 
   const handleWheel = (e: React.WheelEvent) => {
+    if (isDiagramLocked) return;
     e.preventDefault();
     setIsProgrammaticMove(false);
     const delta = e.deltaY * -0.001;
@@ -527,8 +534,6 @@ export default function ProcessDesignerPage() {
           </div>
         </main>
       </div>
-
-      {/* Node Edit Dialog OMITTED for brevity - similar to the viewer but with form fields */}
     </div>
   );
 }
