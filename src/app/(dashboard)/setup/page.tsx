@@ -25,7 +25,8 @@ import {
   Mail,
   Lock,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs } from 'firebase/firestore';
