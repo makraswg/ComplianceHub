@@ -106,12 +106,26 @@ export default function GdprPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const resetForm = () => {
+    setSelectedActivity(null);
+    setName('');
+    setVersion('1.0');
+    setDescription('');
+    setResponsibleDepartment('');
+    setLegalBasis('Art. 6 Abs. 1 lit. b (Vertrag)');
+    setRetentionPeriod('10 Jahre (Steuerrecht)');
+    setStatus('active');
+    setJointController(false);
+    setThirdCountryTransfer(false);
+    setTargetCountry('');
+    setTransferMechanism('None');
+  };
+
   const handleSave = async () => {
     if (!name) return;
     setIsSaving(true);
     const id = selectedActivity?.id || `vvt-${Math.random().toString(36).substring(2, 9)}`;
     const data: ProcessingActivity = {
-      ...selectedActivity,
       id,
       tenantId: activeTenantId === 'all' ? 't1' : activeTenantId,
       name, version, description, responsibleDepartment, legalBasis,
@@ -201,7 +215,7 @@ export default function GdprPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 hover:bg-slate-50 active:scale-95" onClick={() => exportGdprExcel(filteredActivities)}>
             <Download className="w-3.5 h-3.5 mr-2" /> Excel Export
           </Button>
-          <Button size="sm" onClick={() => { setSelectedActivity(null); setName(''); setVersion('1.0'); setIsDialogOpen(true); }} className="h-9 rounded-md font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-95 transition-all">
+          <Button size="sm" onClick={() => { resetForm(); setIsDialogOpen(true); }} className="h-9 rounded-md font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-95 transition-all">
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Tätigkeit
           </Button>
         </div>
@@ -416,7 +430,10 @@ export default function GdprPage() {
               </div>
             </ScrollArea>
           </Tabs>
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 gap-2 uppercase">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
+            <Button size="sm" onClick={handleSave} disabled={isSaving || !name} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-12 h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 gap-2 uppercase">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

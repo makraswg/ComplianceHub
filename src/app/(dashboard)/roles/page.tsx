@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -123,7 +122,6 @@ export default function RolesManagementPage() {
     const resource = resources?.find(r => r.id === resourceId);
     
     const roleData: Entitlement = {
-      ...selectedRole,
       id,
       name,
       description,

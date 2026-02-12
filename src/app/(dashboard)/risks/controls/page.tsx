@@ -83,6 +83,20 @@ export default function RiskControlsPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const resetForm = () => {
+    setSelectedControl(null);
+    setTitle('');
+    setMeasureId('');
+    setDesc('');
+    setOwner('');
+    setStatus('scheduled');
+    setIsEffective(false);
+    setCheckType('Review');
+    setLastCheckDate('');
+    setNextCheckDate('');
+    setEvidenceDetails('');
+  };
+
   const handleSave = async () => {
     if (!title || !measureId) {
       toast({ variant: "destructive", title: "Fehler", description: "Titel und Maßnahmenbezug erforderlich." });
@@ -153,7 +167,7 @@ export default function RiskControlsPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs" onClick={() => router.push('/risks/measures')}>
             <ClipboardList className="w-3.5 h-3.5 mr-2 text-emerald-600" /> Maßnahmenplan
           </Button>
-          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm active:scale-95" onClick={() => { setSelectedControl(null); setIsDialogOpen(true); }}>
+          <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm active:scale-95" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Prüfung planen
           </Button>
         </div>

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
@@ -179,7 +178,7 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     connection = await getMysqlConnection();
     const preparedData: any = { id };
     
-    // Strict schema-aware filtering
+    // Strict schema-aware filtering: Only allow fields that exist in the database table
     validColumns.forEach(col => {
       if (data[col] !== undefined) {
         let val = data[col];

@@ -60,7 +60,7 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger,
+  DropdownMenuTrigger, 
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
@@ -109,6 +109,14 @@ export default function GroupsPage() {
   }, []);
 
   const isSuperAdmin = user?.role === 'superAdmin';
+
+  const resetForm = () => {
+    setSelectedGroup(null);
+    setName('');
+    setDescription('');
+    setSelectedEntitlementIds([]);
+    setRoleSearch('');
+  };
 
   const getTenantSlug = (id?: string | null) => {
     const tenant = tenants?.find(t => t.id === id);
@@ -246,7 +254,7 @@ export default function GroupsPage() {
             {showArchived ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
             {showArchived ? 'Aktive anzeigen' : 'Archiv'}
           </Button>
-          <Button size="sm" className="h-9 font-bold text-xs px-6 shadow-sm" onClick={() => { setSelectedGroup(null); setName(''); setDescription(''); setSelectedEntitlementIds([]); setIsDialogOpen(true); }}>
+          <Button size="sm" className="h-9 font-bold text-xs px-6 shadow-sm" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Gruppe erstellen
           </Button>
         </div>
