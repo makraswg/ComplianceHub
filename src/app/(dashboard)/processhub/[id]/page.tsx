@@ -55,7 +55,8 @@ import {
   UserCircle,
   FileUp,
   Image as ImageIcon,
-  FileText
+  FileText,
+  Focus
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -901,12 +902,10 @@ export default function ProcessDesignerPage() {
                   />
                   {p.label && (
                     <text
-                      dy="-5"
-                      textAnchor="middle"
                       className="text-[10px] font-bold fill-slate-500"
                       style={{ filter: 'drop-shadow(0 1px 1px white)' }}
                     >
-                      <textPath href={`#path-${i}`} startOffset="50%">{p.label}</textPath>
+                      <textPath href={`#path-${i}`} startOffset="50%" dy="-5" textAnchor="middle">{p.label}</textPath>
                     </text>
                   )}
                   <path id={`path-${i}`} d={p.path} fill="none" stroke="transparent" pointerEvents="none" />
@@ -934,7 +933,7 @@ export default function ProcessDesignerPage() {
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Vergrößern</TooltipContent></Tooltip>
               <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Verkleinern</TooltipContent></Tooltip>
               <Separator className="my-1" />
-              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary" onClick={(e) => { e.stopPropagation(); if(gridNodes.length > 0) centerOnNode(gridNodes[0].id); }}><Maximize2 className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Zentrieren</TooltipContent></Tooltip>
+              <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary" onClick={(e) => { e.stopPropagation(); if(gridNodes.length > 0) centerOnNode(selectedNodeId || gridNodes[0].id); }}><Focus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left">Zentrieren</TooltipContent></Tooltip>
             </TooltipProvider>
           </div>
         </main>
@@ -963,7 +962,7 @@ export default function ProcessDesignerPage() {
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Basis & Typ</TabsTrigger>
                 <TabsTrigger value="roles" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Zuständigkeiten</TabsTrigger>
                 <TabsTrigger value="grc" className="rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-emerald-600 transition-all">Ressourcen & Daten</TabsTrigger>
-                <TabsTrigger value="rel" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-amber-600 transition-all">Verknüpfungen</TabsTrigger>
+                <TabsTrigger value="rel" className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-amber-600 transition-all">Handover</TabsTrigger>
                 <TabsTrigger value="checklist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 h-full px-0 text-[10px] font-bold uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600 transition-all">Checkliste & Hilfen</TabsTrigger>
               </TabsList>
             </div>
@@ -1141,7 +1140,7 @@ export default function ProcessDesignerPage() {
                           <ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)
                         </Label>
                         <div className="relative group">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                           <Input placeholder="Schritte suchen..." value={predSearch} onChange={e => setPredSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
                         </div>
                       </div>
@@ -1171,7 +1170,7 @@ export default function ProcessDesignerPage() {
                           <ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)
                         </Label>
                         <div className="relative group">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                           <Input placeholder="Schritte suchen..." value={succSearch} onChange={e => setSuccSearch(e.target.value)} className="h-8 pl-8 text-[10px] rounded-lg" />
                         </div>
                       </div>
