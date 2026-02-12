@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-import ProcessHubClientWrapper from './ProcessHubClientWrapper';
-
-export default function ProcessHubPage() {
-  return <ProcessHubClientWrapper />;
-=======
 "use client";
 
 import { Suspense } from 'react';
@@ -16,5 +10,4 @@ export default function ProcessHubPage() {
       <ProcessHubClient />
     </Suspense>
   )
->>>>>>> 9cb2b10 (in der listenansicht soll im interen bereich der box stehen welche proze)
 }
