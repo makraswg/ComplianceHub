@@ -5,24 +5,26 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
 /**
- * Global store to synchronize collection state across all hook instances.
- * Implements a stale-while-revalidate pattern for immediate UI response.
+ * Globaler Store zur Synchronisierung des Zustands über alle Instanzen hinweg.
+ * Verhindert redundante Abfragen und stellt sicher, dass Refresh-Aktionen überall ankommen.
  */
 const globalStore: Record<string, {
   data: any[] | null;
   isLoading: boolean;
   error: string | null;
+  lastFetch: number;
   promise: Promise<any> | null;
   subscribers: Set<(state: any) => void>;
 }> = {};
 
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
-  // Initialize store for this collection if it doesn't exist
+  // Initialisiere Store falls nötig
   if (!globalStore[collectionName]) {
     globalStore[collectionName] = {
       data: null,
       isLoading: false,
       error: null,
+      lastFetch: 0,
       promise: null,
       subscribers: new Set(),
     };
@@ -36,7 +38,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
 
   const isMounted = useRef(true);
 
-  const notifySubscribers = useCallback(() => {
+  const notify = useCallback(() => {
     const currentState = {
       data: globalStore[collectionName].data,
       isLoading: globalStore[collectionName].isLoading,
@@ -48,15 +50,18 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const fetchData = useCallback(async (force = false) => {
     const store = globalStore[collectionName];
     
-    // If already loading and not forced, wait for existing promise
+    // Vermeide unnötige parallele Abfragen
     if (store.isLoading && !force) return;
     
-    // If data exists and not forced, don't fetch
-    if (store.data && !force) return;
+    // Cache-Prüfung (Stale-While-Revalidate)
+    const now = Date.now();
+    if (store.data && !force && (now - store.lastFetch < 5000)) {
+      return;
+    }
 
     store.isLoading = true;
     store.error = null;
-    notifySubscribers();
+    notify();
 
     try {
       store.promise = getCollectionData(collectionName);
@@ -69,18 +74,18 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       } else {
         store.data = (result.data || []) as any[];
         store.error = null;
+        store.lastFetch = now;
       }
     } catch (e: any) {
       store.error = e.message || "Datenbankfehler";
     } finally {
       store.isLoading = false;
       store.promise = null;
-      notifySubscribers();
+      notify();
     }
-  }, [collectionName, notifySubscribers]);
+  }, [collectionName, notify]);
 
   const refresh = useCallback(() => {
-    // We DON'T clear data here to keep the UI stable (stale-while-revalidate)
     fetchData(true);
   }, [fetchData]);
 
@@ -91,17 +96,13 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     const store = globalStore[collectionName];
     const updateLocal = (newState: any) => {
       if (isMounted.current) {
-        setLocalState(prev => {
-          // Optimization: avoid re-renders if content is identical
-          if (JSON.stringify(prev) === JSON.stringify(newState)) return prev;
-          return newState;
-        });
+        setLocalState(newState);
       }
     };
 
     store.subscribers.add(updateLocal);
     
-    // Initial fetch if needed
+    // Sofortiger Abruf falls Daten fehlen oder veraltet sind
     fetchData();
 
     return () => {

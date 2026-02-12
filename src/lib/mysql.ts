@@ -1,57 +1,59 @@
 
 import mysql from 'mysql2/promise';
 
-// Die Zugangsdaten werden direkt aus den Umgebungsvariablen (.env) geladen.
+/**
+ * Zentrales MySQL Connection Pooling.
+ * Optimiert für den Betrieb in Docker-Containern und lokalen Umgebungen.
+ */
 let pool: mysql.Pool | null = null;
 
 function getPool() {
-  if (pool) {
-    return pool;
-  }
+  if (pool) return pool;
 
-  try {
-    const host = process.env.MYSQL_HOST || '127.0.0.1';
-    let port = Number(process.env.MYSQL_PORT || 3306);
-    const database = process.env.MYSQL_DATABASE;
-    const user = process.env.MYSQL_USER;
-    const password = process.env.MYSQL_PASSWORD;
+  const host = process.env.MYSQL_HOST || '127.0.0.1';
+  // Port-Logik: Innerhalb Docker 3306, von außen (Host) meist 3307 laut docker-compose
+  const port = Number(process.env.MYSQL_PORT || (host === 'compliance-db' ? 3306 : 3307));
+  const user = process.env.MYSQL_USER || 'root';
+  const password = process.env.MYSQL_PASSWORD || 'rootpassword';
+  const database = process.env.MYSQL_DATABASE || 'compliance_hub';
 
-    // Intelligent Docker Port Recognition:
-    // If we are connecting to the internal docker service 'compliance-db',
-    // we MUST use the internal port 3306, regardless of external mappings.
-    if (host === 'compliance-db' || host === 'compliance-hub-db') {
-      port = 3306;
-    }
+  console.log(`[MySQL] Initialisiere Pool für ${host}:${port} (DB: ${database}, User: ${user})`);
 
-    pool = mysql.createPool({
-      host,
-      port,
-      database,
-      user,
-      password,
-      waitForConnections: true,
-      connectionLimit: 20, // Erhöht für bessere Performance bei vielen parallelen Requests
-      queueLimit: 0,
-      connectTimeout: 15000,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 10000
-    });
-    
-    return pool;
-  } catch (error) {
-    console.error("Failed to create MySQL connection pool:", error);
-    return null;
-  }
+  pool = mysql.createPool({
+    host,
+    port,
+    user,
+    password,
+    database,
+    waitForConnections: true,
+    connectionLimit: 30, // Erhöht für parallele Hook-Abfragen
+    maxIdle: 10,
+    idleTimeout: 60000,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    connectTimeout: 20000
+  });
+  
+  return pool;
 }
 
+/**
+ * Holt eine Verbindung aus dem Pool mit expliziter Fehlerbehandlung.
+ */
 export async function getMysqlConnection() {
-  const pool = getPool();
-  if (!pool) {
-    throw new Error("MySQL connection pool is not available. Check configuration.");
+  try {
+    const p = getPool();
+    return await p.getConnection();
+  } catch (error: any) {
+    console.error("[MySQL] Fehler beim Aufbau der Verbindung:", error.message);
+    throw new Error(`Datenbankverbindung fehlgeschlagen: ${error.message}`);
   }
-  return pool.getConnection();
 }
 
+/**
+ * Führt einen schnellen Ping-Test durch.
+ */
 export async function testMysqlConnection() {
   let connection;
   try {
@@ -61,8 +63,6 @@ export async function testMysqlConnection() {
   } catch (error: any) {
     return { success: false, message: `Verbindungsfehler: ${error.message}` };
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
   }
 }
