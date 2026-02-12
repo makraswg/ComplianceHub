@@ -56,7 +56,8 @@ import {
   FileUp,
   Image as ImageIcon,
   FileText,
-  Focus
+  Focus,
+  Paperclip
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -698,29 +699,40 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-                  {sortedSidebarNodes.map((node: any) => (
-                    <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
-                        node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
-                        node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
-                        node.type === 'end' ? "bg-red-50 text-red-600" :
-                        node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
-                      )}>
-                        {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
-                         node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
-                         node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> :
-                         node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                  {sortedSidebarNodes.map((node: any) => {
+                    const hasMedia = mediaFiles?.some(m => m.subEntityId === node.id);
+                    const hasChecklist = node.checklist && node.checklist.length > 0;
+                    
+                    return (
+                      <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
+                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
+                          node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
+                          node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
+                          node.type === 'end' ? "bg-red-50 text-red-600" :
+                          node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
+                        )}>
+                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
+                           node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
+                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> :
+                           node.type === 'end' ? <StopCircle className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
+                            <div className="flex gap-0.5">
+                              {hasMedia && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
+                              {hasChecklist && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
+                            </div>
+                          </div>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{node.type}</p>
+                        </div>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/5" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{node.type}</p>
-                      </div>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/5" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -923,6 +935,7 @@ export default function ProcessDesignerPage() {
                   resources={resources} allFeatures={allFeatures} 
                   getFullRoleName={getFullRoleName} 
                   animationsEnabled={animationsEnabled}
+                  mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0}
                 />
               </div>
             ))}
@@ -1264,7 +1277,7 @@ export default function ProcessDesignerPage() {
                               {file.fileType.includes('image') ? <ImageIcon className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-indigo-600" />}
                               <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{file.fileName}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3.5 h-3.5" /></Button>
                           </div>
                         ))}
                         {(!mediaFiles || mediaFiles.filter(m => m.subEntityId === editingNode?.id).length === 0) && (
@@ -1301,7 +1314,7 @@ export default function ProcessDesignerPage() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = isMapMode && isActive;
   const roleName = getFullRoleName(node.roleId);
@@ -1333,7 +1346,10 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
              node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
           <div className="min-w-0">
-            <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+              {mediaCount > 0 && !isExpanded && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
+            </div>
             <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
           </div>
         </div>

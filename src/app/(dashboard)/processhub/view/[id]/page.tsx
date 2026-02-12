@@ -49,7 +49,8 @@ import {
   Scale,
   Settings2,
   Database,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Paperclip
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -95,7 +96,7 @@ export default function ProcessDetailViewPage() {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [lastMousePos, setLastMousePos] = useState({ x: e.clientX, y: e.clientY } as any);
   const [mouseDownTime, setMouseDownTime] = useState(0);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   
@@ -392,7 +393,32 @@ export default function ProcessDetailViewPage() {
           }}
         >
           {guideMode === 'list' ? (
-            <ScrollArea className="h-full p-10"><div className="max-w-5xl mx-auto space-y-12 pb-40">{gridNodes.map((node, i) => (<div key={node.id} id={`list-node-${node.id}`} className="relative"><ProcessStepCard node={node} activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} allNodes={gridNodes} mediaFiles={mediaFiles} expandedByDefault animationsEnabled={animationsEnabled} />{i < gridNodes.length - 1 && (<div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center"><div className={cn("w-0.5 h-12 bg-slate-200 relative", activeNodeId === node.id && "bg-primary")}></div><ChevronDown className={cn("w-4 h-4 text-slate-200 -mt-1.5", activeNodeId === node.id && "text-primary")} /></div>)}</div>))}</div></ScrollArea>
+            <ScrollArea className="h-full p-10">
+              <div className="max-w-5xl mx-auto space-y-12 pb-40">
+                {gridNodes.map((node, i) => (
+                  <div key={node.id} id={`list-node-${node.id}`} className="relative">
+                    <ProcessStepCard 
+                      node={node} 
+                      activeNodeId={activeNodeId} 
+                      setActiveNodeId={handleNodeClick} 
+                      resources={resources} 
+                      allFeatures={allFeatures} 
+                      getFullRoleName={getFullRoleName} 
+                      allNodes={gridNodes} 
+                      mediaFiles={mediaFiles} 
+                      expandedByDefault 
+                      animationsEnabled={animationsEnabled} 
+                    />
+                    {i < gridNodes.length - 1 && (
+                      <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 flex flex-col items-center">
+                        <div className={cn("w-0.5 h-12 bg-slate-200 relative", activeNodeId === node.id && "bg-primary")}></div>
+                        <ChevronDown className={cn("w-4 h-4 text-slate-200 -mt-1.5", activeNodeId === node.id && "text-primary")} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
           ) : (
             <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`, width: '5000px', height: '5000px', zIndex: 10, transition: isProgrammaticMove ? 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'none' }}>
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
@@ -443,7 +469,10 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'end' ? <StopCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
           <div className="min-w-0">
-            <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", isMapMode && !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+              {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
+            </div>
             <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
           </div>
         </div>
