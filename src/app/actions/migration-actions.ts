@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getMysqlConnection } from '@/lib/mysql';
@@ -72,7 +73,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       const now = new Date().toISOString();
       await connection.execute(
         'INSERT INTO `tenants` (id, name, slug, createdAt, status, region) VALUES (?, ?, ?, ?, ?, ?)',
-        ['t1', 'ComplianceHub Global', 'global', now, 'active', 'EU-DSGVO']
+        ['t1', 'Hauptmandant', 'hauptmandant', now, 'active', 'EU-DSGVO']
       );
       details.push('   ✅ Initialer Mandant erstellt (ID: t1).');
     }

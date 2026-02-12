@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -239,7 +240,10 @@ export default function UnifiedOrganizationPage() {
   }, [activeTab, isIframeReady, syncChart]);
 
   const handleSaveTenant = async () => {
-    if (!tenantName) return;
+    if (!tenantName) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Namen für den Mandanten angeben." });
+      return;
+    }
     setIsSavingTenant(true);
     const id = editingTenant?.id || `t-${Math.random().toString(36).substring(2, 7)}`;
     const data: Tenant = {
@@ -253,31 +257,44 @@ export default function UnifiedOrganizationPage() {
       createdAt: editingTenant?.createdAt || new Date().toISOString(),
     } as Tenant;
 
-    const res = await saveCollectionRecord('tenants', id, data, dataSource);
-    if (res.success) {
-      setIsTenantDialogOpen(false);
-      refreshTenants();
-      toast({ title: "Mandant gespeichert" });
+    try {
+      const res = await saveCollectionRecord('tenants', id, data, dataSource);
+      if (res.success) {
+        setIsTenantDialogOpen(false);
+        refreshTenants();
+        toast({ title: "Mandant gespeichert" });
+      } else {
+        throw new Error(res.error || "Unbekannter Fehler beim Speichern.");
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Speichern fehlgeschlagen", description: e.message });
+    } finally {
+      setIsSavingTenant(false);
     }
-    setIsSavingTenant(false);
   };
 
   const handleCreateSub = async () => {
     if (!newName || !activeAddParent) return;
     const id = `${activeAddParent.type === 'tenant' ? 'd' : 'j'}-${Math.random().toString(36).substring(2, 7)}`;
-    if (activeAddParent.type === 'tenant') {
-      await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
-      refreshDepts();
-    } else {
-      const dept = departments?.find(d => d.id === activeAddParent.id);
-      if (dept) {
-        await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] }, dataSource);
-        refreshJobs();
+    try {
+      if (activeAddParent.type === 'tenant') {
+        const res = await saveCollectionRecord('departments', id, { id, tenantId: activeAddParent.id, name: newName, status: 'active' }, dataSource);
+        if (!res.success) throw new Error(res.error || "Fehler");
+        refreshDepts();
+      } else {
+        const dept = departments?.find(d => d.id === activeAddParent.id);
+        if (dept) {
+          const res = await saveCollectionRecord('jobTitles', id, { id, tenantId: dept.tenantId, departmentId: activeAddParent.id, name: newName, status: 'active', entitlementIds: [] }, dataSource);
+          if (!res.success) throw new Error(res.error || "Fehler");
+          refreshJobs();
+        }
       }
+      setNewName('');
+      setActiveAddParent(null);
+      toast({ title: "Eintrag erstellt" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
     }
-    setNewName('');
-    setActiveAddParent(null);
-    toast({ title: "Eintrag erstellt" });
   };
 
   const handleStatusChange = async (coll: string, item: any, newStatus: 'active' | 'archived') => {
@@ -321,15 +338,22 @@ export default function UnifiedOrganizationPage() {
   const executeDelete = async () => {
     if (!deleteTarget || deleteErrors.length > 0) return;
     setIsDeleting(true);
-    const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
-    if (res.success) {
-      toast({ title: "Eintrag permanent gelöscht" });
-      if (deleteTarget.type === 'tenants') refreshTenants();
-      if (deleteTarget.type === 'departments') refreshDepts();
-      if (deleteTarget.type === 'jobTitles') refreshJobs();
-      setDeleteTarget(null);
+    try {
+      const res = await deleteCollectionRecord(deleteTarget.type, deleteTarget.id, dataSource);
+      if (res.success) {
+        toast({ title: "Eintrag permanent gelöscht" });
+        if (deleteTarget.type === 'tenants') refreshTenants();
+        if (deleteTarget.type === 'departments') refreshDepts();
+        if (deleteTarget.type === 'jobTitles') refreshJobs();
+        setDeleteTarget(null);
+      } else {
+        throw new Error(res.error || "Fehler beim Löschen.");
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Löschen fehlgeschlagen", description: e.message });
+    } finally {
+      setIsDeleting(false);
     }
-    setIsDeleting(false);
   };
 
   const openJobEditor = (job: JobTitle) => {
@@ -344,13 +368,20 @@ export default function UnifiedOrganizationPage() {
     if (!editingJob) return;
     setIsSavingJob(true);
     const updatedJob = { ...editingJob, name: jobName, description: jobDesc, entitlementIds: jobEntitlementIds };
-    const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
-    if (res.success) {
-      setIsEditorOpen(false);
-      refreshJobs();
-      toast({ title: "Rollen-Standardzuweisung gespeichert" });
+    try {
+      const res = await saveCollectionRecord('jobTitles', editingJob.id, updatedJob, dataSource);
+      if (res.success) {
+        setIsEditorOpen(false);
+        refreshJobs();
+        toast({ title: "Rollen-Standardzuweisung gespeichert" });
+      } else {
+        throw new Error(res.error || "Fehler");
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Fehler", description: e.message });
+    } finally {
+      setIsSavingJob(false);
     }
-    setIsSavingJob(false);
   };
 
   const toggleEntitlement = (id: string) => {
@@ -405,7 +436,7 @@ export default function UnifiedOrganizationPage() {
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowArchived(!showArchived)} className={cn("h-9 font-bold text-[10px] uppercase", showArchived && "bg-orange-50 text-orange-600")}>{showArchived ? 'Aktive Ansicht' : 'Archiv anzeigen'}</Button>
-              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { setEditingTenant(null); setTenantName(''); setTenantSlug(''); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
+              <Button size="sm" className="h-9 font-bold text-[10px] uppercase px-6" onClick={() => { resetForm(); setEditingTenant(null); setIsTenantDialogOpen(true); }}><Plus className="w-3.5 h-3.5 mr-2" /> Neuer Mandant</Button>
             </div>
           </div>
 
@@ -569,7 +600,12 @@ export default function UnifiedOrganizationPage() {
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Regulatorik</Label><Select value={tenantRegion} onValueChange={setTenantRegion}><SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger><SelectContent className="rounded-xl"><SelectItem value="EU-DSGVO">EU-DSGVO</SelectItem><SelectItem value="BSI-IT-Grundschutz">BSI-IT-Grundschutz</SelectItem><SelectItem value="ISO-27001">ISO 27001</SelectItem></SelectContent></Select></div>
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">KI Kontext (Beschreibung)</Label><Textarea value={tenantDescription} onChange={e => setTenantDescription(e.target.value)} className="min-h-[100px] rounded-xl text-xs" /></div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t"><Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button><Button onClick={handleSaveTenant} disabled={isSavingTenant || !tenantName} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">{isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern</Button></DialogFooter>
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button variant="ghost" onClick={() => setIsTenantDialogOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Abbrechen</Button>
+            <Button onClick={handleSaveTenant} disabled={isSavingTenant} className="rounded-xl bg-primary text-white font-bold text-[10px] px-8 h-11 shadow-lg gap-2">
+              {isSavingTenant ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
