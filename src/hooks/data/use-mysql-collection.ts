@@ -4,13 +4,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
-// Global cache to persist data across hook instances and prevent flickering
-const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
+// Globaler Cache zur Vermeidung von unnötigen Re-Renders
+const mysqlCache: Record<string, { data: any[], timestamp: number, stringified: string }> = {};
 const CACHE_TTL = 30000; 
 
 /**
- * Enhanced MySQL data hook with deep stability.
- * Prevents UI flickering by ensuring reference stability and silent background updates.
+ * Optimierter MySQL Hook mit Inhalts-Validierung.
+ * Verhindert das "Zucken" der UI, indem nur bei echten Datenänderungen aktualisiert wird.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -26,7 +26,7 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   const [version, setVersion] = useState(0);
   
   const pollingInterval = useRef<NodeJS.Timeout | null>(null);
-  const prevDataString = useRef<string>(data ? JSON.stringify(data) : "");
+  const prevDataString = useRef<string>(mysqlCache[collectionName]?.stringified || "");
 
   const fetchData = useCallback(async (silent = false) => {
     if (!enabled) return;
@@ -43,12 +43,15 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // CRITICAL: Only update state if content is truly different
-        // This prevents the "flickering" (re-renders triggered by reference changes)
+        // Verhindere Re-Render wenn der Inhalt identisch ist
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
-          mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
+          mysqlCache[collectionName] = { 
+            data: newData, 
+            timestamp: Date.now(),
+            stringified: newDataString 
+          };
         }
         setError(null);
       }
@@ -68,7 +71,6 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   useEffect(() => {
     if (!enabled) {
       setIsLoading(false);
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
       return;
     }
 

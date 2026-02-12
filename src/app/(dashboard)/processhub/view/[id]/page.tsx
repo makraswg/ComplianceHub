@@ -57,18 +57,17 @@ import {
   Department, 
   Feature, 
   Resource, 
-  Risk, 
   ProcessingActivity, 
-  DataCategory,
   JobTitle
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProcessDetailViewPage() {
+  // --- 1. Hooks (Top Level) ---
   const { id } = useParams();
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
@@ -85,6 +84,7 @@ export default function ProcessDetailViewPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  
   const hasAutoCentered = useRef(false);
 
   const { data: processes } = usePluggableCollection<Process>('processes');
@@ -149,7 +149,7 @@ export default function ProcessDetailViewPage() {
   }, [gridNodes, scale, activeNodeId]);
 
   const updateFlowLines = useCallback(() => {
-    if (!activeVersion) {
+    if (!activeVersion || gridNodes.length === 0) {
       setConnectionPaths([]);
       return;
     }
@@ -192,15 +192,14 @@ export default function ProcessDetailViewPage() {
     setConnectionPaths(newPaths);
   }, [activeVersion, gridNodes]);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true); 
+  }, []);
 
   useEffect(() => {
     if (mounted && guideMode === 'structure' && !hasAutoCentered.current) {
-      const timer = setTimeout(() => {
-        resetViewport();
-        hasAutoCentered.current = true;
-      }, 100);
-      return () => clearTimeout(timer);
+      resetViewport();
+      hasAutoCentered.current = true;
     }
     if (guideMode !== 'structure') {
       hasAutoCentered.current = false;
@@ -256,7 +255,7 @@ export default function ProcessDetailViewPage() {
           isMapMode && (isActive ? "w-[600px] z-50 scale-110" : "w-64 z-10")
         )}
         onClick={(e) => {
-          e.stopPropagation();
+          e.stopPropagation(); // Verhindert, dass der Hintergrund-Klick die Auswahl aufhebt
           setActiveNodeId(isActive ? null : node.id);
         }}
       >
@@ -336,6 +335,7 @@ export default function ProcessDetailViewPage() {
 
   return (
     <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
+      {/* Debug Monitor HUD */}
       <div className="fixed top-20 left-80 z-[100] bg-slate-900/90 text-white p-3 rounded-xl border border-white/10 shadow-2xl pointer-events-none font-mono text-[9px] space-y-1">
         <div className="flex items-center gap-2 border-b border-white/10 pb-1 mb-1">
           <Terminal className="w-3 h-3 text-primary" />
