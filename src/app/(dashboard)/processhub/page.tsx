@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -104,10 +103,11 @@ export default function ProcessHubOverview() {
     }
   };
 
-  // Handle URL Action trigger
+  // Automatischer Erstellungs-Workflow bei Parameter ?action=create
   useEffect(() => {
     if (mounted && searchParams.get('action') === 'create' && !isCreating) {
       handleCreate();
+      // Parameter aus URL entfernen
       const url = new URL(window.location.href);
       url.searchParams.delete('action');
       window.history.replaceState({}, '', url.toString());

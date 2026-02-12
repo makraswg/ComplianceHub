@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -159,7 +158,6 @@ function ResourcesPageContent() {
   const { data: contacts } = usePluggableCollection<ServicePartnerContact>('servicePartnerContacts');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: assignments } = usePluggableCollection<Assignment>('assignments');
-  const { data: users } = usePluggableCollection<any>('users');
   const { data: features } = usePluggableCollection<Feature>('features');
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
 
@@ -211,7 +209,7 @@ function ResourcesPageContent() {
     let maxClass: Resource['dataClassification'] = 'internal';
     let maxCV = 0;
     linkedFeats.forEach(f => {
-      const v = classOrder[f.dataClassification as keyof typeof classificationOrder] || 0;
+      const v = classOrder[f.dataClassification as keyof typeof classOrder] || 0;
       if (v > maxCV) { maxCV = v; maxClass = f.dataClassification as any; }
     });
     const reqOrder = { high: 3, medium: 2, low: 1 };
@@ -342,7 +340,9 @@ function ResourcesPageContent() {
         setIsDialogOpen(false);
         refresh(); refreshBackups(); refreshUpdates();
       }
-    } finally { setIsSaving(false); }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openEdit = (res: Resource) => {
@@ -658,7 +658,7 @@ function ResourcesPageContent() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Rollen-Standardzuweisung)</Label>
                           <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -668,7 +668,7 @@ function ResourcesPageContent() {
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Rollen-Standardzuweisung)</Label>
                           <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Standardzuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
