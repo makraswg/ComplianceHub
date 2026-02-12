@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Table, 
@@ -62,7 +62,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-export default function ProcessHubOverview() {
+function ProcessHubOverview() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { dataSource, activeTenantId } = useSettings();
@@ -360,4 +360,12 @@ export default function ProcessHubOverview() {
       </AlertDialog>
     </div>
   );
+}
+
+export default function ProcessHubPage() {
+  return (
+    <Suspense fallback={<div className="flex w-full h-full items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" /></div>}>
+      <ProcessHubOverview />
+    </Suspense>
+  )
 }
