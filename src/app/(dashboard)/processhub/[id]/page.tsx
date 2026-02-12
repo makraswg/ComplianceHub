@@ -51,7 +51,8 @@ import {
   Tag,
   ListFilter,
   FileCode,
-  MessageSquare
+  MessageSquare,
+  UserCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -128,7 +129,7 @@ export default function ProcessDesignerPage() {
   const [succSearch, setSuccSearch] = useState('');
   const [subProcSearch, setSubProcSearch] = useState('');
 
-  // Master Data Form State (Comprehensive according to DB schema)
+  // Master Data Form State
   const [metaTitle, setMetaTitle] = useState('');
   const [metaDesc, setMetaDesc] = useState('');
   const [metaTypeId, setMetaTypeId] = useState('none');
@@ -1001,7 +1002,7 @@ export default function ProcessDesignerPage() {
 
                     <div className="space-y-4">
                       <div className="space-y-2 ml-1">
-                        <Label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2">
+                        <Label className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2 ml-1">
                           <Database className="w-3.5 h-3.5" /> Datenobjekte (Features)
                         </Label>
                         <div className="relative group">
