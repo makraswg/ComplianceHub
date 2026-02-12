@@ -41,8 +41,7 @@ import {
   X,
   ClipboardCheck,
   Layers,
-  ShieldAlert,
-  Save
+  ShieldAlert
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -56,18 +55,13 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
-import { linkFeatureToProcessAction, unlinkFeatureFromProcessAction } from '@/app/actions/feature-actions';
-import { saveTaskAction } from '@/app/actions/task-actions';
-import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
-import { runOcrAction } from '@/ai/flows/ocr-flow';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, RegulatoryOption, Feature, MediaFile, Resource, Task, PlatformUser, ProcessingActivity, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 
 function escapeXml(unsafe: string) {
@@ -140,7 +134,6 @@ export default function ProcessDesignerPage() {
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
-  const isMobile = useIsMobile();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const [mounted, setMounted] = useState(false);
@@ -339,7 +332,7 @@ export default function ProcessDesignerPage() {
       checklist: [],
       roleId: predecessor?.roleId || '',
       resourceIds: predecessor?.resourceIds || [],
-      featureIds: featureLinks?.filter((l: any) => predecessor && l.nodeId === predecessor.id).map((l: any) => l.featureId) || [],
+      featureIds: [],
       subjectGroupIds: predecessor?.subjectGroupIds || [],
       dataCategoryIds: predecessor?.dataCategoryIds || [],
       predecessorIds: predecessor ? [predecessor.id] : []

@@ -4,13 +4,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCollectionData } from '@/app/actions/mysql-actions';
 
-// Globaler Cache zur Vermeidung von unnötigen Re-Renders
-const mysqlCache: Record<string, { data: any[], timestamp: number }> = {};
-const CACHE_TTL = 10000; 
+// Global cache to prevent unnecessary re-renders across components
+const mysqlCache: Record<string, { data: any[], timestamp: number, stringified: string }> = {};
+const CACHE_TTL = 30000; 
 
 /**
- * Ein robuster Hook zum Abrufen von MySQL-Daten mit Stabilitätsgarantie.
- * Verhindert "Zucken" durch intelligente Ladezustand-Steuerung.
+ * Optimized MySQL Hook with Deep Comparison.
+ * Prevents UI flickering by only triggering state updates when data content actually changes.
  */
 export function useMysqlCollection<T>(collectionName: string, enabled: boolean) {
   const [data, setData] = useState<T[] | null>(() => {
@@ -21,46 +21,54 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
     return null;
   });
   
-  // isLoading nur true, wenn wir wirklich noch keine Daten haben
   const [isLoading, setIsLoading] = useState(enabled && data === null);
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
-  const isInitialFetch = useRef(true);
-  const prevDataString = useRef<string>("");
+  const isMounted = useRef(true);
+  const prevDataString = useRef<string>(mysqlCache[collectionName]?.stringified || "");
+  const isFetchingRef = useRef(false);
 
   const fetchData = useCallback(async (silent = false) => {
-    if (!enabled) return;
+    if (!enabled || isFetchingRef.current || !isMounted.current) return;
     
-    // Nur beim allerersten Laden (oder nach Reset) den Loader zeigen
-    if (!silent && !data) {
+    isFetchingRef.current = true;
+    // Only show loading state if it's the very first fetch and we have no data
+    if (!silent && !prevDataString.current) {
       setIsLoading(true);
     }
     
     try {
       const result = await getCollectionData(collectionName);
+      if (!isMounted.current) return;
+
       if (result.error) {
         setError(result.error);
       } else {
         const newData = (result.data || []) as T[];
         const newDataString = JSON.stringify(newData);
         
-        // Nur updaten, wenn sich die Daten tatsächlich geändert haben
+        // STABILITY CHECK: Only update state if content is truly different
         if (newDataString !== prevDataString.current) {
           setData(newData);
           prevDataString.current = newDataString;
-          mysqlCache[collectionName] = { data: newData, timestamp: Date.now() };
+          mysqlCache[collectionName] = { 
+            data: newData, 
+            timestamp: Date.now(),
+            stringified: newDataString 
+          };
         }
         setError(null);
       }
     } catch (e: any) {
-      setError(e.message || "Datenbankfehler");
+      if (isMounted.current) setError(e.message || "Datenbankfehler");
     } finally {
-      setIsLoading(false);
-      isInitialFetch.current = false;
+      if (isMounted.current) {
+        setIsLoading(false);
+        isFetchingRef.current = false;
+      }
     }
-  }, [collectionName, enabled, data]);
+  }, [collectionName, enabled]);
 
   const refresh = useCallback(() => {
     delete mysqlCache[collectionName];
@@ -69,23 +77,24 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
   }, [collectionName]);
 
   useEffect(() => {
+    isMounted.current = true;
     if (!enabled) {
       setIsLoading(false);
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
       return;
     }
 
     fetchData();
 
+    // Background polling (every 15s) - silent update
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        fetchData(true); // Silent update im Hintergrund
+        fetchData(true); 
       }
-    }, 30000); 
+    }, 15000); 
 
-    pollingInterval.current = interval;
     return () => {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
+      isMounted.current = false;
+      clearInterval(interval);
     };
   }, [enabled, version, fetchData]);
 
