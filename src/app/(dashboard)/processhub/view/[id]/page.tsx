@@ -296,6 +296,15 @@ export default function ProcessDetailViewPage() {
 
   const handleMouseUp = () => { setIsDragging(false); };
 
+  const handleNodeClick = useCallback((nodeId: string) => {
+    if (activeNodeId === nodeId) {
+      setActiveNodeId(null);
+    } else {
+      setActiveNodeId(nodeId);
+      setTimeout(() => centerOnNode(nodeId), 50);
+    }
+  }, [activeNodeId, centerOnNode]);
+
   if (!mounted) return null;
 
   return (

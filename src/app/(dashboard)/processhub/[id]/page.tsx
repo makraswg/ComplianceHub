@@ -178,7 +178,27 @@ export default function ProcessDesignerPage() {
     return uiConfigs[0].enableAdvancedAnimations === true || uiConfigs[0].enableAdvancedAnimations === 1;
   }, [uiConfigs]);
 
-  // --- Map Calculation Logic ---
+  // Load Metadata into form
+  useEffect(() => {
+    if (currentProcess) {
+      setMetaTitle(currentProcess.title);
+      setMetaDesc(currentProcess.description || '');
+      setMetaTypeId(currentProcess.process_type_id || 'none');
+      setMetaInputs(currentProcess.inputs || '');
+      setMetaOutputs(currentProcess.outputs || '');
+      setMetaKpis(currentProcess.kpis || '');
+      setMetaTags(currentProcess.tags || '');
+      setMetaOpenQuestions(currentProcess.openQuestions || '');
+      setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
+      setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
+      setMetaFramework(currentProcess.regulatoryFramework || 'none');
+      setMetaAutomation(currentProcess.automationLevel || 'manual');
+      setMetaDataVolume(currentProcess.dataVolume || 'low');
+      setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
+    }
+  }, [currentProcess]);
+
+  // Map Calculation Logic
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -269,6 +289,10 @@ export default function ProcessDesignerPage() {
     setScale(targetScale);
     setTimeout(() => setIsProgrammaticMove(false), 850);
   }, [gridNodes]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (mounted && !hasAutoCentered.current && gridNodes.length > 0) {
@@ -394,8 +418,7 @@ export default function ProcessDesignerPage() {
           checklist: editChecklist,
           tips: editTips,
           errors: editErrors,
-          targetProcessId: editTargetProcessId === 'none' ? '' : editTargetProcessId,
-          predecessorIds: editPredecessorIds
+          targetProcessId: editTargetProcessId === 'none' ? '' : editTargetProcessId
         }
       }
     }];
@@ -517,8 +540,7 @@ export default function ProcessDesignerPage() {
       id: newId, type, title: titles[type], checklist: [],
       roleId: predecessor?.roleId || '',
       resourceIds: predecessor?.resourceIds || [],
-      featureIds: predecessor?.featureIds || [],
-      predecessorIds: predecessor ? [predecessor.id] : []
+      featureIds: predecessor?.featureIds || []
     };
 
     const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: newNode } }];
