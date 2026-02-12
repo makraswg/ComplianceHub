@@ -17,49 +17,43 @@ import { Textarea } from '@/components/ui/textarea';
 export default function GeneralSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
   const [isSaving, setIsSaving] = useState(false);
-  const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
+  const [tenantName, setTenantName] = useState('');
+  const [tenantDescription, setTenantDescription] = useState('');
+  const [tenantId, setTenantId] = useState('');
 
   const { data: tenants, refresh } = usePluggableCollection<Tenant>('tenants');
 
   useEffect(() => {
-    // Find the current tenant based on context. Default to 't1' for initialization scenarios.
     const current = tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId));
     if (current) {
-      setTenantDraft(current);
+      setTenantId(current.id);
+      setTenantName(current.name);
+      setTenantDescription(current.companyDescription || '');
     }
   }, [tenants, activeTenantId]);
 
   const handleSave = async () => {
-    if (!tenantDraft.id || !tenantDraft.name) {
-      toast({ variant: "destructive", title: "Eingabefehler", description: "Mandant-ID und Name sind erforderlich." });
+    if (!tenantId || !tenantName) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name ist erforderlich." });
       return;
     }
     
     setIsSaving(true);
     try {
-      // Explicitly compose data to avoid passing legacy or forbidden fields
-      const updatePayload = {
-        id: tenantDraft.id,
-        name: tenantDraft.name,
-        companyDescription: tenantDraft.companyDescription || '',
-        status: tenantDraft.status || 'active'
-      };
+      const res = await saveCollectionRecord('tenants', tenantId, {
+        id: tenantId,
+        name: tenantName,
+        companyDescription: tenantDescription
+      }, dataSource);
 
-      const res = await saveCollectionRecord('tenants', tenantDraft.id, updatePayload, dataSource);
       if (res.success) {
-        toast({ title: "Mandant gespeichert", description: "Die Änderungen wurden erfolgreich in die Datenbank geschrieben." });
-        // Force refresh of the data collection
+        toast({ title: "Gespeichert" });
         refresh();
       } else {
-        throw new Error(res.error || "Datenbank hat den Schreibvorgang abgelehnt.");
+        throw new Error(res.error || "Fehler beim Speichern");
       }
     } catch (e: any) {
-      console.error("Save Tenant Error:", e);
-      toast({ 
-        variant: "destructive", 
-        title: "Speichern fehlgeschlagen", 
-        description: e.message || "Ein technischer Fehler ist aufgetreten. Bitte prüfen Sie die Datenbankverbindung." 
-      });
+      toast({ variant: "destructive", title: "Fehlgeschlagen", description: e.message });
     } finally {
       setIsSaving(false);
     }
@@ -75,37 +69,16 @@ export default function GeneralSettingsPage() {
           <div>
             <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Mandanten-Stammdaten</CardTitle>
             <div className="flex items-center gap-2 mt-1.5">
-              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-black uppercase px-3 h-5">
-                ID: {tenantDraft.id || 'NEW'}
-              </Badge>
+              <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-black uppercase px-3 h-5">ID: {tenantId}</Badge>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Primäre Konfiguration</p>
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-8 space-y-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3 md:col-span-2">
-            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Unternehmensname</Label>
-            <Input 
-              value={tenantDraft.name || ''} 
-              onChange={e => setTenantDraft({...tenantDraft, name: e.target.value})} 
-              className="rounded-xl h-12 font-bold text-base border-slate-200 dark:border-slate-800 focus:border-primary transition-all" 
-              placeholder="z.B. Acme Corp"
-              autoComplete="off"
-            />
-          </div>
-          <div className="space-y-3 md:col-span-2">
-            <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">System-Alias (Slug)</Label>
-            <div className="relative">
-              <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-              <Input 
-                value={tenantDraft.slug || ''} 
-                disabled 
-                className="rounded-xl h-12 pl-11 bg-slate-50 dark:bg-slate-950 font-mono text-sm border-slate-200 dark:border-slate-800 text-slate-400 cursor-not-allowed" 
-              />
-            </div>
-          </div>
+        <div className="space-y-3">
+          <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Unternehmensname</Label>
+          <Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="rounded-xl h-12 font-bold text-base" placeholder="z.B. Acme Corp" />
         </div>
 
         <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
@@ -113,29 +86,16 @@ export default function GeneralSettingsPage() {
             <BrainCircuit className="w-5 h-5 text-primary" />
             <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-widest">KI-Kontext (Unternehmensbeschreibung)</h3>
           </div>
-          <div className="p-6 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 space-y-4">
-            <div className="flex items-start gap-4">
-              <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-              <p className="text-[11px] text-slate-500 italic leading-relaxed">
-                Diese Beschreibung dient als primärer Kontext für alle KI-Funktionen (Audit, Advisor, Designer). 
-                Beschreiben Sie Branche, Unternehmensgröße, IT-Infrastruktur und spezifische Compliance-Ziele.
-              </p>
-            </div>
-            <Textarea 
-              value={tenantDraft.companyDescription || ''} 
-              onChange={e => setTenantDraft({...tenantDraft, companyDescription: e.target.value})}
-              placeholder="Beispiel: Wir sind ein mittelständisches Logistikunternehmen mit 200 Mitarbeitern..."
-              className="min-h-[150px] rounded-xl border-slate-200 focus:border-primary bg-white dark:bg-slate-950 p-4 text-xs font-medium leading-relaxed"
-            />
-          </div>
+          <Textarea 
+            value={tenantDescription} 
+            onChange={e => setTenantDescription(e.target.value)}
+            placeholder="Beschreiben Sie Ihre Firma für die KI..."
+            className="min-h-[150px] rounded-xl p-4 text-xs font-medium"
+          />
         </div>
 
         <div className="flex justify-end pt-8 border-t border-slate-100 dark:border-slate-800">
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving} 
-            className="rounded-xl font-black uppercase text-xs tracking-[0.1em] h-12 px-12 gap-3 bg-primary text-white shadow-lg shadow-primary/20 transition-all active:scale-95"
-          >
+          <Button onClick={handleSave} disabled={isSaving} className="rounded-xl font-black uppercase text-xs h-12 px-12 gap-3 shadow-lg">
             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Änderungen Speichern
           </Button>

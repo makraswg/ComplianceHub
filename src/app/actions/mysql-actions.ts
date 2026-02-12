@@ -4,13 +4,9 @@ import { getMysqlConnection, testMysqlConnection } from '@/lib/mysql';
 import { initializeFirebase } from '@/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { getMockCollection } from '@/lib/mock-db';
-import { DataSource, User, PlatformUser } from '@/lib/types';
-import bcrypt from 'bcryptjs';
+import { DataSource } from '@/lib/types';
 import { appSchema } from '@/lib/schema';
 
-/**
- * Mapping von Frontend-Kollektionsnamen zu echten MySQL-Tabellennamen.
- */
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
   platformUsers: 'platformUsers',
@@ -103,12 +99,7 @@ function normalizeRecord(item: any, tableName: string) {
 
   const boolFields = [
     'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
-    'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
-    'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-    'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-    'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-    'isIdentityProvider', 'backupRequired', 'updatesRequired',
-    'ldapUseTls', 'ldapAllowInvalidSsl'
+    'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'
   ];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined && normalized[f] !== null) {
@@ -129,15 +120,13 @@ export async function getCollectionData(collectionName: string, dataSource: Data
     } catch (e: any) { return { data: null, error: e.message }; }
   }
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { data: null, error: `Invalid collection mapping: ${collectionName}` };
+  if (!tableName) return { data: null, error: `Mapping fehlt: ${collectionName}` };
   let connection;
   try {
     connection = await getMysqlConnection();
     const [rows] = await connection.execute(`SELECT * FROM \`${tableName}\``);
     connection.release();
-    let rawData = JSON.parse(JSON.stringify(rows));
-    if (tableName === 'platformUsers') { rawData = rawData.map((u: any) => { const { password, ...rest } = u; return rest; }); }
-    const data = rawData.map((item: any) => normalizeRecord(item, tableName));
+    const data = (rows as any[]).map((item: any) => normalizeRecord(item, tableName));
     return { data, error: null };
   } catch (error: any) {
     if (connection) connection.release();
@@ -150,29 +139,15 @@ export async function getSingleRecord(collectionName: string, id: string, dataSo
     const coll = getMockCollection(collectionName);
     return { data: coll.find(i => i.id === id) || null, error: null };
   }
-  if (dataSource === 'firestore') {
-    try {
-      const { firestore } = initializeFirebase();
-      const docSnap = await getDoc(doc(firestore, collectionName, id));
-      if (docSnap.exists()) {
-        return { data: { ...docSnap.data(), id: docSnap.id }, error: null };
-      }
-      return { data: null, error: null };
-    } catch (e: any) { return { data: null, error: e.message }; }
-  }
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { data: null, error: `Invalid collection mapping: ${collectionName}` };
-  
+  if (!tableName) return { data: null, error: `Mapping fehlt: ${collectionName}` };
   let connection;
   try {
     connection = await getMysqlConnection();
     const [rows]: any = await connection.execute(`SELECT * FROM \`${tableName}\` WHERE id = ? LIMIT 1`, [id]);
     connection.release();
-    
     if (!rows || rows.length === 0) return { data: null, error: null };
-    
-    const record = normalizeRecord(rows[0], tableName);
-    return { data: record, error: null };
+    return { data: normalizeRecord(rows[0], tableName), error: null };
   } catch (error: any) {
     if (connection) connection.release();
     return { data: null, error: error.message };
@@ -180,9 +155,7 @@ export async function getSingleRecord(collectionName: string, id: string, dataSo
 }
 
 export async function saveCollectionRecord(collectionName: string, id: string, data: any, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
-  if (dataSource === 'mock') {
-    return { success: true, error: null };
-  }
+  if (dataSource === 'mock') return { success: true, error: null };
   if (dataSource === 'firestore') {
     try {
       const { firestore } = initializeFirebase();
@@ -190,64 +163,29 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
       return { success: true, error: null };
     } catch (e: any) { return { success: false, error: e.message }; }
   }
+  
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: `Invalid table mapping for collection: ${collectionName}` };
+  if (!tableName) return { success: false, error: `Tabelle nicht gefunden: ${collectionName}` };
   
   const tableDef = appSchema[tableName];
-  if (!tableDef) return { success: false, error: `Kein Schema für Tabelle ${tableName} definiert.` };
   const validColumns = Object.keys(tableDef.columns);
 
   let connection;
   try {
     connection = await getMysqlConnection();
+    const preparedData: any = { id };
     
-    const preparedData: any = {};
     validColumns.forEach(col => {
       if (data[col] !== undefined) {
-        preparedData[col] = data[col];
+        let val = data[col];
+        if (val !== null && typeof val === 'object') val = JSON.stringify(val);
+        if (typeof val === 'boolean') val = val ? 1 : 0;
+        preparedData[col] = val;
       }
     });
-    
-    preparedData.id = id;
-    
-    const jsonFields: Record<string, string[]> = {
-      users: ['adGroups'],
-      groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
-      bundles: ['entitlementIds'],
-      auditEvents: ['before', 'after'],
-      riskMeasures: ['riskIds', 'resourceIds'],
-      resources: ['affectedGroups', 'riskIds', 'measureIds', 'vvtIds'],
-      processingActivities: ['dataCategories', 'subjectCategories', 'resourceIds'],
-      process_versions: ['model_json', 'layout_json'],
-      process_ops: ['ops_json'],
-      ai_sessions: ['context_json'],
-      ai_messages: ['structured_json'],
-      platformRoles: ['permissions'],
-      processes: ['regulatoryFramework'],
-      jobTitles: ['entitlementIds']
-    };
 
-    if (jsonFields[tableName]) {
-      jsonFields[tableName].forEach(field => {
-        if (preparedData[field] !== undefined && (Array.isArray(preparedData[field]) || typeof preparedData[field] === 'object')) {
-          preparedData[field] = JSON.stringify(preparedData[field]);
-        }
-      });
-    }
-
-    const boolKeys = [
-      'enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'autoSyncAssets',
-      'isImpactOverridden', 'isProbabilityOverridden', 'isResidualImpactOverridden', 'isResidualProbabilityOverridden',
-      'hasPersonalData', 'hasSpecialCategoryData', 'isInternetExposed', 'isBusinessCritical', 'isSpof',
-      'isTom', 'isArt9Relevant', 'isEffective', 'enableAdvancedAnimations', 'enableQuickTours', 'enableGlassmorphism', 'enableConfetti',
-      'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'jointController', 'thirdCountryTransfer',
-      'isIdentityProvider', 'backupRequired', 'updatesRequired',
-      'ldapUseTls', 'ldapAllowInvalidSsl'
-    ];
-    boolKeys.forEach(key => { if (preparedData[key] !== undefined) preparedData[key] = preparedData[key] ? 1 : 0; });
-    
     const keys = Object.keys(preparedData);
-    const values = keys.map(k => preparedData[k]);
+    const values = Object.values(preparedData);
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
@@ -257,26 +195,17 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     return { success: true, error: null };
   } catch (error: any) {
     if (connection) connection.release();
-    console.error(`[MySQL Action] Error saving to ${tableName}:`, error);
     return { success: false, error: error.message };
   }
 }
 
 export async function deleteCollectionRecord(collectionName: string, id: string, dataSource: DataSource = 'mysql'): Promise<{ success: boolean; error: string | null }> {
-  if (dataSource === 'mock') return { success: true, error: null };
-  if (dataSource === 'firestore') {
-    try {
-      const { firestore } = initializeFirebase();
-      await deleteDoc(doc(firestore, collectionName, id));
-      return { success: true, error: null };
-    } catch (e: any) { return { success: false, error: e.message }; }
-  }
   const tableName = collectionToTableMap[collectionName];
-  if (!tableName) return { success: false, error: `Kein Datenbank-Mapping für ${collectionName} gefunden.` };
+  if (!tableName) return { success: false, error: `Tabelle nicht gefunden` };
   let connection;
   try {
     connection = await getMysqlConnection();
-    const [result]: any = await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
+    await connection.execute(`DELETE FROM \`${tableName}\` WHERE id = ?`, [id]);
     connection.release();
     return { success: true, error: null };
   } catch (error: any) {
@@ -289,35 +218,20 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
   let connection;
   try {
     connection = await getMysqlConnection();
-    const tablesToClear = Object.values(collectionToTableMap);
+    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents'];
     await connection.execute('SET FOREIGN_KEY_CHECKS = 0');
-    for (const table of tablesToClear) {
-      try { await connection.execute(`DELETE FROM \`${table}\``); } catch (err) {}
+    for (const table of tables) {
+      try { await connection.execute(`DELETE FROM \`${table}\``); } catch (e) {}
     }
     await connection.execute('SET FOREIGN_KEY_CHECKS = 1');
     connection.release();
-    return { success: true, message: "Ausgewählte Datenbereiche wurden erfolgreich geleert." };
+    return { success: true, message: "Daten bereinigt." };
   } catch (error: any) {
     if (connection) { await connection.execute('SET FOREIGN_KEY_CHECKS = 1'); connection.release(); }
-    return { success: false, message: `Fehler beim Leeren der Tabellen: ${error.message}` };
+    return { success: false, message: error.message };
   }
 }
 
 export async function testMysqlConnectionAction(): Promise<{ success: boolean; message: string; }> {
     return await testMysqlConnection();
-}
-
-export async function updatePlatformUserPasswordAction(email: string, newPassword: string): Promise<{ success: boolean; error: string | null }> {
-  let connection;
-  try {
-    const salt = bcrypt.genSaltSync(10);
-    const hashedPassword = bcrypt.hashSync(newPassword, salt);
-    connection = await getMysqlConnection();
-    await connection.execute('UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?', [hashedPassword, email]);
-    connection.release();
-    return { success: true, error: null };
-  } catch (error: any) {
-    if (connection) connection.release();
-    return { success: false, error: error.message };
-  }
 }
