@@ -79,12 +79,13 @@ export default function ProcessDetailViewPage() {
   const [mounted, setMounted] = useState(false);
   const [guideMode, setGuideMode] = useState<'list' | 'structure'>('list');
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
-  const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string }[]>([]);
+  const [connectionPaths, setConnectionPaths] = useState<{ path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[]>([]);
 
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [hasMovedDuringClick, setHasMovedDuringClick] = useState(false);
   
   const hasAutoCentered = useRef(false);
 
@@ -117,7 +118,6 @@ export default function ProcessDetailViewPage() {
     const lanes: Record<string, number> = {};
     const occupiedLanesPerLevel = new Map<number, Set<number>>();
 
-    // 1. Ranking (Longest Path)
     nodes.forEach(n => levels[n.id] = 0);
     let changed = true;
     let limit = nodes.length * 2;
@@ -132,7 +132,6 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Lane Assignment
     const processed = new Set<string>();
     const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
     
@@ -160,7 +159,6 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // 3. Coordinate Projection
     const H_GAP = 350;
     const V_GAP = 220;
     const EXPANDED_WIDTH = 600;
@@ -183,7 +181,7 @@ export default function ProcessDetailViewPage() {
           if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 20;
         }
         if (lv > activeLv) {
-          y += 320; // Reduced from 380 to minimize gaps
+          y += 350; 
         }
       }
 
@@ -198,7 +196,7 @@ export default function ProcessDetailViewPage() {
     }
 
     const edges = activeVersion.model_json.edges || [];
-    const newPaths: { path: string, sourceId: string, targetId: string, label?: string }[] = [];
+    const newPaths: { path: string, sourceId: string, targetId: string, label?: string, isActive: boolean }[] = [];
 
     edges.forEach(edge => {
       const sNode = gridNodes.find(n => n.id === edge.source);
@@ -207,27 +205,45 @@ export default function ProcessDetailViewPage() {
       if (sNode && tNode) {
         const sIsExp = sNode.id === activeNodeId;
         const tIsExp = tNode.id === activeNodeId;
+        const isPathActive = sIsExp || tIsExp;
         
         const sW = sIsExp ? 600 : 256;
         const tW = tIsExp ? 600 : 256;
-        const sH = sIsExp ? 400 : 80;
+        // Accurate height detection for anchors
+        const sH = sIsExp ? 450 : 80; 
 
-        const sX = sNode.x + OFFSET_X + (sW / 2);
+        // Both anchor points are at x + 128 relative to original left because expansion is symmetrical via translate
+        const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
 
-        const tX = tNode.x + OFFSET_X + (tW / 2);
+        const tX = tNode.x + OFFSET_X + 128;
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 60; // Increased stub for steeper approach
+        const stub = 80; // Longer stub for cleaner vertical entry
         
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
-        newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label });
+        newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label, isActive: isPathActive });
       }
     });
 
     setConnectionPaths(newPaths);
   }, [activeVersion, gridNodes, activeNodeId]);
+
+  const centerOnNode = useCallback((nodeId: string) => {
+    const node = gridNodes.find(n => n.id === nodeId);
+    if (!node || !containerRef.current) return;
+
+    const targetScale = 1.0;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+
+    setPosition({
+      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
+      y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
+    });
+    setScale(targetScale);
+  }, [gridNodes]);
 
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
@@ -258,15 +274,19 @@ export default function ProcessDetailViewPage() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
+    setHasMovedDuringClick(false);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || guideMode !== 'structure') return;
+    setHasMovedDuringClick(true);
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
 
   const handleWheel = (e: React.WheelEvent) => {
     if (guideMode !== 'structure') return;
@@ -289,6 +309,18 @@ export default function ProcessDetailViewPage() {
     
     setScale(newScale);
     setPosition({ x: newX, y: newY });
+  };
+
+  const handleNodeClick = (nodeId: string) => {
+    if (hasMovedDuringClick) return; // Ignore clicks that were actually drags
+    
+    if (activeNodeId === nodeId) {
+      setActiveNodeId(null);
+    } else {
+      setActiveNodeId(nodeId);
+      // Center and zoom after state update propagates
+      setTimeout(() => centerOnNode(nodeId), 50);
+    }
   };
 
   if (!mounted) return null;
@@ -348,8 +380,9 @@ export default function ProcessDetailViewPage() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onWheel={handleWheel}
-          onClick={() => { if (!isDragging) setActiveNodeId(null); }}
+          onClick={(e) => { 
+            if (!hasMovedDuringClick) setActiveNodeId(null); 
+          }}
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
@@ -367,16 +400,36 @@ export default function ProcessDetailViewPage() {
               <svg className="absolute inset-0 pointer-events-none w-full h-full overflow-visible">
                 <defs>
                   <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+                    <polygon points="0 0, 10 3.5, 0 7" fill="currentColor" />
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
-                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2.5" markerEnd="url(#arrowhead)" className="transition-all duration-300" />
+                  <path 
+                    key={i} 
+                    d={p.path} 
+                    fill="none" 
+                    stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} 
+                    strokeWidth={p.isActive ? "4" : "2.5"} 
+                    markerEnd="url(#arrowhead)" 
+                    className={cn(
+                      "transition-all duration-500",
+                      p.isActive && "animate-dash"
+                    )}
+                    style={p.isActive ? { strokeDasharray: "10, 5" } : {}}
+                  />
                 ))}
               </svg>
               {gridNodes.map(node => (
-                <div key={node.id} className="absolute transition-all duration-300" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
-                  <ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} resources={resources} allFeatures={allFeatures} getFullRoleName={getFullRoleName} />
+                <div key={node.id} className="absolute transition-all duration-500 ease-in-out" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
+                  <ProcessStepCard 
+                    node={node} 
+                    isMapMode 
+                    activeNodeId={activeNodeId} 
+                    setActiveNodeId={handleNodeClick} 
+                    resources={resources} 
+                    allFeatures={allFeatures} 
+                    getFullRoleName={getFullRoleName} 
+                  />
                 </div>
               ))}
             </div>
@@ -409,6 +462,17 @@ export default function ProcessDetailViewPage() {
           )}
         </main>
       </div>
+
+      <style jsx global>{`
+        @keyframes dash {
+          to {
+            stroke-dashoffset: -100;
+          }
+        }
+        .animate-dash {
+          animation: dash 5s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
@@ -424,13 +488,13 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   return (
     <Card 
       className={cn(
-        "rounded-2xl border transition-all duration-300 bg-white cursor-pointer relative overflow-hidden",
+        "rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden",
         isActive ? "ring-4 ring-primary border-primary shadow-2xl z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20",
         isMapMode && (isActive ? "w-[600px] -translate-x-[172px]" : "w-64")
       )}
       onClick={(e) => {
         e.stopPropagation();
-        setActiveNodeId(isActive ? null : node.id);
+        setActiveNodeId(node.id);
       }}
     >
       <CardHeader className={cn("p-4 border-b flex flex-row items-center justify-between gap-4 bg-white", isExpanded && "bg-slate-50/50")}>
@@ -463,7 +527,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       </CardHeader>
 
       {isExpanded && (
-        <CardContent className="p-0 animate-in fade-in slide-in-from-top-2 duration-300">
+        <CardContent className="p-0 animate-in fade-in slide-in-from-top-2 duration-500">
           <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-100">
             <div className="md:col-span-7 p-6 space-y-6">
               <div className="space-y-2">
