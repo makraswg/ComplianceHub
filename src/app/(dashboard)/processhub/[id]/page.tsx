@@ -52,7 +52,10 @@ import {
   ListFilter,
   FileCode,
   MessageSquare,
-  UserCircle
+  UserCircle,
+  FileUp,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,8 +69,9 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
 import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction } from '@/app/actions/process-actions';
+import { saveMediaAction } from '@/app/actions/media-actions';
 import { toast } from '@/hooks/use-toast';
-import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig, ProcessType } from '@/lib/types';
+import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig, ProcessType, MediaFile } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -123,6 +127,9 @@ export default function ProcessDesignerPage() {
   const [editPredecessorIds, setEditPredecessorIds] = useState<string[]>([]);
   const [editSuccessors, setEditSuccessors] = useState<{ targetId: string, label: string }[]>([]);
 
+  // Media States
+  const [isUploading, setIsUploading] = useState(false);
+
   // Node Editor Search States
   const [resSearch, setResSearch] = useState('');
   const [featSearch, setFeatSearch] = useState('');
@@ -154,6 +161,7 @@ export default function ProcessDesignerPage() {
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: allFeatures } = usePluggableCollection<Feature>('features');
   const { data: processTypes } = usePluggableCollection<ProcessType>('process_types');
+  const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
@@ -251,9 +259,17 @@ export default function ProcessDesignerPage() {
         }
         if (lv > activeLv) y += 340; 
       }
-      return { ...n, x, y };
+      return { ...n, x, y, lv, lane };
     });
   }, [activeVersion, selectedNodeId]);
+
+  // Logical Sorting for Sidebar
+  const sortedSidebarNodes = useMemo(() => {
+    return [...gridNodes].sort((a, b) => {
+      if (a.lv !== b.lv) return a.lv - b.lv;
+      return a.lane - b.lane;
+    });
+  }, [gridNodes]);
 
   const centerOnNode = useCallback((nodeId: string) => {
     const node = gridNodes.find(n => n.id === nodeId);
@@ -406,6 +422,45 @@ export default function ProcessDesignerPage() {
 
     const success = await handleApplyOps(ops);
     if (success) setIsNodeEditorOpen(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingNode) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      const mediaId = `med-${Math.random().toString(36).substring(2, 9)}`;
+      
+      const mediaData: MediaFile = {
+        id: mediaId,
+        tenantId: currentProcess?.tenantId || activeTenantId || 'global',
+        module: 'ProcessHub',
+        entityId: currentProcess?.id || '',
+        subEntityId: editingNode.id,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileUrl: base64,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.email || 'system'
+      };
+
+      try {
+        const res = await saveMediaAction(mediaData, dataSource);
+        if (res.success) {
+          toast({ title: "Datei hochgeladen" });
+          refreshMedia();
+        }
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Upload Fehler", description: err.message });
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubprocessSelect = (targetPid: string) => {
@@ -642,7 +697,7 @@ export default function ProcessDesignerPage() {
               </div>
               <ScrollArea className="flex-1 bg-slate-50/30">
                 <div className="p-4 space-y-2 pb-32">
-                  {(activeVersion?.model_json?.nodes || []).map((node: any) => (
+                  {sortedSidebarNodes.map((node: any) => (
                     <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
                       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
                         node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
@@ -1183,6 +1238,40 @@ export default function ProcessDesignerPage() {
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/item:opacity-100 transition-opacity" onClick={() => removeCheckItem(idx)}><X className="w-3.5 h-3.5" /></Button>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <FileUp className="w-5 h-5 text-indigo-600" />
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Begleitmaterialien</h4>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Dokumente & Bilder als Hilfestellung</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-8 border-2 border-dashed rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center gap-3 transition-all hover:bg-white hover:border-primary/30 relative">
+                        <Input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} disabled={isUploading} />
+                        {isUploading ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <FileUp className="w-8 h-8 text-slate-300" />}
+                        <div>
+                          <p className="text-xs font-bold text-slate-700">Klicken oder Datei ziehen</p>
+                          <p className="text-[9px] text-slate-400 uppercase mt-1">PDF, JPG, PNG (Max. 5MB)</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {mediaFiles?.filter(m => m.subEntityId === editingNode?.id).map(file => (
+                          <div key={file.id} className="p-3 bg-slate-50 border rounded-xl flex items-center justify-between group shadow-sm">
+                            <div className="flex items-center gap-3">
+                              {file.fileType.includes('image') ? <ImageIcon className="w-4 h-4 text-primary" /> : <FileText className="w-4 h-4 text-indigo-600" />}
+                              <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">{file.fileName}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        ))}
+                        {(!mediaFiles || mediaFiles.filter(m => m.subEntityId === editingNode?.id).length === 0) && (
+                          <div className="py-10 text-center opacity-20 italic text-[10px]">Keine Dateien hinterlegt</div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
