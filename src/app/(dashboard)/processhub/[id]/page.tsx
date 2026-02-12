@@ -41,7 +41,9 @@ import {
   Database,
   Link as LinkIcon,
   ArrowDownCircle,
-  ArrowUpCircle
+  ArrowUpCircle,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -288,7 +290,6 @@ export default function ProcessDesignerPage() {
     setEditErrors(node.errors || '');
     setEditTargetProcessId(node.targetProcessId || '');
     
-    // Connections from active model edges
     const preds = activeVersion?.model_json?.edges?.filter((e: any) => e.target === node.id).map((e: any) => e.source) || [];
     const succs = activeVersion?.model_json?.edges?.filter((e: any) => e.source === node.id).map((e: any) => e.target) || [];
     setEditPredecessorIds(preds);
@@ -319,27 +320,22 @@ export default function ProcessDesignerPage() {
       }
     }];
 
-    // Manage Edges (Connections)
     const oldEdges = activeVersion?.model_json?.edges || [];
     const currentPredEdges = oldEdges.filter((e: any) => e.target === editingNode.id);
     const currentSuccEdges = oldEdges.filter((e: any) => e.source === editingNode.id);
 
-    // Remove obsolete predecessors
     currentPredEdges.forEach((e: any) => {
       if (!editPredecessorIds.includes(e.source)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
     });
-    // Add new predecessors
     editPredecessorIds.forEach(sourceId => {
       if (!currentPredEdges.some((e: any) => e.source === sourceId)) {
         ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${sourceId}`, source: sourceId, target: editingNode.id } } });
       }
     });
 
-    // Remove obsolete successors
     currentSuccEdges.forEach((e: any) => {
       if (!editSuccessorIds.includes(e.target)) ops.push({ type: 'REMOVE_EDGE', payload: { edgeId: e.id } });
     });
-    // Add new successors
     editSuccessorIds.forEach(targetId => {
       if (!currentSuccEdges.some((e: any) => e.target === targetId)) {
         ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}-${targetId}-s`, source: editingNode.id, target: targetId } } });
@@ -546,6 +542,12 @@ export default function ProcessDesignerPage() {
             
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col outline-none p-0 mt-0">
               <div className="px-6 py-4 border-b bg-white space-y-4 shrink-0">
+                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
+                  <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
+                    Markieren Sie einen Schritt, um neue Elemente automatisch danach einzufügen.
+                  </p>
+                </div>
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2 border-slate-200" onClick={() => handleQuickAdd('step')}>
@@ -593,8 +595,14 @@ export default function ProcessDesignerPage() {
               <ScrollArea className="flex-1 bg-white">
                 <div className="p-6 space-y-6 pb-10">
                   <div className="space-y-4">
-                    <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl shadow-sm border-slate-200" /></div>
-                    <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Kurzbeschreibung</Label><Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs leading-relaxed rounded-2xl shadow-inner border-slate-100" /></div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label>
+                      <Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl shadow-sm border-slate-200" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-black uppercase text-slate-400">Kurzbeschreibung</Label>
+                      <Textarea value={metaDesc} onChange={e => setMetaDesc(e.target.value)} className="min-h-[80px] text-xs leading-relaxed rounded-2xl shadow-inner border-slate-100" />
+                    </div>
                     <Separator />
                     <div className="space-y-1.5">
                       <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
@@ -615,6 +623,30 @@ export default function ProcessDesignerPage() {
                           {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <Separator />
+                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-3">
+                      <div className="flex items-center gap-2">
+                        <FileCheck className="w-4 h-4 text-emerald-600" />
+                        <h4 className="text-[10px] font-black uppercase text-emerald-800">Compliance & VVT</h4>
+                      </div>
+                      <p className="text-[9px] text-emerald-700 leading-relaxed italic">Diese Felder sind für den Rechenschaftsbericht nach Art. 30 DSGVO essenziell.</p>
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-bold text-emerald-600 uppercase">Automatisierung</Label>
+                          <Select value={metaAutomation} onValueChange={(v:any) => setMetaAutomation(v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="manual">Manuell</SelectItem><SelectItem value="partial">Teilautomatisiert</SelectItem><SelectItem value="full">Vollautomatisiert</SelectItem></SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[8px] font-bold text-emerald-600 uppercase">Datenvolumen</Label>
+                          <Select value={metaVolume} onValueChange={(v:any) => setMetaDataVolume(v)}>
+                            <SelectTrigger className="h-8 text-[10px] bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="low">Gering (Ad-hoc)</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Hoch (Massenverarb.)</SelectItem></SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -699,7 +731,7 @@ export default function ProcessDesignerPage() {
       {/* Node Editor Dialog */}
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-primary/10 text-slate-900 shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-primary/5 text-slate-900 shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg border border-primary/20", 
                 editType === 'decision' ? "bg-amber-500 text-white" : editType === 'end' ? "bg-red-500 text-white" : editType === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary text-white"
@@ -708,7 +740,7 @@ export default function ProcessDesignerPage() {
               </div>
               <div className="min-w-0">
                 <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">ID: {editingNode?.id}</DialogDescription>
+                <DialogDescription className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Definieren Sie Tätigkeiten und GRC-Abhängigkeiten</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -733,7 +765,10 @@ export default function ProcessDesignerPage() {
                       <Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Knoten-Typ</Label>
+                      <div className="flex items-center gap-2 ml-1">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400">Knoten-Typ</Label>
+                        <TooltipProvider><Tooltip><TooltipTrigger asChild><HelpCircle className="w-3 h-3 text-slate-300" /></TooltipTrigger><TooltipContent className="text-[10px]">Bestimmt die visuelle Darstellung und Logik (z.B. Verzweigung).</TooltipContent></Tooltip></TooltipProvider>
+                      </div>
                       <Select value={editType} onValueChange={(v:any) => setEditType(v)}>
                         <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue /></SelectTrigger>
                         <SelectContent className="rounded-xl">
@@ -763,7 +798,7 @@ export default function ProcessDesignerPage() {
 
                     <div className="space-y-2 md:col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Anweisung / Beschreibung</Label>
-                      <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="min-h-[120px] rounded-2xl p-4 text-xs bg-white" placeholder="Was genau passiert in diesem Schritt?" />
+                      <Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="min-h-[120px] rounded-2xl p-4 text-xs bg-white" placeholder="Beschreiben Sie hier präzise, was der Mitarbeiter in diesem Schritt tun muss." />
                     </div>
                   </div>
                 </TabsContent>
@@ -772,24 +807,44 @@ export default function ProcessDesignerPage() {
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center gap-3 border-b pb-3">
                       <Briefcase className="w-5 h-5 text-indigo-600" />
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Ausführende Rolle</h4>
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Ausführende Rolle</h4>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Wer führt diese Tätigkeit operativ durch?</p>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortliche Stelle</Label>
-                      <Select value={editRoleId || 'none'} onValueChange={setEditRoleId}>
-                        <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                        <SelectContent className="rounded-xl max-h-[300px]">
-                          <SelectItem value="none">Keine spezifische Rolle</SelectItem>
-                          {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
-                            <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-indigo-50/50 border border-indigo-100 rounded-xl flex items-start gap-3">
+                        <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                        <p className="text-[9px] text-indigo-700 italic leading-relaxed">
+                          Die Rollenzuordnung ermöglicht automatisierte Berechtigungs-Checks. Die KI prüft, ob die technischen Rechte zur fachlichen Aufgabe passen.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortliche Stelle</Label>
+                        <Select value={editRoleId || 'none'} onValueChange={setEditRoleId}>
+                          <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
+                          <SelectContent className="rounded-xl max-h-[300px]">
+                            <SelectItem value="none">Keine spezifische Rolle</SelectItem>
+                            {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                              <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="grc" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-start gap-4 shadow-inner">
+                    <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900 uppercase">GRC Vernetzung</p>
+                      <p className="text-[10px] text-emerald-700 font-medium leading-relaxed">
+                        Verknüpfen Sie hier die IT-Systeme und Datenobjekte. Das System berechnet daraus automatisch den Schutzbedarf (CIA) und die DSGVO-Relevanz des gesamten Prozesses.
+                      </p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-black uppercase text-primary tracking-widest flex items-center gap-2 ml-1">
@@ -842,6 +897,15 @@ export default function ProcessDesignerPage() {
                 </TabsContent>
 
                 <TabsContent value="rel" className="mt-0 space-y-10 animate-in fade-in">
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
+                    <Network className="w-6 h-6 text-amber-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte</p>
+                      <p className="text-[10px] text-amber-700 font-medium leading-relaxed">
+                        Definieren Sie hier den logischen Fluss. Wer liefert den Input für diesen Schritt und wer erhält den Output? Dies baut die "Goldene Kette" im System auf.
+                      </p>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                       <Label className="text-[10px] font-black uppercase text-amber-600 tracking-widest flex items-center gap-2 ml-1">
@@ -895,12 +959,16 @@ export default function ProcessDesignerPage() {
 
                 <TabsContent value="checklist" className="mt-0 space-y-10 animate-in fade-in pb-20">
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <Label className="text-[10px] font-black uppercase text-slate-900 tracking-widest flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Operative Checkliste
-                    </Label>
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <div>
+                        <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Operative Checkliste</h4>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Was muss zwingend geprüft werden?</p>
+                      </div>
+                    </div>
                     <div className="flex gap-2">
                       <Input placeholder="Neuen Prüfpunkt hinzufügen..." value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCheckItem()} className="h-11 rounded-xl" />
-                      <Button onClick={addCheckItem} className="h-11 rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white"><Plus className="w-4 h-4" /></Button>
+                      <Button onClick={addCheckItem} className="h-11 rounded-xl px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100"><Plus className="w-4 h-4" /></Button>
                     </div>
                     <div className="space-y-2">
                       {editChecklist.map((item, idx) => (
@@ -914,12 +982,12 @@ export default function ProcessDesignerPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-blue-600 ml-1">Tipps zur Durchführung</Label>
-                      <Textarea value={editTips} onChange={e => setEditTips(e.target.value)} className="min-h-[100px] rounded-2xl bg-blue-50/20 border-blue-100 text-xs italic" placeholder="Expertentipps..." />
+                      <Label className="text-[10px] font-bold uppercase text-blue-600 ml-1">Experten-Tipps</Label>
+                      <Textarea value={editTips} onChange={e => setEditTips(e.target.value)} className="min-h-[100px] rounded-2xl bg-blue-50/20 border-blue-100 text-xs italic" placeholder="Geben Sie Kollegen wertvolle Tipps zur Durchführung..." />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-red-600 ml-1">Bekannte Fehlerquellen</Label>
-                      <Textarea value={editErrors} onChange={e => setEditErrors(e.target.value)} className="min-h-[100px] rounded-2xl bg-red-50/20 border-red-100 text-xs italic" placeholder="Worauf ist besonders zu achten?..." />
+                      <Label className="text-[10px] font-bold uppercase text-red-600 ml-1">Typische Fehler</Label>
+                      <Textarea value={editErrors} onChange={e => setEditErrors(e.target.value)} className="min-h-[100px] rounded-2xl bg-red-50/20 border-red-100 text-xs italic" placeholder="Vor welchen Stolperfallen möchten Sie warnen?..." />
                     </div>
                   </div>
                 </TabsContent>
