@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -17,7 +18,11 @@ import {
   Building2,
   Activity,
   ArrowRight,
-  Save
+  Save,
+  ShieldAlert,
+  Server,
+  KeyRound,
+  FileCheck
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +35,9 @@ import { Tenant, SyncJob } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { usePlatformAuth } from '@/context/auth-context';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function SyncSettingsPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -100,67 +108,90 @@ export default function SyncSettingsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">LDAP Server URL</Label>
-              <Input 
-                value={tenantDraft.ldapUrl || ''} 
-                onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} 
-                placeholder="ldap://dc1.firma.local" 
-                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
-              />
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Server className="w-5 h-5 text-primary" />
+              <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-widest">1. Verbindung & Domäne</h3>
             </div>
-            <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Port</Label>
-              <Input 
-                value={tenantDraft.ldapPort || ''} 
-                onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} 
-                placeholder="389 / 636" 
-                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
-              />
-            </div>
-            <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Base DN (Suche)</Label>
-              <Input 
-                value={tenantDraft.ldapBaseDn || ''} 
-                onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} 
-                placeholder="OU=Users,DC=firma,DC=local" 
-                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
-              />
-            </div>
-            <div className="space-y-3">
-              <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">User Filter</Label>
-              <Input 
-                value={tenantDraft.ldapUserFilter || ''} 
-                onChange={e => setTenantDraft({...tenantDraft, ldapUserFilter: e.target.value})} 
-                placeholder="(&(objectClass=user)(memberOf=...))" 
-                className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">LDAP Server URL</Label>
+                <Input value={tenantDraft.ldapUrl || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUrl: e.target.value})} placeholder="ldap://dc1.firma.local" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Port</Label>
+                <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389 / 636" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">AD Domäne</Label>
+                <Input value={tenantDraft.ldapDomain || ''} onChange={e => setTenantDraft({...tenantDraft, ldapDomain: e.target.value})} placeholder="firma.local" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3 lg:col-span-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Base DN (Suche)</Label>
+                <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-xl h-12" />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-            <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-2 tracking-widest">
-              <Lock className="w-4 h-4 text-primary" /> Bind Credentials
-            </h3>
+          <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <KeyRound className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-widest">2. Authentifizierung & Sicherheit</h3>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Bind DN (Nutzer)</Label>
-                <Input 
-                  value={tenantDraft.ldapBindDn || ''} 
-                  onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} 
-                  placeholder="CN=ServiceAccount,..." 
-                  className="rounded-xl h-12 border-slate-200 dark:border-slate-800" 
-                />
+                <Input value={tenantDraft.ldapBindDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindDn: e.target.value})} placeholder="CN=ServiceAccount,..." className="rounded-xl h-12" />
               </div>
               <div className="space-y-3">
                 <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Passwort</Label>
-                <Input 
-                  type="password"
-                  value={tenantDraft.ldapBindPassword || ''} 
-                  onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} 
-                  className="rounded-xl h-12 border-slate-200 dark:border-slate-800 font-mono" 
-                />
+                <Input type="password" value={tenantDraft.ldapBindPassword || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBindPassword: e.target.value})} className="rounded-xl h-12 font-mono" />
+              </div>
+              
+              <div className="space-y-6 md:col-span-2 p-6 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex flex-wrap gap-10">
+                  <div className="flex items-center gap-3">
+                    <Switch checked={!!tenantDraft.ldapUseTls} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapUseTls: v})} />
+                    <Label className="text-[10px] font-black uppercase text-slate-700">TLS verwenden</Label>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={!!tenantDraft.ldapAllowInvalidSsl} onCheckedChange={v => setTenantDraft({...tenantDraft, ldapAllowInvalidSsl: v})} />
+                    <Label className="text-[10px] font-black uppercase text-slate-700">Unsichere SSL Zertifikate erlauben</Label>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Client-Side TLS Zertifikat (Public Key)</Label>
+                  <Textarea value={tenantDraft.ldapClientCert || ''} onChange={e => setTenantDraft({...tenantDraft, ldapClientCert: e.target.value})} placeholder="-----BEGIN CERTIFICATE----- ..." className="min-h-[100px] font-mono text-[10px] bg-white dark:bg-slate-900" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Separator className="bg-slate-100 dark:bg-slate-800" />
+
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <FileCheck className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-widest">3. Filter & Attribut-Mapping</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="space-y-3 lg:col-span-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">User Filter (LDAP Query)</Label>
+                <Input value={tenantDraft.ldapUserFilter || ''} onChange={e => setTenantDraft({...tenantDraft, ldapUserFilter: e.target.value})} placeholder="(&(objectClass=user)(memberOf=...))" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Attribut: Benutzername</Label>
+                <Input value={tenantDraft.ldapAttrUsername || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrUsername: e.target.value})} placeholder="sAMAccountName" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Attribut: Vorname</Label>
+                <Input value={tenantDraft.ldapAttrFirstname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrFirstname: e.target.value})} placeholder="givenName" className="rounded-xl h-12" />
+              </div>
+              <div className="space-y-3">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Attribut: Nachname</Label>
+                <Input value={tenantDraft.ldapAttrLastname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrLastname: e.target.value})} placeholder="sn" className="rounded-xl h-12" />
               </div>
             </div>
           </div>

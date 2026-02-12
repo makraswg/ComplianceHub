@@ -1,3 +1,4 @@
+
 export interface TableDefinition {
   columns: {
     [columnName: string]: string;
@@ -43,6 +44,14 @@ export const appSchema: AppSchema = {
       ldapBindDn: 'TEXT',
       ldapBindPassword: 'TEXT',
       ldapUserFilter: 'TEXT',
+      ldapDomain: 'VARCHAR(255)',
+      ldapUseTls: 'BOOLEAN DEFAULT FALSE',
+      ldapAllowInvalidSsl: 'BOOLEAN DEFAULT FALSE',
+      ldapClientCert: 'TEXT',
+      ldapAuthQuery: 'TEXT',
+      ldapAttrUsername: 'VARCHAR(100)',
+      ldapAttrFirstname: 'VARCHAR(100)',
+      ldapAttrLastname: 'VARCHAR(100)',
     },
   },
   departments: {

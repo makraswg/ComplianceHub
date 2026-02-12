@@ -18,6 +18,15 @@ export interface Tenant {
   ldapBindDn?: string;
   ldapBindPassword?: string;
   ldapUserFilter?: string;
+  // Neue LDAP Felder
+  ldapDomain?: string;
+  ldapUseTls?: boolean | number;
+  ldapAllowInvalidSsl?: boolean | number;
+  ldapClientCert?: string;
+  ldapAuthQuery?: string;
+  ldapAttrUsername?: string;
+  ldapAttrFirstname?: string;
+  ldapAttrLastname?: string;
 }
 
 export interface Department {
