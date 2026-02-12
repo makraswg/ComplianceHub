@@ -171,23 +171,44 @@ export function AppSidebar() {
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 
-  const settingSubItems = [
+  // Platform Settings
+  const settingsPlatformItems = [
     { name: 'Daten-Landkarte', href: '/settings/data-map', icon: Network },
     { name: 'Plattform-Rollen', href: '/settings/roles', icon: Lock },
     { name: 'Administratoren', href: '/settings/pusers', icon: Users },
     { name: 'User Experience', href: '/settings/ux', icon: Sparkles },
-    { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
+  ];
+
+  // AccessHub Settings
+  const settingsAccessHubItems = [
     { name: 'Identität & Sync', href: '/settings/sync', icon: Network },
     { name: 'Service Partner & Externe', href: '/settings/owners', icon: Building2 },
+  ];
+
+  // WorkflowHub Settings
+  const settingsWorkflowHubItems = [
     { name: 'Ressourcen-Optionen', href: '/settings/resources', icon: Settings2 },
     { name: 'Prozesstypen', href: '/settings/process-types', icon: ListFilter },
+  ];
+
+  // RiskHub Settings
+  const settingsRiskHubItems = [
     { name: 'Regulatorik & Normen', href: '/settings/compliance', icon: Scale },
+    { name: 'Datenschutz-Basis', href: '/settings/dsgvo', icon: FileCheck },
+    { name: 'Katalog-Import', href: '/settings/data', icon: FileCode },
+  ];
+
+  // Integrations
+  const settingsIntegrationItems = [
     { name: 'Jira Gateway', href: '/settings/integrations', icon: RefreshCw },
     { name: 'BookStack Export', href: '/settings/bookstack', icon: BookOpen },
     { name: 'KI Access Advisor', href: '/settings/ai', icon: BrainCircuit },
-    { name: 'Datenschutz-Basis', href: '/settings/dsgvo', icon: FileCheck },
+  ];
+
+  // System Settings
+  const settingsSystemItems = [
     { name: 'E-Mail (SMTP)', href: '/settings/email', icon: Mail },
-    { name: 'Katalog-Import', href: '/settings/data', icon: FileCode },
+    { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
   ];
 
   if (!mounted) return null;
@@ -293,7 +314,41 @@ export function AppSidebar() {
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-1 overflow-hidden animate-in slide-in-from-top-1 duration-200">
-                {settingSubItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                {/* Platform Settings */}
+                <div className="space-y-0.5 pt-2 pb-3">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">Plattform</p>
+                  {settingsPlatformItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
+
+                {/* AccessHub Settings */}
+                <div className="space-y-0.5 py-3 border-t border-slate-100">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">AccessHub</p>
+                  {settingsAccessHubItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
+
+                {/* WorkflowHub Settings */}
+                <div className="space-y-0.5 py-3 border-t border-slate-100">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">WorkflowHub</p>
+                  {settingsWorkflowHubItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
+
+                {/* RiskHub Settings */}
+                <div className="space-y-0.5 py-3 border-t border-slate-100">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">RiskHub</p>
+                  {settingsRiskHubItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
+
+                {/* Integrations */}
+                <div className="space-y-0.5 py-3 border-t border-slate-100">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">Integrationen</p>
+                  {settingsIntegrationItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
+
+                {/* System Settings */}
+                <div className="space-y-0.5 py-3 border-t border-slate-100">
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">System</p>
+                  {settingsSystemItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </div>
