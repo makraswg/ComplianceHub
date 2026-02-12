@@ -355,7 +355,7 @@ export default function ProcessDesignerPage() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen flex flex-col -m-4 md:-m-8 overflow-hidden bg-slate-50 font-body relative">
+    <div className="h-[calc(100vh-3.5rem)] flex flex-col overflow-hidden bg-slate-50 font-body relative">
       <header className="glass-header h-14 flex items-center justify-between px-6 shrink-0 z-20 border-b border-slate-200">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/processhub')} className="h-9 w-9 text-slate-400 hover:bg-slate-100 rounded-md transition-all"><ChevronLeft className="w-5 h-5" /></Button>
