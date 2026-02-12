@@ -108,12 +108,6 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
-  /**
-   * Enhanced Hierarchical Layout Engine.
-   * Logic: 
-   * 1. Calculate vertical level via Longest Path (ensures merges are below all ancestors).
-   * 2. Distribute nodes horizontally into unique lanes based on path discovery.
-   */
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
@@ -138,7 +132,7 @@ export default function ProcessDetailViewPage() {
       limit--;
     }
 
-    // 2. Lane Assignment (BFS to maintain branch order)
+    // 2. Lane Assignment
     const processed = new Set<string>();
     const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
     
@@ -166,9 +160,9 @@ export default function ProcessDetailViewPage() {
       });
     }
 
-    // 3. Coordinate Projection with Expansion Logic
-    const H_GAP = 400;
-    const V_GAP = 240;
+    // 3. Coordinate Projection
+    const H_GAP = 350;
+    const V_GAP = 220;
     const EXPANDED_WIDTH = 600;
     const COLLAPSED_WIDTH = 256;
     const WIDTH_DIFF = EXPANDED_WIDTH - COLLAPSED_WIDTH;
@@ -180,17 +174,16 @@ export default function ProcessDetailViewPage() {
       let x = lane * H_GAP;
       let y = lv * V_GAP;
 
-      // Handle dynamic expansion shift for neighbors
       if (activeNodeId) {
         const activeLv = levels[activeNodeId];
         const activeLane = lanes[activeNodeId];
         
         if (lv === activeLv) {
-          if (lane > activeLane) x += (WIDTH_DIFF / 2) + 40;
-          if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
+          if (lane > activeLane) x += (WIDTH_DIFF / 2) + 20;
+          if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 20;
         }
         if (lv > activeLv) {
-          y += 380; 
+          y += 320; // Reduced from 380 to minimize gaps
         }
       }
 
@@ -219,7 +212,6 @@ export default function ProcessDetailViewPage() {
         const tW = tIsExp ? 600 : 256;
         const sH = sIsExp ? 400 : 80;
 
-        // Routing: Bottom Middle to Top Middle
         const sX = sNode.x + OFFSET_X + (sW / 2);
         const sY = sNode.y + OFFSET_Y + sH;
 
@@ -227,9 +219,8 @@ export default function ProcessDetailViewPage() {
         const tY = tNode.y + OFFSET_Y;
 
         const dy = tY - sY;
-        const stub = 40; 
+        const stub = 60; // Increased stub for steeper approach
         
-        // Dynamic Cubic Bezier for smooth enterprise flow
         const path = `M ${sX} ${sY} L ${sX} ${sY + stub} C ${sX} ${sY + dy/2}, ${tX} ${tY - dy/2}, ${tX} ${tY - stub} L ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target, label: edge.label });
       }
