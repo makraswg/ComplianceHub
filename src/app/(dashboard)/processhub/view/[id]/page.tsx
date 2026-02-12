@@ -104,61 +104,71 @@ export default function ProcessDetailViewPage() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
-  // --- Grid Layout Logic ---
+  // --- Grid Layout Logic (Longest Path) ---
   const gridNodes = useMemo(() => {
     if (!activeVersion) return [];
     const nodes = activeVersion.model_json.nodes || [];
     const edges = activeVersion.model_json.edges || [];
+    
     const levels: Record<string, number> = {};
     const cols: Record<string, number> = {};
-    const processed = new Set<string>();
     
-    const startNode = nodes.find(n => n.type === 'start') || nodes[0];
-    if (!startNode) return [];
+    // 1. Calculate Levels (Longest Path to handle merges)
+    const computeLevels = () => {
+      nodes.forEach(n => levels[n.id] = 0);
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < nodes.length) {
+        changed = false;
+        edges.forEach(edge => {
+          if (levels[edge.target] <= levels[edge.source]) {
+            levels[edge.target] = levels[edge.source] + 1;
+            changed = true;
+          }
+        });
+        iterations++;
+      }
+    };
+    computeLevels();
 
-    const queue = [{ id: startNode.id, level: 0, col: 0 }];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      if (processed.has(current.id)) continue;
-      processed.add(current.id);
-      levels[current.id] = current.level;
-      cols[current.id] = current.col;
-      
-      const outgoingEdges = edges.filter(e => e.source === current.id);
-      outgoingEdges.forEach((e, i) => {
-        const siblings = outgoingEdges.length;
-        queue.push({ id: e.target, level: current.level + 1, col: current.col + i - (siblings - 1) / 2 });
-      });
-    }
+    // 2. Calculate Columns (Horizontal distribution)
+    const levelCounts: Record<number, number> = {};
+    nodes.sort((a, b) => levels[a.id] - levels[b.id]).forEach(n => {
+      const lv = levels[n.id];
+      if (levelCounts[lv] === undefined) levelCounts[lv] = 0;
+      cols[n.id] = levelCounts[lv];
+      levelCounts[lv]++;
+    });
 
+    // 3. Absolute Position with Dynamic Expansion Offset
     return nodes.map(n => {
-      const nodeCol = cols[n.id] || 0;
-      const nodeLevel = levels[n.id] || 0;
-      let xOffset = 0;
-      let yOffset = 0;
+      const lv = levels[n.id];
+      const cl = cols[n.id];
+      const totalInLv = levelCounts[lv];
+      
+      // Center the row
+      const startX = -(totalInLv - 1) * 225;
+      let x = startX + cl * 450;
+      let y = lv * 220;
 
-      if (activeNodeId && guideMode === 'structure') {
-        const activeCol = cols[activeNodeId] || 0;
-        const activeLevel = levels[activeNodeId] || 0;
-        const expansionShiftX = (600 - 256) / 2 + 40; 
-
-        if (nodeLevel === activeLevel) {
-          if (nodeCol > activeCol) xOffset = expansionShiftX;
-          if (nodeCol < activeCol) xOffset = -expansionShiftX;
-        }
+      // Expand context
+      if (activeNodeId) {
+        const aNode = nodes.find(an => an.id === activeNodeId);
+        const aLv = levels[activeNodeId];
+        const aCl = cols[activeNodeId];
         
-        if (nodeLevel > activeLevel) {
-          yOffset = 500; 
+        if (lv === aLv) {
+          if (cl > aCl) x += 180;
+          if (cl < aCl) x -= 180;
+        }
+        if (lv > aLv) {
+          y += 400; 
         }
       }
 
-      return {
-        ...n,
-        x: nodeCol * 450 + xOffset,
-        y: nodeLevel * 180 + yOffset
-      };
+      return { ...n, x, y };
     });
-  }, [activeVersion, activeNodeId, guideMode]);
+  }, [activeVersion, activeNodeId]);
 
   const resetViewport = useCallback(() => {
     if (gridNodes.length === 0 || !containerRef.current) return;
@@ -198,20 +208,21 @@ export default function ProcessDetailViewPage() {
         
         const sW = sIsExpanded ? 600 : 256;
         const tW = tIsExpanded ? 600 : 256;
+        const sH = sIsExpanded ? 400 : 80;
 
-        // Output port: Always bottom center
-        const sPortX = sNode.x + OFFSET_X + (sW / 2); 
-        const sPortY = sNode.y + OFFSET_Y + 80;
+        // EXIT: Always bottom center
+        const sX = sNode.x + OFFSET_X + (sW / 2);
+        const sY = sNode.y + OFFSET_Y + sH;
 
-        // Input port: Always top center (as requested)
-        const tPortX = tNode.x + OFFSET_X + (tW / 2);
-        const tPortY = tNode.y + OFFSET_Y;
+        // ENTRY: Always top center (Clean vertical flow)
+        const tX = tNode.x + OFFSET_X + (tW / 2);
+        const tY = tNode.y + OFFSET_Y;
 
-        // Vertical-focused cubic bezier control points
-        const controlPoint1 = { x: sPortX, y: sPortY + 40 };
-        const controlPoint2 = { x: tPortX, y: tPortY - 40 };
+        // Curve Calculation with steeper approach to avoid "flat" look
+        const dy = Math.abs(tY - sY);
+        const cpOffset = Math.max(dy * 0.5, 60); 
         
-        const path = `M ${sPortX} ${sPortY} C ${controlPoint1.x} ${controlPoint1.y}, ${controlPoint2.x} ${controlPoint2.y}, ${tPortX} ${tPortY}`;
+        const path = `M ${sX} ${sY} C ${sX} ${sY + cpOffset}, ${tX} ${tY - cpOffset}, ${tX} ${tY}`;
         newPaths.push({ path, sourceId: edge.source, targetId: edge.target });
       }
     });
@@ -237,7 +248,7 @@ export default function ProcessDetailViewPage() {
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0 || guideMode !== 'structure') return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - dragStart.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -252,7 +263,7 @@ export default function ProcessDetailViewPage() {
     e.preventDefault();
     
     const delta = e.deltaY * -0.001;
-    const newScale = Math.min(Math.max(0.3, scale + delta), 2);
+    const newScale = Math.min(Math.max(0.2, scale + delta), 2);
     
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -326,9 +337,7 @@ export default function ProcessDetailViewPage() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
-          onClick={() => {
-            if (!isDragging) setActiveNodeId(null);
-          }}
+          onClick={() => { if (!isDragging) setActiveNodeId(null); }}
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
@@ -350,7 +359,7 @@ export default function ProcessDetailViewPage() {
                   </marker>
                 </defs>
                 {connectionPaths.map((p, i) => (
-                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2" markerEnd="url(#arrowhead)" className="transition-all duration-300" />
+                  <path key={i} d={p.path} fill="none" stroke="#94a3b8" strokeWidth="2.5" markerEnd="url(#arrowhead)" className="transition-all duration-300" />
                 ))}
               </svg>
               {gridNodes.map(node => (
@@ -364,7 +373,7 @@ export default function ProcessDetailViewPage() {
           {guideMode === 'structure' && (
             <div className="absolute bottom-8 right-8 z-50 bg-white/90 backdrop-blur-md border rounded-2xl p-1.5 shadow-lg flex flex-col gap-1.5">
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
-              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.3, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
               <Separator />
               <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={(e) => { e.stopPropagation(); resetViewport(); }}><Maximize2 className="w-5 h-5" /></Button>
             </div>
