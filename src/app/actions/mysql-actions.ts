@@ -6,6 +6,7 @@ import { collection, getDocs, doc, setDoc, deleteDoc, getDoc } from 'firebase/fi
 import { getMockCollection } from '@/lib/mock-db';
 import { DataSource } from '@/lib/types';
 import { appSchema } from '@/lib/schema';
+import bcrypt from 'bcryptjs';
 
 const collectionToTableMap: { [key: string]: string } = {
   users: 'users',
@@ -234,4 +235,23 @@ export async function truncateDatabaseAreasAction(): Promise<{ success: boolean;
 
 export async function testMysqlConnectionAction(): Promise<{ success: boolean; message: string; }> {
     return await testMysqlConnection();
+}
+
+export async function updatePlatformUserPasswordAction(email: string, password: string): Promise<{ success: boolean }> {
+  const salt = bcrypt.genSaltSync(10);
+  const hashedPassword = bcrypt.hashSync(password, salt);
+  let connection;
+  try {
+    connection = await getMysqlConnection();
+    await connection.execute(
+      'UPDATE `platformUsers` SET `password` = ? WHERE `email` = ?',
+      [hashedPassword, email]
+    );
+    connection.release();
+    return { success: true };
+  } catch (error: any) {
+    if (connection) connection.release();
+    console.error("Password update failed:", error);
+    return { success: false };
+  }
 }
