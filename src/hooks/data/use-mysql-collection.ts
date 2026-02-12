@@ -84,10 +84,8 @@ export function useMysqlCollection<T>(collectionName: string, enabled: boolean) 
       return;
     }
 
-    // Initial fetch
     fetchData();
 
-    // Background polling
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         fetchData(true); 
