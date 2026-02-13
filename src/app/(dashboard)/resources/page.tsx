@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -282,7 +283,7 @@ function ResourcesPageContent() {
       return;
     }
     const blockers = checkDependencies(res.id);
-    setBlockerInfo({ title: "Permanent löschen?", items: blockers, isDelete: true, targetId: res.id });
+    setBlockerInfo({ title: "Permanent löschen?", items: blockers, targetId: res.id });
   };
 
   const handleSave = async () => {
@@ -484,7 +485,13 @@ function ResourcesPageContent() {
                           <Server className="w-4 h-4" />
                         </div>
                         <div>
-                          <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="font-bold text-sm text-slate-800 group-hover:text-primary transition-colors">{res.name}</div>
+                            <Badge variant="outline" className={cn(
+                              "text-[7px] font-black h-3.5 px-1 uppercase border-none",
+                              res.isIdentityProvider ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
+                            )}>{res.isIdentityProvider ? 'IDP' : (res.assetType)}</Badge>
+                          </div>
                           <p className="text-[9px] text-slate-400 font-bold uppercase">{res.assetType} • {res.operatingModel}</p>
                         </div>
                       </div>
@@ -497,10 +504,11 @@ function ResourcesPageContent() {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
                         {hasPB && <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full h-4 px-1.5 text-[7px] font-black uppercase">GDPR</Badge>}
+                        {res.isDataRepository && <Badge className="bg-blue-50 text-blue-700 border-none rounded-full h-4 px-1.5 text-[7px] font-black uppercase">REPO</Badge>}
                         {res.backupRequired && <Badge variant="outline" className="h-4 px-1.5 text-[7px] font-black gap-1 border-orange-200 text-orange-600"><HardDrive className="w-2 h-2" /> {backups}</Badge>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
+                    <TableCell className="text-right px-6">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
@@ -582,10 +590,10 @@ function ResourcesPageContent() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugehöriger IdP</Label>
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zugehöriger Identitätsanbieter</Label>
                       <Select value={identityProviderId} onValueChange={setIdentityProviderId}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
-                          <SelectValue placeholder="IdP wählen..." />
+                          <SelectValue placeholder="Identitätsanbieter wählen..." />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Direkt / Lokal</SelectItem>
@@ -598,10 +606,27 @@ function ResourcesPageContent() {
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Physischer Standort</Label>
                       <Input value={dataLocation} onChange={e => setDataLocation(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white shadow-sm" placeholder="z.B. Azure West Europe, RZ Nord..." />
                     </div>
+
+                    <div className="p-4 bg-white border rounded-xl shadow-sm flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] font-bold uppercase">Identitätsanbieter</Label>
+                        <p className="text-[8px] text-slate-400 uppercase font-black">Stellt Logins für andere bereit</p>
+                      </div>
+                      <Switch checked={isIdentityProvider} onCheckedChange={setIsIdentityProvider} />
+                    </div>
+
+                    <div className="p-4 bg-white border rounded-xl shadow-sm flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] font-bold uppercase">Daten-Repository</Label>
+                        <p className="text-[8px] text-slate-400 uppercase font-black">Primärer Datenablageort</p>
+                      </div>
+                      <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} />
+                    </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="gov" className="mt-0 space-y-8">
+                  {/* ... Rest of gov content (same as before) ... */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-3">
@@ -640,6 +665,7 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="ownership" className="mt-0 space-y-10">
+                  {/* ... Rest of ownership content ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6 p-6 bg-white border rounded-2xl shadow-sm">
                       <div className="flex items-center gap-3 border-b pb-3">
@@ -648,9 +674,9 @@ function ResourcesPageContent() {
                       </div>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Rollen-Standardzuweisung)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">System Owner (Blueprint)</Label>
                           <Select value={systemOwnerRoleId} onValueChange={setSystemOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Stelle wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -658,9 +684,9 @@ function ResourcesPageContent() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Rollen-Standardzuweisung)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Risk Owner (Blueprint)</Label>
                           <Select value={riskOwnerRoleId} onValueChange={setRiskOwnerRoleId}>
-                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Rollen-Standardzuweisung wählen..." /></SelectTrigger>
+                            <SelectTrigger className="rounded-xl h-11 bg-white"><SelectValue placeholder="Stelle wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
                               <SelectItem value="none">Keine</SelectItem>
                               {sortedRoles?.map(job => <SelectItem key={job.id} value={job.id}>{job.name}</SelectItem>)}
@@ -702,6 +728,7 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="maintenance" className="mt-0 space-y-10 pb-20">
+                  {/* ... Rest of maintenance content ... */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-2">
@@ -728,7 +755,7 @@ function ResourcesPageContent() {
                                   <div className="flex flex-wrap gap-2 mt-1">
                                     <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 uppercase">{job.cycle === 'Benutzerdefiniert' ? job.custom_cycle : job.cycle}</Badge>
                                     <span className="text-[9px] text-slate-400 font-bold uppercase flex items-center gap-1">
-                                      <UserCircle className="w-3 h-3" /> 
+                                      <UserCircle className="w-3.5 h-3.5" /> 
                                       {job.responsible_type === 'internal' 
                                         ? jobTitles?.find(r => r.id === job.responsible_id)?.name || 'Interner Verantwortlicher'
                                         : contacts?.find(c => c.id === job.external_contact_id)?.name || 'Externer Verantwortlicher'}
@@ -773,7 +800,7 @@ function ResourcesPageContent() {
                               <PlusCircle className="w-3.5 h-3.5" /> Prozess anlegen
                             </Button>
                           </div>
-                          <div className="relative group flex-1">
+                          <div className="relative group flex-1 mb-1.5">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                             <Input 
                               placeholder="Update-Prozesse suchen..." 
@@ -820,6 +847,7 @@ function ResourcesPageContent() {
       </Dialog>
 
       <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
+        {/* ... Backup modal content (same as before) ... */}
         <DialogContent className="max-w-3xl rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
           <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
             <div className="flex items-center gap-4">
@@ -878,8 +906,8 @@ function ResourcesPageContent() {
       <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
           <AlertDialogHeader>
-            <div className={cn("w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4", blockerInfo?.isDelete ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600")}>
-              {blockerInfo?.isDelete ? <Trash2 className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
+            <div className={cn("w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4", blockerInfo?.title.includes('löschen') ? "bg-red-100 text-red-600" : "bg-orange-100 text-orange-600")}>
+              {blockerInfo?.title.includes('löschen') ? <Trash2 className="w-7 h-7" /> : <ShieldAlert className="w-7 h-7" />}
             </div>
             <AlertDialogTitle className="text-xl font-headline font-bold text-center">{blockerInfo?.title}</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-4 text-center" asChild>
@@ -891,9 +919,8 @@ function ResourcesPageContent() {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
-            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
-            {blockerInfo?.isDelete && blockerInfo.items.length === 0 && <AlertDialogAction onClick={executeDelete} className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 shadow-lg">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}Permanent löschen</AlertDialogAction>}
+          <AlertDialogFooter className="pt-6 flex justify-center">
+            <AlertDialogCancel className="rounded-xl font-bold text-xs h-11 px-8 border-slate-200">Verstanden</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -309,6 +309,15 @@ export default function ResourceDetailPage() {
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center group/row">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">DATEN-REPO</span>
+                  <Badge className={cn(
+                    "h-5 px-2 text-[8px] font-black border-none transition-all", 
+                    resource.isDataRepository ? "bg-blue-500 text-white shadow-lg" : "bg-slate-100 text-slate-400"
+                  )}>
+                    {resource.isDataRepository ? 'JA' : 'NEIN'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center group/row">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BACKUP PFLICHT</span>
                   <Badge className={cn(
                     "h-5 px-2 text-[8px] font-black border-none transition-all", 
@@ -354,7 +363,7 @@ export default function ResourceDetailPage() {
                       <div className="space-y-1">
                         <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Anmelde-Infrastruktur</Label>
                         <div className="flex items-center gap-3 text-sm font-bold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                          <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes IdP-System' : 'Externer Directory-Dienst'}
+                          <Fingerprint className="w-4 h-4 text-primary" /> {resource.isIdentityProvider ? 'Eigenes Identitätsanbieter-System' : 'Externer Directory-Dienst'}
                         </div>
                       </div>
                     </div>
@@ -535,7 +544,7 @@ export default function ResourceDetailPage() {
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1" />
                       </div>
                     ))}
-                    {resourceTasks.length === 0 && <div className="py-16 text-center opacity-30 italic text-xs uppercase tracking-widest text-slate-400">Keine Aufgaben für diese Ressource</div>}
+                    {resourceTasks.length === 0 && <div className="p-16 text-center opacity-30 italic text-xs uppercase tracking-widest text-slate-400">Keine Aufgaben für diese Ressource</div>}
                   </div>
                 </CardContent>
               </Card>
