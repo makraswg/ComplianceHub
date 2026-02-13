@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -513,8 +512,9 @@ export default function SyncSettingsPage() {
                 <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="w-12 px-6"></TableHead>
-                    <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">Benutzer im AD</TableHead>
-                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma (Fuzzy Match)</TableHead>
+                    <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">Identität im AD</TableHead>
+                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Abteilung</TableHead>
+                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma</TableHead>
                     <TableHead className="font-bold text-[11px] text-slate-400 uppercase text-right px-6">Status im Hub</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -535,9 +535,12 @@ export default function SyncSettingsPage() {
                         </TableCell>
                         <TableCell className="py-4 px-6">
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm text-slate-800">{u.first} {u.last}</span>
+                            <span className="font-bold text-sm text-slate-800">{u.displayName || `${u.first || ''} ${u.last || ''}`.trim()}</span>
                             <span className="text-[10px] text-slate-400 font-medium">{u.email}</span>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-[11px] font-bold text-slate-600">{u.dept || '---'}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

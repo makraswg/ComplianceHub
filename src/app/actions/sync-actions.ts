@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -24,7 +23,7 @@ function normalizeForMatch(str: string): string {
  * Holt einen Attributwert sicher, auch wenn er ein Array ist.
  */
 const safeGetAttribute = (entry: any, attributeName: string | undefined, defaultValue: string = ''): string => {
-  if (!attributeName) return defaultValue;
+  if (!attributeName || !entry[attributeName]) return defaultValue;
   const value = entry[attributeName];
   if (Array.isArray(value)) {
     return value[0] || defaultValue;
@@ -220,11 +219,12 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
       return {
         username: safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName'),
-        first: safeGetAttribute(entry, config.ldapAttrFirstname, 'givenName'),
-        last: safeGetAttribute(entry, config.ldapAttrLastname, 'sn'),
-        email: safeGetAttribute(entry, config.ldapAttrEmail, 'mail'),
-        dept: safeGetAttribute(entry, config.ldapAttrDepartment, 'department'),
-        title: safeGetAttribute(entry, 'title') || safeGetAttribute(entry, 'displayName') || 'AD User',
+        first: safeGetAttribute(entry, config.ldapAttrFirstname, ''),
+        last: safeGetAttribute(entry, config.ldapAttrLastname, ''),
+        displayName: safeGetAttribute(entry, 'displayName', ''),
+        email: safeGetAttribute(entry, config.ldapAttrEmail, ''),
+        dept: safeGetAttribute(entry, config.ldapAttrDepartment, ''),
+        title: safeGetAttribute(entry, 'title', 'AD User'),
         company,
         matchedTenantId: matchedTenant?.id || null,
         matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
@@ -257,7 +257,7 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
         id: userId,
         tenantId: adUser.matchedTenantId || 't1',
         externalId: adUser.username,
-        displayName: `${adUser.first || ''} ${adUser.last || ''}`.trim() || adUser.username,
+        displayName: adUser.displayName || `${adUser.first || ''} ${adUser.last || ''}`.trim() || adUser.username,
         email: adUser.email,
         department: adUser.dept || '',
         title: adUser.title || '',
