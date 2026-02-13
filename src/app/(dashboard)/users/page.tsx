@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Table, 
@@ -88,7 +89,7 @@ import { exportUsersExcel } from '@/lib/export-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
 
-export default function UsersPage() {
+function UsersPageContent() {
   const db = useFirestore();
   const router = useRouter();
   const { user: authUser } = useAuthUser();
@@ -533,7 +534,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dependency Blocker Alert */}
       <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
           <AlertDialogHeader>
@@ -564,5 +564,13 @@ export default function UsersPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <Suspense fallback={<div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>}>
+      <UsersPageContent />
+    </Suspense>
   );
 }

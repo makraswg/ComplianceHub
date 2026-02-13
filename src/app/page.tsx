@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -32,27 +33,28 @@ export default function LoginPage() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isCheckingSystem, setIsCheckingSystem] = useState(true);
-
-  // Forgot Password State
-  const [isForgotOpen, setIsForgotOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [isForgotLoading, setIsForgotLoading] = useState(false);
-  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [dbError, setDbError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
     
     // Check if system is initialized (only for MySQL mode)
     if (dataSource === 'mysql') {
-      checkSystemStatusAction().then(res => {
-        if (!res.initialized) {
-          router.push('/setup-wizard');
-        } else {
+      const checkStatus = async () => {
+        try {
+          const res = await checkSystemStatusAction();
+          if (!res.initialized) {
+            router.push('/setup-wizard');
+          } else {
+            setIsCheckingSystem(false);
+          }
+        } catch (err: any) {
+          console.error("DB Check failed:", err);
+          setDbError("Verbindung zur MySQL-Datenbank fehlgeschlagen. Prüfen Sie, ob der Container läuft.");
           setIsCheckingSystem(false);
         }
-      }).catch(() => {
-        setIsCheckingSystem(false);
-      });
+      };
+      checkStatus();
     } else {
       setIsCheckingSystem(false);
     }
@@ -98,20 +100,6 @@ export default function LoginPage() {
       setAuthError(err.message || "Ein Systemfehler ist aufgetreten.");
     } finally {
       setIsActionLoading(false);
-    }
-  };
-
-  const handleForgotSubmit = async () => {
-    if (!forgotEmail) return;
-    setIsForgotLoading(true);
-    try {
-      const res = await requestPasswordResetAction(forgotEmail);
-      if (res.success) setForgotSuccess(true);
-      else toast({ variant: "destructive", title: "Fehler", description: res.message });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Systemfehler" });
-    } finally {
-      setIsForgotLoading(false);
     }
   };
 
@@ -163,6 +151,12 @@ export default function LoginPage() {
           
           <form onSubmit={handleLogin}>
             <CardContent className="space-y-4 pt-6">
+              {dbError && (
+                <Alert variant="destructive" className="rounded-xl border-none bg-orange-50 text-orange-700">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[10px] font-bold">{dbError}</AlertDescription>
+                </Alert>
+              )}
               {authError && (
                 <Alert variant="destructive" className="rounded-xl border-none bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
                   <AlertCircle className="h-4 w-4" />
@@ -191,7 +185,7 @@ export default function LoginPage() {
                   <button 
                     type="button" 
                     className="text-[9px] font-black text-primary hover:text-primary/80 transition-colors"
-                    onClick={() => { setForgotSuccess(false); setForgotEmail(email); setIsForgotOpen(true); }}
+                    onClick={() => { setIsForgotOpen(true); setForgotSuccess(false); setForgotEmail(email); }}
                   >
                     Vergessen?
                   </button>

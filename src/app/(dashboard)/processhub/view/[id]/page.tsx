@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft, 
@@ -83,7 +84,7 @@ import { toast } from '@/hooks/use-toast';
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
 
-export default function ProcessDetailViewPage() {
+function ProcessDetailViewContent() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -534,5 +535,13 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </CardContent>
       )}
     </Card>
+  );
+}
+
+export default function ProcessDetailViewPage() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>}>
+      <ProcessDetailViewContent />
+    </Suspense>
   );
 }

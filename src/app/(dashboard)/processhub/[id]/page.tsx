@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { 
   Workflow, 
   ChevronLeft, 
@@ -107,9 +107,10 @@ function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<str
   return finalId;
 }
 
-export default function ProcessDesignerPage() {
+function ProcessDesignerContent() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1091,5 +1092,13 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </CardContent>
       )}
     </Card>
+  );
+}
+
+export default function ProcessDesignerPage() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>}>
+      <ProcessDesignerContent />
+    </Suspense>
   );
 }

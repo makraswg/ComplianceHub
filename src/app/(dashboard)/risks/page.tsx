@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
@@ -103,20 +104,6 @@ function RiskDashboardContent() {
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<RiskAdvisorOutput | null>(null);
-
-  // Quick Assessment State
-  const [isQuickAssessmentOpen, setIsQuickAssessmentOpen] = useState(false);
-  const [assessmentType, setAssessmentType] = useState<'resource' | 'process'>('resource');
-  const [assessmentData, setAssessmentData] = useState<Record<string, { impact: string, probability: string, comment: string }>>({});
-
-  // Task Creation States
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
-  const [isSavingTask, setIsSavingTask] = useState(false);
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskDesc, setTaskDesc] = useState('');
-  const [taskAssigneeId, setTaskAssigneeId] = useState('');
-  const [taskPriority, setTaskPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
-  const [taskTargetRisk, setTaskTargetRisk] = useState<Risk | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
