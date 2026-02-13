@@ -61,7 +61,8 @@ import {
   Search,
   Check,
   LayoutGrid,
-  Layers
+  Layers,
+  Globe
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -102,7 +103,7 @@ import {
 } from '@/components/ui/dialog';
 
 // TipTap Imports
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Table from '@tiptap/extension-table';
@@ -110,7 +111,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import Link from '@tiptap/extension-link';
-import Placeholder from '@radix-ui/react-placeholder';
+import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
@@ -221,7 +222,10 @@ export default function PolicyDetailPage() {
         types: ['heading', 'paragraph'],
       }),
       Highlight,
-      Typography
+      Typography,
+      Placeholder.configure({
+        placeholder: 'Beginnen Sie hier mit der Erstellung Ihrer Richtlinie...',
+      })
     ],
     content: '',
     editable: false,
@@ -391,7 +395,7 @@ export default function PolicyDetailPage() {
           </Button>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{policy.title}</h1>
+              <h1 className="text-2xl font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">{policy.title}</h1>
               <Badge className={cn(
                 "rounded-full px-3 h-6 text-[10px] font-black uppercase border-none shadow-sm",
                 policy.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
@@ -431,7 +435,7 @@ export default function PolicyDetailPage() {
           </DropdownMenu>
 
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
-            {isAiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
+            {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
           </Button>
           {!editMode ? (
             <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all" onClick={() => setEditMode(true)}>
@@ -450,22 +454,22 @@ export default function PolicyDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
-          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
+          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
+            <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dokumenten-Info</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ownership (Rolle)</p>
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
                     <Briefcase className="w-4 h-4 text-primary" />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{jobTitles?.find(j => j.id === policy.ownerRoleId)?.name || 'Nicht zugewiesen'}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nächster Review</p>
-                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
                     <Clock className="w-4 h-4 text-orange-500" />
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">In {policy.reviewInterval} Tagen</span>
                   </div>
@@ -474,8 +478,8 @@ export default function PolicyDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
+          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-800 overflow-hidden">
+            <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-6 flex flex-row items-center justify-between">
               <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                 <Paperclip className="w-3.5 h-3.5" /> Anhänge ({policyAttachments.length})
               </CardTitle>
@@ -487,7 +491,7 @@ export default function PolicyDetailPage() {
             <CardContent className="p-4">
               <div className="space-y-2">
                 {policyAttachments.map(file => (
-                  <div key={file.id} className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-primary/20 transition-all">
+                  <div key={file.id} className="p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between group hover:border-primary/20 transition-all">
                     <div className="min-w-0 flex items-center gap-2">
                       {file.fileType.includes('image') ? <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> : <FileText className="w-3.5 h-3.5 text-slate-400" />}
                       <span className="text-[10px] font-bold truncate max-w-[120px]">{file.fileName}</span>
@@ -504,14 +508,14 @@ export default function PolicyDetailPage() {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="content" className="space-y-6">
-            <TabsList className="bg-slate-100 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner">
-              <TabsTrigger value="content" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner">
+              <TabsTrigger value="content" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg">
                 <BookOpen className="w-4 h-4" /> Inhalt
               </TabsTrigger>
-              <TabsTrigger value="links" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+              <TabsTrigger value="links" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg">
                 <Target className="w-4 h-4" /> GRC-Bezug
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+              <TabsTrigger value="history" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg">
                 <History className="w-4 h-4" /> Historie
               </TabsTrigger>
             </TabsList>
@@ -520,53 +524,52 @@ export default function PolicyDetailPage() {
               {editMode && editor ? (
                 <div className="space-y-6">
                   <Card className="rounded-2xl border shadow-xl overflow-hidden flex flex-col">
-                    <CardHeader className="bg-slate-50 border-b p-0 flex flex-col sticky top-0 z-30">
-                      <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-100">
+                    <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-0 flex flex-col sticky top-0 z-30">
+                      <div className="p-4 px-6 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-600">
                         <div className="flex items-center gap-3">
                           <FileEdit className="w-5 h-5 text-primary" />
-                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-900">WYSIWYG Dokumenten-Editor</CardTitle>
+                          <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-800 dark:text-white">Dokumenten-Editor</CardTitle>
                         </div>
                         <Badge className="bg-emerald-100 text-emerald-700 border-none rounded-full text-[8px] font-black uppercase px-2 h-4">Word-Modus Aktiv</Badge>
                       </div>
                       
-                      <div className="bg-white p-2 px-6 flex flex-wrap items-center gap-1">
+                      <div className="bg-white dark:bg-slate-800 p-2 px-6 flex flex-wrap items-center gap-1">
                         <TooltipProvider>
-                          <div className="flex items-center gap-0.5 pr-2 border-r">
+                          <div className="flex items-center gap-0.5 pr-2 border-r dark:border-slate-600">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bold') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('italic') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
                           </div>
                           
-                          <div className="flex items-center gap-0.5 px-2 border-r">
-                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 1</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent></Tooltip>
+                          <div className="flex items-center gap-0.5 px-2 border-r dark:border-slate-600">
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">H1</TooltipContent></Tooltip>
+                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">H2</TooltipContent></Tooltip>
                           </div>
 
-                          <div className="flex items-center gap-0.5 px-2 border-r">
+                          <div className="flex items-center gap-0.5 px-2 border-r dark:border-slate-600">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Linksbündig</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zentriert</TooltipContent></Tooltip>
-                            <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'right' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('right').run()}><AlignRight className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Rechtsbündig</TooltipContent></Tooltip>
                           </div>
 
-                          <div className="flex items-center gap-0.5 px-2 border-r">
+                          <div className="flex items-center gap-0.5 px-2 border-r dark:border-slate-600">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
                           </div>
 
-                          <div className="flex items-center gap-0.5 px-2 border-r">
+                          <div className="flex items-center gap-0.5 px-2 border-r dark:border-slate-600">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"><TableIcon className="w-4 h-4" /></Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent className="w-48 rounded-xl p-1">
                                 <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
-                                  <PlusSquare className="w-3.5 h-3.5" /> Tabelle einfügen (3x3)
+                                  <PlusSquare className="w-3.5 h-3.5" /> Tabelle (3x3)
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().addColumnAfter().run()}>
-                                  <Columns className="w-3.5 h-3.5" /> Spalte hinzufügen
+                                  <Columns className="w-3.5 h-3.5" /> Spalte +
                                 </DropdownMenuItem>
                                 <DropdownMenuItem className="text-xs font-bold gap-2" onSelect={() => editor.chain().focus().addRowAfter().run()}>
-                                  <Rows className="w-3.5 h-3.5" /> Zeile hinzufügen
+                                  <Rows className="w-3.5 h-3.5" /> Zeile +
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-xs font-bold gap-2 text-red-600" onSelect={() => editor.chain().focus().deleteTable().run()}>
@@ -583,25 +586,32 @@ export default function PolicyDetailPage() {
                                   <LuImage className="w-4 h-4" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent className="text-[10px] font-bold">Bilder einfügen/verwalten</TooltipContent>
+                              <TooltipContent className="text-[10px] font-bold">Bilder</TooltipContent>
                             </Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setHorizontalRule().run()}><Minus className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Trennlinie</TooltipContent></Tooltip>
                           </div>
                         </TooltipProvider>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0 bg-slate-100 flex justify-center overflow-auto min-h-[800px]">
-                      <div className="w-full max-w-4xl min-h-[1000px] bg-white shadow-2xl my-12 mx-4 p-20 rounded-sm relative prose prose-slate max-w-none">
+                    <CardContent className="p-0 bg-slate-100 dark:bg-slate-900 flex justify-center overflow-auto min-h-[800px]">
+                      <div className="w-full max-w-4xl min-h-[1000px] bg-white dark:bg-slate-800 shadow-2xl my-12 mx-4 p-20 rounded-sm relative prose prose-slate dark:prose-invert max-w-none">
+                        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+                          <div className="flex items-center gap-1 p-1 bg-slate-800 text-white rounded-lg shadow-xl">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-700" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-700" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-slate-700" onClick={() => editor.chain().focus().toggleHighlight().run()}><Type className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </BubbleMenu>
                         <EditorContent editor={editor} className="outline-none min-h-[800px]" />
                       </div>
                     </CardContent>
-                    <div className="p-8 border-t bg-slate-50 space-y-6">
+                    <div className="p-8 border-t bg-slate-50 dark:bg-slate-800 space-y-6">
                       <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Änderungsgrund (revisionssicher)</Label>
-                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="z.B. Integration der neuen Home-Office Richtlinie..." className="rounded-xl h-12 bg-white border-slate-200 font-bold" />
+                        <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Revision-Notiz..." className="rounded-xl h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 font-bold" />
                       </div>
                       <div className="flex justify-end gap-3">
-                        <Button variant="outline" className="rounded-xl h-12 px-8 font-black text-[10px] uppercase border-slate-200" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Offizielle Freigabe (Major)</Button>
+                        <Button variant="outline" className="rounded-xl h-12 px-8 font-black text-[10px] uppercase border-slate-200 dark:border-slate-700" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Freigabe (Major)</Button>
                         <Button className="rounded-xl h-12 px-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase shadow-lg transition-all active:scale-95 gap-2" onClick={() => handleSaveVersion(false)} disabled={isSaving}>
                           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Revision Sichern
                         </Button>
@@ -610,28 +620,28 @@ export default function PolicyDetailPage() {
                   </Card>
                 </div>
               ) : (
-                <Card className="rounded-2xl border shadow-xl bg-white p-16 min-h-[700px] relative overflow-hidden">
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 p-16 min-h-[700px] relative overflow-hidden">
                   <div className="max-w-4xl mx-auto">
                     {activeVersion ? (
                       <div className="space-y-10">
                         <header className="space-y-4">
-                          <h1 className="font-headline font-black text-4xl text-slate-900 leading-tight">{policy.title}</h1>
-                          <div className="flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 p-3 rounded-xl border border-slate-100 w-fit">
+                          <h1 className="font-headline font-black text-4xl text-slate-800 dark:text-white leading-tight">{policy.title}</h1>
+                          <div className="flex items-center gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-700 w-fit">
                             <span className="flex items-center gap-2"><CalendarDays className="w-4 h-4 opacity-50" /> {new Date(activeVersion.createdAt).toLocaleDateString()}</span>
                             <span className="flex items-center gap-2"><BadgeCheck className="w-4 h-4 text-emerald-500" /> Version {activeVersion.version}.{activeVersion.revision}</span>
                             <span className="flex items-center gap-2"><UserCircle className="w-4 h-4 opacity-50" /> {activeVersion.createdBy}</span>
                           </div>
                         </header>
-                        <Separator />
-                        <div className="text-lg leading-relaxed text-slate-700 font-medium font-body prose prose-slate max-w-none break-words" dangerouslySetInnerHTML={{ __html: activeVersion.content }} />
+                        <Separator className="dark:bg-slate-700" />
+                        <div className="text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-medium font-body prose prose-slate dark:prose-invert max-w-none break-words" dangerouslySetInnerHTML={{ __html: activeVersion.content }} />
                       </div>
                     ) : (
                       <div className="py-32 text-center space-y-8 opacity-30">
-                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-300">
+                        <div className="w-24 h-24 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mx-auto border border-dashed border-slate-300 dark:border-slate-700">
                           <ScrollText className="w-12 h-12 text-slate-300" />
                         </div>
                         <div className="space-y-3">
-                          <p className="text-lg font-bold uppercase tracking-widest text-slate-900">Kein Dokumenten-Inhalt</p>
+                          <p className="text-lg font-bold uppercase tracking-widest text-slate-800 dark:text-white">Kein Dokumenten-Inhalt</p>
                           <p className="text-sm text-slate-500 italic max-w-sm mx-auto leading-relaxed">Dieses Dokument wurde noch nicht befüllt. Nutzen Sie den Editor, um den Text zu erstellen.</p>
                         </div>
                         <Button className="rounded-xl h-12 px-12 bg-primary text-white font-bold text-xs uppercase tracking-widest shadow-lg" onClick={() => setEditMode(true)}>Editor öffnen</Button>
@@ -643,33 +653,33 @@ export default function PolicyDetailPage() {
             </TabsContent>
 
             <TabsContent value="links" className="space-y-10 animate-in fade-in">
-              <div className="p-8 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] flex items-center gap-8 shadow-sm">
+              <div className="p-8 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-[2rem] flex items-center gap-8 shadow-sm">
                 <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shrink-0">
                   <Target className="w-8 h-8" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-black uppercase text-indigo-900">GRC-Context Mapping</h4>
-                  <p className="text-xs text-indigo-700 font-medium leading-relaxed italic">
+                  <h4 className="text-sm font-black uppercase text-indigo-900 dark:text-indigo-300">GRC-Context Mapping</h4>
+                  <p className="text-xs text-indigo-700 dark:text-indigo-400 font-medium leading-relaxed italic">
                     Verknüpfen Sie dieses Dokument mit Risiken, Maßnahmen und anderen relevanten Richtlinien.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
+                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-800 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
                       <Layers className="w-3.5 h-3.5" /> Querverweise (Richtlinien)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {linkedPolicies.map(lp => (
-                        <div key={lp.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                        <div key={lp.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                           <div className="flex items-center gap-4">
                             <ScrollText className="w-5 h-5 text-indigo-400" />
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{lp.title}</p>
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{lp.title}</p>
                               <Badge variant="outline" className="text-[7px] font-black h-3.5 px-1 uppercase">{lp.type}</Badge>
                             </div>
                           </div>
@@ -684,20 +694,20 @@ export default function PolicyDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
-                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
+                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-800 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-orange-600 tracking-widest flex items-center gap-2">
                       <AlertTriangle className="w-3.5 h-3.5" /> Risikobezug
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {linkedRisks.map(r => (
-                        <div key={r.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                        <div key={r.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                           <div className="flex items-center gap-4">
                             <ShieldAlert className="w-5 h-5 text-orange-500" />
                             <div>
-                              <p className="text-xs font-bold text-slate-800">{r.title}</p>
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{r.title}</p>
                               <p className="text-[9px] text-slate-400 font-black uppercase">{r.category}</p>
                             </div>
                           </div>
@@ -709,20 +719,20 @@ export default function PolicyDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden md:col-span-2">
-                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
+                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-800 overflow-hidden md:col-span-2">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2">
                       <ShieldCheck className="w-3.5 h-3.5" /> Verknüpfte Maßnahmen (TOM)
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {linkedMeasures.map(m => (
-                        <div key={m.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                        <div key={m.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                           <div className="flex items-center gap-4">
                             <ShieldCheck className="w-5 h-5 text-emerald-500" />
                             <div>
-                              <p className="text-xs font-bold text-slate-800">{m.title}</p>
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{m.title}</p>
                               <p className="text-[9px] text-slate-400 font-black uppercase">{m.tomCategory || 'TOM'}</p>
                             </div>
                           </div>
@@ -735,13 +745,13 @@ export default function PolicyDetailPage() {
                 </Card>
               </div>
 
-              <div className="p-8 bg-slate-50 border border-dashed rounded-[2.5rem] flex flex-col items-center gap-6 shadow-inner">
+              <div className="p-8 bg-slate-50 dark:bg-slate-900 border border-dashed rounded-[2.5rem] flex flex-col items-center gap-6 shadow-inner">
                 <div className="text-center space-y-1">
                   <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung hinzufügen</h4>
                 </div>
                 <div className="flex flex-wrap justify-center gap-4">
                   <Select onValueChange={(val) => handleLinkEntity('policy', val)}>
-                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Richtlinie verknüpfen" /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs"><SelectValue placeholder="Richtlinie verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">
                       {policies?.filter(p => p.id !== id && !linkedPolicies.some(lp => lp.id === p.id)).map(p => (
                         <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
@@ -749,11 +759,11 @@ export default function PolicyDetailPage() {
                     </SelectContent>
                   </Select>
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
-                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Risiko verknüpfen" /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs"><SelectValue placeholder="Risiko verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id} className="text-xs">{r.title}</SelectItem>)}</SelectContent>
                   </Select>
                   <Select onValueChange={(val) => handleLinkEntity('measure', val)}>
-                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Maßnahme verknüpfen" /></SelectTrigger>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold text-xs"><SelectValue placeholder="Maßnahme verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">{measures?.filter(m => !linkedMeasures.some(lm => lm.id === m.id)).map(m => <SelectItem key={m.id} value={m.id} className="text-xs">{m.title}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -761,27 +771,27 @@ export default function PolicyDetailPage() {
             </TabsContent>
 
             <TabsContent value="history" className="animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b p-6 px-8">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-6 px-8">
                   <div className="flex items-center gap-3">
                     <History className="w-5 h-5 text-slate-500" />
                     <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight">Audit Trail & Revisionen</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
                     {policyVersions.map(v => (
-                      <div key={v.id} className="p-8 hover:bg-slate-50 transition-all flex items-start justify-between group">
+                      <div key={v.id} className="p-8 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-start justify-between group">
                         <div className="flex items-start gap-6">
                           <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center border shadow-inner transition-transform group-hover:scale-105", v.revision === 0 ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100")}>
                             {v.revision === 0 ? <BadgeCheck className="w-7 h-7" /> : <History className="w-7 h-7" />}
                           </div>
                           <div className="space-y-2">
                             <div className="flex items-center gap-3">
-                              <h4 className="font-black text-slate-900 text-base">Version {v.version}.{v.revision}</h4>
+                              <h4 className="font-black text-slate-800 dark:text-white text-base">Version {v.version}.{v.revision}</h4>
                               {v.revision === 0 && <Badge className="bg-emerald-500 text-white border-none rounded-full text-[8px] font-black uppercase px-2 h-4">Major Release</Badge>}
                             </div>
-                            <p className="text-[11px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200 italic max-w-xl">
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 italic max-w-xl">
                               "{v.changelog || 'Keine Revisionsnotiz hinterlegt.'}"
                             </p>
                             <div className="flex items-center gap-6 text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1">
@@ -790,7 +800,7 @@ export default function PolicyDetailPage() {
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black h-9 px-6 rounded-xl hover:bg-white shadow-sm" onClick={() => { if(editor) editor.commands.setContent(v.content); setEditMode(true); window.scrollTo({top: 0, behavior: 'smooth'}); }}>Snapshot laden</Button>
+                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black h-9 px-6 rounded-xl hover:bg-white dark:hover:bg-slate-600 shadow-sm" onClick={() => { if(editor) editor.commands.setContent(v.content); setEditMode(true); window.scrollTo({top: 0, behavior: 'smooth'}); }}>Snapshot laden</Button>
                       </div>
                     ))}
                   </div>
@@ -802,7 +812,7 @@ export default function PolicyDetailPage() {
       </div>
 
       <Dialog open={isMediaPickerOpen} onOpenChange={setIsMediaPickerOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
+        <DialogContent className="max-w-4xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white dark:bg-slate-900">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -821,72 +831,44 @@ export default function PolicyDetailPage() {
           </DialogHeader>
 
           <div className="flex-1 flex overflow-hidden">
-            <aside className="w-64 border-r bg-slate-50/50 p-6 space-y-6 hidden md:block">
+            <aside className="w-64 border-r dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950 p-6 space-y-6 hidden md:block">
               <div className="space-y-4">
                 <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnell-Upload</Label>
                 <div 
-                  className="p-8 border-2 border-dashed rounded-xl bg-white flex flex-col items-center justify-center text-center gap-3 cursor-pointer hover:border-primary/50 transition-all group"
+                  className="p-8 border-2 border-dashed rounded-xl bg-white dark:bg-slate-900 flex flex-col items-center justify-center text-center gap-3 cursor-pointer hover:border-primary/50 transition-all group"
                   onClick={() => mediaPickerInputRef.current?.click()}
                 >
                   <input type="file" ref={mediaPickerInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                   <FileUp className={cn("w-8 h-8 text-slate-300 group-hover:text-primary transition-colors", isUploading && "animate-bounce")} />
-                  <p className="text-[10px] font-bold text-slate-600">Bild hochladen</p>
+                  <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">Bild hochladen</p>
                 </div>
-              </div>
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl space-y-2">
-                <p className="text-[10px] font-bold text-blue-800 flex items-center gap-2 uppercase">
-                  <Info className="w-3 h-3" /> Tipp
-                </p>
-                <p className="text-[9px] text-blue-600 leading-relaxed font-medium">
-                  Bilder werden automatisch am Dokument gespeichert und können jederzeit wiederverwendet werden.
-                </p>
               </div>
             </aside>
 
-            <main className="flex-1 flex flex-col min-h-0 bg-white">
-              <div className="p-4 border-b flex items-center justify-between shrink-0">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verfügbare Grafiken ({imageAttachments.length})</h4>
-                <div className="md:hidden">
-                  <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold" onClick={() => mediaPickerInputRef.current?.click()}>
-                    {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />} Upload
-                  </Button>
-                </div>
+            <main className="flex-1 flex flex-col min-h-0 bg-white dark:bg-slate-900">
+              <div className="p-4 border-b dark:border-slate-700 flex items-center justify-between shrink-0">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Grafiken ({imageAttachments.length})</h4>
               </div>
               <ScrollArea className="flex-1">
                 <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {imageAttachments.map(img => (
                     <div 
                       key={img.id} 
-                      className="group relative aspect-square rounded-xl border border-slate-100 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-primary hover:border-transparent transition-all"
+                      className="group relative aspect-square rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden cursor-pointer shadow-sm hover:ring-2 hover:ring-primary hover:border-transparent transition-all"
                       onClick={() => handleInsertImage(img.fileUrl)}
                     >
                       <img src={img.fileUrl} alt={img.fileName} className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500" />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2 text-center">
-                        <div className="space-y-2">
-                          <Check className="w-6 h-6 text-white mx-auto" />
-                          <p className="text-[8px] font-black uppercase text-white truncate max-w-[100px]">{img.fileName}</p>
-                        </div>
+                        <Check className="w-6 h-6 text-white" />
                       </div>
                     </div>
                   ))}
-                  {imageAttachments.length === 0 && !isUploading && (
-                    <div className="col-span-full py-20 text-center opacity-30 space-y-4">
-                      <ImageIcon className="w-16 h-16 mx-auto text-slate-200" />
-                      <p className="text-xs font-black uppercase tracking-widest">Noch keine Bilder hochgeladen</p>
-                    </div>
-                  )}
-                  {isUploading && (
-                    <div className="aspect-square rounded-xl border border-dashed flex flex-col items-center justify-center gap-2 bg-slate-50 animate-pulse">
-                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                      <span className="text-[8px] font-black uppercase text-slate-400">Verarbeitung...</span>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </main>
           </div>
 
-          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0">
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t dark:border-slate-700 shrink-0">
             <Button variant="ghost" onClick={() => setIsMediaPickerOpen(false)} className="rounded-xl font-bold text-[10px] uppercase">Schließen</Button>
           </DialogFooter>
         </DialogContent>

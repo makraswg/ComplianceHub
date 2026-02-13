@@ -104,7 +104,7 @@ export default function PoliciesPage() {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const base64 = e.target?.result as string;
-          const content = `# Importiertes Dokument: ${importFile.name}\n\nDieses Dokument wurde als PDF/Datei importiert. Der Originalinhalt ist als Anhang verfügbar.\n\n---\n*System-Notiz: Import am ${new Date().toLocaleString()}*`;
+          const content = `<h1>Importiertes Dokument: ${importFile.name}</h1><p>Dieses Dokument wurde als Datei importiert. Der Originalinhalt ist als Anhang verfügbar.</p>`;
           await commitPolicyVersionAction(res.policyId, 1, content, "Initialer Dokumenten-Import", user?.email || 'system', dataSource, true);
           
           const mediaId = `med-pol-${Math.random().toString(36).substring(2, 7)}`;
@@ -175,7 +175,7 @@ export default function PoliciesPage() {
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-bold border-none uppercase tracking-widest">Policy Hub</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Richtlinien & Vorgaben</h1>
+            <h1 className="text-2xl font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">Richtlinien & Vorgaben</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung eigenständiger Dokumente und Richtlinien.</p>
           </div>
         </div>
@@ -186,17 +186,17 @@ export default function PoliciesPage() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-800 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-emerald-600 transition-colors" />
           <Input 
             placeholder="Dokument suchen..." 
-            className="pl-9 h-9 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            className="pl-9 h-9 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 h-9 shrink-0">
+        <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-lg border border-slate-200 dark:border-slate-600 h-9 shrink-0">
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px]">
               <Filter className="w-3 h-3 mr-1.5 text-slate-400" />
@@ -213,7 +213,7 @@ export default function PoliciesPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin text-emerald-600 opacity-20 mx-auto" /></div>
         ) : filteredPolicies.length === 0 ? (
@@ -223,8 +223,8 @@ export default function PoliciesPage() {
           </div>
         ) : (
           <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-b">
+            <TableHeader className="bg-slate-50/50 dark:bg-slate-700/50">
+              <TableRow className="border-b dark:border-slate-700">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Dokument / Titel</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Typ</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Status</TableHead>
@@ -234,15 +234,15 @@ export default function PoliciesPage() {
             </TableHeader>
             <TableBody>
               {filteredPolicies.map(p => (
-                <TableRow key={p.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/policies/${p.id}`)}>
+                <TableRow key={p.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b dark:border-slate-700 last:border-0 cursor-pointer" onClick={() => router.push(`/policies/${p.id}`)}>
                   <TableCell className="py-4 px-6">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center border shadow-inner bg-emerald-50 text-emerald-600 border-emerald-100">
                         <FileText className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="font-bold text-sm text-slate-800 group-hover:text-emerald-600 transition-colors">{p.title}</div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{p.tenantId}</p>
+                        <div className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">{p.title}</div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{getTenantSlug(p.tenantId)}</p>
                       </div>
                     </div>
                   </TableCell>
@@ -252,18 +252,18 @@ export default function PoliciesPage() {
                   <TableCell>
                     <Badge className={cn(
                       "rounded-full text-[9px] font-black h-5 px-3 border-none shadow-sm uppercase",
-                      p.status === 'published' ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-500"
+                      p.status === 'published' ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300"
                     )}>{p.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    <span className="text-[10px] font-bold text-slate-600">V{p.currentVersion}.0</span>
+                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">V{p.currentVersion}.0</span>
                   </TableCell>
                   <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/policies/${p.id}`)}><Eye className="w-3.5 h-3.5 text-primary" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5 text-slate-400" /></Button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 dark:hover:bg-slate-600 transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                           <DropdownMenuItem onSelect={() => router.push(`/policies/${p.id}`)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Eye className="w-4 h-4 text-emerald-600" /> Details & Editor</DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => openEdit(p)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Pencil className="w-4 h-4 text-slate-400" /> Metadaten</DropdownMenuItem>
@@ -280,9 +280,8 @@ export default function PoliciesPage() {
         )}
       </div>
 
-      {/* Manual Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(v) => !v && setIsDialogOpen(false)}>
-        <DialogContent className="max-w-xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+        <DialogContent className="max-w-xl w-[95vw] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white dark:bg-slate-800">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 border border-white/10 shadow-lg">
@@ -326,14 +325,14 @@ export default function PoliciesPage() {
                   <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2">
                     <Zap className="w-3.5 h-3.5 fill-current" /> Quick Start: Dokumenten-Import
                   </Label>
-                  <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center gap-2 hover:bg-white transition-all cursor-pointer group" onClick={() => document.getElementById('file-import')?.click()}>
+                  <div className="p-6 border-2 border-dashed rounded-2xl bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center text-center gap-2 hover:bg-white dark:hover:bg-slate-700 transition-all cursor-pointer group" onClick={() => document.getElementById('file-import')?.click()}>
                     <input type="file" id="file-import" className="hidden" onChange={e => setImportFile(e.target.files?.[0] || null)} />
                     <FileUp className="w-8 h-8 text-slate-300 group-hover:text-emerald-500 transition-colors" />
                     {importFile ? (
                       <p className="text-xs font-bold text-emerald-600">{importFile.name}</p>
                     ) : (
                       <>
-                        <p className="text-xs font-bold text-slate-700">Existierende Datei hochladen</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Existierende Datei hochladen</p>
                         <p className="text-[10px] text-slate-400">PDF oder Word importiert Metadaten und Archiv-Kopie</p>
                       </>
                     )}
@@ -343,7 +342,7 @@ export default function PoliciesPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-700 border-t flex gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 uppercase">Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving || !title} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-12 h-11 shadow-lg gap-2 uppercase">
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern

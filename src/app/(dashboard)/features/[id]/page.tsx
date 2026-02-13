@@ -48,7 +48,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
   Feature, FeatureLink, Process, Resource, Risk, RiskMeasure, 
-  Department, JobTitle, ProcessVersion, Task, PlatformUser, ProcessNode, DataStore
+  Department, JobTitle, ProcessVersion, Task, PlatformUser, ProcessNode, DataStore, Tenant
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -141,7 +141,7 @@ export default function FeatureDetailPage() {
           </Button>
           <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">{feature.name}</h1>
+              <h1 className="text-2xl font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">{feature.name}</h1>
               <Badge className="rounded-full px-3 h-6 text-[9px] font-black uppercase bg-primary/10 text-primary border-none shadow-sm">{feature.status}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
@@ -157,12 +157,12 @@ export default function FeatureDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <aside className="lg:col-span-1 space-y-6">
-          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
-            <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
+          <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden group">
+            <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Governance & CIA</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-8">
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Matrix Kritikalität</span>
                 <p className={cn("text-4xl font-black uppercase", feature.criticality === 'high' ? "text-red-600" : "text-emerald-600")}>{feature.criticality}</p>
                 <Badge variant="outline" className="mt-2 h-5 px-2 bg-white text-[8px] font-black">{feature.criticalityScore} Punkte</Badge>
@@ -175,7 +175,7 @@ export default function FeatureDetailPage() {
                   { label: 'Integrität', val: feature.integrityReq },
                   { label: 'Verfügbarkeit', val: feature.availabilityReq }
                 ].map(req => (
-                  <div key={req.label} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 border rounded-xl shadow-sm">
+                  <div key={req.label} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border rounded-xl shadow-sm">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{req.label}</span>
                     <Badge variant="outline" className={cn(
                       "text-[8px] font-black border-none px-2 h-5",
@@ -185,7 +185,7 @@ export default function FeatureDetailPage() {
                 ))}
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortung</Label>
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
@@ -245,12 +245,12 @@ export default function FeatureDetailPage() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6 animate-in fade-in duration-500">
-              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-headline font-bold uppercase text-slate-900 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-6"><CardTitle className="text-sm font-headline font-bold uppercase text-slate-800 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
                 <CardContent className="p-6 space-y-8">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Zweck & Beschreibung</Label>
-                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
+                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
                   </div>
                   <div className="p-5 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-4">
                     <Target className="w-5 h-5 text-indigo-600 mt-0.5" />
@@ -273,12 +273,12 @@ export default function FeatureDetailPage() {
 
             <TabsContent value="context" className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">Operative Workflows</CardTitle></CardHeader>
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-800 dark:text-white">Operative Workflows</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {relatedProcLinks.map((link: any) => (
-                        <div key={link.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
+                        <div key={link.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors group" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
                           <div className="flex items-center gap-3">
                             <Workflow className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{processes?.find(p => p.id === link.processId)?.title}</span>
@@ -290,12 +290,12 @@ export default function FeatureDetailPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Infrastruktur)</CardTitle></CardHeader>
+                <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
+                  <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-800 dark:text-white">IT-Systeme (Infrastruktur)</CardTitle></CardHeader>
                   <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
                       {indirectResources.map(res => (
-                        <div key={res?.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group" onClick={() => router.push(`/resources/${res?.id}`)}>
+                        <div key={res?.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors group" onClick={() => router.push(`/resources/${res?.id}`)}>
                           <div className="flex items-center gap-3">
                             <Server className="w-4 h-4 text-slate-400 group-hover:scale-110 transition-transform" />
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res?.name}</span>
@@ -313,13 +313,13 @@ export default function FeatureDetailPage() {
             <TabsContent value="deps" className="space-y-6 animate-in fade-in">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {dependentFeatures.map(df => (
-                  <div key={df.id} className="p-4 bg-white dark:bg-slate-900 border rounded-2xl flex items-center justify-between group hover:border-orange-300 shadow-sm transition-all cursor-pointer" onClick={() => router.push(`/features/${df.id}`)}>
+                  <div key={df.id} className="p-4 bg-white dark:bg-slate-800 border rounded-2xl flex items-center justify-between group hover:border-orange-300 shadow-sm transition-all cursor-pointer" onClick={() => router.push(`/features/${df.id}`)}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner border border-orange-100">
                         <Network className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{df.name}</p>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{df.name}</p>
                         <Badge variant="outline" className="text-[7px] font-black h-3.5 border-none bg-slate-50 uppercase">{df.carrier}</Badge>
                       </div>
                     </div>
@@ -335,11 +335,11 @@ export default function FeatureDetailPage() {
             </TabsContent>
 
             <TabsContent value="tasks" className="animate-in fade-in">
-              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
                 <CardContent className="p-0">
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-700">
                     {relatedTasks.map(t => (
-                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
+                      <div key={t.id} className="p-4 px-8 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center justify-between group cursor-pointer" onClick={() => router.push('/tasks')}>
                         <div className="flex items-center gap-4">
                           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg", t.status === 'done' ? "bg-emerald-500" : "bg-indigo-600")}>
                             <ClipboardList className="w-5 h-5" />
@@ -360,9 +360,9 @@ export default function FeatureDetailPage() {
 
       {/* Task Creation Dialog */}
       <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-slate-900">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800 border-b shrink-0">
-            <DialogTitle className="text-base font-headline font-bold uppercase tracking-tight">Aufgabe erstellen</DialogTitle>
+        <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl bg-white dark:bg-slate-800">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-700 border-b shrink-0">
+            <DialogTitle className="text-base font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">Aufgabe erstellen</DialogTitle>
             <DialogDescription className="text-[10px] text-slate-400 font-bold">Referenz: {feature.name}</DialogDescription>
           </DialogHeader>
           <div className="p-6 space-y-6">
@@ -378,7 +378,7 @@ export default function FeatureDetailPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800 border-t">
+          <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-700 border-t">
             <Button variant="ghost" onClick={() => setIsTaskDialogOpen(false)}>Abbrechen</Button>
             <Button onClick={handleCreateTask} disabled={isSavingTask || !taskTitle} className="bg-primary text-white font-bold text-xs h-11 px-8 rounded-xl shadow-lg">
               {isSavingTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Erstellen
