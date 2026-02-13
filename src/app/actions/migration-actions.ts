@@ -1,22 +1,40 @@
-
 'use server';
 
 import { getPool, dbQuery } from '@/lib/mysql';
 import { appSchema } from '@/lib/schema';
 import bcrypt from 'bcryptjs';
 
+/**
+ * Prüft den Systemstatus. 
+ * Das System gilt als initialisiert, wenn die Tabelle platformUsers existiert und mindestens ein Admin vorhanden ist.
+ */
 export async function checkSystemStatusAction(): Promise<{ initialized: boolean }> {
+  let connection: any = null;
   try {
-    const rows: any = await dbQuery('SELECT 1 FROM `tenants` LIMIT 1');
-    return { initialized: rows.length > 0 };
+    const pool = getPool();
+    connection = await pool.getConnection();
+    const dbName = connection.config.database;
+
+    // Prüfen ob Tabelle existiert
+    const [tableExists]: any = await connection.query(
+      "SELECT count(*) as count FROM information_schema.tables WHERE table_schema = ? AND table_name = 'platformUsers'",
+      [dbName]
+    );
+
+    if (tableExists[0].count === 0) return { initialized: false };
+
+    // Prüfen ob mindestens ein Admin existiert
+    const [rows]: any = await connection.query('SELECT count(*) as count FROM `platformUsers`');
+    return { initialized: rows[0].count > 0 };
   } catch (e) {
     return { initialized: false };
+  } finally {
+    if (connection) connection.release();
   }
 }
 
 /**
- * Führt die Datenbank-Initialisierung durch.
- * Nutzt sauberes Connection-Handling mit release() in finally.
+ * Führt die reine Tabellen-Migration durch (ohne Seeding von Usern).
  */
 export async function runDatabaseMigrationAction(): Promise<{ success: boolean; message: string; details: string[] }> {
   const details: string[] = [];
@@ -55,28 +73,50 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
-    // Default Seedings
-    const [tenantRows]: any = await connection.query('SELECT COUNT(*) as count FROM `tenants`');
-    if (tenantRows[0].count === 0) {
-      await connection.query('INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?)', 
-        ['t1', 'Meine Organisation', 'meine-organisation', new Date().toISOString(), 'active']);
-      details.push('🌱 Standard-Mandant erstellt.');
-    }
-
-    const [adminRows]: any = await connection.query('SELECT COUNT(*) as count FROM `platformUsers`');
-    if (adminRows[0].count === 0) {
-      const salt = bcrypt.genSaltSync(10);
-      const hashedPassword = bcrypt.hashSync('admin123', salt);
-      await connection.query('INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ['puser-admin', 'admin@compliance-hub.local', hashedPassword, 'Plattform Admin', 'superAdmin', 'all', 1, new Date().toISOString(), 'local']);
-      details.push('🌱 Admin-Konto erstellt (admin123).');
-    }
-
     return { success: true, message: 'Integrität bestätigt.', details };
   } catch (error: any) {
     console.error("Migration failed:", error);
     return { success: false, message: error.message, details };
   } finally {
-    if (connection) connection.release(); // CRITICAL: Freigabe der Verbindung
+    if (connection) connection.release();
+  }
+}
+
+/**
+ * Erstellt den ersten Administrator und den Standard-Mandanten.
+ */
+export async function createInitialAdminAction(data: { 
+  name: string, 
+  email: string, 
+  password: string,
+  tenantName: string 
+}): Promise<{ success: boolean; message: string }> {
+  let connection: any = null;
+  try {
+    const pool = getPool();
+    connection = await pool.getConnection();
+
+    // 1. Mandant erstellen
+    const tenantId = 't1';
+    await connection.query(
+      'INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', 
+      [tenantId, data.tenantName, data.tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'), new Date().toISOString(), 'active']
+    );
+
+    // 2. Admin erstellen
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(data.password, salt);
+    const adminId = 'puser-initial-admin';
+    
+    await connection.query(
+      'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [adminId, data.email, hashedPassword, data.name, 'superAdmin', 'all', 1, new Date().toISOString(), 'local']
+    );
+
+    return { success: true, message: 'Setup erfolgreich abgeschlossen.' };
+  } catch (error: any) {
+    return { success: false, message: `Setup-Fehler: ${error.message}` };
+  } finally {
+    if (connection) connection.release();
   }
 }
