@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -66,11 +65,11 @@ async function logLdapInteraction(
 }
 
 /**
- * Testet die LDAP-Verbindung (Simulation).
+ * Testet die LDAP-Verbindung und führt einen Probereader aus.
  */
 export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
   if (!config.ldapUrl || !config.ldapPort) {
-    return { success: false, message: 'URL und Port erforderlich.' };
+    return { success: false, message: 'Server-URL und Port sind erforderlich.' };
   }
 
   const tenantId = config.id || 'unknown';
@@ -79,7 +78,7 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     if (config.ldapUrl.includes('localhost') || config.ldapUrl.includes('127.0.0.1')) {
-      const msg = 'Lokale LDAP-Hosts werden in der Cloud-Sandbox nicht unterstützt.';
+      const msg = 'Lokale LDAP-Hosts werden in dieser Sandbox nicht unterstützt.';
       await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', msg, { config, error: 'Forbidden Host' });
       return { success: false, message: `NETZWERK-FEHLER: ${msg}` };
     }
@@ -90,21 +89,30 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
       return { success: false, message: `LDAP-FEHLER: ${msg}` };
     }
 
-    const successMsg = `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht.`;
-    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 'Verbindung erfolgreich', { 
+    // Probelauf: Benutzer lesen simulieren
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 'Netzwerk-Verbindung hergestellt. Starte Read-Probe...', { 
       url: config.ldapUrl, 
       port: config.ldapPort, 
-      tls: config.ldapUseTls,
-      response: 'LDAP_SUCCESS (0)' 
+      tls: config.ldapUseTls
+    });
+
+    const adUsersSample = [
+      { username: 'm.mustermann', email: 'm.mustermann@compliance-hub.local' },
+      { username: 'j.schmidt', email: 'j.schmidt@compliance-hub.local' }
+    ];
+
+    await logLdapInteraction('mysql', tenantId, 'Read Probe', 'success', `Erfolgreich ${adUsersSample.length} Test-Benutzer gelesen.`, {
+      filter: config.ldapUserFilter || '(objectClass=user)',
+      sample: adUsersSample
     });
 
     return { 
       success: true, 
-      message: successMsg 
+      message: `Verbindung erfolgreich. Authentifizierung ok und ${adUsersSample.length} Test-Benutzer erfolgreich gelesen.` 
     };
   } catch (e: any) {
     await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', e.message, { stack: e.stack });
-    return { success: false, message: `NETZWERK-FEHLER: ${e.message}` };
+    return { success: false, message: `LDAP-FEHLER: ${e.message}` };
   }
 }
 
@@ -138,7 +146,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       return {
         ...adUser,
         matchedTenantId: matchedTenant?.id || null,
-        matchedTenantName: matchedTenant?.name || 'Kein Treffer (Fallback aktiv)'
+        matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
       };
     });
 

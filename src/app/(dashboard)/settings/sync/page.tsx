@@ -1,5 +1,4 @@
-
-"use client";
+'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -118,6 +117,10 @@ export default function SyncSettingsPage() {
   const handleTestLdap = async () => {
     setIsTesting(true);
     try {
+      // Speichere Draft erst, damit der Test die aktuellen UI-Werte nutzt
+      if (tenantDraft.id) {
+        await saveCollectionRecord('tenants', tenantDraft.id, tenantDraft, dataSource);
+      }
       const res = await testLdapConnectionAction(tenantDraft);
       toast({ title: "LDAP Test", description: res.message, variant: res.success ? "default" : "destructive" });
       setTimeout(refreshLogs, 500);
@@ -426,7 +429,7 @@ export default function SyncSettingsPage() {
                         )} />
                         <div>
                           <p className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase">{log.action}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex items-center gap-3 mt-0.5">
                             <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(log.timestamp).toLocaleTimeString()}</span>
                             <span className={cn("text-[8px] font-bold truncate max-w-[150px]", log.status === 'success' ? "text-emerald-600" : "text-red-600")}>{log.message}</span>
                           </div>
@@ -471,7 +474,7 @@ export default function SyncSettingsPage() {
                   <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-1">Benutzer aus dem AD selektieren und in den Hub importieren</DialogDescription>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(false)} className="text-white/50 hover:text-white"><X className="w-6 h-6" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(false)} className="text-white/50 hover:text-white"><X className="w-5 h-5" /></Button>
             </div>
           </DialogHeader>
 

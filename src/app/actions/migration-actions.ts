@@ -86,13 +86,15 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       lastStatus: 'idle',
       lastMessage: 'Bereit für den ersten Lauf.'
     };
+    
+    // Sicherstellen, dass der Job existiert
     await connection.query(
       'INSERT INTO `syncJobs` (id, name, lastStatus, lastMessage) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)',
       [ldapSyncJob.id, ldapSyncJob.name, ldapSyncJob.lastStatus, ldapSyncJob.lastMessage]
     );
-    details.push(`🔄 Sync-Job 'job-ldap-sync' initialisiert.`);
+    details.push(`🔄 Sync-Job 'job-ldap-sync' registriert.`);
 
-    const successMsg = details.length > 1 ? 'Datenbank-Struktur erfolgreich aktualisiert.' : 'Datenbank ist bereits auf dem neuesten Stand.';
+    const successMsg = details.length > 1 ? 'Infrastruktur erfolgreich aktualisiert.' : 'Infrastruktur ist auf dem neuesten Stand.';
     return { success: true, message: successMsg, details };
   } catch (error: any) {
     console.error("Migration failed:", error);
