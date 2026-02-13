@@ -33,7 +33,8 @@ import {
   Building2,
   Info,
   ShieldAlert,
-  FileDown
+  FileDown,
+  CheckCircle2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -62,9 +63,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 export default function ProcessHubClient() {
   const router = useRouter();
@@ -78,6 +89,8 @@ export default function ProcessHubClient() {
   
   const [isCreating, setIsCreating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportOnlyPublished, setExportOnlyPublished] = useState(true);
   const [isExportingManual, setIsExportingManual] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [processToDelete, setProcessToDelete] = useState<string | null>(null);
@@ -113,15 +126,23 @@ export default function ProcessHubClient() {
     }
   };
 
-  const handleExportManual = async () => {
+  const executeExportManual = async () => {
     if (!processes || !versions || !tenants || !departments || !jobTitles) return;
     setIsExportingManual(true);
+    setIsExportDialogOpen(false);
     try {
       const tenant = tenants.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId)) || tenants[0];
-      const publishedProcesses = processes.filter(p => p.status === 'published');
+      const targetProcesses = exportOnlyPublished 
+        ? processes.filter(p => p.status === 'published' && (activeTenantId === 'all' || p.tenantId === activeTenantId))
+        : processes.filter(p => (activeTenantId === 'all' || p.tenantId === activeTenantId));
       
-      await exportProcessManualPdf(publishedProcesses, versions, tenant, departments, jobTitles);
-      toast({ title: "Handbuch generiert", description: "Alle freigegebenen Prozesse wurden exportiert." });
+      if (targetProcesses.length === 0) {
+        toast({ variant: "destructive", title: "Export nicht möglich", description: "Keine passenden Prozesse für den Export gefunden." });
+        return;
+      }
+
+      await exportProcessManualPdf(targetProcesses, versions, tenant, departments, jobTitles);
+      toast({ title: "Handbuch generiert", description: "Alle selektierten Prozesse wurden exportiert." });
     } catch (e: any) {
       toast({ variant: "destructive", title: "Export Fehler", description: e.message });
     } finally {
@@ -161,9 +182,7 @@ export default function ProcessHubClient() {
   const filtered = useMemo(() => {
     if (!processes) return [];
     return processes.filter(p => {
-      // Notfallprozesse aus der Standardliste ausblenden
       if (p.process_type_id === 'pt-disaster') return false;
-
       const matchesTenant = activeTenantId === 'all' || p.tenantId === activeTenantId;
       const matchesSearch = (p.title || '').toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
@@ -188,7 +207,7 @@ export default function ProcessHubClient() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold text-[11px] px-4 border-slate-200 hover:bg-emerald-50 text-emerald-600 transition-all active:scale-95 shadow-sm" onClick={handleExportManual} disabled={isExportingManual}>
+          <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold text-[11px] px-4 border-slate-200 hover:bg-emerald-50 text-emerald-600 transition-all active:scale-95 shadow-sm" onClick={() => setIsExportDialogOpen(true)} disabled={isExportingManual}>
             {isExportingManual ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <FileDown className="w-3.5 h-3.5 mr-2" />} Handbuch generieren
           </Button>
           <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold text-[11px] px-4 border-slate-200 hover:bg-blue-50 text-blue-600 transition-all active:scale-95 shadow-sm" onClick={() => router.push('/processhub/map')}>
@@ -228,7 +247,7 @@ export default function ProcessHubClient() {
           <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 my-auto mx-1" />
           <Select value={deptFilter} onValueChange={setDeptFilter}>
             <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px]">
-              <Building2 className="w-3 h-3 mr-1.5 text-slate-400" />
+              <Building2 className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
               <SelectValue placeholder="Abteilung" />
             </SelectTrigger>
             <SelectContent>
@@ -381,6 +400,44 @@ export default function ProcessHubClient() {
           </Table>
         )}
       </div>
+
+      {/* Export Options Dialog */}
+      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400 border border-white/10 shadow-lg">
+                <FileDown className="w-6 h-6" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Handbuch Export</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Konfiguration der Prozess-Dokumentation</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="p-8 space-y-6">
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-slate-900">Nur freigegebene Prozesse</Label>
+                <p className="text-[10px] text-slate-400 font-medium italic">Filtert Entwürfe und Archiv aus.</p>
+              </div>
+              <Switch checked={exportOnlyPublished} onCheckedChange={setExportOnlyPublished} />
+            </div>
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-3 shadow-sm">
+              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-blue-700 font-bold leading-relaxed">
+                Der Export generiert ein vollständiges PDF inklusive Deckblatt, Inhaltsverzeichnis, grafischer Landkarte und operativem Leitfaden.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="p-4 bg-slate-50 border-t flex gap-2">
+            <Button variant="ghost" onClick={() => setIsExportDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 uppercase">Abbrechen</Button>
+            <Button onClick={executeExportManual} disabled={isExportingManual} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-12 h-11 shadow-lg gap-2 uppercase">
+              {isExportingManual ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Export starten
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!processToDelete} onOpenChange={val => !val && setProcessToDelete(null)}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8">
