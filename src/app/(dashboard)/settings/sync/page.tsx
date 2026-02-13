@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -46,7 +45,7 @@ import {
   getAdUsersAction,
   importUsersAction 
 } from '@/app/actions/sync-actions';
-import { Tenant, SyncJob } from '@/lib/types';
+import { Tenant, SyncJob, User } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { usePlatformAuth } from '@/context/auth-context';
@@ -87,6 +86,7 @@ export default function SyncSettingsPage() {
 
   const { data: tenants, refresh: refreshTenants, isLoading: isTenantsLoading } = usePluggableCollection<Tenant>('tenants');
   const { data: syncJobs, refresh: refreshJobs } = usePluggableCollection<SyncJob>('syncJobs');
+  const { data: hubUsers } = usePluggableCollection<User>('users');
 
   useEffect(() => {
     const current = tenants?.find(t => t.id === (activeTenantId === 'all' ? 't1' : activeTenantId));
@@ -200,7 +200,6 @@ export default function SyncSettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-10">
-          {/* LDAP Server Configuration */}
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
@@ -283,13 +282,12 @@ export default function SyncSettingsPage() {
                   {isTesting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />} Testen
                 </Button>
                 <Button onClick={handleSaveLdap} disabled={isSaving} className="rounded-xl h-11 px-16 font-bold text-[10px] uppercase shadow-lg shadow-primary/20 bg-primary text-white">
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Speichern
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4" />} Speichern
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Attribute Mapping */}
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
@@ -327,7 +325,6 @@ export default function SyncSettingsPage() {
           </Card>
         </div>
 
-        {/* Sync Jobs Area */}
         <div className="space-y-10">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
@@ -355,7 +352,8 @@ export default function SyncSettingsPage() {
                                     <Badge className={cn(
                                       "text-[8px] font-black uppercase h-4 border-none",
                                       job.lastStatus === 'success' ? 'bg-emerald-50 text-emerald-700' : 
-                                      job.lastStatus === 'error' ? 'bg-red-50 text-red-700' : 'bg-slate-50 text-slate-400'
+                                      job.lastStatus === 'error' ? 'bg-red-50 text-red-700' : 
+                                      job.lastStatus === 'running' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-400'
                                     )}>
                                         {job.lastStatus}
                                     </Badge>
@@ -376,6 +374,11 @@ export default function SyncSettingsPage() {
                                 </TableCell>
                             </TableRow>
                         ))}
+                        {(!syncJobs || syncJobs.length === 0) && (
+                          <TableRow>
+                            <TableCell colSpan={3} className="py-10 text-center text-[10px] text-slate-400 uppercase italic">Keine Jobs konfiguriert</TableCell>
+                          </TableRow>
+                        )}
                     </TableBody>
                 </Table>
             </CardContent>
@@ -393,7 +396,7 @@ export default function SyncSettingsPage() {
         </div>
       </div>
 
-      {/* AD Import Dialog */}
+      {/* AD Import Dialog - Fixed logic AD -> Hub */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
@@ -403,8 +406,8 @@ export default function SyncSettingsPage() {
                   <UserPlus className="w-6 h-6" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-headline font-bold uppercase tracking-tight">AD Benutzer Import Tool</DialogTitle>
-                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-1">Interaktive Selektion aus dem Active Directory</DialogDescription>
+                  <DialogTitle className="text-xl font-headline font-bold uppercase tracking-tight">Active Directory Import Tool</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-1">Benutzer aus dem AD selektieren und in den Hub importieren</DialogDescription>
                 </div>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(false)} className="text-white/50 hover:text-white"><X className="w-6 h-6" /></Button>
@@ -418,8 +421,8 @@ export default function SyncSettingsPage() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-black uppercase text-slate-400">{selectedAdUsernames.length} ausgewählt</span>
-              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames(filteredAdUsers.map(u => u.username))} className="h-8 text-[10px] font-bold rounded-lg">Alle wählen</Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames([])} className="h-8 text-[10px] font-bold rounded-lg">Leeren</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames(filteredAdUsers.map(u => u.username))} className="h-8 text-[10px] font-bold rounded-lg uppercase">Alle wählen</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames([])} className="h-8 text-[10px] font-bold rounded-lg uppercase">Leeren</Button>
             </div>
           </div>
 
@@ -427,56 +430,64 @@ export default function SyncSettingsPage() {
             {isFetchingAd ? (
               <div className="flex flex-col items-center justify-center py-40 gap-4">
                 <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-                <p className="text-[10px] font-bold uppercase text-slate-400 animate-pulse">Durchsuche Active Directory...</p>
+                <p className="text-[10px] font-bold uppercase text-slate-400 animate-pulse">Lese Daten aus dem Active Directory...</p>
               </div>
             ) : (
               <Table>
                 <TableHeader className="sticky top-0 bg-white z-10">
                   <TableRow>
                     <TableHead className="w-12 px-6"></TableHead>
-                    <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">AD Benutzer</TableHead>
-                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Abteilung (AD)</TableHead>
-                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma (Hub-Match)</TableHead>
+                    <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">Benutzer im AD</TableHead>
+                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma (Fuzzy Match)</TableHead>
+                    <TableHead className="font-bold text-[11px] text-slate-400 uppercase text-right px-6">Status im Hub</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAdUsers.map((u) => (
-                    <TableRow key={u.username} className={cn("group hover:bg-slate-50 transition-colors border-b", selectedAdUsernames.includes(u.username) && "bg-primary/5")}>
-                      <TableCell className="px-6">
-                        <Checkbox 
-                          checked={selectedAdUsernames.includes(u.username)} 
-                          onCheckedChange={(v) => setSelectedAdUsernames(prev => !!v ? [...prev, u.username] : prev.filter(n => n !== u.username))} 
-                        />
-                      </TableCell>
-                      <TableCell className="py-4 px-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-sm text-slate-800">{u.first} {u.last}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{u.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[9px] font-bold h-5 px-2 bg-slate-50 border-slate-200">{u.dept}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Building2 className={cn("w-3.5 h-3.5", u.matchedTenantId ? "text-primary" : "text-amber-500")} />
-                          <span className={cn("text-xs font-bold", u.matchedTenantId ? "text-slate-700" : "text-amber-600")}>
-                            {u.matchedTenantName}
-                          </span>
-                          {!u.matchedTenantId && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger><AlertTriangle className="w-3 h-3 text-amber-500" /></TooltipTrigger>
-                                <TooltipContent className="bg-slate-900 text-white rounded-lg border-none shadow-xl p-3 text-[10px]">
-                                  Schreibweise im AD weicht stark ab. Fallback auf Standard-Mandant.
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                  {filteredAdUsers.map((u) => {
+                    const alreadyExists = hubUsers?.some(hu => hu.externalId === u.username || hu.email.toLowerCase() === u.email.toLowerCase());
+                    return (
+                      <TableRow key={u.username} className={cn("group hover:bg-slate-50 transition-colors border-b", selectedAdUsernames.includes(u.username) && "bg-primary/5")}>
+                        <TableCell className="px-6">
+                          <Checkbox 
+                            disabled={alreadyExists}
+                            checked={selectedAdUsernames.includes(u.username)} 
+                            onCheckedChange={(v) => setSelectedAdUsernames(prev => !!v ? [...prev, u.username] : prev.filter(n => n !== u.username))} 
+                          />
+                        </TableCell>
+                        <TableCell className="py-4 px-6">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-sm text-slate-800">{u.first} {u.last}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{u.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Building2 className={cn("w-3.5 h-3.5", u.matchedTenantId ? "text-primary" : "text-amber-500")} />
+                            <span className={cn("text-xs font-bold", u.matchedTenantId ? "text-slate-700" : "text-amber-600")}>
+                              {u.matchedTenantName}
+                            </span>
+                            {!u.matchedTenantId && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger><AlertTriangle className="w-3 h-3 text-amber-500" /></TooltipTrigger>
+                                  <TooltipContent className="bg-slate-900 text-white rounded-lg border-none shadow-xl p-3 text-[10px]">
+                                    Kein exakter Treffer. Schreibweise im AD weicht ab.
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right px-6">
+                          {alreadyExists ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full h-5 px-3 text-[8px] font-black uppercase">Importiert</Badge>
+                          ) : (
+                            <Badge variant="outline" className="rounded-full h-5 px-3 text-[8px] font-black uppercase border-slate-200 text-slate-400">Neu</Badge>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -485,13 +496,13 @@ export default function SyncSettingsPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-4">
               <Info className="w-4 h-4" />
-              <span>Matching nutzt Fuzzy-Logik (z.B. Baecker ↔ Bäcker)</span>
+              <span>Matching nutzt Fuzzy-Logik (Bäcker ↔ Baecker)</span>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsImportOpen(false)} className="rounded-xl font-bold text-[10px] h-11 px-8 uppercase">Abbrechen</Button>
               <Button onClick={handleImportSelected} disabled={isImporting || selectedAdUsernames.length === 0} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
                 {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" /> }
-                Import starten ({selectedAdUsernames.length})
+                Importieren ({selectedAdUsernames.length})
               </Button>
             </div>
           </DialogFooter>
@@ -500,7 +511,7 @@ export default function SyncSettingsPage() {
 
       {/* Log Message Dialog */}
       <Dialog open={!!selectedJobMessage} onOpenChange={() => setSelectedJobMessage(null)}>
-          <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden shadow-2xl">
+          <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
               <DialogHeader className="p-6 bg-slate-900 text-white">
                   <DialogTitle className="text-base font-headline font-bold uppercase tracking-widest flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" /> System Protokoll

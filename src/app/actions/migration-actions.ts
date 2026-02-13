@@ -79,6 +79,19 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
+    // Initialisierung der Standard Sync-Jobs
+    const ldapSyncJob = {
+      id: 'job-ldap-sync',
+      name: 'LDAP/AD Voll-Synchronisation',
+      lastStatus: 'idle',
+      lastMessage: 'Bereit für den ersten Lauf.'
+    };
+    await connection.query(
+      'INSERT INTO `syncJobs` (id, name, lastStatus, lastMessage) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)',
+      [ldapSyncJob.id, ldapSyncJob.name, ldapSyncJob.lastStatus, ldapSyncJob.lastMessage]
+    );
+    details.push(`🔄 Sync-Job 'job-ldap-sync' initialisiert.`);
+
     const successMsg = details.length > 1 ? 'Datenbank-Struktur erfolgreich aktualisiert.' : 'Datenbank ist bereits auf dem neuesten Stand.';
     return { success: true, message: successMsg, details };
   } catch (error: any) {
@@ -113,7 +126,7 @@ export async function createInitialAdminAction(data: {
       [tenantId, data.tenantName, data.tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'), new Date().toISOString(), 'active']
     );
 
-    // 2. Standardrolle superAdmin initialisieren (als Datenbank-Datensatz für die GUI)
+    // 2. Standardrolle superAdmin initialisieren
     const superAdminRole = {
       id: 'superAdmin',
       name: 'Super Administrator',
