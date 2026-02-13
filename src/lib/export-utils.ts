@@ -82,15 +82,13 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Zeichnet den Prozessgraphen.
- * Implementiert Zeilenumbruch (Wrapping) für lange Prozesse.
+ * Zeichnet den Prozessgraphen horizontal mit intelligentem Zeilenumbruch.
  */
 async function drawProcessGraph(doc: any, version: ProcessVersion, startY: number) {
   const nodes = version.model_json.nodes || [];
   const edges = version.model_json.edges || [];
   if (nodes.length === 0) return startY;
 
-  // Ränge und Lanes berechnen (Identisch zum Designer)
   const levels: Record<string, number> = {};
   const lanes: Record<string, number> = {};
   const occupiedLanesPerLevel = new Map<number, Set<number>>();
@@ -130,7 +128,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  // Parameter für Zeilenumbruch (Wrapping)
   const H_GAP = 35;
   const V_GAP = 12;
   const nodesPerRow = Math.floor((canvasWidth - 10) / H_GAP);
@@ -163,7 +160,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setDrawColor(148, 163, 184);
     doc.line(s.x, s.y, t.x, t.y);
     
-    // Pfeilspitze
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
     const hL = 1.5;
     doc.line(t.x, t.y, t.x - hL * Math.cos(angle - Math.PI/6), t.y - hL * Math.sin(angle - Math.PI/6));
@@ -214,7 +210,6 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setDrawColor(241, 245, 249);
     doc.line(14, 10, pageWidth - 14, 10);
     
-    // Firmen-Logo oben rechts auf jeder Seite
     doc.setFillColor(37, 99, 235);
     doc.roundedRect(pageWidth - 22, 4, 8, 8, 1.5, 1.5, 'F');
     doc.setTextColor(255, 255, 255);
@@ -345,8 +340,7 @@ export async function exportProcessManualPdf(
       }
     }
 
-    // --- 3. INHALTSVERZEICHNIS (TOC) NACHTRÄGLICH EINFÜGEN ---
-    doc.insertPage(1); // Nach Deckblatt
+    doc.insertPage(1);
     doc.setPage(2);
     doc.setTextColor(37, 99, 235);
     doc.setFontSize(18);
@@ -357,7 +351,6 @@ export async function exportProcessManualPdf(
     Object.keys(grouped).sort().forEach(deptName => {
       tocRows.push([{ content: deptName.toUpperCase(), colSpan: 2, styles: { fontStyle: 'bold', fillColor: [248, 250, 252], textColor: [71, 85, 105], fontSize: 9 } }]);
       grouped[deptName].forEach(p => {
-        // Offset +1 wegen eingefügter TOC Seite
         const actualPage = (pageMap[p.id] || 0) + 1;
         tocRows.push([`   ${p.title}`, actualPage.toString()]);
       });
@@ -450,4 +443,60 @@ export async function exportPolicyDocx(policy: Policy, version: PolicyVersion) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+export async function exportDetailedProcessPdf(process: Process, version: ProcessVersion, tenant: Tenant, jobTitles: JobTitle[], departments: Department[]) {
+  try {
+    const { default: jsPDF } = await import('jspdf');
+    const { default: autoTable } = await import('jspdf-autotable');
+    
+    const doc = new jsPDF();
+    const dept = departments.find(d => d.id === process.responsibleDepartmentId);
+    
+    doc.setFontSize(18);
+    doc.setTextColor(51, 65, 85);
+    doc.setFont('helvetica', 'bold');
+    doc.text(process.title, 14, 22);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`${dept?.name || 'Zentral'} | V${process.currentVersion}.0`, 14, 27);
+    
+    doc.setDrawColor(241, 245, 249);
+    doc.line(14, 30, 196, 30);
+
+    autoTable(doc, {
+      startY: 35,
+      body: [
+        ['Verantwortlich', jobTitles.find(j => j.id === process.ownerRoleId)?.name || '---'],
+        ['Status', process.status.toUpperCase()],
+        ['Inputs', process.inputs || '---'],
+        ['Outputs', process.outputs || '---']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 7 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 40, fillColor: [248, 250, 252] } }
+    });
+
+    const graphY = (doc as any).lastAutoTable.finalY + 10;
+    const tableY = await drawProcessGraph(doc, version, graphY);
+
+    autoTable(doc, {
+      startY: tableY,
+      head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Durchführung']],
+      body: version.model_json.nodes.map((n, i) => [
+        `${i + 1}`,
+        n.title,
+        jobTitles.find(j => j.id === n.roleId)?.name || '-',
+        n.description || '-'
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [71, 85, 105] },
+      styles: { fontSize: 7 }
+    });
+
+    addPageDecorations(doc, tenant);
+    doc.save(`Prozess_${process.title.replace(/\s+/g, '_')}.pdf`);
+  } catch (error) {
+    console.error('Export fehlgeschlagen:', error);
+  }
 }

@@ -51,7 +51,8 @@ import {
   Database,
   Image as ImageIcon,
   Paperclip,
-  FileDown
+  FileDown,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
