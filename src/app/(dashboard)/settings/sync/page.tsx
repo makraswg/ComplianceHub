@@ -84,7 +84,6 @@ export default function SyncSettingsPage() {
   const [selectedJobMessage, setSelectedJobMessage] = useState<string | null>(null);
   const [selectedLogEntry, setSelectedLogEntry] = useState<any>(null);
 
-  // Import Tool States
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isFetchingAd, setIsFetchingAd] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -140,7 +139,7 @@ export default function SyncSettingsPage() {
     try {
       const users = await getAdUsersAction(tenantDraft, dataSource, query);
       setAdUsers(users);
-      setSelectedAdUsers([]); // Reset selection when fetching new results
+      setSelectedAdUsers([]);
     } catch (e: any) {
       toast({ variant: "destructive", title: "AD Fehler", description: e.message });
     } finally {

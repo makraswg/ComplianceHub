@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -240,7 +239,6 @@ export default function LifecyclePage() {
         }, dataSource);
       }
 
-      // Explicit Audit Log for Onboarding Process
       await logAuditEventAction(dataSource, {
         tenantId: targetTenantId,
         actorUid: user?.email || 'system',

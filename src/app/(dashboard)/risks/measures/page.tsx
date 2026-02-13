@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from 'react';
@@ -293,8 +292,7 @@ function RiskMeasuresContent() {
                             <DropdownMenuItem className="gap-2 font-bold py-2 text-xs" onSelect={() => openEdit(m)}><Pencil className="w-3.5 h-3.5 text-primary" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
                             <DropdownMenuItem className="text-red-600 gap-2 font-bold py-2 text-xs" onSelect={() => { if(confirm("Maßnahme permanent löschen?")) deleteCollectionRecord('riskMeasures', m.id, dataSource).then(() => refresh()); }}>
-                              <Trash2 className="w-3.5 h-3.5" /> Löschen
-                            </DropdownMenuItem>
+                              <Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -309,7 +307,7 @@ function RiskMeasuresContent() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl border-none bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">

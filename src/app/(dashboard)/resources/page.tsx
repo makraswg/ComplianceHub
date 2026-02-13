@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -455,7 +454,7 @@ function ResourcesPageContent() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden w-full">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
@@ -542,15 +541,15 @@ function ResourcesPageContent() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
                   <Server className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate uppercase tracking-tight">Asset Governance</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Wartung, Backup & Schutzbedarfe</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold text-white truncate uppercase tracking-tight">Asset Governance</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Wartung, Backup & Schutzbedarfe</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="resource" currentData={{ name, assetType }} onApply={(s) => { if(s.name) setName(s.name); }} />

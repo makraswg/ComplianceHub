@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -147,7 +146,7 @@ function UsersPageContent() {
     return [...jobTitles].sort((a, b) => {
       const deptA = departmentsData.find((d: any) => d.id === a.departmentId)?.name || '';
       const deptB = departmentsData.find((d: any) => d.id === b.departmentId)?.name || '';
-      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      if (deptA !== deptB) return deptA.localeCompare(deptA);
       return a.name.localeCompare(b.name);
     });
   }, [jobTitles, departmentsData]);
@@ -355,7 +354,7 @@ function UsersPageContent() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden w-full">
         {isLoading ? (
           <div className="p-20 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-20" /></div>
         ) : (
@@ -438,7 +437,7 @@ function UsersPageContent() {
                         "rounded-full text-[9px] font-black px-3 h-6 border-none shadow-sm inline-flex items-center gap-1.5", 
                         isEnabled ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
                       )}>
-                        {isEnabled ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                        {isEnabled ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
                         {isEnabled ? "Aktiv" : "Inaktiv"}
                       </Badge>
                     </TableCell>
@@ -474,12 +473,12 @@ function UsersPageContent() {
 
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if(!val && !isSaving) setIsAddOpen(false); }}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <UserCircle className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900">
+              <DialogTitle className="text-lg font-bold">
                 {selectedUser ? 'Benutzer bearbeiten' : 'Neuer Benutzer'}
               </DialogTitle>
             </div>

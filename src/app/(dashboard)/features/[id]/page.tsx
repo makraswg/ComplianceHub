@@ -204,22 +204,22 @@ export default function FeatureDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden">
+          <Card className="rounded-2xl border-none shadow-xl bg-primary text-white overflow-hidden">
             <CardContent className="p-8 space-y-6">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg"><Activity className="w-6 h-6" /></div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shadow-lg"><Activity className="w-6 h-6" /></div>
               <div className="space-y-1">
                 <h3 className="text-xl font-headline font-black uppercase">Lifecycle</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Gültigkeits-Status</p>
+                <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest">Gültigkeits-Status</p>
               </div>
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
-                  <CalendarDays className="w-4 h-4 text-primary" /> 
+                <div className="flex items-center gap-2 text-[10px] font-bold text-white/90">
+                  <CalendarDays className="w-4 h-4 text-white" /> 
                   {feature.validFrom ? new Date(feature.validFrom).toLocaleDateString() : '∞'} — {feature.validUntil ? new Date(feature.validUntil).toLocaleDateString() : '∞'}
                 </div>
                 {feature.changeReason && (
-                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
-                    <p className="text-[8px] font-black uppercase text-slate-500 mb-1">Letzte Änderung</p>
-                    <p className="text-[10px] font-medium italic text-slate-200">"{feature.changeReason}"</p>
+                  <div className="p-3 bg-white/10 border border-white/20 rounded-xl">
+                    <p className="text-[8px] font-black uppercase text-white/50 mb-1">Letzte Änderung</p>
+                    <p className="text-[10px] font-medium italic text-white">"{feature.changeReason}"</p>
                   </div>
                 )}
               </div>

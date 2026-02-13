@@ -1,5 +1,4 @@
-
-'use client';
+"use client";
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Loader2, AlertCircle, Mail, Lock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Shield, Loader2, Mail, Lock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
 import { authenticateUserAction } from '@/app/actions/auth-actions';
@@ -15,7 +14,7 @@ import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { checkSystemStatusAction } from '@/app/actions/migration-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ModalDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { cn } from '@/lib/utils';
@@ -35,7 +34,6 @@ function LoginForm() {
   const [isCheckingSystem, setIsCheckingSystem] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
-  // Forgot Password States
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [isForgotLoading, setIsForgotLoading] = useState(false);
@@ -76,19 +74,14 @@ function LoginForm() {
         return;
       }
 
-      // Firebase Auth Sync falls Firestore genutzt wird
       if (dataSource === 'firestore' && auth) {
         try { await signInAnonymously(auth); } catch (fbErr) {}
       }
       
-      // 1. Benutzer im Context setzen (schreibt auch den Cookie)
       setUser(result.user);
       
-      // 2. Feedback geben
       toast({ title: "Erfolgreich angemeldet", description: "Sie werden weitergeleitet..." });
       
-      // 3. Hard Redirect erzwingen, damit die Middleware den Cookie sicher erkennt
-      // router.push ist im Dev-Mode oft zu schnell für die Cookie-Verarbeitung
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 500);
@@ -123,7 +116,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 transition-colors duration-500">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-500">
       <div className="mb-12 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
         <div className="w-16 h-16 bg-primary flex items-center justify-center rounded-2xl shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-300">
           <Shield className="w-9 h-9 text-white" />

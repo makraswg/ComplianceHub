@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -111,7 +110,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
+import Placeholder from '@radix-ui/react-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
 import Typography from '@tiptap/extension-typography';
@@ -222,10 +221,7 @@ export default function PolicyDetailPage() {
         types: ['heading', 'paragraph'],
       }),
       Highlight,
-      Typography,
-      Placeholder.configure({
-        placeholder: 'Beginnen Sie hier mit der Erstellung Ihrer Richtlinie...',
-      }),
+      Typography
     ],
     content: '',
     editable: false,
@@ -535,32 +531,27 @@ export default function PolicyDetailPage() {
                       
                       <div className="bg-white p-2 px-6 flex flex-wrap items-center gap-1">
                         <TooltipProvider>
-                          {/* Text Styles */}
                           <div className="flex items-center gap-0.5 pr-2 border-r">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bold') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBold().run()}><Bold className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Fett</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('italic') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleItalic().run()}><Italic className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Kursiv</TooltipContent></Tooltip>
                           </div>
                           
-                          {/* Headers */}
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}><Heading1 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 1</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}><Heading2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Überschrift 2</TooltipContent></Tooltip>
                           </div>
 
-                          {/* Alignment */}
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('left').run()}><AlignLeft className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Linksbündig</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('center').run()}><AlignCenter className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Zentriert</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive({ textAlign: 'right' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().setTextAlign('right').run()}><AlignRight className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Rechtsbündig</TooltipContent></Tooltip>
                           </div>
 
-                          {/* Lists */}
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleBulletList().run()}><List className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Aufzählung</TooltipContent></Tooltip>
                             <Tooltip><TooltipTrigger asChild><Button variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent className="text-[10px] font-bold">Nummerierung</TooltipContent></Tooltip>
                           </div>
 
-                          {/* Tables */}
                           <div className="flex items-center gap-0.5 px-2 border-r">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -585,7 +576,6 @@ export default function PolicyDetailPage() {
                             </DropdownMenu>
                           </div>
 
-                          {/* Media Picker */}
                           <div className="flex items-center gap-0.5 pl-2">
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -666,7 +656,6 @@ export default function PolicyDetailPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Linked Policies */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
@@ -695,7 +684,6 @@ export default function PolicyDetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* Risk Bezug */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-orange-600 tracking-widest flex items-center gap-2">
@@ -721,7 +709,6 @@ export default function PolicyDetailPage() {
                   </CardContent>
                 </Card>
 
-                {/* Measure Bezug */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden md:col-span-2">
                   <CardHeader className="bg-slate-50 border-b p-4 px-8">
                     <CardTitle className="text-xs font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2">
@@ -814,10 +801,9 @@ export default function PolicyDetailPage() {
         </div>
       </div>
 
-      {/* Media Picker Dialog */}
       <Dialog open={isMediaPickerOpen} onOpenChange={setIsMediaPickerOpen}>
         <DialogContent className="max-w-4xl w-[95vw] h-[80vh] flex flex-col p-0 overflow-hidden border-none shadow-2xl rounded-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 border border-white/10">

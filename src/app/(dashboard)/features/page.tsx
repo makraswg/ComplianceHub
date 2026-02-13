@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -187,7 +186,7 @@ export default function FeaturesOverviewPage() {
       matrixPlanning,
       criticality: currentLevel,
       criticalityScore: currentScore,
-      dependentFeatureIds: selectedDepIds, // Custom handle in action
+      dependentFeatureIds: selectedDepIds,
       createdAt: selectedFeature?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -258,7 +257,6 @@ export default function FeaturesOverviewPage() {
     setMatrixAutomatedDecision(!!f.matrixAutomatedDecision);
     setMatrixPlanning(!!f.matrixPlanning);
     
-    // Load Dependencies
     const deps = featureDeps?.filter((d: any) => d.featureId === f.id).map((d: any) => d.dependentFeatureId) || [];
     setSelectedDepIds(deps);
     setDepSearch('');
@@ -316,7 +314,7 @@ export default function FeaturesOverviewPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input 
             placeholder="Nach Bezeichnung suchen..." 
-            className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
+            className="pl-9 h-9 rounded-lg border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -391,11 +389,11 @@ export default function FeaturesOverviewPage() {
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                          <Building2 className="w-3 h-3 text-slate-300" /> {dept?.name || '---'}
+                          <Building2 className="w-3.5 h-3.5 text-slate-300" /> {dept?.name || '---'}
                         </div>
                         {role && (
                           <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 italic">
-                            <Briefcase className="w-3 h-3 text-slate-300" /> {role.name}
+                            <Briefcase className="w-3.5 h-3.5 text-slate-300" /> {role.name}
                           </div>
                         )}
                       </div>
@@ -440,7 +438,7 @@ export default function FeaturesOverviewPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={(v) => !v && setIsDialogOpen(false)}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
@@ -475,7 +473,7 @@ export default function FeaturesOverviewPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2 md:col-span-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
-                      <Input value={name} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. DAT_001 - Kundennummer" />
+                      <Input value={name || ''} onChange={e => setName(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white shadow-sm" placeholder="z.B. DAT_001 - Kundennummer" />
                     </div>
                     
                     <div className="space-y-2">
@@ -525,7 +523,7 @@ export default function FeaturesOverviewPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Rollen-Blueprint)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Data Owner (Rollen-Blueprint)</Label>
                           <Select value={ownerId} onValueChange={setOwnerId}>
                             <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                             <SelectContent className="rounded-xl">
@@ -578,7 +576,7 @@ export default function FeaturesOverviewPage() {
 
                     <div className="space-y-2 md:col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Datenumfang</Label>
-                      <Textarea value={description || ''} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[120px] p-5 border-slate-200 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
+                      <Textarea value={description || ''} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[120px] p-5 border-slate-200 text-xs font-medium bg-white shadow-inner" placeholder="Fachliche Definition der Daten..." />
                     </div>
                   </div>
                 </TabsContent>
@@ -593,29 +591,29 @@ export default function FeaturesOverviewPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixFinancial(!matrixFinancial)}>
-                          <Checkbox id="mat-fin" checked={matrixFinancial as boolean} />
+                          <Checkbox id="mat-fin" checked={!!matrixFinancial} />
                           <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (Abrechnung)</Label>
                         </div>
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixLegal(!matrixLegal)}>
-                          <Checkbox id="mat-leg" checked={matrixLegal as boolean} />
+                          <Checkbox id="mat-leg" checked={!!matrixLegal} />
                           <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt rechtlich (Vertrag)</Label>
                         </div>
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixExternal(!matrixExternal)}>
-                          <Checkbox id="mat-ext" checked={matrixExternal as boolean} />
+                          <Checkbox id="mat-ext" checked={!!matrixExternal} />
                           <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde/Behörde)</Label>
                         </div>
                       </div>
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixHardToCorrect(!matrixHardToCorrect)}>
-                          <Checkbox id="mat-hard" checked={matrixHardToCorrect as boolean} />
+                          <Checkbox id="mat-hard" checked={!!matrixHardToCorrect} />
                           <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist schwer korrigierbar</Label>
                         </div>
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixAutomatedDecision(!matrixAutomatedDecision)}>
-                          <Checkbox id="mat-auto" checked={matrixAutomatedDecision as boolean} />
+                          <Checkbox id="mat-auto" checked={!!matrixAutomatedDecision} />
                           <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Fließt in automatisierte Entscheidungen</Label>
                         </div>
                         <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixPlanning(!matrixPlanning)}>
-                          <Checkbox id="mat-plan" checked={matrixPlanning as boolean} />
+                          <Checkbox id="mat-plan" checked={!!matrixPlanning} />
                           <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Fließt in strategische Planung</Label>
                         </div>
                       </div>

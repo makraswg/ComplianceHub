@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -239,7 +238,7 @@ export default function RolesManagementPage() {
         />
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden w-full">
         {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" /></div>
         ) : (
@@ -306,9 +305,9 @@ export default function RolesManagementPage() {
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100"><MoreHorizontal className="w-4 h-4" /></Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 rounded-lg p-1 shadow-xl border">
+                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                             <DropdownMenuItem onSelect={() => router.push(`/roles/${role.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => openEdit(role)} className="rounded-md py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEdit(role)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
                             <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => { 
                               if (isSuperAdmin) {
@@ -333,17 +332,17 @@ export default function RolesManagementPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={(v) => !v && setIsDialogOpen(false)}>
         <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0 pr-8">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-8">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                   <Shield className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
+                  <DialogTitle className="text-lg font-bold text-white">
                     {selectedRole ? 'Rolle bearbeiten' : 'Neue Rolle definieren'}
                   </DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5">Berechtigungsumfang & System-Mapping</DialogDescription>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">Berechtigungsumfang & System-Mapping</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -416,7 +415,6 @@ export default function RolesManagementPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Permanent Delete Alert */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
         <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
           <AlertDialogHeader>
@@ -431,7 +429,7 @@ export default function RolesManagementPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
-            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8">Abbrechen</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-md font-bold text-xs h-11 px-8 border-slate-200">Abbrechen</AlertDialogCancel>
             <AlertDialogAction 
               onClick={executeDelete} 
               disabled={isDeleting}

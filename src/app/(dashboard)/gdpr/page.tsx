@@ -287,15 +287,15 @@ export default function GdprPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-500/10">
                   <FileCheck className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">VVT bearbeiten</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Automatisierte TOM-Sicht • Roadmap Phase 5</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold text-white truncate">VVT bearbeiten</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Automatisierte TOM-Sicht • Roadmap Phase 5</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant formType="gdpr" currentData={{ name, description, responsibleDepartment, legalBasis }} onApply={(s) => { if(s.name) setName(s.name); if(s.description) setDescription(s.description); toast({title:"Vorschläge übernommen"}); }} />
@@ -394,7 +394,7 @@ export default function GdprPage() {
                 </TabsContent>
 
                 <TabsContent value="toms" className="mt-0 space-y-10">
-                  <div className="p-6 bg-slate-900 text-white rounded-2xl shadow-xl space-y-6">
+                  <div className="p-6 bg-slate-800 text-white rounded-2xl shadow-xl space-y-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4"><ShieldCheck className="w-8 h-8 text-emerald-500" /><div><h4 className="text-base font-headline font-bold uppercase">Compliance Status (Art. 32)</h4><p className="text-[10px] text-emerald-400 font-bold uppercase">Automatisierte TOM Sicht</p></div></div>
                       <div className="text-right"><p className="text-[10px] text-slate-400 font-bold uppercase">Abdeckungsgrad</p><p className="text-2xl font-black">{heritage.gapScore}%</p></div>
@@ -412,7 +412,7 @@ export default function GdprPage() {
 
                 <TabsContent value="gaps" className="mt-0 space-y-8">
                   <div className="grid grid-cols-1 gap-4">
-                    <div className="p-6 bg-slate-900 rounded-2xl flex items-center justify-between text-white shadow-xl">
+                    <div className="p-6 bg-slate-800 rounded-2xl flex items-center justify-between text-white shadow-xl">
                       <div className="flex items-center gap-4"><div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-primary"><TrendingUp className="w-6 h-6" /></div><div><h4 className="text-sm font-black uppercase tracking-widest">Compliance Maturity</h4><p className="text-[9px] text-slate-400 font-bold uppercase">Ready for Audit</p></div></div>
                       <div className="text-4xl font-black text-emerald-500">{heritage.gapScore}%</div>
                     </div>
