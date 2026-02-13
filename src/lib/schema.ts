@@ -324,6 +324,15 @@ export const appSchema: AppSchema = {
       createdAt: 'VARCHAR(50) NOT NULL',
     }
   },
+  policy_links: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      policyId: 'VARCHAR(255) NOT NULL',
+      targetType: 'VARCHAR(50) NOT NULL', // 'risk' | 'measure' | 'resource'
+      targetId: 'VARCHAR(255) NOT NULL',
+      createdAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
   backup_jobs: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

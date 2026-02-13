@@ -43,6 +43,33 @@ export async function savePolicyAction(policy: Partial<Policy>, dataSource: Data
 }
 
 /**
+ * Verknüpft ein Objekt (Risiko, Maßnahme, Ressource) mit einer Richtlinie.
+ */
+export async function linkPolicyEntityAction(
+  policyId: string, 
+  targetType: 'risk' | 'measure' | 'resource', 
+  targetId: string, 
+  dataSource: DataSource = 'mysql'
+) {
+  const id = `plnk-${policyId}-${targetId}`.substring(0, 50);
+  const data = {
+    id,
+    policyId,
+    targetType,
+    targetId,
+    createdAt: new Date().toISOString()
+  };
+  return await saveCollectionRecord('policy_links', id, data, dataSource);
+}
+
+/**
+ * Entfernt eine Verknüpfung.
+ */
+export async function unlinkPolicyEntityAction(linkId: string, dataSource: DataSource = 'mysql') {
+  return await deleteCollectionRecord('policy_links', linkId, dataSource);
+}
+
+/**
  * Speichert eine neue Version oder Revision eines Richtlinientextes.
  */
 export async function commitPolicyVersionAction(
