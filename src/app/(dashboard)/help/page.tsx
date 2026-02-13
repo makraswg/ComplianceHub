@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -73,7 +72,7 @@ export default function HelpHubPage() {
   );
 
   return (
-    <div className="space-y-12 pb-32 animate-in fade-in duration-700 max-w-7xl mx-auto">
+    <div className="space-y-12 pb-32 animate-in fade-in duration-700 w-full p-4 md:p-8">
       {/* Visual Header */}
       <section className="relative h-[350px] rounded-[3rem] overflow-hidden bg-slate-900 flex flex-col items-center justify-center p-8 text-center border-b-8 border-primary">
         <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/tech/1200/800')] opacity-20 grayscale" />
@@ -102,7 +101,7 @@ export default function HelpHubPage() {
       </section>
 
       {/* The Golden Chain - Interactive Data Map */}
-      <section className="space-y-8 px-4">
+      <section className="space-y-8">
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-headline font-black uppercase tracking-widest text-slate-900 dark:text-white">Die Goldene Kette</h2>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Wie alles zusammenhängt</p>
@@ -158,7 +157,7 @@ export default function HelpHubPage() {
       </section>
 
       {/* Module Guides */}
-      <section className="px-4">
+      <section>
         <Tabs defaultValue="access" className="space-y-10">
           <TabsList className="h-14 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-[1.5rem] border w-full md:w-auto justify-start gap-2 shadow-inner overflow-x-auto no-scrollbar">
             <TabsTrigger value="access" className="rounded-xl px-8 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg">
@@ -323,7 +322,7 @@ export default function HelpHubPage() {
       </section>
 
       {/* Quick Links Footer */}
-      <footer className="grid grid-cols-1 sm:grid-cols-3 gap-6 px-4">
+      <footer className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="p-6 rounded-3xl bg-slate-50 border flex items-center justify-between group cursor-pointer hover:bg-white transition-all shadow-sm" onClick={() => window.open('https://compliance-hub.local/docs')}>
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white"><BookOpen className="w-5 h-5" /></div>

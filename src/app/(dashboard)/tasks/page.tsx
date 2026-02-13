@@ -180,7 +180,7 @@ export default function TasksPage() {
   if (!mounted) return null;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 pb-10 max-w-[1800px] mx-auto">
+    <div className="p-4 md:p-8 space-y-6 pb-10 w-full">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
@@ -226,7 +226,7 @@ export default function TasksPage() {
       </div>
 
       {/* Main Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden w-full">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary opacity-20" />
