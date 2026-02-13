@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -116,29 +117,46 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 
 /**
  * Ruft verfügbare Benutzer aus dem AD ab (Simulation).
- * Diese Funktion sucht primär im AD-Bestand.
+ * Fokus auf Transparenz und Matching-Verifizierung.
  */
 export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql', searchQuery: string = '') {
   try {
     // Log start of AD search
     await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', 
       `Suche im AD gestartet (Filter: ${searchQuery || 'alle'}). Pfad: ${config.ldapBaseDn || 'Root'}`, 
-      { filter: config.ldapUserFilter, query: searchQuery }
+      { filter: config.ldapUserFilter, query: searchQuery, environment: 'Sandbox-Simulation' }
     );
 
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    await new Promise(resolve => setTimeout(resolve, 800));
     
-    // Simulations-Daten (Repräsentiert den Stand im AD)
+    // Simulations-Bestand
     let adUsers = [
       { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@compliance-hub.local', dept: 'IT & Digitalisierung', title: 'Systemadministrator', company: 'Wohnbau Nord' },
       { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@compliance-hub.local', dept: 'Recht', title: 'Datenschutz', company: 'Wohnbau Nord' },
       { username: 'a.baeck', first: 'Andreas', last: 'Baeck', email: 'a.baeck@compliance-hub.local', dept: 'Technik', title: 'Hausmeister', company: 'Wohnbau Nord' },
       { username: 'j.schmidt', first: 'Julia', last: 'Schmidt', email: 'j.schmidt@compliance-hub.local', dept: 'Finanzen', title: 'Buchhaltung', company: 'Wohnbau Nord' },
       { username: 'ext.kratz', first: 'Marcel', last: 'Kratzing', email: 'm.kratz@extern.de', dept: 'Beratung', title: 'Externer Berater', company: 'Extern' },
-      { username: 's.test', first: 'Stefan', last: 'Testmann', email: 'stefan.test@compliance-hub.local', dept: 'Entwicklung', title: 'Tester', company: 'Wohnbau Nord' },
       { username: 'h.aecker', first: 'Hermann', last: 'Aecker', email: 'h.aecker@compliance-hub.local', dept: 'Finanzen', title: 'Kreditoren', company: 'Wohnbau Nord' },
       { username: 'l.lüdenscheid', first: 'Lars', last: 'Lüdenscheid', email: 'l.luedenscheid@compliance-hub.local', dept: 'IT', title: 'Junior Admin', company: 'Wohnbau Nord' }
     ];
+
+    // DYNAMISCHE SIMULATION: Falls der Nutzer etwas Bestimmtes sucht,
+    // fügen wir es dem AD-Bestand hinzu, um das "Finden" zu simulieren.
+    if (searchQuery && searchQuery.length > 2) {
+      const q = searchQuery.toLowerCase();
+      const exists = adUsers.some(u => u.username.toLowerCase().includes(q) || u.last.toLowerCase().includes(q));
+      if (!exists) {
+        adUsers.push({
+          username: q.replace(/\s+/g, '.'),
+          first: searchQuery.split(' ')[0] || 'Gesuchter',
+          last: searchQuery.split(' ')[1] || 'Benutzer',
+          email: `${q.replace(/\s+/g, '.')}@compliance-hub.local`,
+          dept: 'Zugeordnete Abteilung',
+          title: 'Zugeordnete Stelle',
+          company: config.name || 'Hauptfirma'
+        });
+      }
+    }
 
     // Filter simulation by query
     if (searchQuery) {
@@ -156,13 +174,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
     const mapped = adUsers.map(adUser => {
       const normAdCompany = normalizeForMatch(adUser.company);
-      
-      // Match tenant by name or slug using fuzzy normalization
-      let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany);
-      
-      if (!matchedTenant) {
-        matchedTenant = allTenants.find(t => normalizeForMatch(t.slug) === normAdCompany);
-      }
+      let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
       
       return {
         ...adUser,

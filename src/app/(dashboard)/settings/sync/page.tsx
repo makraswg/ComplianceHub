@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -216,7 +217,7 @@ export default function SyncSettingsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-10">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-800/50 border-b shrink-0">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
                 <Server className="w-5 h-5 text-primary" /> 1. Verbindungs-Parameter
               </CardTitle>
@@ -240,7 +241,7 @@ export default function SyncSettingsPage() {
                   <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389 / 636" className="rounded-xl h-12" />
                 </div>
                 <div className="space-y-3 lg:col-span-3">
-                  <Label className="text-[10px) font-black uppercase text-slate-400 ml-1">Base DN</Label>
+                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Base DN</Label>
                   <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-xl h-12" />
                 </div>
                 <div className="space-y-3">
@@ -262,7 +263,7 @@ export default function SyncSettingsPage() {
               </div>
 
               <div className="space-y-6 pt-6 border-t">
-                <h3 className="text-xs font-black uppercase text-slate-900 flex items-center gap-2">
+                <h3 className="text-xs font-black uppercase text-slate-800 flex items-center gap-2">
                   <Lock className="w-4 h-4 text-indigo-600" /> Sicherheit & Verschlüsselung
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -304,7 +305,7 @@ export default function SyncSettingsPage() {
           </Card>
 
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+            <CardHeader className="p-8 bg-slate-50 dark:bg-slate-800/50 border-b shrink-0">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
                 <Users className="w-5 h-5 text-indigo-600" /> 2. Attribut-Mapping
               </CardTitle>
@@ -342,7 +343,7 @@ export default function SyncSettingsPage() {
 
         <div className="space-y-8">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-            <CardHeader className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
+            <CardHeader className="p-6 bg-slate-50 dark:bg-slate-800/50 border-b shrink-0">
                 <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
                     <RefreshCw className="w-4 h-4 text-primary" /> Sync-Jobs Monitor
                 </CardTitle>

@@ -547,10 +547,10 @@ export const appSchema: AppSchema = {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
       timestamp: 'VARCHAR(50) NOT NULL',
-      action: 'VARCHAR(50)', // Test, Sync, Import
-      status: 'VARCHAR(20)', // Success, Error
+      action: 'VARCHAR(50)', 
+      status: 'VARCHAR(20)', 
       message: 'TEXT',
-      details: 'LONGTEXT', // Technical detail (Stacktrace or Response)
+      details: 'LONGTEXT', 
       actorUid: 'VARCHAR(255)'
     }
   },
