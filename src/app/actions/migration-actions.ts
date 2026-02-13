@@ -83,7 +83,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
 }
 
 /**
- * Erstellt den ersten Administrator und den Standard-Mandanten.
+ * Erstellt den ersten Administrator, den Standard-Mandanten und die SuperAdmin-Rolle.
  */
 export async function createInitialAdminAction(data: { 
   name: string, 
@@ -103,13 +103,34 @@ export async function createInitialAdminAction(data: {
       [tenantId, data.tenantName, data.tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'), new Date().toISOString(), 'active']
     );
 
-    // 2. Admin erstellen
+    // 2. Standardrolle superAdmin initialisieren
+    const superAdminRole = {
+      id: 'superAdmin',
+      name: 'Super Administrator',
+      description: 'Plattformweiter Vollzugriff auf alle Module und Einstellungen.',
+      permissions: JSON.stringify({
+        iam: 'write',
+        risks: 'write',
+        processhub: 'write',
+        gdpr: 'write',
+        settings: 'write',
+        audit: 'write',
+        media: 'write'
+      })
+    };
+
+    await connection.query(
+      'INSERT INTO `platformRoles` (id, name, description, permissions) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), permissions = VALUES(permissions)',
+      [superAdminRole.id, superAdminRole.name, superAdminRole.description, superAdminRole.permissions]
+    );
+
+    // 3. Admin erstellen
     const salt = bcrypt.genSaltSync(10);
     const hashedPassword = bcrypt.hashSync(data.password, salt);
     const adminId = 'puser-initial-admin';
     
     await connection.query(
-      'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), password = VALUES(password)',
       [adminId, data.email, hashedPassword, data.name, 'superAdmin', 'all', 1, new Date().toISOString(), 'local']
     );
 
