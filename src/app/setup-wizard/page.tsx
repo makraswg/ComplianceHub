@@ -30,6 +30,7 @@ import { testMysqlConnectionAction } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type SetupStep = 'welcome' | 'db-test' | 'initialize' | 'admin' | 'complete';
 
@@ -110,13 +111,8 @@ export default function SetupWizardPage() {
 
   if (!mounted) return null;
 
-  const progress = {
-    welcome: 0,
-    'db-test': 25,
-    initialize: 50,
-    admin: 75,
-    complete: 100
-  }[currentStep];
+  const steps = ['welcome', 'db-test', 'initialize', 'admin', 'complete'];
+  const progress = (steps.indexOf(currentStep) / (steps.length - 1)) * 100;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -129,7 +125,7 @@ export default function SetupWizardPage() {
           <h1 className="text-3xl font-headline font-bold text-slate-900 uppercase tracking-tight">System Setup</h1>
           <div className="max-w-xs mx-auto space-y-2">
             <Progress value={progress} className="h-1.5" />
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbetriebnahme • Schritt {Object.keys(progress).indexOf(currentStep) + 1} von 5</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbetriebnahme • Schritt {steps.indexOf(currentStep) + 1} von 5</p>
           </div>
         </div>
 
