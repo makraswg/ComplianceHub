@@ -540,6 +540,18 @@ export const appSchema: AppSchema = {
       lastMessage: 'TEXT',
     }
   },
+  ldapLogs: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      timestamp: 'VARCHAR(50) NOT NULL',
+      action: 'VARCHAR(50)', // Test, Sync, Import
+      status: 'VARCHAR(20)', // Success, Error
+      message: 'TEXT',
+      details: 'LONGTEXT', // Technical detail (Stacktrace or Response)
+      actorUid: 'VARCHAR(255)'
+    }
+  },
   bundles: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { dbQuery, testMysqlConnection } from '@/lib/mysql';
@@ -33,6 +34,7 @@ const collectionToTableMap: { [key: string]: string } = {
   aiAuditCriteria: 'aiAuditCriteria',
   smtpConfigs: 'smtpConfigs',
   syncJobs: 'syncJobs',
+  ldapLogs: 'ldapLogs',
   helpContent: 'helpContent',
   processingActivities: 'processingActivities',
   dataSubjectGroups: 'dataSubjectGroups',
@@ -208,7 +210,7 @@ export async function updatePlatformUserPasswordAction(email: string, password: 
 
 export async function truncateDatabaseAreasAction() {
   try {
-    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media'];
+    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media', 'ldapLogs'];
     await dbQuery('SET FOREIGN_KEY_CHECKS = 0');
     for (const table of tables) {
       await dbQuery(`DELETE FROM \`${table}\``);

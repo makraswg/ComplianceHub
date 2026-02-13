@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -31,7 +32,12 @@ import {
   UserPlus,
   Check,
   Search,
-  Fingerprint
+  Fingerprint,
+  Bug,
+  Eye,
+  FileCode,
+  Terminal,
+  Clock
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -75,6 +81,7 @@ export default function SyncSettingsPage() {
   
   const [tenantDraft, setTenantDraft] = useState<Partial<Tenant>>({});
   const [selectedJobMessage, setSelectedJobMessage] = useState<string | null>(null);
+  const [selectedLogEntry, setSelectedLogEntry] = useState<any>(null);
 
   // Import Tool States
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -86,6 +93,7 @@ export default function SyncSettingsPage() {
 
   const { data: tenants, refresh: refreshTenants, isLoading: isTenantsLoading } = usePluggableCollection<Tenant>('tenants');
   const { data: syncJobs, refresh: refreshJobs } = usePluggableCollection<SyncJob>('syncJobs');
+  const { data: ldapLogs, refresh: refreshLogs } = usePluggableCollection<any>('ldapLogs');
   const { data: hubUsers } = usePluggableCollection<User>('users');
 
   useEffect(() => {
@@ -112,6 +120,7 @@ export default function SyncSettingsPage() {
     try {
       const res = await testLdapConnectionAction(tenantDraft);
       toast({ title: "LDAP Test", description: res.message, variant: res.success ? "default" : "destructive" });
+      setTimeout(refreshLogs, 500);
     } finally {
       setIsTesting(false);
     }
@@ -140,6 +149,7 @@ export default function SyncSettingsPage() {
         toast({ title: "Import abgeschlossen", description: `${res.count} Benutzer wurden verarbeitet.` });
         setIsImportOpen(false);
         setSelectedAdUsernames([]);
+        refreshLogs();
       }
     } finally {
       setIsImporting(false);
@@ -162,11 +172,19 @@ export default function SyncSettingsPage() {
       if (res.success) {
         toast({ title: "Job abgeschlossen" });
         refreshJobs();
+        refreshLogs();
       }
     } finally {
       setIsJobRunning(null);
     }
   };
+
+  const sortedLogs = useMemo(() => {
+    if (!ldapLogs) return [];
+    return ldapLogs
+      .filter((log: any) => activeTenantId === 'all' || log.tenantId === activeTenantId || log.tenantId === 'global')
+      .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [ldapLogs, activeTenantId]);
 
   if (!tenantDraft.id && !isTenantsLoading) {
     return (
@@ -325,7 +343,7 @@ export default function SyncSettingsPage() {
           </Card>
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-8">
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="p-6 bg-slate-50 dark:bg-slate-900/50 border-b shrink-0">
                 <CardTitle className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-white flex items-center gap-3">
@@ -384,22 +402,65 @@ export default function SyncSettingsPage() {
             </CardContent>
           </Card>
 
-          <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-3xl flex items-start gap-4">
+          {/* Connection Log (Debug) */}
+          <Card className="rounded-2xl border-2 border-slate-100 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="bg-slate-800 text-white p-4 shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-primary" /> Verbindungsprotokoll (Debug)
+                </CardTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-white/50 hover:text-white" onClick={() => refreshLogs()}>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-80">
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {sortedLogs.map((log: any) => (
+                    <div key={log.id} className="p-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-1.5 h-8 rounded-full",
+                          log.status === 'success' ? "bg-emerald-500" : "bg-red-500"
+                        )} />
+                        <div>
+                          <p className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase">{log.action}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[8px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(log.timestamp).toLocaleTimeString()}</span>
+                            <span className={cn("text-[8px] font-bold truncate max-w-[150px]", log.status === 'success' ? "text-emerald-600" : "text-red-600")}>{log.message}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 opacity-0 group-hover:opacity-100 transition-all" onClick={() => setSelectedLogEntry(log)}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                  {sortedLogs.length === 0 && (
+                    <div className="py-20 text-center opacity-30 italic text-[10px] uppercase">Keine Protokolle vorhanden</div>
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+
+          <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl flex items-start gap-4 shadow-sm">
             <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-black uppercase text-slate-900">Governance-Tipp</p>
+              <p className="text-xs font-black uppercase text-slate-900 dark:text-slate-100">Governance-Tipp</p>
               <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                Verwenden Sie den Benutzer-Filter, um die Synchronisation auf relevante Organisationseinheiten (OUs) zu begrenzen. Dies reduziert die Last und erhöht die Übersichtlichkeit im Verzeichnis.
+                Nutzen Sie die Debug-Konsole bei Fehlermeldungen wie "net::ERR_NAME_NOT_RESOLVED" oder "LDAP_INVALID_CREDENTIALS". Das Log speichert die letzten 200 Versuche.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* AD Import Dialog - Fixed logic AD -> Hub */}
+      {/* AD Import Dialog */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary shadow-lg border border-white/10">
@@ -512,7 +573,7 @@ export default function SyncSettingsPage() {
       {/* Log Message Dialog */}
       <Dialog open={!!selectedJobMessage} onOpenChange={() => setSelectedJobMessage(null)}>
           <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
-              <DialogHeader className="p-6 bg-slate-900 text-white">
+              <DialogHeader className="p-6 bg-slate-800 text-white">
                   <DialogTitle className="text-base font-headline font-bold uppercase tracking-widest flex items-center gap-2">
                     <FileText className="w-5 h-5 text-primary" /> System Protokoll
                   </DialogTitle>
@@ -524,6 +585,52 @@ export default function SyncSettingsPage() {
               </div>
               <DialogFooter className="p-4 bg-white border-t">
                 <Button onClick={() => setSelectedJobMessage(null)} className="rounded-xl font-bold text-[10px] uppercase px-8">Schließen</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      {/* Connection Log Entry Dialog */}
+      <Dialog open={!!selectedLogEntry} onOpenChange={() => setSelectedLogEntry(null)}>
+          <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden shadow-2xl border-none flex flex-col h-[80vh]">
+              <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center border",
+                      selectedLogEntry?.status === 'success' ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"
+                    )}>
+                      <Terminal className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-sm font-bold uppercase tracking-widest">Technisches Protokoll (AD Connectivity)</DialogTitle>
+                      <p className="text-[9px] font-bold text-white/50 uppercase mt-1">Aktion: {selectedLogEntry?.action} • {new Date(selectedLogEntry?.timestamp).toLocaleString()}</p>
+                    </div>
+                  </div>
+              </DialogHeader>
+              <ScrollArea className="flex-1 bg-slate-900">
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-black uppercase text-slate-500">Meldung</Label>
+                      <p className={cn("text-xs font-bold", selectedLogEntry?.status === 'success' ? "text-emerald-400" : "text-red-400")}>
+                        {selectedLogEntry?.message}
+                      </p>
+                    </div>
+                    <Separator className="bg-slate-800" />
+                    <div className="space-y-2">
+                      <Label className="text-[9px] font-black uppercase text-slate-500 flex items-center gap-2">
+                        <FileCode className="w-3 h-3" /> Rohdaten / Server Antwort
+                      </Label>
+                      <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 shadow-inner">
+                        <pre className="text-[10px] font-mono text-blue-300 whitespace-pre-wrap leading-relaxed">
+                          {selectedLogEntry?.details}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+              <DialogFooter className="p-4 bg-slate-800 border-t shrink-0">
+                <Button onClick={() => setSelectedLogEntry(null)} className="rounded-xl font-bold text-[10px] uppercase px-8 h-10 bg-slate-700 text-white hover:bg-slate-600">Fenster schließen</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>

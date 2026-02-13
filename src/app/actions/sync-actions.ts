@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -20,6 +21,51 @@ function normalizeForMatch(str: string): string {
 }
 
 /**
+ * Protokolliert ein LDAP-Ereignis für Debug-Zwecke.
+ */
+async function logLdapInteraction(
+  dataSource: DataSource,
+  tenantId: string,
+  action: string,
+  status: 'success' | 'error',
+  message: string,
+  details: any,
+  actorUid: string = 'system'
+) {
+  const id = `log-${Math.random().toString(36).substring(2, 9)}`;
+  const logEntry = {
+    id,
+    tenantId,
+    timestamp: new Date().toISOString(),
+    action,
+    status,
+    message,
+    details: typeof details === 'string' ? details : JSON.stringify(details, null, 2),
+    actorUid
+  };
+  await saveCollectionRecord('ldapLogs', id, logEntry, dataSource);
+  
+  // Truncate to 200 entries per tenant if on mysql
+  if (dataSource === 'mysql') {
+    try {
+      const { dbQuery } = await import('@/lib/mysql');
+      await dbQuery(`
+        DELETE FROM ldapLogs 
+        WHERE id NOT IN (
+          SELECT id FROM (
+            SELECT id FROM ldapLogs 
+            WHERE tenantId = ? 
+            ORDER BY timestamp DESC 
+            LIMIT 200
+          ) x
+        ) AND tenantId = ?`, 
+        [tenantId, tenantId]
+      );
+    } catch (e) {}
+  }
+}
+
+/**
  * Testet die LDAP-Verbindung (Simulation).
  */
 export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
@@ -27,22 +73,37 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
     return { success: false, message: 'URL und Port erforderlich.' };
   }
 
+  const tenantId = config.id || 'unknown';
+  
   try {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     if (config.ldapUrl.includes('localhost') || config.ldapUrl.includes('127.0.0.1')) {
-      return { success: false, message: 'Lokale LDAP-Hosts werden in der Cloud-Sandbox nicht unterstützt.' };
+      const msg = 'Lokale LDAP-Hosts werden in der Cloud-Sandbox nicht unterstützt.';
+      await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', msg, { config, error: 'Forbidden Host' });
+      return { success: false, message: `NETZWERK-FEHLER: ${msg}` };
     }
 
     if (config.ldapBindPassword === 'wrong') {
-      return { success: false, message: 'LDAP-FEHLER: Authentifizierungsfehler. Der Bind-DN oder das Passwort ist ungültig.' };
+      const msg = 'Authentifizierungsfehler. Der Bind-DN oder das Passwort ist ungültig.';
+      await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', msg, { bindDn: config.ldapBindDn, error: 'Invalid Credentials' });
+      return { success: false, message: `LDAP-FEHLER: ${msg}` };
     }
+
+    const successMsg = `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht.`;
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 'Verbindung erfolgreich', { 
+      url: config.ldapUrl, 
+      port: config.ldapPort, 
+      tls: config.ldapUseTls,
+      response: 'LDAP_SUCCESS (0)' 
+    });
 
     return { 
       success: true, 
-      message: `Verbindung zu ${config.ldapUrl}:${config.ldapPort} erfolgreich etabliert. Domäne ${config.ldapDomain || 'unbekannt'} erreicht.` 
+      message: successMsg 
     };
   } catch (e: any) {
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', e.message, { stack: e.stack });
     return { success: false, message: `NETZWERK-FEHLER: ${e.message}` };
   }
 }
@@ -65,7 +126,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
     const tenantsRes = await getCollectionData('tenants', dataSource);
     const allTenants = (tenantsRes.data || []) as Tenant[];
 
-    return adUsers.map(adUser => {
+    const mapped = adUsers.map(adUser => {
       const normAdCompany = normalizeForMatch(adUser.company);
       
       let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany);
@@ -80,7 +141,11 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
         matchedTenantName: matchedTenant?.name || 'Kein Treffer (Fallback aktiv)'
       };
     });
+
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, mapped);
+    return mapped;
   } catch (e: any) {
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'error', e.message, e);
     throw new Error("Fehler beim Abruf der AD-Benutzer: " + e.message);
   }
 }
@@ -118,8 +183,11 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
       entityId: 'manual-import'
     });
 
+    await logLdapInteraction(dataSource, 'global', 'User Import', 'success', `${count} Benutzer importiert`, usersToImport, actorEmail);
+
     return { success: true, count };
   } catch (e: any) {
+    await logLdapInteraction(dataSource, 'global', 'User Import', 'error', e.message, e, actorEmail);
     return { success: false, error: e.message };
   }
 }
@@ -140,11 +208,13 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
         entityType: 'sync',
         entityId: jobId
       });
+      await logLdapInteraction(dataSource, 'global', 'Automatic Sync', 'success', 'Full AD Sync completed', { jobId }, actorUid);
     }
 
     await updateJobStatusAction(jobId, 'success', 'Automatischer Lauf erfolgreich beendet.', dataSource);
     return { success: true };
   } catch (e: any) {
+    await logLdapInteraction(dataSource, 'global', 'Automatic Sync', 'error', e.message, e, actorUid);
     await updateJobStatusAction(jobId, 'error', e.message, dataSource);
     return { success: false, error: e.message };
   }
