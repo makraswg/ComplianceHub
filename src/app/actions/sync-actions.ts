@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -30,6 +29,16 @@ const safeGetAttribute = (entry: any, attributeName: string | undefined, default
     return String(value[0] || defaultValue);
   }
   return String(value || defaultValue);
+};
+
+/**
+ * Holt ein Attribut als Array (z.B. für memberOf).
+ */
+const getAttributeArray = (entry: any, attributeName: string | undefined): string[] => {
+  if (!attributeName || !entry[attributeName]) return [];
+  const value = entry[attributeName];
+  if (Array.isArray(value)) return value.map(String);
+  return [String(value)];
 };
 
 /**
@@ -219,6 +228,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
       const username = safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName');
       const isDisabled = isUserAccountDisabled(entry.userAccountControl);
+      const groups = getAttributeArray(entry, config.ldapAttrGroups || 'memberOf');
 
       return {
         username,
@@ -226,10 +236,11 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
         last: safeGetAttribute(entry, config.ldapAttrLastname, ''),
         displayName: safeGetAttribute(entry, 'displayName', ''),
         email: safeGetAttribute(entry, config.ldapAttrEmail, ''),
-        dept: safeGetAttribute(entry, config.ldapAttrDepartment, ''),
+        dept: safeGetAttribute(entry, config.ldapAttrDepartment, 'department'),
         title: safeGetAttribute(entry, 'title', 'AD User'),
         company,
         isDisabled,
+        adGroups: groups,
         matchedTenantId: matchedTenant?.id || null,
         matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
       };
@@ -260,6 +271,7 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
         title: adUser.title || '',
         enabled: !adUser.isDisabled,
         status: adUser.isDisabled ? 'archived' : 'active',
+        adGroups: adUser.adGroups || [],
         lastSyncedAt: new Date().toISOString()
       };
 
@@ -313,10 +325,15 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
             const shouldBeEnabled = !adMatch.isDisabled;
             const currentEnabled = hubUser.enabled === true || hubUser.enabled === 1;
             
+            // Vergleiche Gruppen als JSON-Strings
+            const adGroupsJson = JSON.stringify((adMatch.adGroups || []).sort());
+            const hubGroupsJson = JSON.stringify((hubUser.adGroups || []).sort());
+
             const needsUpdate = currentEnabled !== shouldBeEnabled || 
                                 hubUser.displayName !== adMatch.displayName ||
                                 hubUser.email !== adMatch.email ||
-                                hubUser.department !== adMatch.dept;
+                                hubUser.department !== adMatch.dept ||
+                                adGroupsJson !== hubGroupsJson;
 
             if (needsUpdate) {
               const updatedUser = {
@@ -326,6 +343,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
                 department: adMatch.dept || hubUser.department,
                 enabled: shouldBeEnabled,
                 status: shouldBeEnabled ? 'active' : 'archived',
+                adGroups: adMatch.adGroups || [],
                 lastSyncedAt: new Date().toISOString()
               };
               

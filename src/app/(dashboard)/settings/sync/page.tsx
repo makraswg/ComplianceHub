@@ -324,11 +324,19 @@ export default function SyncSettingsPage() {
                       <Input value={tenantDraft.ldapAttrLastname || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrLastname: e.target.value})} placeholder="sn" className="rounded-xl h-12 bg-slate-50/30" />
                   </div>
                   <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Gruppen</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">E-Mail</Label>
+                      <Input value={tenantDraft.ldapAttrEmail || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrEmail: e.target.value})} placeholder="mail" className="rounded-xl h-12 bg-slate-50/30" />
+                  </div>
+                  <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Abteilung</Label>
+                      <Input value={tenantDraft.ldapAttrDepartment || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrDepartment: e.target.value})} placeholder="department" className="rounded-xl h-12 bg-slate-50/30" />
+                  </div>
+                  <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Gruppen (memberOf)</Label>
                       <Input value={tenantDraft.ldapAttrGroups || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrGroups: e.target.value})} placeholder="memberOf" className="rounded-xl h-12 bg-slate-50/30" />
                   </div>
                   <div className="space-y-3">
-                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Firma (Matching)</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Firma (Mandanten-Matching)</Label>
                       <Input value={tenantDraft.ldapAttrCompany || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrCompany: e.target.value})} placeholder="company" className="rounded-xl h-12 bg-slate-50/30" />
                   </div>
                   <div className="space-y-3 lg:col-span-3 pt-4 border-t">
@@ -444,7 +452,7 @@ export default function SyncSettingsPage() {
           <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-3xl flex items-start gap-4 shadow-sm">
             <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-black uppercase text-slate-900 dark:text-slate-100">Governance-Tipp</p>
+              <p className="text-xs font-black uppercase text-slate-900 dark:text-white">Governance-Tipp</p>
               <p className="text-[10px] text-slate-500 italic leading-relaxed">
                 Nutzen Sie die Debug-Konsole bei Fehlermeldungen wie "net::ERR_NAME_NOT_RESOLVED" oder "LDAP_INVALID_CREDENTIALS". Das Log speichert die letzten 200 Versuche.
               </p>
