@@ -133,7 +133,7 @@ export default function FeatureDetailPage() {
   const owner = jobTitles?.find(j => j.id === feature.ownerId);
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700 p-4 md:p-8">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/features')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
