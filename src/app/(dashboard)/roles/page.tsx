@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -141,6 +142,7 @@ export default function RolesManagementPage() {
           action: selectedRole ? `Rolle aktualisiert: ${name}` : `Rolle definiert: ${name}`,
           entityType: 'entitlement',
           entityId: id,
+          before: selectedRole,
           after: roleData
         });
 
@@ -157,6 +159,7 @@ export default function RolesManagementPage() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
+      const existing = roles?.find(r => r.id === deleteTarget.id);
       const res = await deleteCollectionRecord('entitlements', deleteTarget.id, dataSource);
       if (res.success) {
         await logAuditEventAction(dataSource, {
@@ -164,7 +167,8 @@ export default function RolesManagementPage() {
           actorUid: user?.email || 'system',
           action: `Rolle permanent gelöscht: ${deleteTarget.label}`,
           entityType: 'entitlement',
-          entityId: deleteTarget.id
+          entityId: deleteTarget.id,
+          before: existing
         });
 
         toast({ title: "Rolle permanent gelöscht" });
@@ -405,7 +409,7 @@ export default function RolesManagementPage() {
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
-            <Button onClick={handleSave} disabled={isSaving || !name} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+            <Button onClick={handleSave} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Rolle speichern
             </Button>
           </DialogFooter>

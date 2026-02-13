@@ -175,6 +175,7 @@ export default function GroupsPage() {
           action: selectedGroup ? `Zuweisungsgruppe aktualisiert: ${name}` : `Zuweisungsgruppe erstellt: ${name}`,
           entityType: 'group',
           entityId: id,
+          before: selectedGroup,
           after: groupData
         });
 
@@ -193,6 +194,15 @@ export default function GroupsPage() {
     const updated = { ...group, status: newStatus };
     const res = await saveCollectionRecord('groups', group.id, updated, dataSource);
     if (res.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: group.tenantId || 'global',
+        actorUid: user?.email || 'system',
+        action: `Zuweisungsgruppe ${newStatus === 'archived' ? 'archiviert' : 'reaktiviert'}: ${group.name}`,
+        entityType: 'group',
+        entityId: group.id,
+        before: group,
+        after: updated
+      });
       toast({ title: newStatus === 'archived' ? "Gruppe archiviert" : "Gruppe reaktiviert" });
       refreshGroups();
     }
@@ -202,6 +212,7 @@ export default function GroupsPage() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
+      const existing = groups?.find(g => g.id === deleteTarget.id);
       const res = await deleteCollectionRecord('groups', deleteTarget.id, dataSource);
       if (res.success) {
         await logAuditEventAction(dataSource, {
@@ -209,7 +220,8 @@ export default function GroupsPage() {
           actorUid: user?.email || 'system',
           action: `Zuweisungsgruppe permanent gelöscht: ${deleteTarget.label}`,
           entityType: 'group',
-          entityId: deleteTarget.id
+          entityId: deleteTarget.id,
+          before: existing
         });
 
         toast({ title: "Gruppe permanent gelöscht" });
@@ -344,7 +356,6 @@ export default function GroupsPage() {
         )}
       </div>
 
-      {/* Group Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-8">
@@ -446,7 +457,6 @@ export default function GroupsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Permanent Delete Alert */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(val) => !val && setDeleteTarget(null)}>
         <AlertDialogContent className="rounded-xl border-none shadow-2xl p-8">
           <AlertDialogHeader>

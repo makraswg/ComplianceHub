@@ -17,24 +17,24 @@ import {
   Zap,
   ShieldAlert,
   MoreHorizontal,
-  Pencil,
-  Trash2,
-  Info,
-  Layers,
-  ChevronRight,
-  UserCircle,
-  Building2,
-  User as UserIcon,
-  Plus,
-  AlertTriangle,
-  Archive,
-  RotateCcw,
-  Save,
-  Check,
-  ArrowRight,
-  Briefcase,
-  Ticket,
-  Mail,
+  Pencil, 
+  Trash2, 
+  Info, 
+  Layers, 
+  ChevronRight, 
+  UserCircle, 
+  Building2, 
+  User as UserIcon, 
+  Plus, 
+  AlertTriangle, 
+  Archive, 
+  RotateCcw, 
+  Save, 
+  Check, 
+  ArrowRight, 
+  Briefcase, 
+  Ticket, 
+  Mail, 
   UserX
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -151,7 +151,7 @@ export default function LifecyclePage() {
     return [...jobs].sort((a, b) => {
       const deptA = departments.find((d: any) => d.id === a.departmentId)?.name || '';
       const deptB = departments.find((d: any) => d.id === b.departmentId)?.name || '';
-      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      if (deptA !== deptB) return deptA.localeCompare(deptA);
       return a.name.localeCompare(b.name);
     });
   }, [jobs, departments]);
@@ -239,6 +239,16 @@ export default function LifecyclePage() {
           validFrom: onboardingDate, jiraIssueKey: jiraKey, syncSource: 'manual' 
         }, dataSource);
       }
+
+      // Explicit Audit Log for Onboarding Process
+      await logAuditEventAction(dataSource, {
+        tenantId: targetTenantId,
+        actorUid: user?.email || 'system',
+        action: `Onboarding gestartet: ${newUserName} (${entitlementList.length} Berechtigungen angefordert)`,
+        entityType: 'user',
+        entityId: userId,
+        after: userData
+      });
 
       toast({ title: "Onboarding gestartet", description: "Identität wurde angelegt." });
       setNewUserName(''); setNewEmail(''); setSelectedBundleId(null); setSelectedJobId(null);
@@ -426,7 +436,6 @@ export default function LifecyclePage() {
         </TabsContent>
 
         <TabsContent value="bundles">
-          {/* Bundle Management UI */}
           <div className="bg-white dark:bg-slate-900 rounded-xl border shadow-sm overflow-hidden">
             <Table>
               <TableHeader className="bg-slate-50/50">
