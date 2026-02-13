@@ -41,7 +41,9 @@ import {
   Layers,
   ShieldAlert,
   Search,
-  X
+  X,
+  BookOpen,
+  Share2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,9 +52,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl } from '@/lib/types';
+import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl, BookStackConfig } from '@/lib/types';
 import { commitPolicyVersionAction, linkPolicyEntityAction, unlinkPolicyEntityAction } from '@/app/actions/policy-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
+import { publishPolicyToBookStackAction } from '@/app/actions/bookstack-actions';
 import { runPolicyValidation, PolicyValidatorOutput } from '@/ai/flows/policy-validator-flow';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
@@ -75,6 +78,7 @@ export default function PolicyDetailPage() {
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [draftContent, setDraftContent] = useState('');
   const [changelog, setChangelog] = useState('');
 
@@ -86,7 +90,7 @@ export default function PolicyDetailPage() {
   const [linkSearch, setLinkSearch] = useState('');
 
   const { data: policies, isLoading: isPolLoading, refresh: refreshPolicies } = usePluggableCollection<Policy>('policies');
-  const { data: versions, refresh: refreshVersions } = usePluggableCollection<PolicyVersion>('policy_versions');
+  const { data: versions, refresh: refreshVersions } = usePluggableCollection<any>('process_versions');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: risks } = usePluggableCollection<Risk>('risks');
@@ -94,15 +98,18 @@ export default function PolicyDetailPage() {
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: policyLinks, refresh: refreshLinks } = usePluggableCollection<any>('policy_links');
   const { data: controls } = usePluggableCollection<RiskControl>('riskControls');
+  const { data: bsConfigs } = usePluggableCollection<BookStackConfig>('bookstackConfigs');
 
   const policy = useMemo(() => policies?.find(p => p.id === id), [policies, id]);
   const policyVersions = useMemo(() => 
-    versions?.filter(v => v.policyId === id)
-      .sort((a, b) => b.version - a.version || b.revision - a.revision) || [], 
+    (versions || [])
+      .filter((v: any) => v.policyId === id)
+      .sort((a: any, b: any) => b.version - a.version || b.revision - a.revision) || [], 
     [versions, id]
   );
   const activeVersion = policyVersions[0];
   const policyAttachments = mediaFiles?.filter(m => m.entityId === id && m.module === 'PolicyHub') || [];
+  const hasBookStack = bsConfigs?.some(c => c.enabled);
 
   // Filtered Links
   const linkedRisks = useMemo(() => {
@@ -163,6 +170,23 @@ export default function PolicyDetailPage() {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBookStackExport = async () => {
+    if (!activeVersion || !id) return;
+    setIsExporting(true);
+    try {
+      const res = await publishPolicyToBookStackAction(id as string, activeVersion.id, dataSource);
+      if (res.success) {
+        toast({ title: "Export erfolgreich", description: "Dokument wurde in BookStack aktualisiert." });
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Export fehlgeschlagen", description: e.message });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -256,11 +280,16 @@ export default function PolicyDetailPage() {
               )}>{policy.status}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-              <ScrollText className="w-3 h-3" /> Revisionssicheres Modul • V{policy.currentVersion}.{activeVersion?.revision || 0}
+              <ScrollText className="w-3 h-3" /> Wiki-Style Modul • V{policy.currentVersion}.{activeVersion?.revision || 0}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
+          {hasBookStack && (
+            <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-blue-200 text-blue-700 shadow-sm" onClick={handleBookStackExport} disabled={isExporting}>
+              {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />} BookStack Sync
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
             {isAiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
           </Button>
@@ -283,24 +312,22 @@ export default function PolicyDetailPage() {
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
-              <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Policy Integrity</CardTitle>
+              <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dokumenten-Info</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Compliance Score</span>
-                <p className={cn("text-4xl font-black uppercase", integrityScore >= 80 ? "text-emerald-600" : integrityScore >= 50 ? "text-orange-600" : "text-red-600")}>{integrityScore}%</p>
-                <div className="w-full mt-4 space-y-1.5">
-                  <div className="flex justify-between text-[8px] font-black uppercase text-slate-400"><span>TOM Umsetzung</span><span>{integrityScore}%</span></div>
-                  <Progress value={integrityScore} className="h-1.5" />
-                </div>
-              </div>
-              
-              <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-4">
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ownership (Rolle)</Label>
-                  <div className="flex items-center gap-2 p-2.5 bg-white border rounded-xl shadow-sm">
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
                     <Briefcase className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-bold text-slate-800">{jobTitles?.find(j => j.id === policy.ownerRoleId)?.name || 'Nicht zugewiesen'}</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{jobTitles?.find(j => j.id === policy.ownerRoleId)?.name || 'Nicht zugewiesen'}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Nächster Review</Label>
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl shadow-inner">
+                    <Clock className="w-4 h-4 text-orange-500" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">In {policy.reviewInterval} Tagen</span>
                   </div>
                 </div>
               </div>
@@ -339,13 +366,10 @@ export default function PolicyDetailPage() {
           <Tabs defaultValue="content" className="space-y-6">
             <TabsList className="bg-slate-100 p-1.5 h-14 rounded-2xl border w-full justify-start gap-2 shadow-inner">
               <TabsTrigger value="content" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
-                <FileText className="w-4 h-4" /> Inhalt
+                <BookOpen className="w-4 h-4" /> Inhalt
               </TabsTrigger>
               <TabsTrigger value="links" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
-                <Target className="w-4 h-4" /> Verknüpfungen
-              </TabsTrigger>
-              <TabsTrigger value="ai" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
-                <BrainCircuit className="w-4 h-4 text-indigo-600" /> KI-Audit
+                <Target className="w-4 h-4" /> GRC-Bezug
               </TabsTrigger>
               <TabsTrigger value="history" className="rounded-xl px-6 gap-3 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
                 <History className="w-4 h-4" /> Historie
@@ -374,20 +398,23 @@ export default function PolicyDetailPage() {
                       <Input value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Änderungsgrund..." className="rounded-xl h-11 bg-white" />
                       <div className="flex justify-end gap-3">
                         <Button variant="outline" className="rounded-xl h-11 px-8 font-black text-[10px] uppercase" onClick={() => handleSaveVersion(true)} disabled={isSaving}>Freigabe erteilen</Button>
-                        <Button className="rounded-xl h-11 px-12 bg-emerald-600 text-white font-black text-[10px] uppercase shadow-lg" onClick={() => handleSaveVersion(false)} disabled={isSaving}>Sichern</Button>
+                        <Button className="rounded-xl h-11 px-12 bg-emerald-600 text-white font-black text-[10px] uppercase shadow-lg" onClick={() => handleSaveVersion(false)} disabled={isSaving}>Revision Sichern</Button>
                       </div>
                     </div>
                   </Card>
                 </div>
               ) : (
-                <Card className="rounded-2xl border shadow-xl bg-white p-10 min-h-[600px]">
+                <Card className="rounded-2xl border shadow-xl bg-white p-10 min-h-[600px] relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4">
+                    <Badge variant="outline" className="text-[8px] font-black uppercase text-slate-300">Read-Only Mode</Badge>
+                  </div>
                   <div className="max-w-3xl mx-auto prose prose-slate">
                     {activeVersion ? (
                       <div className="space-y-8">
                         <h1 className="font-headline font-black text-4xl">{policy.title}</h1>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Stand: {new Date(activeVersion.createdAt).toLocaleDateString()} • V{activeVersion.version}.{activeVersion.revision}</p>
                         <Separator />
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{activeVersion.content}</div>
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 font-medium">{activeVersion.content}</div>
                       </div>
                     ) : (
                       <div className="py-24 text-center space-y-4 opacity-30">
@@ -402,14 +429,19 @@ export default function PolicyDetailPage() {
             </TabsContent>
 
             <TabsContent value="links" className="space-y-6 animate-in fade-in">
+              <div className="p-6 bg-blue-50/50 border border-blue-100 rounded-[2rem] flex items-center gap-6 shadow-sm">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0">
+                  <Info className="w-6 h-6" />
+                </div>
+                <p className="text-xs text-blue-800 font-medium leading-relaxed italic">
+                  „Verknüpfungen im PolicyHub dienen der Dokumentation des regulatorischen Kontextes. Sie beeinflussen nicht den Inhalt, ermöglichen aber die automatisierte Compliance-Prüfung.“
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
                     <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-widest">Risikobezug</CardTitle>
-                    <div className="relative w-40">
-                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                      <Input placeholder="Risiko wählen..." className="h-7 pl-7 text-[9px] rounded-lg" value={linkSearch} onChange={e => setLinkSearch(e.target.value)} />
-                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100">
@@ -448,93 +480,25 @@ export default function PolicyDetailPage() {
                 </Card>
               </div>
 
-              <div className="p-6 bg-slate-100 border border-dashed rounded-3xl space-y-4">
-                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Objekt-Verknüpfung (Quick-Link)</h4>
+              <div className="p-6 bg-slate-100 border border-dashed rounded-[2rem] flex flex-col items-center gap-4">
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung</h4>
                 <div className="flex flex-wrap justify-center gap-3">
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Risiko verknüpfen" /></SelectTrigger>
+                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Risiko wählen" /></SelectTrigger>
                     <SelectContent>{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id}>{r.title}</SelectItem>)}</SelectContent>
                   </Select>
                   <Select onValueChange={(val) => handleLinkEntity('measure', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Maßnahme verknüpfen" /></SelectTrigger>
+                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="Maßnahme wählen" /></SelectTrigger>
                     <SelectContent>{measures?.filter(m => !linkedMeasures.some(lm => lm.id === m.id)).map(m => <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Select onValueChange={(val) => handleLinkEntity('resource', val)}>
-                    <SelectTrigger className="w-48 h-9 rounded-xl bg-white"><SelectValue placeholder="System verknüpfen" /></SelectTrigger>
-                    <SelectContent>{resources?.filter(res => !linkedResources.some(lr => lr.id === res.id)).map(res => <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="ai" className="space-y-6 animate-in fade-in">
-              {!aiAuditResult && !isAiLoading ? (
-                <div className="py-32 text-center space-y-6 bg-white border rounded-3xl shadow-inner">
-                  <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto shadow-sm"><BrainCircuit className="w-10 h-10 text-indigo-600" /></div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-headline font-bold text-slate-900 uppercase">Automatisierter KI-Text-Check</h3>
-                    <p className="text-sm text-slate-500 max-w-md mx-auto">Die KI prüft, ob Ihr Richtlinientext die verknüpften Risiken und Maßnahmen inhaltlich ausreichend abdeckt.</p>
-                  </div>
-                  <Button onClick={handleAiAudit} className="rounded-xl h-12 px-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-widest shadow-xl">Audit jetzt starten</Button>
-                </div>
-              ) : isAiLoading ? (
-                <div className="py-32 text-center space-y-6">
-                  <Loader2 className="w-16 h-16 animate-spin text-indigo-600 opacity-20 mx-auto" />
-                  <p className="text-xs font-black uppercase text-indigo-600 tracking-[0.2em] animate-pulse">KI-Analyse läuft...</p>
-                </div>
-              ) : (
-                <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-500">
-                  <Card className="rounded-3xl border-none shadow-2xl bg-slate-900 text-white overflow-hidden">
-                    <CardHeader className="p-10 border-b border-white/5 flex flex-row items-center justify-between">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-primary border border-white/10"><CheckCircle2 className="w-8 h-8" /></div>
-                        <div>
-                          <CardTitle className="text-3xl font-headline font-black uppercase tracking-tight">Compliance Readiness</CardTitle>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400 mt-2">Prüfungsergebnis durch KI Access Advisor</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-6xl font-headline font-black text-emerald-400">{aiAuditResult?.complianceScore}%</span>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-10 space-y-8">
-                      <div className="p-6 bg-white/5 rounded-2xl border border-white/10 italic text-sm leading-relaxed text-slate-300">
-                        "{aiAuditResult?.summary}"
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                          <h4 className="text-[10px] font-black uppercase text-red-400 tracking-widest flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Kritische Lücken (Gaps)</h4>
-                          <div className="space-y-3">
-                            {aiAuditResult?.gaps.map((gap, i) => (
-                              <div key={i} className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl space-y-2">
-                                <p className="text-xs font-bold text-red-200">{gap.finding}</p>
-                                <p className="text-[10px] text-red-100/70 italic leading-relaxed">{gap.recommendation}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <h4 className="text-[10px] font-black uppercase text-emerald-400 tracking-widest flex items-center gap-2"><BadgeCheck className="w-4 h-4" /> Stärken</h4>
-                          <div className="space-y-3">
-                            {aiAuditResult?.strengths.map((s, i) => (
-                              <div key={i} className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs font-medium text-emerald-100">
-                                <CheckCircle className="w-4 h-4 shrink-0" /> {s}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <div className="p-4 bg-white/5 border-t border-white/5 flex justify-center"><Button variant="ghost" className="text-white/50 text-[10px] font-black uppercase hover:text-white" onClick={() => setAiAuditResult(null)}>Prüfung zurücksetzen</Button></div>
-                  </Card>
-                </div>
-              )}
-            </TabsContent>
-
             <TabsContent value="history" className="animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight">Versionen & Audit Trail</CardTitle>
+                <CardHeader className="bg-slate-50 border-b p-6">
+                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight">Revision-History & Audit Trail</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-slate-100">
@@ -553,7 +517,7 @@ export default function PolicyDetailPage() {
                             </div>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black" onClick={() => { setDraftContent(v.content); setEditMode(true); }}>Wiederherstellen</Button>
+                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 uppercase text-[9px] font-black" onClick={() => { setDraftContent(v.content); setEditMode(true); }}>Snapshot laden</Button>
                       </div>
                     ))}
                   </div>

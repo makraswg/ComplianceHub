@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -50,15 +51,15 @@ export default function BookStackSettingsPage() {
             </div>
             <div>
               <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">BookStack Dokumentation</CardTitle>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Automatisierter Export von Prozess-Leitfäden</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1.5">Automatisierter Export von Richtlinien & Leitfäden</p>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-8 space-y-10">
           <div className="flex items-center justify-between p-6 bg-primary/5 dark:bg-slate-950 rounded-xl border border-primary/10">
             <div className="space-y-1">
-              <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">BookStack Publishing aktiv</Label>
-              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Erlaubt den Export von Prozess-Modellen als Dokumentationsseiten.</p>
+              <Label className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase">BookStack Export aktiv</Label>
+              <p className="text-[10px] uppercase font-bold text-slate-400 italic">Erlaubt den Export von Richtlinien als Wiki-Seiten.</p>
             </div>
             <Switch checked={!!configDraft.enabled} onCheckedChange={v => setConfigDraft({...configDraft, enabled: v})} />
           </div>
