@@ -300,6 +300,7 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
+      parentId: 'VARCHAR(255)',
       title: 'VARCHAR(255) NOT NULL',
       type: 'VARCHAR(50) NOT NULL', 
       ownerRoleId: 'VARCHAR(255)',

@@ -60,7 +60,8 @@ import {
   ImageIcon,
   FileUp,
   Search,
-  Check
+  Check,
+  LayoutGrid
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -147,6 +148,9 @@ export default function PolicyDetailPage() {
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   const policy = useMemo(() => policies?.find(p => p.id === id), [policies, id]);
+  const parentPolicy = useMemo(() => policies?.find(p => p.id === policy?.parentId), [policies, policy]);
+  const subDocuments = useMemo(() => policies?.filter(p => p.parentId === id) || [], [policies, id]);
+
   const policyVersions = useMemo(() => 
     (versions || [])
       .filter((v: any) => v.policyId === id)
@@ -446,6 +450,25 @@ export default function PolicyDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
+          {parentPolicy && (
+            <Card className="rounded-2xl border border-indigo-100 bg-indigo-50/20 overflow-hidden">
+              <CardHeader className="p-4 bg-indigo-600 text-white">
+                <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                  <LayoutGrid className="w-3.5 h-3.5" /> Teil eines Sets
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between group cursor-pointer" onClick={() => router.push(`/policies/${parentPolicy.id}`)}>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-indigo-900 truncate">{parentPolicy.title}</p>
+                    <p className="text-[8px] font-black uppercase text-indigo-400">Master Dokument</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dokumenten-Info</CardTitle>
@@ -469,6 +492,26 @@ export default function PolicyDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {subDocuments.length > 0 && (
+            <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+              <CardHeader className="bg-slate-50 border-b p-4 px-6">
+                <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5" /> Zugehörige Bausteine
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {subDocuments.map(doc => (
+                    <div key={doc.id} className="p-3 px-6 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group" onClick={() => router.push(`/policies/${doc.id}`)}>
+                      <span className="text-[11px] font-bold text-slate-700 truncate">{doc.title}</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-all" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
@@ -811,7 +854,7 @@ export default function PolicyDetailPage() {
                 <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Verfügbare Grafiken ({imageAttachments.length})</h4>
                 <div className="md:hidden">
                   <Button variant="outline" size="sm" className="h-8 text-[9px] font-bold" onClick={() => mediaPickerInputRef.current?.click()}>
-                    {isUploading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />} Upload
+                    {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />} Upload
                   </Button>
                 </div>
               </div>

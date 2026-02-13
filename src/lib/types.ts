@@ -263,6 +263,7 @@ export interface ProcessType {
 export interface Policy {
   id: string;
   tenantId: string;
+  parentId?: string; // Neu: Für Dokumenten-Sets / ISK
   title: string;
   type: 'DA' | 'BV' | 'ISK' | 'DS';
   ownerRoleId?: string;
