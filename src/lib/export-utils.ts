@@ -82,71 +82,6 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Synchronisierte Layout-Logik (Designer-Mirror).
- * Berechnet X/Y Positionen basierend auf Graphenstruktur (Ränge & Bahnen).
- */
-function calculateDesignerLayout(nodes: ProcessNode[], edges: any[]) {
-  const levels: Record<string, number> = {};
-  const lanes: Record<string, number> = {};
-  const occupiedLanesPerLevel = new Map<number, Set<number>>();
-
-  nodes.forEach(n => levels[n.id] = 0);
-  
-  // 1. Ranking (X-Achse / Tiefe)
-  let changed = true;
-  let limit = nodes.length * 2;
-  while (changed && limit > 0) {
-    changed = false;
-    edges.forEach(e => {
-      if (levels[e.target] <= levels[e.source]) {
-        levels[e.target] = levels[e.source] + 1;
-        changed = true;
-      }
-    });
-    limit--;
-  }
-
-  // 2. Lane-Zuweisung (Y-Achse / Parallele Pfade)
-  const processed = new Set<string>();
-  const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
-  
-  while (queue.length > 0) {
-    const { id, lane } = queue.shift()!;
-    if (processed.has(id)) continue;
-    
-    const lv = levels[id];
-    let finalLane = lane;
-    if (!occupiedLanesPerLevel.has(lv)) occupiedLanesPerLevel.set(lv, new Set());
-    const levelOccupancy = occupiedLanesPerLevel.get(lv)!;
-    while (levelOccupancy.has(finalLane)) { finalLane++; }
-    
-    lanes[id] = finalLane;
-    levelOccupancy.add(finalLane);
-    processed.add(id);
-
-    const children = edges.filter((e: any) => e.source === id).map((e: any) => e.target);
-    children.forEach((childId: string, idx: number) => { 
-      queue.push({ id: childId, lane: finalLane + idx }); 
-    });
-  }
-
-  const layout: Record<string, { x: number, y: number, lv: number, lane: number }> = {};
-  nodes.forEach(n => {
-    layout[n.id] = {
-      x: levels[n.id] * 50,
-      y: lanes[n.id] * 25,
-      lv: levels[n.id],
-      lane: lanes[n.id]
-    };
-  });
-
-  const maxLv = Math.max(...Object.values(levels), 0);
-  const maxLane = Math.max(...Object.values(lanes), 0);
-
-  return { layout, maxLv, maxLane };
-}
-
-/**
  * Zeichnet den Prozessgraphen maßstabsgetreu (Designer-Stil).
  */
 async function drawProcessGraph(doc: any, version: ProcessVersion, startY: number) {
@@ -155,14 +90,53 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   
   if (nodes.length === 0) return startY;
 
-  const { layout, maxLv, maxLane } = calculateDesignerLayout(nodes, edges);
+  // --- DESIGNER-LOGIK FÜR POSITIONIERUNG ---
+  const levels: Record<string, number> = {};
+  const lanes: Record<string, number> = {};
+  const occupiedLanesPerLevel = new Map<number, Set<number>>();
+
+  nodes.forEach(n => levels[n.id] = 0);
+  let changed = true;
+  let limit = nodes.length * 2;
+  while (changed && limit > 0) {
+    changed = false;
+    edges.forEach(edge => {
+      if (levels[edge.target] <= levels[edge.source]) {
+        levels[edge.target] = levels[edge.source] + 1;
+        changed = true;
+      }
+    });
+    limit--;
+  }
+
+  const processed = new Set<string>();
+  const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
+  while (queue.length > 0) {
+    const { id, lane } = queue.shift()!;
+    if (processed.has(id)) continue;
+    const lv = levels[id];
+    let finalLane = lane;
+    if (!occupiedLanesPerLevel.has(lv)) occupiedLanesPerLevel.set(lv, new Set());
+    const levelOccupancy = occupiedLanesPerLevel.get(lv)!;
+    while (levelOccupancy.has(finalLane)) { finalLane++; }
+    lanes[id] = finalLane;
+    levelOccupancy.add(finalLane);
+    processed.add(id);
+    const children = edges.filter(e => e.source === id).map(e => e.target);
+    children.forEach((childId, idx) => { queue.push({ id: childId, lane: finalLane + idx }); });
+  }
+
   const margin = 14;
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  const hGap = 50;
-  const scale = Math.min((canvasWidth - 40) / (maxLv * hGap || 1), 1.0);
-  const graphHeight = Math.max(40, (maxLane + 1) * 30);
+  const H_GAP = 40;
+  const V_GAP = 20;
+  const maxLv = Math.max(...Object.values(levels), 0);
+  const maxLane = Math.max(...Object.values(lanes), 0);
+
+  const scale = Math.min((canvasWidth - 20) / (maxLv * H_GAP || 1), 1.0);
+  const graphHeight = Math.max(30, (maxLane + 1) * V_GAP);
 
   doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
@@ -170,66 +144,55 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   doc.text('Visualisierung', margin, startY + 5);
 
   const getPdfCoords = (id: string) => {
-    const pos = layout[id] || { x: 0, y: 0 };
+    const lv = levels[id] || 0;
+    const lane = lanes[id] || 0;
     return {
-      x: margin + 20 + (pos.x * scale),
-      y: startY + 25 + (pos.y)
+      x: margin + 10 + (lv * H_GAP * scale),
+      y: startY + 20 + (lane * V_GAP)
     };
   };
 
-  // 1. Transitions
+  // 1. Edges
   doc.setLineWidth(0.2);
   edges.forEach((edge: any) => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
-    
-    const outCount = edges.filter((e: any) => e.source === edge.source).length;
-    const inCount = edges.filter((e: any) => e.target === edge.target).length;
-    
-    if (outCount > 1 || inCount > 1) doc.setDrawColor(245, 158, 11); // Amber for branching
-    else doc.setDrawColor(148, 163, 184); // Slate
-    
+    doc.setDrawColor(148, 163, 184);
     doc.line(s.x, s.y, t.x, t.y);
     
-    // Simple Arrow Head
+    // Arrow
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle + Math.PI/6), t.y - 2 * Math.sin(angle + Math.PI/6));
-
-    if (edge.label) {
-      doc.setFontSize(5);
-      doc.setTextColor(71, 85, 105);
-      doc.text(edge.label, (s.x + t.x) / 2, (s.y + t.y) / 2 - 1, { align: 'center' });
-    }
   });
 
-  // 2. Steps
+  // 2. Nodes
   nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
-    const r = 3.5;
+    const r = 3;
     const outCount = edges.filter((e: any) => e.source === node.id).length;
+    const isBranch = outCount > 1;
 
     let color = [241, 245, 249]; 
     if (node.type === 'start') color = [16, 185, 129];
     else if (node.type === 'end') color = [239, 68, 68];
-    else if (node.type === 'decision' || outCount > 1) color = [245, 158, 11];
+    else if (isBranch) color = [245, 158, 11];
     else if (node.type === 'subprocess') color = [79, 70, 229];
 
     doc.setFillColor(color[0], color[1], color[2]);
     doc.setDrawColor(100, 116, 139);
     doc.circle(x, y, r, 'FD');
 
-    doc.setFontSize(6);
+    doc.setFontSize(5);
     doc.setTextColor(node.type === 'subprocess' || node.type === 'end' || node.type === 'start' ? 255 : 30);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${i + 1}`, x, y + 1, { align: 'center' });
+    doc.text(`${i + 1}`, x, y + 0.5, { align: 'center' });
 
-    doc.setFontSize(6);
+    doc.setFontSize(5);
     doc.setTextColor(51, 65, 85);
-    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 25 });
+    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 20 });
   });
 
-  return startY + graphHeight + 35;
+  return startY + graphHeight + 30;
 }
 
 function addPageDecorations(doc: any, tenant: Tenant) {
@@ -239,6 +202,7 @@ function addPageDecorations(doc: any, tenant: Tenant) {
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
     doc.text(tenant.name, 14, 8);
@@ -290,8 +254,8 @@ export async function exportDetailedProcessPdf(
     const summaryRows = [
       ['Verantwortlich', owner?.name || '---'],
       ['Abteilung', dept?.name || '---'],
-      ['Freigabe', `Freigegeben am ${now} durch ${owner?.name || 'Administrator'}`],
-      ['VVT-Referenz', process.vvtId ? `Zweck ID: ${process.vvtId}` : '---'],
+      ['Freigabe', `Freigegeben am ${now} durch ${owner?.name || 'Hub Admin'}`],
+      ['VVT-Referenz', process.vvtId ? `ID: ${process.vvtId}` : '---'],
       ['Eingang (ISO)', process.inputs || '---'],
       ['Ausgang (ISO)', process.outputs || '---'],
       ['IT-Infrastruktur', resourceNames],
@@ -315,8 +279,8 @@ export async function exportDetailedProcessPdf(
       
       const execution = [
         node.description || '',
-        node.checklist?.length ? `Prüfpunkte:\n- ${node.checklist.join('\n- ')}` : '',
-        node.tips ? `TIPP: ${node.tips}` : ''
+        node.checklist?.length ? `Checkliste:\n- ${node.checklist.join('\n- ')}` : '',
+        node.tips ? `TIP: ${node.tips}` : ''
       ].filter(Boolean).join('\n\n');
 
       const successors = version.model_json.edges
@@ -332,8 +296,8 @@ export async function exportDetailedProcessPdf(
         { content: `${index + 1}. ${node.title}`, styles: { fontStyle: 'bold' } },
         role?.name || '---',
         nodeRes || '---',
-        { content: execution || '---', styles: { overflow: 'linebreak' } },
-        { content: successors || 'Ende', styles: { overflow: 'linebreak' } }
+        { content: execution || '---' },
+        { content: successors || 'Ende' }
       ];
     });
 
@@ -342,8 +306,8 @@ export async function exportDetailedProcessPdf(
       head: [['Schritt', 'Zuständigkeit', 'Systeme', 'Operative Durchführung', 'Nächste Schritte']],
       body: stepsData,
       theme: 'striped',
-      headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
-      styles: { fontSize: 7, cellPadding: 3, font: 'helvetica' },
+      headStyles: { fillColor: [30, 41, 59], fontSize: 8, font: 'helvetica' },
+      styles: { fontSize: 7, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
       columnStyles: { 0: { width: 35 }, 3: { width: 75 }, 4: { width: 35 } }
     });
 
@@ -370,7 +334,7 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // --- COVER ---
+    // --- COVER (White & Clean) ---
     doc.setFillColor(37, 99, 235);
     doc.circle(105, 60, 12, 'F');
     doc.setTextColor(255);
@@ -388,9 +352,9 @@ export async function exportProcessManualPdf(
     
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Stand: ${now}`, 105, 135, { align: 'center' });
+    doc.text(`Stand: ${now} | Audit-fähig`, 105, 135, { align: 'center' });
 
-    // --- TOC ---
+    // --- TOC GENERATION (Pre-scan for page numbers) ---
     const grouped: Record<string, Process[]> = {};
     processes.forEach(p => {
       const deptName = departments.find(d => d.id === p.responsibleDepartmentId)?.name || 'Zentral / Organisation';
@@ -398,28 +362,27 @@ export async function exportProcessManualPdf(
       grouped[deptName].push(p);
     });
 
-    doc.addPage();
-    const tocPage = (doc as any).internal.getNumberOfPages();
-    doc.setTextColor(37, 99, 235);
-    doc.setFontSize(18);
-    doc.text('Inhaltsverzeichnis', 14, 25);
-    
     const pageMap: Record<string, number> = {};
+    let tempDoc = new jsPDF(); 
+    let currentPage = 1;
 
+    // --- SECOND PASS: MAIN CONTENT ---
     for (const deptName of Object.keys(grouped).sort()) {
       for (const p of grouped[deptName]) {
         const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
         if (!ver) continue;
 
         doc.addPage();
+        currentPage++;
         pageMap[p.id] = (doc as any).internal.getNumberOfPages();
         
+        const dept = departments.find(d => d.id === p.responsibleDepartmentId);
         doc.setFontSize(18);
         doc.setTextColor(30, 41, 59);
         doc.text(p.title, 14, 22);
         doc.setFontSize(8);
         doc.setTextColor(100);
-        doc.text(`Bereich: ${deptName} | V${p.currentVersion}.0`, 14, 27);
+        doc.text(`Bereich: ${dept?.name || '---'} | V${p.currentVersion}.0`, 14, 27);
         doc.line(14, 30, 196, 30);
 
         const usedResourceIds = new Set<string>();
@@ -436,11 +399,11 @@ export async function exportProcessManualPdf(
           body: [
             ['Verantwortlich', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
             ['Freigabe', `Freigegeben am ${now} durch ${jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'Hub Admin'}`],
-            ['VVT Link', p.vvtId || '---'],
+            ['VVT Link', p.vvtId ? `ID: ${p.vvtId}` : '---'],
             ['Eingang (ISO)', p.inputs || '---'],
             ['Ausgang (ISO)', p.outputs || '---'],
             ['IT-Ressourcen', resNames],
-            ['Fach-Daten', featNames]
+            ['Verarbeitete Daten', featNames]
           ],
           theme: 'grid',
           styles: { fontSize: 7, font: 'helvetica' },
@@ -460,58 +423,67 @@ export async function exportProcessManualPdf(
                 const targetNode = ver.model_json.nodes.find(node => node.id === e.target);
                 const targetIdx = ver.model_json.nodes.findIndex(node => node.id === e.target) + 1;
                 const label = e.label ? `[${e.label}] ` : '';
-                return `${label}→ (${targetIdx}) ${targetNode?.title}`;
+                const targetPage = targetNode?.targetProcessId ? ` (S. ${pageMap[targetNode.targetProcessId] || '?'})` : '';
+                return `${label}→ (${targetIdx}) ${targetNode?.title}${targetPage}`;
               }).join('\n');
 
             return [
               `${i + 1}`,
               { content: n.title, styles: { fontStyle: 'bold' } }, 
               jobTitles.find(j => j.id === n.roleId)?.name || '-',
-              { content: `${n.description || ''}${n.checklist?.length ? '\n- ' + n.checklist.join('\n- ') : ''}`, styles: { overflow: 'linebreak' } },
-              { content: successors || 'Ende', styles: { overflow: 'linebreak' } }
+              { content: `${n.description || ''}${n.checklist?.length ? '\n- ' + n.checklist.join('\n- ') : ''}` },
+              { content: successors || 'Ende' }
             ];
           }),
           theme: 'striped',
-          styles: { fontSize: 6.5, font: 'helvetica' },
+          styles: { fontSize: 6.5, font: 'helvetica', overflow: 'linebreak' },
+          headStyles: { font: 'helvetica', fillColor: [30, 41, 59] },
           columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 75 }, 4: { width: 35 } }
         });
       }
     }
 
-    // --- FILL TOC ---
-    doc.setPage(tocPage);
-    let tocY = 40;
+    // --- INSERT TOC AT START (Page 2) ---
+    doc.insertPage(2);
+    doc.setPage(2);
+    doc.setTextColor(37, 99, 235);
+    doc.setFontSize(18);
+    doc.text('Inhaltsverzeichnis', 14, 25);
+    
+    const tocRows: any[] = [];
     for (const deptName of Object.keys(grouped).sort()) {
-      doc.setFontSize(10);
-      doc.setTextColor(30, 41, 59);
-      doc.setFont('helvetica', 'bold');
-      doc.text(deptName.toUpperCase(), 14, tocY);
-      tocY += 8;
-      
+      tocRows.push([{ content: deptName.toUpperCase(), styles: { fontStyle: 'bold', textColor: [30, 41, 59] } }, '']);
       grouped[deptName].forEach(p => {
-        doc.setFontSize(9);
-        doc.setTextColor(71, 85, 105);
-        doc.setFont('helvetica', 'normal');
-        const label = `   ${p.title}`;
         const pageNum = pageMap[p.id]?.toString() || '?';
-        doc.text(label, 14, tocY);
-        
-        // Leader Line
-        const labelWidth = doc.getTextWidth(label);
-        const pageNumWidth = doc.getTextWidth(pageNum);
-        const lineStart = 14 + labelWidth + 3;
-        const lineEnd = 196 - pageNumWidth - 3;
-        if (lineEnd > lineStart) {
-          doc.setDrawColor(203, 213, 225);
-          doc.setLineWidth(0.1);
-          for (let dx = lineStart; dx < lineEnd; dx += 2) doc.line(dx, tocY - 1, dx + 0.5, tocY - 1);
-        }
-        
-        doc.text(pageNum, 196, tocY, { align: 'right' });
-        tocY += 6;
+        tocRows.push([`   ${p.title}`, pageNum]);
       });
-      tocY += 4;
     }
+
+    autoTable(doc, {
+      startY: 35,
+      body: tocRows,
+      theme: 'plain',
+      styles: { fontSize: 9, font: 'helvetica', cellPadding: 1 },
+      columnStyles: { 
+        0: { width: 160 }, 
+        1: { halign: 'right', fontStyle: 'bold', width: 20 } 
+      },
+      didDrawCell: (data) => {
+        if (data.column.index === 0 && data.cell.text[0] && !data.cell.text[0].startsWith(data.cell.text[0].toUpperCase())) {
+          // Draw leader lines for sub-items
+          const textWidth = doc.getTextWidth(data.cell.text[0]);
+          const startX = data.cell.x + textWidth + 2;
+          const endX = 185;
+          if (endX > startX) {
+            doc.setDrawColor(203, 213, 225);
+            doc.setLineWidth(0.1);
+            doc.setLineDashPattern([0.5, 1.5], 0);
+            doc.line(startX, data.cell.y + data.cell.height - 2, endX, data.cell.y + data.cell.height - 2);
+            doc.setLineDashPattern([], 0);
+          }
+        }
+      }
+    });
 
     addPageDecorations(doc, tenant);
     doc.save(`Handbuch_${tenant.name.replace(/\s+/g, '_')}.pdf`);
@@ -526,8 +498,6 @@ export async function exportPolicyPdf(policy: Policy, version: PolicyVersion, te
     const { default: autoTable } = await import('jspdf-autotable');
     
     const doc = new jsPDF();
-    const timestamp = new Date().toLocaleDateString('de-DE');
-
     doc.setFontSize(22);
     doc.setTextColor(5, 150, 105); 
     doc.text(policy.title, 14, 25);
