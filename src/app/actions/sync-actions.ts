@@ -22,7 +22,7 @@ function normalizeForMatch(str: string): string {
 /**
  * Holt einen Attributwert sicher, auch wenn er ein Array ist.
  */
-const safeGetAttribute = (entry: any, attributeName: string | undefined, defaultValue: string = ''): string => {
+const safeGetAttribute = (entry: any, attributeName: string, defaultValue: string = ''): string => {
   if (!attributeName || !entry[attributeName]) return defaultValue;
   const value = entry[attributeName];
   if (Array.isArray(value)) {
@@ -43,7 +43,6 @@ const getAttributeArray = (entry: any, attributeName: string | undefined): strin
 
 /**
  * Prüft anhand des userAccountControl Bitmask-Wertes, ob ein AD-Konto deaktiviert ist.
- * Flag 0x2 = ACCOUNTDISABLE
  */
 function isUserAccountDisabled(uac: any): boolean {
   const val = parseInt(String(uac || '0'), 10);
@@ -111,7 +110,7 @@ function getTlsOptions(config: Partial<Tenant>) {
 }
 
 /**
- * Testet die LDAP-Verbindung durch einen realen Bind und Search.
+ * Testet die LDAP-Verbindung.
  */
 export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
   if (!config.ldapUrl || !config.ldapPort || !config.ldapBindDn || !config.ldapBindPassword) {
@@ -222,21 +221,21 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
     const allTenants = (tenantsRes.data || []) as Tenant[];
 
     return searchEntries.map((entry: any) => {
-      const company = safeGetAttribute(entry, config.ldapAttrCompany, '');
+      const company = safeGetAttribute(entry, config.ldapAttrCompany || 'company', '');
       const normAdCompany = normalizeForMatch(company);
       let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
 
-      const username = safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName');
+      const username = safeGetAttribute(entry, config.ldapAttrUsername || 'sAMAccountName', '');
       const isDisabled = isUserAccountDisabled(entry.userAccountControl);
       const groups = getAttributeArray(entry, config.ldapAttrGroups || 'memberOf');
 
       return {
-        username,
-        first: safeGetAttribute(entry, config.ldapAttrFirstname, ''),
-        last: safeGetAttribute(entry, config.ldapAttrLastname, ''),
+        username: username || entry.dn || Math.random().toString(36).substring(7),
+        first: safeGetAttribute(entry, config.ldapAttrFirstname || 'givenName', ''),
+        last: safeGetAttribute(entry, config.ldapAttrLastname || 'sn', ''),
         displayName: safeGetAttribute(entry, 'displayName', ''),
-        email: safeGetAttribute(entry, config.ldapAttrEmail, ''),
-        dept: safeGetAttribute(entry, config.ldapAttrDepartment, 'department'),
+        email: safeGetAttribute(entry, config.ldapAttrEmail || 'mail', ''),
+        dept: safeGetAttribute(entry, config.ldapAttrDepartment || 'department', ''),
         title: safeGetAttribute(entry, 'title', 'AD User'),
         company,
         isDisabled,
@@ -260,7 +259,7 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
   let count = 0;
   try {
     for (const adUser of usersToImport) {
-      const userId = `u-ad-${adUser.username}`;
+      const userId = `u-ad-${adUser.username}`.replace(/[^a-z0-9]/gi, '_');
       const userData = {
         id: userId,
         tenantId: adUser.matchedTenantId || 't1',
@@ -272,7 +271,8 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
         enabled: !adUser.isDisabled,
         status: adUser.isDisabled ? 'archived' : 'active',
         adGroups: adUser.adGroups || [],
-        lastSyncedAt: new Date().toISOString()
+        lastSyncedAt: new Date().toISOString(),
+        authSource: 'ldap'
       };
 
       const res = await saveCollectionRecord('users', userId, userData, dataSource);
@@ -296,7 +296,7 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
 }
 
 /**
- * Triggert einen automatischen Sync-Lauf (Update existierender Profile).
+ * Triggert einen automatischen Sync-Lauf.
  */
 export async function triggerSyncJobAction(jobId: string, dataSource: DataSource = 'mysql', actorUid: string = 'system') {
   if (jobId !== 'job-ldap-sync') return { success: false, error: 'Job nicht unterstützt' };
@@ -325,7 +325,6 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
             const shouldBeEnabled = !adMatch.isDisabled;
             const currentEnabled = hubUser.enabled === true || hubUser.enabled === 1;
             
-            // Vergleiche Gruppen als JSON-Strings
             const adGroupsJson = JSON.stringify((adMatch.adGroups || []).sort());
             const hubGroupsJson = JSON.stringify((hubUser.adGroups || []).sort());
 
@@ -349,7 +348,6 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
               
               await saveCollectionRecord('users', hubUser.id, updatedUser, dataSource);
               
-              // Log detailed individual change to Audit Trail
               await logAuditEventAction(dataSource, {
                 tenantId: tenant.id,
                 actorUid: 'system-sync',

@@ -36,7 +36,8 @@ import {
   Eye,
   FileCode,
   Terminal,
-  Clock
+  Clock,
+  Minus
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
@@ -69,6 +70,7 @@ import { useRouter } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
+
 export default function SyncSettingsPage() {
   const router = useRouter();
   const { dataSource, activeTenantId } = useSettings();
@@ -87,7 +89,7 @@ export default function SyncSettingsPage() {
   const [isFetchingAd, setIsFetchingAd] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [adUsers, setAdUsers] = useState<any[]>([]);
-  const [selectedAdUsernames, setSelectedAdUsernames] = useState<string[]>([]);
+  const [selectedAdUsers, setSelectedAdUsers] = useState<any[]>([]);
   const [adSearch, setAdSearch] = useState('');
 
   const { data: tenants, refresh: refreshTenants, isLoading: isTenantsLoading } = usePluggableCollection<Tenant>('tenants');
@@ -138,6 +140,7 @@ export default function SyncSettingsPage() {
     try {
       const users = await getAdUsersAction(tenantDraft, dataSource, query);
       setAdUsers(users);
+      setSelectedAdUsers([]); // Reset selection when fetching new results
     } catch (e: any) {
       toast({ variant: "destructive", title: "AD Fehler", description: e.message });
     } finally {
@@ -145,16 +148,41 @@ export default function SyncSettingsPage() {
     }
   };
 
+  const handleToggleAdUserSelection = (user: any) => {
+    setSelectedAdUsers(prev => {
+      const isAlreadySelected = prev.some(u => u.username === user.username);
+      if (isAlreadySelected) {
+        return prev.filter(u => u.username !== user.username);
+      } else {
+        return [...prev, user];
+      }
+    });
+  };
+
+  const handleSelectAllAdUsers = (checked: boolean) => {
+    if (!checked) {
+      setSelectedAdUsers([]);
+      return;
+    }
+    
+    const nonExistingUsers = adUsers.filter(adUser => 
+      !hubUsers?.some(hu => 
+        hu.externalId === adUser.username || 
+        (hu.email && adUser.email && hu.email.toLowerCase() === adUser.email.toLowerCase())
+      )
+    );
+    setSelectedAdUsers(nonExistingUsers);
+  };
+
   const handleImportSelected = async () => {
-    if (selectedAdUsernames.length === 0) return;
+    if (selectedAdUsers.length === 0) return;
     setIsImporting(true);
-    const usersToProcess = adUsers.filter(u => selectedAdUsernames.includes(u.username));
     try {
-      const res = await importUsersAction(usersToProcess, dataSource, authUser?.email || 'system');
+      const res = await importUsersAction(selectedAdUsers, dataSource, authUser?.email || 'system');
       if (res.success) {
         toast({ title: "Import abgeschlossen", description: `${res.count} Benutzer wurden verarbeitet.` });
         setIsImportOpen(false);
-        setSelectedAdUsernames([]);
+        setSelectedAdUsers([]);
         refreshLogs();
       }
     } finally {
@@ -193,12 +221,16 @@ export default function SyncSettingsPage() {
     );
   }
 
+  const allFilteredUsersSelected = adUsers.length > 0 && 
+    adUsers.filter(u => !hubUsers?.some(hu => hu.externalId === u.username || (hu.email && u.email && hu.email.toLowerCase() === u.email.toLowerCase())))
+    .every(u => selectedAdUsers.some(su => su.username === u.username));
+
   return (
     <div className="p-4 md:p-8 space-y-10 pb-20 w-full mx-auto">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary shadow-sm border border-primary/10">
-            <Network className="w-6 h-6" />
+            <Fingerprint className="w-6 h-6" />
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-widest">Infrastruktur</Badge>
@@ -312,6 +344,10 @@ export default function SyncSettingsPage() {
             <CardContent className="p-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   <div className="space-y-3">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">GUID (Eindeutige ID)</Label>
+                      <Input value={tenantDraft.ldapAttrObjectGUID || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrObjectGUID: e.target.value})} placeholder="objectGUID" className="rounded-xl h-12 bg-slate-50/30" />
+                  </div>
+                   <div className="space-y-3">
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Benutzername</Label>
                       <Input value={tenantDraft.ldapAttrUsername || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrUsername: e.target.value})} placeholder="sAMAccountName" className="rounded-xl h-12 bg-slate-50/30" />
                   </div>
@@ -338,10 +374,6 @@ export default function SyncSettingsPage() {
                   <div className="space-y-3">
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Firma (Mandanten-Matching)</Label>
                       <Input value={tenantDraft.ldapAttrCompany || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAttrCompany: e.target.value})} placeholder="company" className="rounded-xl h-12 bg-slate-50/30" />
-                  </div>
-                  <div className="space-y-3 lg:col-span-3 pt-4 border-t">
-                    <Label className="text-[10px] font-black uppercase text-indigo-600 ml-1">Zusätzliche Auth-Query (Optional)</Label>
-                    <Input value={tenantDraft.ldapAuthQuery || ''} onChange={e => setTenantDraft({...tenantDraft, ldapAuthQuery: e.target.value})} placeholder="LDAP_MATCHING_RULE_IN_CHAIN ..." className="rounded-xl h-12 bg-slate-50/30" />
                   </div>
               </div>
             </CardContent>
@@ -495,9 +527,9 @@ export default function SyncSettingsPage() {
               </Button>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-[10px] font-black uppercase text-slate-400">{selectedAdUsernames.length} ausgewählt</span>
-              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames(adUsers.map(u => u.username))} className="h-8 text-[10px] font-bold rounded-lg uppercase">Alle wählen</Button>
-              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames([])} className="h-8 text-[10px] font-bold rounded-lg uppercase">Leeren</Button>
+              <span className="text-[10px] font-black uppercase text-slate-400">{selectedAdUsers.length} ausgewählt</span>
+              <Button variant="outline" size="sm" onClick={() => handleSelectAllAdUsers(true)} className="h-8 text-[10px] font-bold rounded-lg uppercase">Alle wählen</Button>
+              <Button variant="outline" size="sm" onClick={() => handleSelectAllAdUsers(false)} className="h-8 text-[10px] font-bold rounded-lg uppercase">Leeren</Button>
             </div>
           </div>
 
@@ -519,7 +551,12 @@ export default function SyncSettingsPage() {
               <Table>
                 <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                   <TableRow>
-                    <TableHead className="w-12 px-6"></TableHead>
+                    <th className="w-12 px-6">
+                      <Checkbox 
+                        checked={allFilteredUsersSelected}
+                        onCheckedChange={handleSelectAllAdUsers}
+                      />
+                    </th>
                     <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">Identität im AD</TableHead>
                     <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Abteilung</TableHead>
                     <TableHead className="font-bold text-[11px] text-slate-400 uppercase">Zugeordnete Firma</TableHead>
@@ -532,19 +569,24 @@ export default function SyncSettingsPage() {
                       hu.externalId === u.username || 
                       (hu.email && u.email && hu.email.toLowerCase() === u.email.toLowerCase())
                     );
+                    const isSelected = selectedAdUsers.some(su => su.username === u.username);
                     return (
-                      <TableRow key={u.username} className={cn("group hover:bg-slate-50 transition-colors border-b", selectedAdUsernames.includes(u.username) && "bg-primary/5")}>
-                        <TableCell className="px-6">
+                      <TableRow 
+                        key={u.username} 
+                        onClick={() => !alreadyExists && handleToggleAdUserSelection(u)} 
+                        className={cn("group hover:bg-slate-50 transition-colors border-b cursor-pointer", isSelected && "bg-primary/5")}
+                      >
+                        <TableCell className="px-6" onClick={(e) => e.stopPropagation()}>
                           <Checkbox 
                             disabled={alreadyExists}
-                            checked={selectedAdUsernames.includes(u.username)} 
-                            onCheckedChange={(v) => setSelectedAdUsernames(prev => !!v ? [...prev, u.username] : prev.filter(n => n !== u.username))} 
+                            checked={isSelected} 
+                            onCheckedChange={() => handleToggleAdUserSelection(u)}
                           />
                         </TableCell>
                         <TableCell className="py-4 px-6">
                           <div className="flex flex-col">
-                            <span className="font-bold text-sm text-slate-800">{u.displayName || `${u.first || ''} ${u.last || ''}`.trim()}</span>
-                            <span className="text-[10px] text-slate-400 font-medium">{u.email}</span>
+                            <span className="font-bold text-sm text-slate-800">{u.displayName || `${u.first || ''} ${u.last || ''}`.trim() || u.username}</span>
+                            <span className="text-[10px] text-slate-400 font-medium">{u.email || 'Keine E-Mail'}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -556,21 +598,13 @@ export default function SyncSettingsPage() {
                             <span className={cn("text-xs font-bold", u.matchedTenantId ? "text-slate-700" : "text-amber-600")}>
                               {u.matchedTenantName}
                             </span>
-                            {!u.matchedTenantId && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger><AlertTriangle className="w-3 h-3 text-amber-500" /></TooltipTrigger>
-                                  <TooltipContent className="bg-slate-900 text-white rounded-lg border-none shadow-xl p-3 text-[10px]">
-                                    Kein exakter Treffer. Schreibweise im AD weicht ab.
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right px-6">
                           {alreadyExists ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-none rounded-full h-5 px-3 text-[8px] font-black uppercase">Importiert</Badge>
+                          ) : u.isDisabled ? (
+                             <Badge className="bg-slate-100 text-slate-500 border-none rounded-full h-5 px-3 text-[8px] font-black uppercase">AD: Deaktiviert</Badge>
                           ) : (
                             <Badge variant="outline" className="rounded-full h-5 px-3 text-[8px] font-black uppercase border-slate-200 text-slate-400">Neu</Badge>
                           )}
@@ -586,13 +620,13 @@ export default function SyncSettingsPage() {
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex items-center justify-between">
             <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 px-4">
               <Info className="w-4 h-4" />
-              <span>Matching nutzt Fuzzy-Logik (Bäcker ↔ Baecker)</span>
+              <span>Matching basiert auf sAMAccountName oder E-Mail.</span>
             </div>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsImportOpen(false)} className="rounded-xl font-bold text-[10px] h-11 px-8 uppercase">Abbrechen</Button>
-              <Button onClick={handleImportSelected} disabled={isImporting || selectedAdUsernames.length === 0} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              <Button onClick={handleImportSelected} disabled={isImporting || selectedAdUsers.length === 0} className="rounded-xl h-11 px-12 bg-primary text-white font-bold text-[10px] uppercase shadow-lg gap-2">
                 {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" /> }
-                Importieren ({selectedAdUsernames.length})
+                Importieren ({selectedAdUsers.length})
               </Button>
             </div>
           </DialogFooter>
