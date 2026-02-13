@@ -25,11 +25,11 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export const dynamic = 'force-dynamic';
 
-const SYSTEM_TYPE_IDS = ['pt-corp', 'pt-detail', 'pt-backup', 'pt-update'];
+const SYSTEM_TYPE_IDS = ['pt-corp', 'pt-backup', 'pt-update', 'pt-disaster'];
 
 export default function ProcessTypesPage() {
   const { dataSource } = useSettings();
@@ -117,12 +117,12 @@ export default function ProcessTypesPage() {
             </CardContent>
           </Card>
 
-          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+          <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 shadow-sm">
             <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-[10px] font-bold text-amber-900 uppercase">System-Hinweis</p>
+              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-tight">System-Integrität</p>
               <p className="text-[9px] text-amber-700 leading-relaxed italic">
-                System-Typen (z.B. Backup, Update) können nicht gelöscht werden, da sie als Filter für die Ressourcen-Governance dienen.
+                System-Typen sind für die korrekte Funktion des Ressourcen-Katalogs und der Governance-Monitore (Backup/Patching) zwingend erforderlich und können nicht gelöscht werden.
               </p>
             </div>
           </div>
@@ -152,8 +152,10 @@ export default function ProcessTypesPage() {
                     <TableRow key={t.id} className="group border-b last:border-0">
                       <TableCell className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-slate-800">{t.name}</span>
-                          {isSystem && <Badge className="bg-blue-50 text-blue-600 border-none text-[7px] font-black h-3.5 uppercase">System</Badge>}
+                          <span className="font-bold text-sm text-slate-800 dark:text-slate-100">{t.name}</span>
+                          {isSystem && (
+                            <Badge className="bg-indigo-50 text-indigo-600 border-none text-[7px] font-black h-3.5 uppercase tracking-widest">System</Badge>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-[11px] text-slate-500 italic max-w-xs truncate">{t.description || '---'}</TableCell>
@@ -165,10 +167,10 @@ export default function ProcessTypesPage() {
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="w-8 h-8 flex items-center justify-center text-slate-200 cursor-not-allowed">
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Lock className="w-3.5 h-3.5" />
                                   </div>
                                 </TooltipTrigger>
-                                <TooltipContent className="text-[9px] font-bold uppercase">System-Typ geschützt</TooltipContent>
+                                <TooltipContent className="text-[9px] font-black uppercase bg-slate-900 text-white border-none shadow-xl">System-Typ geschützt</TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
                           ) : (

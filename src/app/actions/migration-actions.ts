@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getPool, dbQuery } from '@/lib/mysql';
@@ -33,7 +32,7 @@ export async function checkSystemStatusAction(): Promise<{ initialized: boolean 
 }
 
 /**
- * Führt die Migration durch. 
+ * Führt die Migration durch und legt System-Basisdaten an.
  */
 export async function runDatabaseMigrationAction(): Promise<{ success: boolean; message: string; details: string[] }> {
   const details: string[] = [];
@@ -73,7 +72,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       }
     }
 
-    // Initialisierung der Standard Sync-Jobs
+    // 1. Initialisierung der Standard Sync-Jobs
     const ldapSyncJob = {
       id: 'job-ldap-sync',
       name: 'LDAP/AD Voll-Synchronisation',
@@ -86,6 +85,22 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
       [ldapSyncJob.id, ldapSyncJob.name, ldapSyncJob.lastStatus, ldapSyncJob.lastMessage]
     );
     details.push(`🔄 Sync-Job 'job-ldap-sync' registriert.`);
+
+    // 2. Initialisierung der System-Prozesstypen (Unlöschbar)
+    const systemPTypes = [
+      { id: 'pt-corp', name: 'Unternehmensprozess', description: 'Strategische Kernprozesse der Organisation.' },
+      { id: 'pt-backup', name: 'Backup & Wiederherstellung', description: 'Prozesse zur Datensicherung und Business Continuity.' },
+      { id: 'pt-update', name: 'Patching & Update', description: 'Wartungsprozesse für Software und Infrastruktur.' },
+      { id: 'pt-disaster', name: 'Notfallprozess', description: 'Kritische Abläufe bei Systemausfällen oder Vorfällen.' }
+    ];
+
+    for (const pt of systemPTypes) {
+      await connection.query(
+        'INSERT INTO `process_types` (id, name, description, enabled, createdAt) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description)',
+        [pt.id, pt.name, pt.description, 1, new Date().toISOString()]
+      );
+    }
+    details.push(`🏗️ ${systemPTypes.length} System-Prozesstypen initialisiert.`);
 
     const successMsg = details.length > 1 ? 'Infrastruktur erfolgreich aktualisiert.' : 'Infrastruktur ist auf dem neuesten Stand.';
     return { success: true, message: successMsg, details };
