@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -204,11 +205,11 @@ export default function UnifiedOrganizationPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div>
           <Badge className="mb-1 bg-primary/10 text-primary text-[9px] font-bold">Organisation</Badge>
-          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Struktur & Blueprints</h1>
+          <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Organisation & Struktur</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-9 font-bold text-[10px]" onClick={() => setShowArchived(!showArchived)}>{showArchived ? 'Aktive' : 'Archiv'}</Button>
-          <Button size="sm" className="h-9 font-bold text-[10px]" onClick={() => { resetForm(); setIsTenantDialogOpen(true); }}>Neuer Mandant</Button>
+          <Button size="sm" className="h-9 rounded-md font-bold text-[10px] px-6 bg-primary hover:bg-primary/90 text-white shadow-sm" onClick={() => { resetForm(); setIsTenantDialogOpen(true); }}>Neuer Mandant</Button>
         </div>
       </div>
 
@@ -278,6 +279,7 @@ export default function UnifiedOrganizationPage() {
         <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
             <DialogTitle className="text-lg font-bold">Mandant bearbeiten</DialogTitle>
+            <DialogDescription className="sr-only">Formular zur Bearbeitung von Mandantendaten und Unternehmensbeschreibung.</DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-6">
             <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Name</Label><Input value={tenantName} onChange={e => setTenantName(e.target.value)} className="h-11 font-bold" /></div>
@@ -292,7 +294,10 @@ export default function UnifiedOrganizationPage() {
 
       <Dialog open={isEditorOpen} onOpenChange={(v) => !v && setIsEditorOpen(false)}>
         <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white h-[85vh]">
-          <DialogHeader className="p-6 bg-slate-900 text-white"><DialogTitle>Rollen-Standardzuweisung bearbeiten</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <DialogTitle>Rollen-Standardzuweisung bearbeiten</DialogTitle>
+            <DialogDescription className="sr-only">Editor zur Definition der Standard-Berechtigungen eines Rollenprofils.</DialogDescription>
+          </DialogHeader>
           <ScrollArea className="flex-1 p-8 space-y-10">
             <div className="space-y-4">
               <Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label>
