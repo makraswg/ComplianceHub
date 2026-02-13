@@ -52,6 +52,8 @@ const collectionToTableMap: { [key: string]: string } = {
   process_versions: 'process_versions',
   process_comments: 'process_comments',
   process_ops: 'process_ops',
+  policies: 'policies',
+  policy_versions: 'policy_versions',
   ai_sessions: 'ai_sessions',
   ai_messages: 'ai_messages',
   uiConfigs: 'uiConfigs',
@@ -210,7 +212,7 @@ export async function updatePlatformUserPasswordAction(email: string, password: 
 
 export async function truncateDatabaseAreasAction() {
   try {
-    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media', 'ldapLogs'];
+    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media', 'ldapLogs', 'policies', 'policy_versions'];
     await dbQuery('SET FOREIGN_KEY_CHECKS = 0');
     for (const table of tables) {
       await dbQuery(`DELETE FROM \`${table}\``);

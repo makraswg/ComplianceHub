@@ -50,7 +50,8 @@ import {
   Fingerprint,
   Save as SaveIcon,
   ShieldAlert,
-  FlameKindling
+  FlameKindling,
+  ScrollText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -170,6 +171,7 @@ export function AppSidebar() {
   const policyHubItems = [
     { name: 'Dashboard', href: '/gdpr/dashboard', icon: LayoutDashboard },
     { name: 'VVT Register', href: '/gdpr', icon: FileCheck },
+    { name: 'Richtlinien-Register', href: '/policies', icon: ScrollText },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
 

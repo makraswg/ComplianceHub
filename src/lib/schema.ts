@@ -296,6 +296,34 @@ export const appSchema: AppSchema = {
       created_at: 'VARCHAR(50)',
     }
   },
+  policies: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      title: 'VARCHAR(255) NOT NULL',
+      type: 'VARCHAR(50) NOT NULL', 
+      ownerRoleId: 'VARCHAR(255)',
+      reviewInterval: 'INT DEFAULT 365',
+      status: 'VARCHAR(50) DEFAULT "draft"',
+      currentVersion: 'INT DEFAULT 1',
+      nextReviewDate: 'VARCHAR(50)',
+      createdAt: 'VARCHAR(50) NOT NULL',
+      updatedAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  policy_versions: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      policyId: 'VARCHAR(255) NOT NULL',
+      version: 'INT NOT NULL',
+      revision: 'INT DEFAULT 0',
+      content: 'LONGTEXT',
+      changelog: 'TEXT',
+      validFrom: 'VARCHAR(50)',
+      createdBy: 'VARCHAR(255)',
+      createdAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
   backup_jobs: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',

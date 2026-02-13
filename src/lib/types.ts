@@ -149,7 +149,7 @@ export interface PlatformUser {
 export interface MediaFile {
   id: string;
   tenantId: string;
-  module: 'ProcessHub' | 'RiskHub' | 'General';
+  module: 'ProcessHub' | 'RiskHub' | 'General' | 'PolicyHub';
   entityId: string;
   subEntityId?: string;
   fileName: string;
@@ -257,6 +257,32 @@ export interface ProcessType {
   name: string;
   description?: string;
   enabled: boolean | number;
+  createdAt: string;
+}
+
+export interface Policy {
+  id: string;
+  tenantId: string;
+  title: string;
+  type: 'DA' | 'BV' | 'ISK' | 'DS';
+  ownerRoleId?: string;
+  reviewInterval: number;
+  status: 'draft' | 'review' | 'published' | 'archived';
+  currentVersion: number;
+  nextReviewDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyVersion {
+  id: string;
+  policyId: string;
+  version: number;
+  revision: number;
+  content: string; // Markdown
+  changelog?: string;
+  validFrom?: string;
+  createdBy: string;
   createdAt: string;
 }
 
