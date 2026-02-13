@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Loader2, AlertCircle, Mail, Lock, CheckCircle2, ArrowRight, Settings2 } from 'lucide-react';
+import { Shield, Loader2, AlertCircle, Mail, Lock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
 import { authenticateUserAction } from '@/app/actions/auth-actions';
@@ -15,7 +14,7 @@ import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
 import { checkSystemStatusAction } from '@/app/actions/migration-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription as ModalDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription as ModalDescription } from '@/components/ui/dialog';
 import { useAuth } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { cn } from '@/lib/utils';
@@ -35,10 +34,15 @@ export default function LoginPage() {
   const [isCheckingSystem, setIsCheckingSystem] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
+  // Forgot Password States
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+
   useEffect(() => {
     setMounted(true);
     
-    // Check if system is initialized (only for MySQL mode)
     if (dataSource === 'mysql') {
       const checkStatus = async () => {
         try {
@@ -100,6 +104,21 @@ export default function LoginPage() {
       setAuthError(err.message || "Ein Systemfehler ist aufgetreten.");
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleForgotSubmit = async () => {
+    if (!forgotEmail) return;
+    setIsForgotLoading(true);
+    try {
+      const res = await requestPasswordResetAction(forgotEmail);
+      if (res.success) {
+        setForgotSuccess(true);
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.message });
+      }
+    } finally {
+      setIsForgotLoading(false);
     }
   };
 
@@ -222,7 +241,7 @@ export default function LoginPage() {
       </div>
 
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
-        <DialogContent className="rounded-3xl max-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-800">
+        <DialogContent className="rounded-3xl max-w-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-800">
           <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b dark:border-slate-700">
             <DialogTitle className="text-lg font-headline font-bold">Passwort zurücksetzen</DialogTitle>
             <ModalDescription className="text-xs text-slate-500">Wir senden Ihnen eine Anleitung per E-Mail.</ModalDescription>

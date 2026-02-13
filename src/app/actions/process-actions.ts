@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData, deleteCollectionRecord, getSingleRecord } from './mysql-actions';
@@ -177,7 +176,10 @@ export async function cloneProcessAsEmergencyAction(
  */
 export async function deleteProcessAction(processId: string, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
-    const procData = await getSingleRecord('processes', processId, dataSource);
+    const procDataRes = await getSingleRecord('processes', processId, dataSource);
+    const procData = procDataRes.data;
+    if (!procData) return { success: false, error: "Nicht gefunden" };
+
     const verRes = await getCollectionData('process_versions', dataSource);
     const versions = verRes.data?.filter((v: any) => v.process_id === processId) || [];
     for (const v of versions) {
@@ -187,12 +189,12 @@ export async function deleteProcessAction(processId: string, dataSource: DataSou
     
     if (res.success) {
       await logAuditEventAction(dataSource, {
-        tenantId: resData.data?.tenantId || 'global',
+        tenantId: procData.tenantId || 'global',
         actorUid: actorEmail,
-        action: `Prozess permanent gelöscht: ${resData.data?.title || processId}`,
+        action: `Prozess permanent gelöscht: ${procData.title || processId}`,
         entityType: 'process',
         entityId: processId,
-        before: resData.data
+        before: procData
       });
     }
     return res;
