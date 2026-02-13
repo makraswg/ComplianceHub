@@ -12,7 +12,6 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { useSettings } from '@/context/settings-context';
 import { authenticateUserAction } from '@/app/actions/auth-actions';
 import { requestPasswordResetAction } from '@/app/actions/smtp-actions';
-import { checkSystemStatusAction } from '@/app/actions/migration-actions';
 import { toast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription as ModalDescription } from '@/components/ui/dialog';
@@ -28,7 +27,6 @@ export default function LoginPage() {
   const auth = useAuth();
   
   const [mounted, setMounted] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isActionLoading, setIsActionLoading] = useState(false);
@@ -42,23 +40,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    
-    // Check if system is initialized with silent error handling
-    const checkStatus = async () => {
-      try {
-        const status = await checkSystemStatusAction();
-        if (!status.initialized) {
-          router.push('/setup');
-          return;
-        }
-      } catch (e) {
-        // Fallback: stay on login page even if DB check fails
-      }
-      setIsInitializing(false);
-    };
-
-    checkStatus();
-  }, [dataSource, router]);
+  }, []);
 
   useEffect(() => {
     if (mounted && user) {
@@ -117,7 +99,7 @@ export default function LoginPage() {
     }
   };
 
-  if (!mounted || (isUserLoading && !user) || isInitializing) {
+  if (!mounted || (isUserLoading && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">

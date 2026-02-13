@@ -35,12 +35,10 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { CommandMenu } from '@/components/layout/command-menu';
-import { checkSystemStatusAction } from '@/app/actions/migration-actions';
 
 function HeaderContent() {
   const { activeTenantId, setActiveTenantId, theme, setTheme } = useSettings();
   const { user } = usePlatformAuth();
-  const pathname = usePathname();
   const router = useRouter();
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const [mounted, setMounted] = useState(false);
@@ -160,39 +158,19 @@ export default function DashboardLayout({
   const isMobile = useIsMobile();
   const { user, isUserLoading } = usePlatformAuth();
   const router = useRouter();
-  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
-  const [isSystemInitialized, setIsSystemInitialized] = useState<boolean | null>(null);
 
   useEffect(() => {
     setMounted(true);
-    // Silent check for initialization - if it fails, assume true to not block the UI
-    checkSystemStatusAction()
-      .then(res => setIsSystemInitialized(res.initialized))
-      .catch(() => setIsSystemInitialized(true));
   }, []);
 
-  // Use a fast-path for authenticated users to avoid the loading screen
   useEffect(() => {
-    if (mounted && !isUserLoading && isSystemInitialized !== null) {
-      if (!user) {
-        if (pathname === '/setup') {
-          if (isSystemInitialized) {
-            router.push('/');
-          }
-        } else {
-          if (isSystemInitialized) {
-            router.push('/');
-          } else {
-            router.push('/setup');
-          }
-        }
-      }
+    if (mounted && !isUserLoading && !user) {
+      router.push('/');
     }
-  }, [user, isUserLoading, isSystemInitialized, router, mounted, pathname]);
+  }, [user, isUserLoading, router, mounted]);
 
-  // Show loading only if we really don't know the state and don't have a user yet
-  if (!mounted || (isUserLoading && !user) || (isSystemInitialized === null && !user)) {
+  if (!mounted || (isUserLoading && !user)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -203,18 +181,6 @@ export default function DashboardLayout({
     );
   }
 
-  // Simplified layout for unauthenticated setup (only if not initialized)
-  if (!user && pathname === '/setup' && !isSystemInitialized) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-12 overflow-auto">
-        <div className="max-w-5xl mx-auto">
-          {children}
-        </div>
-      </div>
-    );
-  }
-
-  // If no user and past the setup/init phase, wait for redirect
   if (!user) return null;
 
   return (

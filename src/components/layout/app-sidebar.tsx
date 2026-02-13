@@ -207,6 +207,7 @@ export function AppSidebar() {
 
   // System Settings
   const settingsSystemItems = [
+    { name: 'Datenbank & Infra', href: '/settings/database', icon: Settings2 },
     { name: 'E-Mail (SMTP)', href: '/settings/email', icon: Mail },
     { name: 'Medien-Governance', href: '/settings/media', icon: FileStack },
   ];
@@ -295,8 +296,7 @@ export function AppSidebar() {
           </div>
 
           <div className="space-y-1">
-            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admin</p>
-            <NavLink item={{ name: 'Setup & Infra', href: '/setup', icon: Settings2 }} />
+            <p className="px-3 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Systemverwaltung</p>
             
             <Collapsible open={isSettingsOpen} onOpenChange={setIsSettingsOpen} className="space-y-1">
               <CollapsibleTrigger asChild>
@@ -308,7 +308,7 @@ export function AppSidebar() {
                 >
                   <div className="flex items-center gap-2.5">
                     <Settings className={cn("w-4 h-4", pathname.startsWith('/settings') ? "text-primary" : "text-slate-400")} />
-                    <span className="text-[11px] font-bold text-left">Systemeinstellungen</span>
+                    <span className="text-[11px] font-bold text-left">Einstellungen</span>
                   </div>
                   <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isSettingsOpen ? "rotate-180" : "")} />
                 </button>
@@ -346,7 +346,7 @@ export function AppSidebar() {
 
                 {/* System Settings */}
                 <div className="space-y-0.5 py-3 border-t border-slate-100">
-                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">System</p>
+                  <p className="px-3 py-1 text-[8px] font-black uppercase text-slate-300 tracking-widest">Infrastruktur</p>
                   {settingsSystemItems.map((item) => <NavLink key={item.name} item={item} isSubItem />)}
                 </div>
               </CollapsibleContent>
