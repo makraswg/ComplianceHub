@@ -117,7 +117,6 @@ export default function SyncSettingsPage() {
   const handleTestLdap = async () => {
     setIsTesting(true);
     try {
-      // Speichere Draft erst, damit der Test die aktuellen UI-Werte nutzt
       if (tenantDraft.id) {
         await saveCollectionRecord('tenants', tenantDraft.id, tenantDraft, dataSource);
       }
@@ -405,7 +404,6 @@ export default function SyncSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Connection Log (Debug) */}
           <Card className="rounded-2xl border-2 border-slate-100 dark:border-slate-800 shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-800 text-white p-4 shrink-0">
               <div className="flex items-center justify-between">
@@ -460,7 +458,6 @@ export default function SyncSettingsPage() {
         </div>
       </div>
 
-      {/* AD Import Dialog */}
       <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl border-none shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
@@ -573,7 +570,6 @@ export default function SyncSettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Log Message Dialog */}
       <Dialog open={!!selectedJobMessage} onOpenChange={() => setSelectedJobMessage(null)}>
           <DialogContent className="max-w-2xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
               <DialogHeader className="p-6 bg-slate-800 text-white">
@@ -592,7 +588,6 @@ export default function SyncSettingsPage() {
           </DialogContent>
       </Dialog>
 
-      {/* Connection Log Entry Dialog */}
       <Dialog open={!!selectedLogEntry} onOpenChange={() => setSelectedLogEntry(null)}>
           <DialogContent className="max-w-4xl w-[95vw] rounded-2xl p-0 overflow-hidden shadow-2xl border-none flex flex-col h-[80vh]">
               <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">

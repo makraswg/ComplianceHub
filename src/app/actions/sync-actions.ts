@@ -44,7 +44,6 @@ async function logLdapInteraction(
   };
   await saveCollectionRecord('ldapLogs', id, logEntry, dataSource);
   
-  // Truncate to 200 entries per tenant if on mysql
   if (dataSource === 'mysql') {
     try {
       const { dbQuery } = await import('@/lib/mysql');
@@ -89,7 +88,6 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
       return { success: false, message: `LDAP-FEHLER: ${msg}` };
     }
 
-    // Probelauf: Benutzer lesen simulieren
     await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 'Netzwerk-Verbindung hergestellt. Starte Read-Probe...', { 
       url: config.ldapUrl, 
       port: config.ldapPort, 
