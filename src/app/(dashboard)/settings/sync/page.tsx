@@ -520,7 +520,10 @@ export default function SyncSettingsPage() {
                 </TableHeader>
                 <TableBody>
                   {adUsers.map((u) => {
-                    const alreadyExists = hubUsers?.some(hu => hu.externalId === u.username || hu.email.toLowerCase() === u.email.toLowerCase());
+                    const alreadyExists = hubUsers?.some(hu => 
+                      hu.externalId === u.username || 
+                      (hu.email && u.email && hu.email.toLowerCase() === u.email.toLowerCase())
+                    );
                     return (
                       <TableRow key={u.username} className={cn("group hover:bg-slate-50 transition-colors border-b", selectedAdUsernames.includes(u.username) && "bg-primary/5")}>
                         <TableCell className="px-6">

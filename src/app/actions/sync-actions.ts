@@ -1,3 +1,4 @@
+
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -7,7 +8,6 @@ import { Client } from 'ldapts';
 
 /**
  * Normalisiert Texte für den Vergleich (Umlaute und Sonderzeichen).
- * Verwendet einen "Base-Character" Ansatz, um 'ae' mit 'ä' zu matchen.
  */
 function normalizeForMatch(str: string): string {
   if (!str) return '';
@@ -19,6 +19,19 @@ function normalizeForMatch(str: string): string {
     .replace(/[^a-z0-9]/g, '') 
     .trim();
 }
+
+/**
+ * Holt einen Attributwert sicher, auch wenn er ein Array ist.
+ */
+const safeGetAttribute = (entry: any, attributeName: string | undefined, defaultValue: string = ''): string => {
+  if (!attributeName) return defaultValue;
+  const value = entry[attributeName];
+  if (Array.isArray(value)) {
+    return value[0] || defaultValue;
+  }
+  return (value as string) || defaultValue;
+};
+
 
 /**
  * Protokolliert ein LDAP-Ereignis für Debug-Zwecke.
@@ -201,20 +214,17 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
     const allTenants = (tenantsRes.data || []) as Tenant[];
 
     const mapped = searchEntries.map((entry: any) => {
-      const username = entry[config.ldapAttrUsername || 'sAMAccountName'] as string;
-      const email = entry[config.ldapAttrEmail || 'mail'] as string;
-      const company = (entry[config.ldapAttrCompany || 'company'] as string) || '';
-      
+      const company = safeGetAttribute(entry, config.ldapAttrCompany, '');
       const normAdCompany = normalizeForMatch(company);
       let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
 
       return {
-        username,
-        first: entry[config.ldapAttrFirstname || 'givenName'] as string,
-        last: entry[config.ldapAttrLastname || 'sn'] as string,
-        email,
-        dept: entry[config.ldapAttrDepartment || 'department'] as string,
-        title: (entry.title as string) || (entry.displayName as string) || 'AD User',
+        username: safeGetAttribute(entry, config.ldapAttrUsername, 'sAMAccountName'),
+        first: safeGetAttribute(entry, config.ldapAttrFirstname, 'givenName'),
+        last: safeGetAttribute(entry, config.ldapAttrLastname, 'sn'),
+        email: safeGetAttribute(entry, config.ldapAttrEmail, 'mail'),
+        dept: safeGetAttribute(entry, config.ldapAttrDepartment, 'department'),
+        title: safeGetAttribute(entry, 'title') || safeGetAttribute(entry, 'displayName') || 'AD User',
         company,
         matchedTenantId: matchedTenant?.id || null,
         matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
