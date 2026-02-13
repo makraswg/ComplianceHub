@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 
+  DESIGN GOVERNANCE WARNING:
+  DO NOT USE PURE BLACK (#000000) OR MASSIVE SLATE-900 FOR UI HEADERS OR BACKGROUNDS.
+  THE USER EXPRESSLY FORBADE "MASSIVE BLACK".
+  ALWAYS USE REFINED SLATES (e.g., SLATE-800) OR THE DEFINED THEME VARIABLES BELOW.
+*/
+
 @layer base {
   :root {
     /* Refined Professional Blue */
@@ -10,13 +17,14 @@
     
     /* PRD: Light Gray Background (#F5F5F5) */
     --background: 0 0% 98%;
-    --foreground: 222.2 84% 4.9%;
+    /* Softened Foreground from 4.9% to 11% brightness */
+    --foreground: 222.2 47% 11%;
     
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222.2 47% 11%;
     
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222.2 47% 11%;
     
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -38,22 +46,23 @@
   }
 
   .dark {
-    --background: 222 47% 6%;
+    /* Softened Dark Background to avoid near-black */
+    --background: 222 47% 10%;
     --foreground: 210 40% 98%;
     
-    --card: 222 47% 8%;
+    --card: 222 47% 12%;
     --card-foreground: 210 40% 98%;
     
-    --popover: 222 47% 8%;
+    --popover: 222 47% 12%;
     --popover-foreground: 210 40% 98%;
     
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 217.2 32.6% 12%;
+    --secondary: 217.2 32.6% 15%;
     --secondary-foreground: 210 40% 98%;
     
-    --muted: 217.2 32.6% 12%;
+    --muted: 217.2 32.6% 15%;
     --muted-foreground: 215 20.2% 65.1%;
     
     --accent: 24 95% 53%;
@@ -62,8 +71,8 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     
-    --border: 217.2 32.6% 15%;
-    --input: 217.2 32.6% 15%;
+    --border: 217.2 32.6% 18%;
+    --input: 217.2 32.6% 18%;
     --ring: 217 91% 60%;
   }
 }

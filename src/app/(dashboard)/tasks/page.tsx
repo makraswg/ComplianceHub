@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -315,14 +316,14 @@ export default function TasksPage() {
       {/* Task Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center gap-5">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/10 shadow-sm">
                 <ClipboardList className="w-6 h-6" />
               </div>
               <div className="min-w-0">
-                <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{selectedTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erfassen'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Zentrale Governance-Steuerung</DialogDescription>
+                <DialogTitle className="text-lg font-headline font-bold truncate">{selectedTask ? 'Aufgabe bearbeiten' : 'Neue Aufgabe erfassen'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Zentrale Governance-Steuerung</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -395,7 +396,7 @@ export default function TasksPage() {
         <DialogContent className="max-w-3xl w-[95vw] h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
           {selectedTask && (
             <>
-              <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+              <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={cn(
@@ -493,7 +494,7 @@ export default function TasksPage() {
                       onChange={e => setCommentText(e.target.value)}
                       className="min-h-[80px] rounded-xl text-xs bg-slate-50 border-none shadow-inner p-3"
                     />
-                    <Button className="w-full h-9 rounded-xl font-black text-[10px] uppercase tracking-widest gap-2 bg-slate-900 hover:bg-black text-white transition-all active:scale-95" onClick={handleAddComment} disabled={isCommenting || !commentText.trim()}>
+                    <Button className="w-full h-9 rounded-xl font-black text-[10px] uppercase tracking-widest gap-2 bg-slate-800 hover:bg-slate-700 text-white transition-all active:scale-95" onClick={handleAddComment} disabled={isCommenting || !commentText.trim()}>
                       {isCommenting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Journalisieren
                     </Button>
                   </div>

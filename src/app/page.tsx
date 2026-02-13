@@ -129,7 +129,7 @@ export default function LoginPage() {
   if (user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-4 transition-colors duration-500">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 transition-colors duration-500">
       <div className="mb-12 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-700">
         <div className="w-16 h-16 bg-primary flex items-center justify-center rounded-2xl shadow-xl shadow-primary/20 rotate-3 hover:rotate-0 transition-transform duration-300">
           <Shield className="w-9 h-9 text-white" />
@@ -148,7 +148,7 @@ export default function LoginPage() {
       </div>
 
       <div className="w-full max-w-[400px] animate-in fade-in zoom-in-95 duration-500 delay-150">
-        <Card className="border-none shadow-2xl rounded-3xl bg-white dark:bg-slate-900 overflow-hidden">
+        <Card className="border-none shadow-2xl rounded-3xl bg-white dark:bg-slate-800 overflow-hidden">
           <CardHeader className="space-y-1 pb-2">
             <CardTitle className="text-xl font-headline font-bold text-slate-800 dark:text-slate-100">Identity Login</CardTitle>
             <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ export default function LoginPage() {
                     placeholder="name@firma.de" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
-                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 focus:bg-white transition-all" 
+                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 focus:bg-white transition-all" 
                     required
                   />
                 </div>
@@ -203,7 +203,7 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password} 
                     onChange={(e) => setPassword(e.target.value)} 
-                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 focus:bg-white transition-all" 
+                    className="rounded-xl h-12 pl-10 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900 focus:bg-white transition-all" 
                     required
                   />
                 </div>
@@ -228,8 +228,8 @@ export default function LoginPage() {
       </div>
 
       <Dialog open={isForgotOpen} onOpenChange={setIsForgotOpen}>
-        <DialogContent className="rounded-3xl max-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-900">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-800/50 border-b dark:border-slate-800">
+        <DialogContent className="rounded-3xl max-sm border-none shadow-2xl p-0 overflow-hidden bg-white dark:bg-slate-800">
+          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b dark:border-slate-700">
             <DialogTitle className="text-lg font-headline font-bold">Passwort zurücksetzen</DialogTitle>
             <ModalDescription className="text-xs text-slate-500">Wir senden Ihnen eine Anleitung per E-Mail.</ModalDescription>
           </DialogHeader>
