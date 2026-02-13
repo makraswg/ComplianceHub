@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
   ShieldCheck, 
+  Shield,
   Database, 
   UserPlus, 
   CheckCircle2, 
@@ -19,7 +20,8 @@ import {
   Lock,
   Mail,
   Building2,
-  Info
+  Info,
+  Save
 } from 'lucide-react';
 import { 
   checkSystemStatusAction, 
@@ -52,7 +54,7 @@ export default function SetupWizardPage() {
     // Security check: If already initialized, redirect back to login
     checkSystemStatusAction().then(res => {
       if (res.initialized) router.push('/');
-    });
+    }).catch(() => {});
   }, [router]);
 
   const handleTestConnection = async () => {
@@ -111,7 +113,7 @@ export default function SetupWizardPage() {
 
   if (!mounted) return null;
 
-  const steps = ['welcome', 'db-test', 'initialize', 'admin', 'complete'];
+  const steps: SetupStep[] = ['welcome', 'db-test', 'initialize', 'admin', 'complete'];
   const progress = (steps.indexOf(currentStep) / (steps.length - 1)) * 100;
 
   return (
@@ -162,7 +164,7 @@ export default function SetupWizardPage() {
                 <div className="space-y-8 animate-in slide-in-from-right-4">
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500"><Server className="w-6 h-6" /></div>
+                      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-50"><Server className="w-6 h-6 text-slate-500" /></div>
                       <div>
                         <h3 className="text-lg font-headline font-bold text-slate-800">Infrastruktur-Check</h3>
                         <p className="text-xs text-slate-400 font-bold uppercase">Verbindung zum MySQL Server prüfen</p>
