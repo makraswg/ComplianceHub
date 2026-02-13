@@ -226,13 +226,13 @@ export default function FeaturesOverviewPage() {
 
   const openEdit = (f: Feature) => {
     setSelectedFeature(f);
-    setName(f.name);
-    setStatus(f.status);
-    setCarrier(f.carrier);
-    setDescription(f.description);
-    setPurpose(f.purpose);
+    setName(f.name || '');
+    setStatus(f.status || 'active');
+    setCarrier(f.carrier || 'objekt');
+    setDescription(f.description || '');
+    setPurpose(f.purpose || '');
     setIsComplianceRelevant(!!f.isComplianceRelevant);
-    setDeptId(f.deptId);
+    setDeptId(f.deptId || '');
     setOwnerId(f.ownerId || '');
     setDataStoreId(f.dataStoreId || 'none');
     setMaintenanceNotes(f.maintenanceNotes || '');
@@ -471,7 +471,7 @@ export default function FeaturesOverviewPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Status</Label>
+                      <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Status</Label>
                       <Select value={status} onValueChange={(v: any) => setStatus(v)}>
                         <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -558,7 +558,7 @@ export default function FeaturesOverviewPage() {
 
                     <div className="space-y-2 md:col-span-2">
                       <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenbeschreibung</Label>
-                      <Textarea value={description} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[80px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
+                      <Textarea value={description || ''} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[120px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
                     </div>
                   </div>
                 </TabsContent>

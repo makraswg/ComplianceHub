@@ -490,7 +490,7 @@ function ResourcesPageContent() {
                             <Badge variant="outline" className={cn(
                               "text-[7px] font-black h-3.5 px-1 uppercase border-none",
                               res.isIdentityProvider ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-500"
-                            )}>{res.isIdentityProvider ? 'IDP' : (res.assetType)}</Badge>
+                            )}>{res.isIdentityProvider ? 'ID-ANBIETER' : (res.assetType)}</Badge>
                           </div>
                           <p className="text-[9px] text-slate-400 font-bold uppercase">{res.assetType} • {res.operatingModel}</p>
                         </div>
@@ -626,7 +626,6 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="gov" className="mt-0 space-y-8">
-                  {/* ... Rest of gov content (same as before) ... */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-3">
@@ -665,7 +664,6 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="ownership" className="mt-0 space-y-10">
-                  {/* ... Rest of ownership content ... */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6 p-6 bg-white border rounded-2xl shadow-sm">
                       <div className="flex items-center gap-3 border-b pb-3">
@@ -728,7 +726,6 @@ function ResourcesPageContent() {
                 </TabsContent>
 
                 <TabsContent value="maintenance" className="mt-0 space-y-10 pb-20">
-                  {/* ... Rest of maintenance content ... */}
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
                     <div className="flex items-center justify-between border-b pb-3">
                       <div className="flex items-center gap-2">
@@ -847,7 +844,6 @@ function ResourcesPageContent() {
       </Dialog>
 
       <Dialog open={isBackupModalOpen} onOpenChange={setIsBackupModalOpen}>
-        {/* ... Backup modal content (same as before) ... */}
         <DialogContent className="max-w-3xl rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
           <DialogHeader className="p-6 bg-orange-600 text-white shrink-0">
             <div className="flex items-center gap-4">
