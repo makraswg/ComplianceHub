@@ -4,6 +4,7 @@
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
 import { DataSource, SyncJob, Tenant, User } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
+import { Client } from 'ldapts';
 
 /**
  * Normalisiert Texte für den Vergleich (Umlaute und Sonderzeichen).
@@ -65,133 +66,126 @@ async function logLdapInteraction(
 }
 
 /**
- * Testet die LDAP-Verbindung und führt einen Probereader aus.
+ * Testet die LDAP-Verbindung durch einen realen Bind und Search.
  */
 export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
-  if (!config.ldapUrl || !config.ldapPort) {
-    return { success: false, message: 'Server-URL und Port sind erforderlich.' };
+  if (!config.ldapUrl || !config.ldapPort || !config.ldapBindDn || !config.ldapBindPassword) {
+    return { success: false, message: 'Server-URL, Port und Bind-Daten sind erforderlich.' };
   }
 
   const tenantId = config.id || 'unknown';
-  
+  const url = `${config.ldapUrl.startsWith('ldap') ? config.ldapUrl : 'ldap://' + config.ldapUrl}:${config.ldapPort}`;
+  const client = new Client({ url, timeout: 5000, connectTimeout: 5000 });
+
   try {
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await client.bind(config.ldapBindDn, config.ldapBindPassword);
     
-    if (config.ldapUrl.includes('localhost') || config.ldapUrl.includes('127.0.0.1')) {
-      const msg = 'Lokale LDAP-Hosts werden in dieser Sandbox nicht unterstützt.';
-      await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', msg, { config, error: 'Forbidden Host' });
-      return { success: false, message: `NETZWERK-FEHLER: ${msg}` };
-    }
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 
+      'LDAP Bind erfolgreich. Prüfe Lesezugriff auf Base DN...', 
+      { url, bindDn: config.ldapBindDn }
+    );
 
-    if (config.ldapBindPassword === 'wrong') {
-      const msg = 'Authentifizierungsfehler. Der Bind-DN oder das Passwort ist ungültig.';
-      await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', msg, { bindDn: config.ldapBindDn, error: 'Invalid Credentials' });
-      return { success: false, message: `LDAP-FEHLER: ${msg}` };
-    }
-
-    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 'Netzwerk-Verbindung hergestellt. Starte Read-Probe...', { 
-      url: config.ldapUrl, 
-      port: config.ldapPort, 
-      tls: config.ldapUseTls
-    });
-
-    const adUsersSample = [
-      { username: 'm.mustermann', email: 'm.mustermann@compliance-hub.local' },
-      { username: 'j.schmidt', email: 'j.schmidt@compliance-hub.local' }
-    ];
-
-    await logLdapInteraction('mysql', tenantId, 'Read Probe', 'success', `Erfolgreich ${adUsersSample.length} Test-Benutzer gelesen.`, {
+    const { searchEntries } = await client.search(config.ldapBaseDn || '', {
+      scope: 'sub',
       filter: config.ldapUserFilter || '(objectClass=user)',
-      sample: adUsersSample
+      sizeLimit: 1
     });
+
+    await logLdapInteraction('mysql', tenantId, 'Read Probe', 'success', 
+      `Integrität bestätigt. ${searchEntries.length} Test-Eintrag gelesen.`, 
+      { filter: config.ldapUserFilter, entriesFound: searchEntries.length }
+    );
 
     return { 
       success: true, 
-      message: `Verbindung erfolgreich. Authentifizierung ok und ${adUsersSample.length} Test-Benutzer erfolgreich gelesen.` 
+      message: `Verbindung erfolgreich. Authentifizierung ok und Lesezugriff auf Base DN bestätigt.` 
     };
   } catch (e: any) {
-    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', e.message, { stack: e.stack });
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', e.message, { url, bindDn: config.ldapBindDn, error: e.stack });
     return { success: false, message: `LDAP-FEHLER: ${e.message}` };
+  } finally {
+    try { await client.unbind(); } catch (e) {}
   }
 }
 
 /**
- * Ruft verfügbare Benutzer aus dem AD ab (Simulation).
- * Fokus auf Transparenz und Matching-Verifizierung.
+ * Ruft verfügbare Benutzer aus dem AD ab (Reale LDAP Abfrage).
  */
 export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql', searchQuery: string = '') {
+  if (!config.ldapUrl || !config.ldapBindDn || !config.ldapBindPassword) {
+    throw new Error("LDAP-Konfiguration unvollständig.");
+  }
+
+  const tenantId = config.id || 'global';
+  const url = `${config.ldapUrl.startsWith('ldap') ? config.ldapUrl : 'ldap://' + config.ldapUrl}:${config.ldapPort}`;
+  const client = new Client({ url, timeout: 10000 });
+
   try {
-    // Log start of AD search
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', 
-      `Suche im AD gestartet (Filter: ${searchQuery || 'alle'}). Pfad: ${config.ldapBaseDn || 'Root'}`, 
-      { filter: config.ldapUserFilter, query: searchQuery, environment: 'Sandbox-Simulation' }
+    await client.bind(config.ldapBindDn, config.ldapBindPassword);
+    
+    let filter = config.ldapUserFilter || '(objectClass=user)';
+    if (searchQuery) {
+      const escapedQuery = searchQuery.replace(/[()]/g, '');
+      filter = `(&${filter}(|(sAMAccountName=*${escapedQuery}*)(displayName=*${escapedQuery}*)(mail=*${escapedQuery}*)(sn=*${escapedQuery}*)))`;
+    }
+
+    await logLdapInteraction(dataSource, tenantId, 'AD Search Request', 'success', 
+      `Starte Suche im AD (Filter: ${filter})`, 
+      { url, baseDn: config.ldapBaseDn, filter }
     );
 
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Simulations-Bestand
-    let adUsers = [
-      { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@compliance-hub.local', dept: 'IT & Digitalisierung', title: 'Systemadministrator', company: 'Wohnbau Nord' },
-      { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@compliance-hub.local', dept: 'Recht', title: 'Datenschutz', company: 'Wohnbau Nord' },
-      { username: 'a.baeck', first: 'Andreas', last: 'Baeck', email: 'a.baeck@compliance-hub.local', dept: 'Technik', title: 'Hausmeister', company: 'Wohnbau Nord' },
-      { username: 'j.schmidt', first: 'Julia', last: 'Schmidt', email: 'j.schmidt@compliance-hub.local', dept: 'Finanzen', title: 'Buchhaltung', company: 'Wohnbau Nord' },
-      { username: 'ext.kratz', first: 'Marcel', last: 'Kratzing', email: 'm.kratz@extern.de', dept: 'Beratung', title: 'Externer Berater', company: 'Extern' },
-      { username: 'h.aecker', first: 'Hermann', last: 'Aecker', email: 'h.aecker@compliance-hub.local', dept: 'Finanzen', title: 'Kreditoren', company: 'Wohnbau Nord' },
-      { username: 'l.lüdenscheid', first: 'Lars', last: 'Lüdenscheid', email: 'l.luedenscheid@compliance-hub.local', dept: 'IT', title: 'Junior Admin', company: 'Wohnbau Nord' }
-    ];
-
-    // DYNAMISCHE SIMULATION: Falls der Nutzer etwas Bestimmtes sucht,
-    // fügen wir es dem AD-Bestand hinzu, um das "Finden" zu simulieren.
-    if (searchQuery && searchQuery.length > 2) {
-      const q = searchQuery.toLowerCase();
-      const exists = adUsers.some(u => u.username.toLowerCase().includes(q) || u.last.toLowerCase().includes(q));
-      if (!exists) {
-        adUsers.push({
-          username: q.replace(/\s+/g, '.'),
-          first: searchQuery.split(' ')[0] || 'Gesuchter',
-          last: searchQuery.split(' ')[1] || 'Benutzer',
-          email: `${q.replace(/\s+/g, '.')}@compliance-hub.local`,
-          dept: 'Zugeordnete Abteilung',
-          title: 'Zugeordnete Stelle',
-          company: config.name || 'Hauptfirma'
-        });
-      }
-    }
-
-    // Filter simulation by query
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      adUsers = adUsers.filter(u => 
-        u.username.toLowerCase().includes(q) || 
-        u.first.toLowerCase().includes(q) || 
-        u.last.toLowerCase().includes(q) || 
-        u.email.toLowerCase().includes(q)
-      );
-    }
+    const { searchEntries } = await client.search(config.ldapBaseDn || '', {
+      scope: 'sub',
+      filter: filter,
+      sizeLimit: 100,
+      attributes: [
+        config.ldapAttrUsername || 'sAMAccountName',
+        config.ldapAttrFirstname || 'givenName',
+        config.ldapAttrLastname || 'sn',
+        config.ldapAttrEmail || 'mail',
+        config.ldapAttrDepartment || 'department',
+        config.ldapAttrCompany || 'company',
+        config.ldapAttrGroups || 'memberOf',
+        'displayName',
+        'title'
+      ]
+    });
 
     const tenantsRes = await getCollectionData('tenants', dataSource);
     const allTenants = (tenantsRes.data || []) as Tenant[];
 
-    const mapped = adUsers.map(adUser => {
-      const normAdCompany = normalizeForMatch(adUser.company);
-      let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
+    const mapped = searchEntries.map((entry: any) => {
+      const username = entry[config.ldapAttrUsername || 'sAMAccountName'] as string;
+      const email = entry[config.ldapAttrEmail || 'mail'] as string;
+      const company = (entry[config.ldapAttrCompany || 'company'] as string) || '';
       
+      const normAdCompany = normalizeForMatch(company);
+      let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
+
       return {
-        ...adUser,
+        username,
+        first: entry[config.ldapAttrFirstname || 'givenName'] as string,
+        last: entry[config.ldapAttrLastname || 'sn'] as string,
+        email,
+        dept: entry[config.ldapAttrDepartment || 'department'] as string,
+        title: (entry.title as string) || (entry.displayName as string) || 'AD User',
+        company,
         matchedTenantId: matchedTenant?.id || null,
         matchedTenantName: matchedTenant?.name || 'Kein exakter Treffer'
       };
     });
 
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer im AD gefunden`, { 
-      query: searchQuery, 
-      results: mapped.map(u => u.username)
-    });
+    await logLdapInteraction(dataSource, tenantId, 'AD Search Response', 'success', 
+      `${mapped.length} Benutzer im AD gefunden`, 
+      { resultsCount: mapped.length }
+    );
     
     return mapped;
   } catch (e: any) {
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'error', e.message, e);
-    throw new Error("Fehler beim Abruf der AD-Benutzer: " + e.message);
+    await logLdapInteraction(dataSource, tenantId, 'AD Search Error', 'error', e.message, { stack: e.stack });
+    throw new Error("LDAP Abfrage fehlgeschlagen: " + e.message);
+  } finally {
+    try { await client.unbind(); } catch (e) {}
   }
 }
 
@@ -207,10 +201,10 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
         id: userId,
         tenantId: adUser.matchedTenantId || 't1',
         externalId: adUser.username,
-        displayName: `${adUser.first} ${adUser.last}`,
+        displayName: `${adUser.first || ''} ${adUser.last || ''}`.trim() || adUser.username,
         email: adUser.email,
-        department: adUser.dept,
-        title: adUser.title,
+        department: adUser.dept || '',
+        title: adUser.title || '',
         enabled: true,
         status: 'active',
         lastSyncedAt: new Date().toISOString()
@@ -228,11 +222,8 @@ export async function importUsersAction(usersToImport: any[], dataSource: DataSo
       entityId: 'manual-import'
     });
 
-    await logLdapInteraction(dataSource, 'global', 'User Import', 'success', `${count} Benutzer importiert`, usersToImport, actorEmail);
-
     return { success: true, count };
   } catch (e: any) {
-    await logLdapInteraction(dataSource, 'global', 'User Import', 'error', e.message, e, actorEmail);
     return { success: false, error: e.message };
   }
 }
@@ -253,13 +244,11 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
         entityType: 'sync',
         entityId: jobId
       });
-      await logLdapInteraction(dataSource, 'global', 'Automatic Sync', 'success', 'Full AD Sync completed', { jobId }, actorUid);
     }
 
     await updateJobStatusAction(jobId, 'success', 'Automatischer Lauf erfolgreich beendet.', dataSource);
     return { success: true };
   } catch (e: any) {
-    await logLdapInteraction(dataSource, 'global', 'Automatic Sync', 'error', e.message, e, actorUid);
     await updateJobStatusAction(jobId, 'error', e.message, dataSource);
     return { success: false, error: e.message };
   }

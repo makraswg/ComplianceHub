@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,13 +12,10 @@
 
 @layer base {
   :root {
-    /* Refined Professional Blue */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
     
-    /* PRD: Light Gray Background (#F5F5F5) */
     --background: 0 0% 98%;
-    /* Softened Foreground from 4.9% to 11% brightness */
     --foreground: 222.2 47% 11%;
     
     --card: 0 0% 100%;
@@ -32,7 +30,6 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     
-    /* Softer Accent Orange */
     --accent: 24 95% 53%;
     --accent-foreground: 0 0% 100%;
     
@@ -46,7 +43,6 @@
   }
 
   .dark {
-    /* Softened Dark Background to avoid near-black */
     --background: 222 47% 10%;
     --foreground: 210 40% 98%;
     
@@ -90,7 +86,6 @@
   }
 }
 
-/* Redefined subtle shadows for Enterprise UI */
 .shadow-sm {
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03) !important;
 }
@@ -131,7 +126,6 @@ input, select, textarea {
   @apply focus:ring-1 focus:ring-primary/20 transition-all !important;
 }
 
-/* Advanced Flow Animations for ProcessHub */
 @keyframes flow-dash {
   to {
     stroke-dashoffset: -20;
