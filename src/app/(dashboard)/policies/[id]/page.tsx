@@ -32,6 +32,7 @@ import {
   BookOpen,
   Share2,
   FileDown,
+  Download,
   Briefcase,
   Bold,
   Italic,
