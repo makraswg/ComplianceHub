@@ -1,4 +1,3 @@
-
 'use server';
 
 import { saveCollectionRecord, getCollectionData } from './mysql-actions';
@@ -66,6 +65,21 @@ async function logLdapInteraction(
 }
 
 /**
+ * Erzeugt die TLS-Konfiguration basierend auf den Mandanteneinstellungen.
+ */
+function getTlsOptions(config: Partial<Tenant>) {
+  const options: any = {
+    rejectUnauthorized: !config.ldapAllowInvalidSsl,
+  };
+
+  if (config.ldapClientCert) {
+    options.ca = [config.ldapClientCert];
+  }
+
+  return options;
+}
+
+/**
  * Testet die LDAP-Verbindung durch einen realen Bind und Search.
  */
 export async function testLdapConnectionAction(config: Partial<Tenant>): Promise<{ success: boolean; message: string }> {
@@ -75,14 +89,26 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 
   const tenantId = config.id || 'unknown';
   const url = `${config.ldapUrl.startsWith('ldap') ? config.ldapUrl : 'ldap://' + config.ldapUrl}:${config.ldapPort}`;
-  const client = new Client({ url, timeout: 5000, connectTimeout: 5000 });
+  const tlsOptions = getTlsOptions(config);
+  
+  const client = new Client({ 
+    url, 
+    timeout: 5000, 
+    connectTimeout: 5000,
+    tlsOptions: url.startsWith('ldaps') ? tlsOptions : undefined
+  });
 
   try {
+    // Falls normales LDAP aber TLS gewünscht -> STARTTLS
+    if (!url.startsWith('ldaps') && config.ldapUseTls) {
+      await client.startTLS(tlsOptions);
+    }
+
     await client.bind(config.ldapBindDn, config.ldapBindPassword);
     
     await logLdapInteraction('mysql', tenantId, 'Connection Test', 'success', 
       'LDAP Bind erfolgreich. Prüfe Lesezugriff auf Base DN...', 
-      { url, bindDn: config.ldapBindDn }
+      { url, bindDn: config.ldapBindDn, tls: !!config.ldapUseTls, ignoreCertErrors: !!config.ldapAllowInvalidSsl }
     );
 
     const { searchEntries } = await client.search(config.ldapBaseDn || '', {
@@ -101,8 +127,18 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
       message: `Verbindung erfolgreich. Authentifizierung ok und Lesezugriff auf Base DN bestätigt.` 
     };
   } catch (e: any) {
-    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', e.message, { url, bindDn: config.ldapBindDn, error: e.stack });
-    return { success: false, message: `LDAP-FEHLER: ${e.message}` };
+    let errorMsg = e.message;
+    if (errorMsg.includes('UNABLE_TO_VERIFY_LEAF_SIGNATURE') || errorMsg.includes('certificate')) {
+      errorMsg += ' (Tipp: Prüfen Sie die Option "Zertifikate ignorieren" oder hinterlegen Sie das Client-Zertifikat)';
+    }
+
+    await logLdapInteraction('mysql', tenantId, 'Connection Test', 'error', errorMsg, { 
+      url, 
+      bindDn: config.ldapBindDn, 
+      error: e.stack,
+      rejectUnauthorized: tlsOptions.rejectUnauthorized 
+    });
+    return { success: false, message: `LDAP-FEHLER: ${errorMsg}` };
   } finally {
     try { await client.unbind(); } catch (e) {}
   }
@@ -118,9 +154,19 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
   const tenantId = config.id || 'global';
   const url = `${config.ldapUrl.startsWith('ldap') ? config.ldapUrl : 'ldap://' + config.ldapUrl}:${config.ldapPort}`;
-  const client = new Client({ url, timeout: 10000 });
+  const tlsOptions = getTlsOptions(config);
+
+  const client = new Client({ 
+    url, 
+    timeout: 10000,
+    tlsOptions: url.startsWith('ldaps') ? tlsOptions : undefined
+  });
 
   try {
+    if (!url.startsWith('ldaps') && config.ldapUseTls) {
+      await client.startTLS(tlsOptions);
+    }
+
     await client.bind(config.ldapBindDn, config.ldapBindPassword);
     
     let filter = config.ldapUserFilter || '(objectClass=user)';
@@ -131,7 +177,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
     await logLdapInteraction(dataSource, tenantId, 'AD Search Request', 'success', 
       `Starte Suche im AD (Filter: ${filter})`, 
-      { url, baseDn: config.ldapBaseDn, filter }
+      { url, baseDn: config.ldapBaseDn, filter, tls: !!config.ldapUseTls }
     );
 
     const { searchEntries } = await client.search(config.ldapBaseDn || '', {
