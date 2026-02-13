@@ -121,6 +121,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
   try {
     await new Promise(resolve => setTimeout(resolve, 1200));
     
+    // Simulations-Daten
     let adUsers = [
       { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@compliance-hub.local', dept: 'IT & Digitalisierung', title: 'Systemadministrator', company: 'Wohnbau Nord' },
       { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@compliance-hub.local', dept: 'Recht', title: 'Datenschutz', company: 'Wohnbau Nord' },
@@ -160,7 +161,12 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       };
     });
 
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, { query: searchQuery, results: mapped });
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, { 
+      query: searchQuery, 
+      baseDn: config.ldapBaseDn,
+      filter: config.ldapUserFilter,
+      results: mapped 
+    });
     return mapped;
   } catch (e: any) {
     await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'error', e.message, e);
