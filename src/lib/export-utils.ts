@@ -82,107 +82,159 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Zeichnet die Prozess-Visualisierung basierend auf den Designer-Koordinaten.
+ * Berechnet ein automatisches Layout für den Graphen basierend auf topologischen Rängen.
+ * Garantiert eine konsistente zeitliche Abfolge (DAG).
+ */
+function calculateGraphLayout(nodes: ProcessNode[], edges: any[]) {
+  const inDegree: Record<string, number> = {};
+  const ranks: Record<string, number> = {};
+  const lanes: Record<string, number> = {};
+  const laneCountsPerRank: Record<number, number> = {};
+
+  nodes.forEach(n => {
+    inDegree[n.id] = 0;
+    ranks[n.id] = 0;
+  });
+
+  edges.forEach(e => {
+    if (inDegree[e.target] !== undefined) inDegree[e.target]++;
+  });
+
+  // Topologisches Ranking
+  const queue = nodes.filter(n => inDegree[n.id] === 0).map(n => n.id);
+  const sorted: string[] = [];
+  const localInDegree = { ...inDegree };
+  const processingQueue = [...queue];
+
+  while (processingQueue.length > 0) {
+    const u = processingQueue.shift()!;
+    sorted.push(u);
+    edges.filter(e => e.source === u).forEach(e => {
+      ranks[e.target] = Math.max(ranks[e.target], ranks[u] + 1);
+      localInDegree[e.target]--;
+      if (localInDegree[e.target] === 0) processingQueue.push(e.target);
+    });
+  }
+
+  // Lane Assignment (Breite pro Rang)
+  sorted.forEach(id => {
+    const r = ranks[id];
+    lanes[id] = laneCountsPerRank[r] || 0;
+    laneCountsPerRank[r] = (laneCountsPerRank[r] || 0) + 1;
+  });
+
+  // Finale Koordinaten (Normiert)
+  const layout: Record<string, { x: number, y: number }> = {};
+  const H_SPACE = 60;
+  const V_SPACE = 35;
+
+  nodes.forEach(n => {
+    const r = ranks[n.id];
+    const l = lanes[n.id];
+    const centerOffset = ((laneCountsPerRank[r] - 1) * H_SPACE) / 2;
+    layout[n.id] = {
+      x: l * H_SPACE - centerOffset,
+      y: r * V_SPACE
+    };
+  });
+
+  return { layout, maxRank: Math.max(...Object.values(ranks), 0) };
+}
+
+/**
+ * Zeichnet die Prozess-Visualisierung basierend auf einer Graphen-Engine.
  */
 async function drawProcessGraph(doc: any, version: ProcessVersion, startY: number) {
   const nodes = version.model_json.nodes || [];
   const edges = version.model_json.edges || [];
-  const positions = version.layout_json?.positions || {};
   
   if (nodes.length === 0) return startY;
 
+  const { layout, maxRank } = calculateGraphLayout(nodes, edges);
+  
   const margin = 14;
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  const xValues = nodes.map(n => positions[n.id]?.x || 0);
-  const yValues = nodes.map(n => positions[n.id]?.y || 0);
-  const minX = Math.min(...xValues);
-  const maxX = Math.max(...xValues);
-  const minY = Math.min(...yValues);
-  const maxY = Math.max(...yValues);
-
+  // Skalierung berechnen
+  const xCoords = Object.values(layout).map(p => p.x);
+  const minX = Math.min(...xCoords);
+  const maxX = Math.max(...xCoords);
   const rangeX = (maxX - minX) || 1;
-  const rangeY = (maxY - minY) || 1;
   
-  // High-precision scaling to fit width and minimize height
-  const scale = Math.min((canvasWidth - 20) / rangeX, 0.3);
-  const actualCanvasHeight = rangeY * scale + 25;
+  const scale = Math.min((canvasWidth - 20) / rangeX, 0.8);
+  const graphHeight = (maxRank + 1) * 35 + 20;
 
   doc.setFontSize(10);
-  doc.setTextColor(30, 41, 59);
+  doc.setTextColor(37, 99, 235);
   doc.setFont('helvetica', 'bold');
-  doc.text('Visualisierung', margin, startY + 5);
+  doc.text('Visualisierung des Prozessablaufs', margin, startY + 5);
 
   const getPdfCoords = (id: string) => {
-    const pos = positions[id] || { x: 0, y: 0 };
+    const pos = layout[id] || { x: 0, y: 0 };
     return {
-      x: margin + 10 + (pos.x - minX) * scale,
-      y: startY + 15 + (pos.y - minY) * scale
+      x: (pageWidth / 2) + (pos.x * scale),
+      y: startY + 20 + (pos.y)
     };
   };
 
-  // Draw Edges
-  doc.setDrawColor(180);
+  // 1. Edges zeichnen
+  doc.setLineWidth(0.2);
   edges.forEach(edge => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
-    doc.setLineWidth(0.15);
+    
+    const isSplit = edges.filter(e => e.source === edge.source).length > 1;
+    doc.setDrawColor(isSplit ? 245 : 180, isSplit ? 158 : 180, isSplit ? 11 : 180);
+    
+    // Kurve oder Gerade
     doc.line(s.x, s.y, t.x, t.y);
     
-    // Arrow Head
+    // Pfeilspitze
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
-    doc.line(t.x, t.y, t.x - 1.5 * Math.cos(angle - Math.PI/6), t.y - 1.5 * Math.sin(angle - Math.PI/6));
-    doc.line(t.x, t.y, t.x - 1.5 * Math.cos(angle + Math.PI/6), t.y - 1.5 * Math.sin(angle + Math.PI/6));
+    doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
+    doc.line(t.x, t.y, t.x - 2 * Math.cos(angle + Math.PI/6), t.y - 2 * Math.sin(angle + Math.PI/6));
 
     if (edge.label) {
-      doc.setFontSize(5);
-      doc.setTextColor(100);
+      doc.setFontSize(6);
       const midX = (s.x + t.x) / 2;
       const midY = (s.y + t.y) / 2;
-      doc.setFillColor(255);
-      doc.rect(midX - 5, midY - 2, 10, 3, 'F');
-      doc.text(edge.label, midX, midY, { align: 'center' });
+      doc.setFillColor(255, 255, 255);
+      doc.rect(midX - 6, midY - 2, 12, 4, 'F');
+      doc.setTextColor(100);
+      doc.text(edge.label, midX, midY + 1, { align: 'center' });
     }
   });
 
-  // Draw Nodes
-  nodes.forEach((node, index) => {
+  // 2. Nodes zeichnen
+  nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
-    const r = 4;
+    const r = 4.5;
+    
+    const outDegree = edges.filter(e => e.source === node.id).length;
+    const isBranch = outDegree > 1;
 
-    let color = [245, 245, 245];
+    let color = [240, 240, 240];
     if (node.type === 'start') color = [16, 185, 129];
     if (node.type === 'end') color = [239, 68, 68];
-    if (node.type === 'decision') color = [245, 158, 11];
+    if (node.type === 'decision' || isBranch) color = [245, 158, 11];
     if (node.type === 'subprocess') color = [79, 70, 229];
 
-    // Every branch point (even if not explicit decision type) gets highlighted
-    const outgoingCount = edges.filter(e => e.source === node.id).length;
-    if (outgoingCount > 1 && node.type !== 'decision') {
-      color = [254, 215, 170]; // Lighter amber for branches
-      doc.setDrawColor(245, 158, 11);
-      doc.setLineWidth(0.3);
-    } else {
-      doc.setDrawColor(100);
-      doc.setLineWidth(0.1);
-    }
-
     doc.setFillColor(color[0], color[1], color[2]);
+    doc.setDrawColor(isBranch ? [180, 83, 9] : [100, 116, 139]);
     doc.circle(x, y, r, 'FD');
 
-    doc.setFontSize(5);
-    doc.setTextColor(node.type === 'subprocess' ? 255 : 0);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${index + 1}`, x, y + 1.5, { align: 'center' });
-
     doc.setFontSize(6);
-    doc.setTextColor(50);
-    doc.setFont('helvetica', 'normal');
-    doc.text(node.title, x, y + r + 4, { align: 'center', maxWidth: 30 });
+    doc.setTextColor(node.type === 'subprocess' || node.type === 'end' || node.type === 'start' ? 255 : 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${i + 1}`, x, y + 1.5, { align: 'center' });
+
+    doc.setFontSize(7);
+    doc.setTextColor(30);
+    doc.text(node.title, x, y + r + 4, { align: 'center', maxWidth: 35 });
   });
 
-  return startY + actualCanvasHeight + 5;
+  return startY + graphHeight + 15;
 }
 
 /**
