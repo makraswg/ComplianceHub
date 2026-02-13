@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,7 +22,8 @@ import {
   Mail,
   Building2,
   Info,
-  Save
+  Save,
+  GanttChartSquare
 } from 'lucide-react';
 import { 
   checkSystemStatusAction, 
@@ -224,7 +226,7 @@ export default function SetupWizardPage() {
                       <p className="text-[11px] text-slate-400 font-medium italic">Es werden keine bestehenden Daten gelöscht, lediglich fehlende Strukturen ergänzt.</p>
                     </div>
                     <Button onClick={handleRunMigration} disabled={isLoading} className="w-full h-12 bg-primary hover:bg-primary/90 rounded-2xl font-black uppercase text-[10px] tracking-widest gap-3 shadow-lg shadow-primary/20">
-                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4 fill-current" />}
+                      {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GanttChartSquare className="w-4 h-4" />}
                       Infrastruktur ausrollen
                     </Button>
                   </div>

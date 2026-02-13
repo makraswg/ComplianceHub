@@ -40,7 +40,7 @@ export function getPool(): mysql.Pool {
 
 /**
  * Hilfsfunktion für sichere Abfragen ohne manuelles Connection-Handling.
- * Nutzt pool.execute(), was die Verbindung automatisch freigibt (Checkliste B).
+ * Nutzt pool.execute(), was die Verbindung automatisch freigibt.
  */
 export async function dbQuery(sql: string, params: any[] = []) {
   const start = Date.now();
@@ -49,7 +49,6 @@ export async function dbQuery(sql: string, params: any[] = []) {
     const [rows] = await pool.execute(sql, params);
     const duration = Date.now() - start;
     
-    // Logging & Metriken (Checkliste D)
     if (duration > 500) {
       console.warn(`[DB-TRACE] SLOW QUERY (${duration}ms): ${sql.substring(0, 100)}...`);
     } else {
@@ -76,6 +75,6 @@ export async function testMysqlConnection() {
   } catch (error: any) {
     return { success: false, message: `Verbindungsfehler: ${error.message}` };
   } finally {
-    if (connection) connection.release(); // Explizites Release (Checkliste B)
+    if (connection) connection.release();
   }
 }
