@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -170,7 +169,7 @@ export default function FeatureDetailPage() {
               </div>
 
               <div className="space-y-3">
-                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">CIA Schutzbedarf</ാമel>
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">CIA Schutzbedarf</Label>
                 {[
                   { label: 'Vertraulichkeit', val: feature.confidentialityReq },
                   { label: 'Integrität', val: feature.integrityReq },
@@ -230,7 +229,7 @@ export default function FeatureDetailPage() {
 
         <div className="lg:col-span-3">
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1.5 h-12 rounded-2xl border w-full justify-start gap-1 shadow-inner overflow-x-auto no-scrollbar">
               <TabsTrigger value="overview" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Info className="w-4 h-4" /> Analyse
               </TabsTrigger>
