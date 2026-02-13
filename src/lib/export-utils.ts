@@ -82,64 +82,72 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Berechnet ein horizontales, geschichtetes Layout (Layered DAG) basierend auf topologischen Rängen.
- * Verhindert Flachklopfen des Graphen.
+ * Synchronisierte Layout-Logik (Designer-Mirror).
+ * Berechnet X/Y Positionen basierend auf Graphenstruktur (Ränge & Bahnen).
  */
-function calculateLayeredLayout(nodes: ProcessNode[], edges: any[]) {
-  const ranks: Record<string, number> = {};
+function calculateDesignerLayout(nodes: ProcessNode[], edges: any[]) {
+  const levels: Record<string, number> = {};
   const lanes: Record<string, number> = {};
-  const laneOccupancyPerRank: Record<number, number> = {};
+  const occupiedLanesPerLevel = new Map<number, Set<number>>();
 
-  nodes.forEach(n => ranks[n.id] = 0);
-
-  // 1. Ranking: Topologische Tiefe (X-Achse)
+  nodes.forEach(n => levels[n.id] = 0);
+  
+  // 1. Ranking (X-Achse / Tiefe)
   let changed = true;
   let limit = nodes.length * 2;
   while (changed && limit > 0) {
     changed = false;
     edges.forEach(e => {
-      if (ranks[e.target] <= ranks[e.source]) {
-        ranks[e.target] = ranks[e.source] + 1;
+      if (levels[e.target] <= levels[e.source]) {
+        levels[e.target] = levels[e.source] + 1;
         changed = true;
       }
     });
     limit--;
   }
 
-  // 2. Lane-Zuweisung: Knoten mit gleichem Rang vertikal verteilen (Y-Achse)
-  const sortedNodes = [...nodes].sort((a, b) => ranks[a.id] - ranks[b.id]);
-  sortedNodes.forEach(node => {
-    const r = ranks[node.id];
-    const currentLane = laneOccupancyPerRank[r] || 0;
-    lanes[node.id] = currentLane;
-    laneOccupancyPerRank[r] = currentLane + 1;
-  });
+  // 2. Lane-Zuweisung (Y-Achse / Parallele Pfade)
+  const processed = new Set<string>();
+  const queue = nodes.filter(n => !edges.some(e => e.target === n.id)).map(n => ({ id: n.id, lane: 0 }));
+  
+  while (queue.length > 0) {
+    const { id, lane } = queue.shift()!;
+    if (processed.has(id)) continue;
+    
+    const lv = levels[id];
+    let finalLane = lane;
+    if (!occupiedLanesPerLevel.has(lv)) occupiedLanesPerLevel.set(lv, new Set());
+    const levelOccupancy = occupiedLanesPerLevel.get(lv)!;
+    while (levelOccupancy.has(finalLane)) { finalLane++; }
+    
+    lanes[id] = finalLane;
+    levelOccupancy.add(finalLane);
+    processed.add(id);
 
-  const layout: Record<string, { x: number, y: number, r: number, l: number }> = {};
-  const H_STEP = 50; 
-  const V_STEP = 30; 
+    const children = edges.filter((e: any) => e.source === id).map((e: any) => e.target);
+    children.forEach((childId: string, idx: number) => { 
+      queue.push({ id: childId, lane: finalLane + idx }); 
+    });
+  }
 
+  const layout: Record<string, { x: number, y: number, lv: number, lane: number }> = {};
   nodes.forEach(n => {
-    const r = ranks[n.id];
-    const l = lanes[n.id];
-    const totalLanesAtRank = laneOccupancyPerRank[r];
-    const vOffset = ((totalLanesAtRank - 1) * V_STEP) / 2;
     layout[n.id] = {
-      x: r * H_STEP,
-      y: l * V_STEP - vOffset,
-      r,
-      l
+      x: levels[n.id] * 50,
+      y: lanes[n.id] * 25,
+      lv: levels[n.id],
+      lane: lanes[n.id]
     };
   });
 
-  const maxRank = Math.max(...Object.values(ranks), 0);
-  const maxLanes = Math.max(...Object.values(laneOccupancyPerRank), 0);
+  const maxLv = Math.max(...Object.values(levels), 0);
+  const maxLane = Math.max(...Object.values(lanes), 0);
 
-  return { layout, maxRank, maxLanes };
+  return { layout, maxLv, maxLane };
 }
 
 /**
- * Zeichnet den Prozessgraphen horizontal und layered.
+ * Zeichnet den Prozessgraphen maßstabsgetreu (Designer-Stil).
  */
 async function drawProcessGraph(doc: any, version: ProcessVersion, startY: number) {
   const nodes = version.model_json.nodes || [];
@@ -147,14 +155,14 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   
   if (nodes.length === 0) return startY;
 
-  const { layout, maxRank, maxLanes } = calculateLayeredLayout(nodes, edges);
+  const { layout, maxLv, maxLane } = calculateDesignerLayout(nodes, edges);
   const margin = 14;
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  const rangeX = maxRank * 50 || 1;
-  const scale = Math.min((canvasWidth - 40) / rangeX, 1.0);
-  const graphHeight = Math.max(40, maxLanes * 35);
+  const hGap = 50;
+  const scale = Math.min((canvasWidth - 40) / (maxLv * hGap || 1), 1.0);
+  const graphHeight = Math.max(40, (maxLane + 1) * 30);
 
   doc.setFontSize(9);
   doc.setTextColor(30, 41, 59);
@@ -169,73 +177,59 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     };
   };
 
-  // 1. Alle Kanten zeichnen (Keine Deduplizierung)
-  doc.setLineWidth(0.25);
-  edges.forEach(edge => {
+  // 1. Transitions
+  doc.setLineWidth(0.2);
+  edges.forEach((edge: any) => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
     
-    const outDegree = edges.filter(e => e.source === edge.source).length;
-    const inDegree = edges.filter(e => e.target === edge.target).length;
-    const isBranch = outDegree > 1 || inDegree > 1;
+    const outCount = edges.filter((e: any) => e.source === edge.source).length;
+    const inCount = edges.filter((e: any) => e.target === edge.target).length;
     
-    if (isBranch) doc.setDrawColor(180, 83, 9); // Amber
+    if (outCount > 1 || inCount > 1) doc.setDrawColor(245, 158, 11); // Amber for branching
     else doc.setDrawColor(148, 163, 184); // Slate
     
-    // Einfache Bezier-Kurve für bessere Sichtbarkeit bei Überlappungen
-    const midX = (s.x + t.x) / 2;
-    const midY = (s.y + t.y) / 2;
-    const cp1x = s.x + (t.x - s.x) / 3;
-    const cp2x = s.x + 2 * (t.x - s.x) / 3;
+    doc.line(s.x, s.y, t.x, t.y);
     
-    // Zeichne Kurve
-    doc.lines([[t.x - s.x, t.y - s.y]], s.x, s.y, [1, 1], 'S');
-    
+    // Simple Arrow Head
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
-    // Pfeilspitze
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle + Math.PI/6), t.y - 2 * Math.sin(angle + Math.PI/6));
 
     if (edge.label) {
       doc.setFontSize(5);
-      doc.setFillColor(255, 255, 255);
-      doc.rect(midX - 5, midY - 2, 10, 4, 'F');
       doc.setTextColor(71, 85, 105);
-      doc.text(edge.label, midX, midY + 1, { align: 'center' });
+      doc.text(edge.label, (s.x + t.x) / 2, (s.y + t.y) / 2 - 1, { align: 'center' });
     }
   });
 
-  // 2. Knoten zeichnen
+  // 2. Steps
   nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
-    const r = 4;
-    const outDegree = edges.filter(e => e.source === node.id).length;
-    const inDegree = edges.filter(e => e.target === node.id).length;
-    const isBranch = outDegree > 1 || inDegree > 1;
+    const r = 3.5;
+    const outCount = edges.filter((e: any) => e.source === node.id).length;
 
     let color = [241, 245, 249]; 
     if (node.type === 'start') color = [16, 185, 129];
     else if (node.type === 'end') color = [239, 68, 68];
-    else if (node.type === 'decision' || isBranch) color = [245, 158, 11];
+    else if (node.type === 'decision' || outCount > 1) color = [245, 158, 11];
     else if (node.type === 'subprocess') color = [79, 70, 229];
 
     doc.setFillColor(color[0], color[1], color[2]);
-    if (isBranch) doc.setDrawColor(180, 83, 9);
-    else doc.setDrawColor(100, 116, 139);
-    
+    doc.setDrawColor(100, 116, 139);
     doc.circle(x, y, r, 'FD');
 
     doc.setFontSize(6);
     doc.setTextColor(node.type === 'subprocess' || node.type === 'end' || node.type === 'start' ? 255 : 30);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${i + 1}`, x, y + 1.2, { align: 'center' });
+    doc.text(`${i + 1}`, x, y + 1, { align: 'center' });
 
     doc.setFontSize(6);
     doc.setTextColor(51, 65, 85);
-    doc.text(node.title, x, y + r + 3.5, { align: 'center', maxWidth: 25 });
+    doc.text(node.title, x, y + r + 3, { align: 'center', maxWidth: 25 });
   });
 
-  return startY + graphHeight + 35; 
+  return startY + graphHeight + 35;
 }
 
 function addPageDecorations(doc: any, tenant: Tenant) {
@@ -247,7 +241,6 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setPage(i);
     doc.setFontSize(7);
     doc.setTextColor(148, 163, 184);
-    doc.setFont('helvetica', 'normal');
     doc.text(tenant.name, 14, 8);
     doc.text('ComplianceHub • Prozess-Dokumentation', pageWidth - 14, 8, { align: 'right' });
     doc.setDrawColor(241, 245, 249);
@@ -272,7 +265,7 @@ export async function exportDetailedProcessPdf(
     const { default: autoTable } = await import('jspdf-autotable');
     
     const doc = new jsPDF();
-    const timestamp = new Date().toLocaleDateString('de-DE');
+    const now = new Date().toLocaleDateString('de-DE');
     const dept = departments.find(d => d.id === process.responsibleDepartmentId);
     const owner = jobTitles.find(j => j.id === process.ownerRoleId);
 
@@ -285,32 +278,28 @@ export async function exportDetailedProcessPdf(
     const resourceNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
     const featureNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || '---';
 
-    doc.setDrawColor(37, 99, 235);
-    doc.setLineWidth(0.8);
-    doc.line(14, 20, 196, 20);
-    
-    doc.setTextColor(30, 41, 59);
     doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text(process.title, 14, 30);
+    doc.setTextColor(30, 41, 59);
+    doc.text(process.title, 14, 25);
     
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Mandant: ${tenant.name} | Prozess-ID: ${process.id}`, 14, 35);
+    doc.text(`ID: ${process.id} | Mandant: ${tenant.name}`, 14, 30);
 
     const summaryRows = [
       ['Verantwortlich', owner?.name || '---'],
       ['Abteilung', dept?.name || '---'],
-      ['Freigabe', `Freigegeben am ${timestamp} durch ${owner?.name || 'Administrator'}`],
+      ['Freigabe', `Freigegeben am ${now} durch ${owner?.name || 'Administrator'}`],
       ['VVT-Referenz', process.vvtId ? `Zweck ID: ${process.vvtId}` : '---'],
-      ['Input (ISO)', process.inputs || '---'],
-      ['Output (ISO)', process.outputs || '---'],
-      ['IT-Ressourcen', resourceNames],
-      ['Fach-Daten', featureNames]
+      ['Eingang (ISO)', process.inputs || '---'],
+      ['Ausgang (ISO)', process.outputs || '---'],
+      ['IT-Infrastruktur', resourceNames],
+      ['Verarbeitete Daten', featureNames]
     ];
 
     autoTable(doc, {
-      startY: 42,
+      startY: 38,
       body: summaryRows,
       theme: 'grid',
       styles: { fontSize: 7.5, cellPadding: 2, font: 'helvetica' },
@@ -320,38 +309,37 @@ export async function exportDetailedProcessPdf(
     const graphY = (doc as any).lastAutoTable.finalY + 8;
     const tableY = await drawProcessGraph(doc, version, graphY);
 
-    const stepsData = (version.model_json.nodes || []).map((node, index) => {
+    const stepsData = version.model_json.nodes.map((node, index) => {
       const role = jobTitles.find(j => j.id === node.roleId);
       const nodeRes = resources.filter(r => node.resourceIds?.includes(r.id)).map(r => r.name).join(', ');
       
-      const executionInfo = [
+      const execution = [
         node.description || '',
-        node.checklist?.length ? `Checkliste:\n- ${node.checklist.join('\n- ')}` : '',
-        node.tips ? `EXPERTENTIPP: ${node.tips}` : ''
+        node.checklist?.length ? `Prüfpunkte:\n- ${node.checklist.join('\n- ')}` : '',
+        node.tips ? `TIPP: ${node.tips}` : ''
       ].filter(Boolean).join('\n\n');
 
       const successors = version.model_json.edges
         ?.filter(e => e.source === node.id)
         .map(e => {
           const targetNode = version.model_json.nodes.find(n => n.id === e.target);
-          const targetIndex = version.model_json.nodes.findIndex(n => n.id === e.target) + 1;
+          const targetIdx = version.model_json.nodes.findIndex(n => n.id === e.target) + 1;
           const label = e.label ? `[${e.label}] ` : '';
-          return `${label}→ (${targetIndex}) ${targetNode?.title}`;
-        })
-        .join('\n');
+          return `${label}→ (${targetIdx}) ${targetNode?.title}`;
+        }).join('\n');
 
       return [
         { content: `${index + 1}. ${node.title}`, styles: { fontStyle: 'bold' } },
         role?.name || '---',
         nodeRes || '---',
-        { content: executionInfo || '---', styles: { overflow: 'linebreak' } },
+        { content: execution || '---', styles: { overflow: 'linebreak' } },
         { content: successors || 'Ende', styles: { overflow: 'linebreak' } }
       ];
     });
 
     autoTable(doc, {
       startY: tableY + 5,
-      head: [['Schritt', 'Zuständigkeit', 'Systeme', 'Operative Durchführung', 'Folgeschritte']],
+      head: [['Schritt', 'Zuständigkeit', 'Systeme', 'Operative Durchführung', 'Nächste Schritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [30, 41, 59], fontSize: 8 },
@@ -382,7 +370,7 @@ export async function exportProcessManualPdf(
     const doc = new jsPDF();
     const now = new Date().toLocaleDateString('de-DE');
 
-    // --- DECKBLATT (Druckfreundlich) ---
+    // --- COVER ---
     doc.setFillColor(37, 99, 235);
     doc.circle(105, 60, 12, 'F');
     doc.setTextColor(255);
@@ -400,16 +388,14 @@ export async function exportProcessManualPdf(
     
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Stand der Dokumentation: ${now}`, 105, 135, { align: 'center' });
+    doc.text(`Stand: ${now}`, 105, 135, { align: 'center' });
 
-    // --- INHALTSVERZEICHNIS (TOC) ---
-    const processPages: Record<string, number> = {};
-    const groupedProcesses: Record<string, Process[]> = {};
-    
+    // --- TOC ---
+    const grouped: Record<string, Process[]> = {};
     processes.forEach(p => {
       const deptName = departments.find(d => d.id === p.responsibleDepartmentId)?.name || 'Zentral / Organisation';
-      if (!groupedProcesses[deptName]) groupedProcesses[deptName] = [];
-      groupedProcesses[deptName].push(p);
+      if (!grouped[deptName]) grouped[deptName] = [];
+      grouped[deptName].push(p);
     });
 
     doc.addPage();
@@ -418,17 +404,15 @@ export async function exportProcessManualPdf(
     doc.setFontSize(18);
     doc.text('Inhaltsverzeichnis', 14, 25);
     
-    let tocY = 40;
-    const tocLimit = 270;
+    const pageMap: Record<string, number> = {};
 
-    // Wir erstellen erst die Prozess-Seiten, um die Seitenzahlen zu kennen
-    for (const deptName of Object.keys(groupedProcesses).sort()) {
-      for (const p of groupedProcesses[deptName]) {
+    for (const deptName of Object.keys(grouped).sort()) {
+      for (const p of grouped[deptName]) {
         const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
         if (!ver) continue;
 
         doc.addPage();
-        processPages[p.id] = (doc as any).internal.getNumberOfPages();
+        pageMap[p.id] = (doc as any).internal.getNumberOfPages();
         
         doc.setFontSize(18);
         doc.setTextColor(30, 41, 59);
@@ -436,7 +420,6 @@ export async function exportProcessManualPdf(
         doc.setFontSize(8);
         doc.setTextColor(100);
         doc.text(`Bereich: ${deptName} | V${p.currentVersion}.0`, 14, 27);
-        doc.setDrawColor(241, 245, 249);
         doc.line(14, 30, 196, 30);
 
         const usedResourceIds = new Set<string>();
@@ -469,7 +452,7 @@ export async function exportProcessManualPdf(
 
         autoTable(doc, {
           startY: tableY + 5,
-          head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Anweisung / Checkliste', 'Folgeschritte']],
+          head: [['Nr', 'Arbeitsschritt', 'Rolle', 'Anweisung / Checkliste', 'Nächste Schritte']],
           body: ver.model_json.nodes.map((n, i) => {
             const successors = ver.model_json.edges
               .filter(e => e.source === n.id)
@@ -477,8 +460,7 @@ export async function exportProcessManualPdf(
                 const targetNode = ver.model_json.nodes.find(node => node.id === e.target);
                 const targetIdx = ver.model_json.nodes.findIndex(node => node.id === e.target) + 1;
                 const label = e.label ? `[${e.label}] ` : '';
-                const pRef = targetNode?.type === 'subprocess' && targetNode.targetProcessId ? ` (S. ${processPages[targetNode.targetProcessId] || '?'})` : '';
-                return `${label}→ (${targetIdx}) ${targetNode?.title}${pRef}`;
+                return `${label}→ (${targetIdx}) ${targetNode?.title}`;
               }).join('\n');
 
             return [
@@ -496,37 +478,33 @@ export async function exportProcessManualPdf(
       }
     }
 
-    // --- TOC RENDERING (ZURÜCK ZUR TOC SEITE) ---
+    // --- FILL TOC ---
     doc.setPage(tocPage);
-    for (const deptName of Object.keys(groupedProcesses).sort()) {
-      if (tocY > tocLimit) { doc.addPage(); tocY = 25; }
-      
+    let tocY = 40;
+    for (const deptName of Object.keys(grouped).sort()) {
       doc.setFontSize(10);
       doc.setTextColor(30, 41, 59);
       doc.setFont('helvetica', 'bold');
       doc.text(deptName.toUpperCase(), 14, tocY);
       tocY += 8;
       
-      groupedProcesses[deptName].forEach(p => {
-        if (tocY > tocLimit) { doc.addPage(); tocY = 25; }
+      grouped[deptName].forEach(p => {
         doc.setFontSize(9);
         doc.setTextColor(71, 85, 105);
         doc.setFont('helvetica', 'normal');
         const label = `   ${p.title}`;
-        const pageNum = processPages[p.id]?.toString() || '?';
+        const pageNum = pageMap[p.id]?.toString() || '?';
         doc.text(label, 14, tocY);
         
+        // Leader Line
         const labelWidth = doc.getTextWidth(label);
         const pageNumWidth = doc.getTextWidth(pageNum);
         const lineStart = 14 + labelWidth + 3;
         const lineEnd = 196 - pageNumWidth - 3;
-        
         if (lineEnd > lineStart) {
           doc.setDrawColor(203, 213, 225);
           doc.setLineWidth(0.1);
-          for (let dashX = lineStart; dashX < lineEnd; dashX += 2) {
-            doc.line(dashX, tocY - 1, dashX + 0.5, tocY - 1);
-          }
+          for (let dx = lineStart; dx < lineEnd; dx += 2) doc.line(dx, tocY - 1, dx + 0.5, tocY - 1);
         }
         
         doc.text(pageNum, 196, tocY, { align: 'right' });
@@ -536,7 +514,7 @@ export async function exportProcessManualPdf(
     }
 
     addPageDecorations(doc, tenant);
-    doc.save(`Prozesshandbuch_${tenant.name.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Handbuch_${tenant.name.replace(/\s+/g, '_')}.pdf`);
   } catch (error) {
     console.error('Handbuch Export fehlgeschlagen:', error);
   }
