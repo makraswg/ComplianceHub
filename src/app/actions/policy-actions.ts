@@ -17,7 +17,6 @@ export async function savePolicyAction(policy: Partial<Policy>, dataSource: Data
     ...policy,
     id,
     tenantId: policy.tenantId || 'global',
-    parentId: policy.parentId || undefined,
     status: policy.status || 'draft',
     createdAt: policy.createdAt || now,
     updatedAt: now,
@@ -44,55 +43,11 @@ export async function savePolicyAction(policy: Partial<Policy>, dataSource: Data
 }
 
 /**
- * Erstellt ein vollständiges IT-Sicherheitskonzept (ISK) Template Set.
- */
-export async function createIskTemplateAction(tenantId: string, title: string, actorEmail: string, dataSource: DataSource = 'mysql') {
-  try {
-    // 1. Master Dokument erstellen
-    const masterRes = await savePolicyAction({
-      title: `IT-Sicherheitskonzept: ${title}`,
-      type: 'ISK',
-      tenantId,
-      status: 'draft'
-    }, dataSource, actorEmail);
-
-    if (!masterRes.success || !masterRes.policyId) throw new Error("Konnte Master-Dokument nicht erstellen.");
-    const masterId = masterRes.policyId;
-
-    // 2. Sub-Dokumente definieren
-    const components = [
-      { title: 'Strukturanalyse & Geltungsbereich', content: '# Strukturanalyse\nDefinition der Assets und Grenzen des Geltungsbereichs.' },
-      { title: 'Schutzbedarfsfeststellung', content: '# Schutzbedarf\nBewertung der CIA-Werte basierend auf den Geschäftsprozessen.' },
-      { title: 'Technische & Organisatorische Maßnahmen (TOM)', content: '# Maßnahmenkatalog\nReferenz auf die implementierten Kontrollen gemäß Art. 32 DSGVO.' },
-      { title: 'Risikoanalyse & Restrisikobewertung', content: '# Risiko-Bericht\nZusammenfassung der identifizierten Gefährdungslage.' }
-    ];
-
-    for (const comp of components) {
-      const subRes = await savePolicyAction({
-        title: `${comp.title} (${title})`,
-        type: 'ISK',
-        tenantId,
-        parentId: masterId,
-        status: 'draft'
-      }, dataSource, actorEmail);
-
-      if (subRes.success && subRes.policyId) {
-        await commitPolicyVersionAction(subRes.policyId, 1, comp.content, "Template Initialisierung", actorEmail, dataSource, true);
-      }
-    }
-
-    return { success: true, masterId };
-  } catch (e: any) {
-    return { success: false, error: e.message };
-  }
-}
-
-/**
- * Verknüpft ein Objekt (Risiko, Maßnahme, Ressource) mit einer Richtlinie.
+ * Verknüpft ein Objekt (Risiko, Maßnahme, Ressource, Richtlinie) mit einer Richtlinie.
  */
 export async function linkPolicyEntityAction(
   policyId: string, 
-  targetType: 'risk' | 'measure' | 'resource', 
+  targetType: 'risk' | 'measure' | 'resource' | 'policy', 
   targetId: string, 
   dataSource: DataSource = 'mysql'
 ) {

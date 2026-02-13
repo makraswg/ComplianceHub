@@ -61,7 +61,8 @@ import {
   FileUp,
   Search,
   Check,
-  LayoutGrid
+  LayoutGrid,
+  Layers
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -148,8 +149,6 @@ export default function PolicyDetailPage() {
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   const policy = useMemo(() => policies?.find(p => p.id === id), [policies, id]);
-  const parentPolicy = useMemo(() => policies?.find(p => p.id === policy?.parentId), [policies, policy]);
-  const subDocuments = useMemo(() => policies?.filter(p => p.parentId === id) || [], [policies, id]);
 
   const policyVersions = useMemo(() => 
     (versions || [])
@@ -179,6 +178,11 @@ export default function PolicyDetailPage() {
     const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'measure').map((l: any) => l.targetId);
     return measures?.filter(m => ids?.includes(m.id)) || [];
   }, [policyLinks, measures, id]);
+
+  const linkedPolicies = useMemo(() => {
+    const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'policy').map((l: any) => l.targetId);
+    return policies?.filter(p => ids?.includes(p.id)) || [];
+  }, [policyLinks, policies, id]);
 
   // TipTap Editor Configuration
   const editor = useEditor({
@@ -301,7 +305,7 @@ export default function PolicyDetailPage() {
     toast({ title: "Word-Dokument generiert" });
   };
 
-  const handleLinkEntity = async (type: 'risk' | 'measure' | 'resource', targetId: string) => {
+  const handleLinkEntity = async (type: 'risk' | 'measure' | 'resource' | 'policy', targetId: string) => {
     const res = await linkPolicyEntityAction(id as string, type, targetId, dataSource);
     if (res.success) {
       toast({ title: "Verknüpfung erstellt" });
@@ -398,7 +402,7 @@ export default function PolicyDetailPage() {
               )}>{policy.status}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
-              <ScrollText className="w-3 h-3" /> Wiki-Style Modul • V{policy.currentVersion}.0 • Rev. {activeVersion?.revision || 0}
+              <ScrollText className="w-3 h-3" /> Eigenständige Richtlinie • V{policy.currentVersion}.0 • Rev. {activeVersion?.revision || 0}
             </p>
           </div>
         </div>
@@ -450,25 +454,6 @@ export default function PolicyDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
-          {parentPolicy && (
-            <Card className="rounded-2xl border border-indigo-100 bg-indigo-50/20 overflow-hidden">
-              <CardHeader className="p-4 bg-indigo-600 text-white">
-                <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                  <LayoutGrid className="w-3.5 h-3.5" /> Teil eines Sets
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between group cursor-pointer" onClick={() => router.push(`/policies/${parentPolicy.id}`)}>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-indigo-900 truncate">{parentPolicy.title}</p>
-                    <p className="text-[8px] font-black uppercase text-indigo-400">Master Dokument</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
               <CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dokumenten-Info</CardTitle>
@@ -492,26 +477,6 @@ export default function PolicyDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          {subDocuments.length > 0 && (
-            <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-              <CardHeader className="bg-slate-50 border-b p-4 px-6">
-                <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                  <Layers className="w-3.5 h-3.5" /> Zugehörige Bausteine
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-slate-100">
-                  {subDocuments.map(doc => (
-                    <div key={doc.id} className="p-3 px-6 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group" onClick={() => router.push(`/policies/${doc.id}`)}>
-                      <span className="text-[11px] font-bold text-slate-700 truncate">{doc.title}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-primary transition-all" />
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
             <CardHeader className="bg-slate-50 border-b p-4 px-6 flex flex-row items-center justify-between">
@@ -687,7 +652,7 @@ export default function PolicyDetailPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="links" className="space-y-6 animate-in fade-in">
+            <TabsContent value="links" className="space-y-10 animate-in fade-in">
               <div className="p-8 bg-indigo-50/50 border border-indigo-100 rounded-[2rem] flex items-center gap-8 shadow-sm">
                 <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white shadow-xl shrink-0">
                   <Target className="w-8 h-8" />
@@ -695,22 +660,54 @@ export default function PolicyDetailPage() {
                 <div className="space-y-1">
                   <h4 className="text-sm font-black uppercase text-indigo-900">GRC-Context Mapping</h4>
                   <p className="text-xs text-indigo-700 font-medium leading-relaxed italic">
-                    Verknüpfen Sie dieses Dokument mit operativen Risiken und technischen Maßnahmen.
+                    Verknüpfen Sie dieses Dokument mit Risiken, Maßnahmen und anderen relevanten Richtlinien.
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Linked Policies */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
                   <CardHeader className="bg-slate-50 border-b p-4 px-8">
-                    <CardTitle className="text-xs font-black uppercase text-slate-400 tracking-widest">Risikobezug</CardTitle>
+                    <CardTitle className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5" /> Querverweise (Richtlinien)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="divide-y divide-slate-100">
+                      {linkedPolicies.map(lp => (
+                        <div key={lp.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <ScrollText className="w-5 h-5 text-indigo-400" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{lp.title}</p>
+                              <Badge variant="outline" className="text-[7px] font-black h-3.5 px-1 uppercase">{lp.type}</Badge>
+                            </div>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => router.push(`/policies/${lp.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => handleUnlink(lp.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                          </div>
+                        </div>
+                      ))}
+                      {linkedPolicies.length === 0 && <p className="py-16 text-center text-[10px] text-slate-300 italic uppercase">Keine Querverweise</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Risk Bezug */}
+                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                  <CardHeader className="bg-slate-50 border-b p-4 px-8">
+                    <CardTitle className="text-xs font-black uppercase text-orange-600 tracking-widest flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Risikobezug
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100">
                       {linkedRisks.map(r => (
                         <div key={r.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
                           <div className="flex items-center gap-4">
-                            <AlertTriangle className="w-5 h-5 text-orange-500" />
+                            <ShieldAlert className="w-5 h-5 text-orange-500" />
                             <div>
                               <p className="text-xs font-bold text-slate-800">{r.title}</p>
                               <p className="text-[9px] text-slate-400 font-black uppercase">{r.category}</p>
@@ -724,9 +721,12 @@ export default function PolicyDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden">
+                {/* Measure Bezug */}
+                <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden md:col-span-2">
                   <CardHeader className="bg-slate-50 border-b p-4 px-8">
-                    <CardTitle className="text-xs font-black uppercase text-emerald-600 tracking-widest">Maßnahmen (TOM)</CardTitle>
+                    <CardTitle className="text-xs font-black uppercase text-emerald-600 tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5" /> Verknüpfte Maßnahmen (TOM)
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100">
@@ -753,6 +753,14 @@ export default function PolicyDetailPage() {
                   <h4 className="text-[11px] font-black uppercase text-slate-400 tracking-widest">Schnell-Verknüpfung hinzufügen</h4>
                 </div>
                 <div className="flex flex-wrap justify-center gap-4">
+                  <Select onValueChange={(val) => handleLinkEntity('policy', val)}>
+                    <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Richtlinie verknüpfen" /></SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {policies?.filter(p => p.id !== id && !linkedPolicies.some(lp => lp.id === p.id)).map(p => (
+                        <SelectItem key={p.id} value={p.id} className="text-xs">{p.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Select onValueChange={(val) => handleLinkEntity('risk', val)}>
                     <SelectTrigger className="w-64 h-11 rounded-xl bg-white border-slate-200 font-bold text-xs"><SelectValue placeholder="Risiko verknüpfen" /></SelectTrigger>
                     <SelectContent className="rounded-xl">{risks?.filter(r => !linkedRisks.some(lr => lr.id === r.id)).map(r => <SelectItem key={r.id} value={r.id} className="text-xs">{r.title}</SelectItem>)}</SelectContent>
