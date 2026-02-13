@@ -45,7 +45,8 @@ import {
   BookOpen,
   Share2,
   FileDown,
-  Download
+  Download,
+  Briefcase
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
