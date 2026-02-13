@@ -1,5 +1,5 @@
 
-# AccessHub - Master Backlog & Strategisches Manifest (V2.8)
+# AccessHub - Master Backlog & Strategisches Manifest (V2.9)
 
 **Rolle**: Dieses Dokument ist das zentrale Steuerungs-Instrument. Es spiegelt den aktuellen Stand nach der GRC-Integration wider.
 
@@ -7,7 +7,7 @@
 
 ## 🎯 Die Vision: "Integrierte Resilienz"
 AccessHub vernetzt alle Governance-Disziplinen. Ein Risiko ist kein einsamer Eintrag, sondern der Startpunkt einer Kette:
-`Risiko -> Maßnahme -> Kontrolle (TOM) -> IT-System -> Geschäftsprozess -> DSGVO-Zweck`.
+`Risiko -> Maßnahme -> Kontrolle (TOM) -> Richtlinie (Policy) -> IT-System -> Geschäftsprozess -> DSGVO-Zweck`.
 Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf gespeicherten Daten (Features) ab.
 
 ---
@@ -20,7 +20,7 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 *   **Blueprint-Provisionierung & Jira-Gateway**: Automatisierte Ticketerstellung inklusive detaillierter Rollen-Auflistung.
 *   **LDAP-Drift-Detection**: Warnung, wenn die Gruppenmitgliedschaften im AD nicht mehr mit den Blueprints übereinstimmen.
 *   **Compliance-Health Dashboard**: Globaler Resilience Score basierend auf Kontroll-Wirksamkeit.
-*   **Separation of Concerns (Risk)**: Trennung von Maßnahmen (Pläne) und Kontrollen (operative Prüfungen).
+*   **BCM-Integration**: Trennung von Standard- und Notfallprozessen inklusive Klon-Funktion.
 
 ---
 
@@ -37,5 +37,10 @@ Die Sensibilität eines IT-Systems leitet sich dabei zwingend aus den darauf ges
 
 *   **Aufgabe 2.2: Automatisierte Rezertifizierungs-Trigger**: Automatisches Starten von Access-Reviews, wenn ein Mitarbeiter die Stelle (und damit den Blueprint) wechselt.
 
+### Phase 3: Strategisches Framework
+*Zweck: Ganzheitliche Governance durch Dokumente.*
+
+*   **Aufgabe 3.1: Policy Management**: Einführung eines Moduls zur Verwaltung versionierter Richtlinien (theoretisches Konzept erstellt).
+
 ---
-*Stand: Februar 2024 - Fokus auf operative Automatisierung.*
+*Stand: Februar 2024 - Fokus auf operative Automatisierung und BCM.*

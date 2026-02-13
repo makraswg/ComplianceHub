@@ -6,7 +6,7 @@ Dieses Dokument vereint die Strategien für die Risikoanalyse und die VVT-Dokume
 
 ## 🎯 Kernvision: "Single Source of Truth"
 Daten fließen entlang der Wertschöpfungskette:
-`Risiko (Bedrohung) --> Maßnahme (TOM) --> Ressource (Asset) --> Prozess (Workflow) --> VVT (Zweck)`.
+`Risiko (Bedrohung) --> Maßnahme (TOM) --> Richtlinie (Policy) --> Ressource (Asset) --> Prozess (Workflow) --> VVT (Zweck)`.
 
 ---
 
@@ -62,6 +62,18 @@ Finale Auswertung und Audit-Bereitschaft.
     *   Einbeziehung der Dimension "Prozess" in die Risiko-Statistiken.
 2.  **Data Map 2.0**:
     *   Visualisierung der Kette von der Datenkategorie (VVT) über den Prozess bis hin zur technischen Kontrolle (Maßnahme).
+
+---
+
+## 🏗️ Phase 6: Strategisches Policy Management (Theoretisch)
+Verknüpfung von Dokumentation und operativem Nachweis.
+
+1.  **Zentrales Richtlinien-Register**:
+    *   Verwaltung von Dienstanweisungen, Betriebsvereinbarungen und Sicherheitskonzepten.
+2.  **Dynamische Sicherheitskonzepte**:
+    *   Teile des Konzepts werden automatisch aus den im RiskHub hinterlegten Maßnahmen generiert.
+3.  **Anerkennungs-Tracking**:
+    *   Nachweisbarkeit, welche Benutzergruppen welche Richtlinien zur Kenntnis genommen haben.
 
 ---
 *Status: Integrierter Plan erstellt. Umsetzung der Phasen folgt nach Freigabe.*
