@@ -36,7 +36,10 @@ import {
   Target,
   Save,
   Server,
-  HardDrive
+  HardDrive,
+  Network,
+  CalendarDays,
+  History
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -74,6 +77,7 @@ export default function FeatureDetailPage() {
   const [taskAssigneeId, setTaskAssigneeId] = useState('');
 
   const { data: features, isLoading: isFeatLoading } = usePluggableCollection<Feature>('features');
+  const { data: featureDeps } = usePluggableCollection<any>('feature_dependencies');
   const { data: processLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: processes } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<ProcessVersion>('process_versions');
@@ -88,6 +92,12 @@ export default function FeatureDetailPage() {
   const feature = useMemo(() => features?.find(f => f.id === id), [features, id]);
   const relatedProcLinks = useMemo(() => processLinks?.filter((l: any) => l.featureId === id) || [], [processLinks, id]);
   const relatedTasks = useMemo(() => tasks?.filter(t => t.entityId === id && t.entityType === 'feature') || [], [tasks, id]);
+
+  const dependentFeatures = useMemo(() => {
+    if (!feature || !featureDeps || !features) return [];
+    const depIds = featureDeps.filter((d: any) => d.featureId === id).map((d: any) => d.dependentFeatureId);
+    return features.filter(f => depIds.includes(f.id));
+  }, [feature, featureDeps, features, id]);
 
   const indirectResources = useMemo(() => {
     if (!relatedProcLinks || !versions || !allResources) return [];
@@ -142,7 +152,7 @@ export default function FeatureDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 shadow-sm" onClick={() => setIsTaskDialogOpen(true)}><ClipboardList className="w-4 h-4 mr-2" /> Aufgabe</Button>
-          <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-primary text-white shadow-lg active:scale-95 transition-all">Bearbeiten</Button>
+          <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-primary text-white shadow-lg active:scale-95 transition-all" onClick={() => router.push(`/features?edit=${feature.id}`)}>Bearbeiten</Button>
         </div>
       </header>
 
@@ -150,23 +160,69 @@ export default function FeatureDetailPage() {
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden group">
             <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-6">
-              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Daten-Klassifizierung</CardTitle>
+              <CardTitle className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">Governance & CIA</CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6 space-y-8">
               <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-inner flex flex-col items-center text-center group-hover:scale-[1.02] transition-transform duration-500">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Matrix Kritikalität</span>
                 <p className={cn("text-4xl font-black uppercase", feature.criticality === 'high' ? "text-red-600" : "text-emerald-600")}>{feature.criticality}</p>
                 <Badge variant="outline" className="mt-2 h-5 px-2 bg-white text-[8px] font-black">{feature.criticalityScore} Punkte</Badge>
               </div>
+
+              <div className="space-y-3">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-[0.2em]">CIA Schutzbedarf</ാമel>
+                {[
+                  { label: 'Vertraulichkeit', val: feature.confidentialityReq },
+                  { label: 'Integrität', val: feature.integrityReq },
+                  { label: 'Verfügbarkeit', val: feature.availabilityReq }
+                ].map(req => (
+                  <div key={req.label} className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-950 border rounded-xl shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">{req.label}</span>
+                    <Badge variant="outline" className={cn(
+                      "text-[8px] font-black border-none px-2 h-5",
+                      req.val === 'high' ? "bg-red-50 text-red-700" : req.val === 'medium' ? "bg-orange-50 text-orange-700" : "bg-emerald-50 text-emerald-700"
+                    )}>{req.val?.toUpperCase()}</Badge>
+                  </div>
+                ))}
+              </div>
+
               <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Zuständige Abteilung</Label>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{dept?.name || '---'}</p>
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortung</Label>
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-bold text-slate-800">{dept?.name || '---'}</span>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Data Owner</Label>
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{owner?.name || '---'}</p>
+                  <div className="flex items-center gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-100 shadow-inner">
+                    <Briefcase className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-bold text-slate-800">{owner?.name || '---'}</span>
+                  </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden">
+            <CardContent className="p-8 space-y-6">
+              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg"><Activity className="w-6 h-6" /></div>
+              <div className="space-y-1">
+                <h3 className="text-xl font-headline font-black uppercase">Lifecycle</h3>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Gültigkeits-Status</p>
+              </div>
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                  <CalendarDays className="w-4 h-4 text-primary" /> 
+                  {feature.validFrom ? new Date(feature.validFrom).toLocaleDateString() : '∞'} — {feature.validUntil ? new Date(feature.validUntil).toLocaleDateString() : '∞'}
+                </div>
+                {feature.changeReason && (
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <p className="text-[8px] font-black uppercase text-slate-500 mb-1">Letzte Änderung</p>
+                    <p className="text-[10px] font-medium italic text-slate-200">"{feature.changeReason}"</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -181,23 +237,37 @@ export default function FeatureDetailPage() {
               <TabsTrigger value="context" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <Workflow className="w-4 h-4" /> Prozesse & Systeme
               </TabsTrigger>
+              <TabsTrigger value="deps" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
+                <Network className="w-4 h-4" /> Änderungsverbund ({dependentFeatures.length})
+              </TabsTrigger>
               <TabsTrigger value="tasks" className="rounded-xl px-5 gap-2 text-[11px] font-black uppercase tracking-widest data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-lg transition-all">
                 <ClipboardList className="w-4 h-4" /> Aufgaben ({relatedTasks.length})
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <TabsContent value="overview" className="space-y-6 animate-in fade-in duration-500">
               <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
                 <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6"><CardTitle className="text-sm font-headline font-bold uppercase text-slate-900 dark:text-white">Fachliche Definition</CardTitle></CardHeader>
-                <CardContent className="p-6 space-y-6">
+                <CardContent className="p-6 space-y-8">
                   <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Zweck & Beschreibung</Label>
-                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
+                    <p className="text-sm font-medium leading-relaxed italic bg-slate-50 dark:bg-slate-950 p-6 rounded-2xl shadow-inner border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-300">"{feature.description}"</p>
                   </div>
-                  <div className="p-4 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-center gap-4">
-                    <Info className="w-5 h-5 text-indigo-600" />
-                    <p className="text-xs font-bold text-indigo-900 dark:text-indigo-300">{feature.purpose}</p>
+                  <div className="p-5 bg-indigo-50/30 dark:bg-indigo-900/10 rounded-2xl border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-4">
+                    <Target className="w-5 h-5 text-indigo-600 mt-0.5" />
+                    <div>
+                      <p className="text-[9px] font-black uppercase text-indigo-900 mb-1">Hauptzweck (GDPR)</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-indigo-300 leading-relaxed">{feature.purpose}</p>
+                    </div>
                   </div>
+                  {feature.maintenanceNotes && (
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Wartungshinweise</Label>
+                      <div className="p-4 bg-orange-50/30 border border-orange-100 rounded-xl text-xs font-medium text-slate-600 italic">
+                        {feature.maintenanceNotes}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -209,27 +279,59 @@ export default function FeatureDetailPage() {
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {relatedProcLinks.map((link: any) => (
-                        <div key={link.id} className="p-3 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
-                          <div className="flex items-center gap-3"><Workflow className="w-4 h-4 text-indigo-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{processes?.find(p => p.id === link.processId)?.title}</span></div>
-                          <ArrowRight className="w-4 h-4 text-slate-300" />
+                        <div key={link.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group" onClick={() => router.push(`/processhub/view/${link.processId}`)}>
+                          <div className="flex items-center gap-3">
+                            <Workflow className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{processes?.find(p => p.id === link.processId)?.title}</span>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary transition-all" />
                         </div>
                       ))}
+                      {relatedProcLinks.length === 0 && <div className="py-12 text-center text-[10px] text-slate-300 uppercase italic">Keine Prozessverknüpfung</div>}
                     </div>
                   </CardContent>
                 </Card>
                 <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Geerbt)</CardTitle></CardHeader>
+                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4"><CardTitle className="text-sm font-bold uppercase text-slate-900 dark:text-white">IT-Systeme (Infrastruktur)</CardTitle></CardHeader>
                   <CardContent className="p-0">
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
                       {indirectResources.map(res => (
-                        <div key={res?.id} className="p-3 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer" onClick={() => router.push(`/resources/${res?.id}`)}>
-                          <div className="flex items-center gap-3"><Server className="w-4 h-4 text-slate-400" /><span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res?.name}</span></div>
+                        <div key={res?.id} className="p-4 px-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors group" onClick={() => router.push(`/resources/${res?.id}`)}>
+                          <div className="flex items-center gap-3">
+                            <Server className="w-4 h-4 text-slate-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{res?.name}</span>
+                          </div>
                           <Badge variant="outline" className="text-[7px] font-black uppercase h-4 border-slate-200">{res?.assetType}</Badge>
                         </div>
                       ))}
+                      {indirectResources.length === 0 && <div className="py-12 text-center text-[10px] text-slate-300 uppercase italic">Keine Systeme verknüpft</div>}
                     </div>
                   </CardContent>
                 </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="deps" className="space-y-6 animate-in fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {dependentFeatures.map(df => (
+                  <div key={df.id} className="p-4 bg-white dark:bg-slate-900 border rounded-2xl flex items-center justify-between group hover:border-orange-300 shadow-sm transition-all cursor-pointer" onClick={() => router.push(`/features/${df.id}`)}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600 shadow-inner border border-orange-100">
+                        <Network className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{df.name}</p>
+                        <Badge variant="outline" className="text-[7px] font-black h-3.5 border-none bg-slate-50 uppercase">{df.carrier}</Badge>
+                      </div>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-orange-600 transition-all" />
+                  </div>
+                ))}
+                {dependentFeatures.length === 0 && (
+                  <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl opacity-30 italic text-[10px] uppercase font-bold text-slate-400">
+                    Keine weiteren Objekte im Änderungsverbund definiert
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -248,7 +350,7 @@ export default function FeatureDetailPage() {
                         <ArrowRight className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-all" />
                       </div>
                     ))}
-                    {relatedTasks.length === 0 && <div className="py-16 text-center text-xs text-slate-400 uppercase tracking-widest opacity-30">Keine Aufgaben gefunden</div>}
+                    {relatedTasks.length === 0 && <div className="py-16 text-center text-xs text-slate-400 uppercase tracking-widest opacity-30 italic">Keine Aufgaben gefunden</div>}
                   </div>
                 </CardContent>
               </Card>

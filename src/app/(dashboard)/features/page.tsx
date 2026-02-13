@@ -31,7 +31,11 @@ import {
   AlertTriangle,
   HardDrive,
   Database,
-  Info
+  Info,
+  Network,
+  Clock,
+  CalendarDays,
+  Link as LinkIcon
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,7 +72,7 @@ import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function FeaturesOverviewPage() {
   const router = useRouter();
@@ -112,10 +116,15 @@ export default function FeaturesOverviewPage() {
   const [matrixAutomatedDecision, setMatrixAutomatedDecision] = useState(false);
   const [matrixPlanning, setMatrixPlanning] = useState(false);
 
+  // Dependency State
+  const [selectedDepIds, setSelectedDepIds] = useState<string[]>([]);
+  const [depSearch, setDepSearch] = useState('');
+
   const { data: features, isLoading, refresh } = usePluggableCollection<Feature>('features');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: resources } = usePluggableCollection<Resource>('resources');
+  const { data: featureDeps } = usePluggableCollection<any>('feature_dependencies');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -136,7 +145,6 @@ export default function FeaturesOverviewPage() {
     return 'low';
   }, [currentScore]);
 
-  // Repositories are resources with isDataRepository = true
   const repositoryResources = useMemo(() => {
     if (!resources) return [];
     return resources.filter(res => !!res.isDataRepository);
@@ -151,7 +159,7 @@ export default function FeaturesOverviewPage() {
     setIsSaving(true);
     const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
     
-    const featureData: Feature = {
+    const featureData: any = {
       ...selectedFeature,
       id: selectedFeature?.id || '',
       tenantId: targetTenantId,
@@ -162,17 +170,15 @@ export default function FeaturesOverviewPage() {
       purpose,
       isComplianceRelevant,
       deptId,
-      ownerId,
+      ownerId: ownerId === 'none' ? undefined : ownerId,
       dataStoreId: dataStoreId === 'none' ? undefined : dataStoreId,
       maintenanceNotes,
       validFrom,
       validUntil,
       changeReason,
-      // CIA
       confidentialityReq,
       integrityReq,
       availabilityReq,
-      // Matrix
       matrixFinancial,
       matrixLegal,
       matrixExternal,
@@ -181,9 +187,10 @@ export default function FeaturesOverviewPage() {
       matrixPlanning,
       criticality: currentLevel,
       criticalityScore: currentScore,
+      dependentFeatureIds: selectedDepIds, // Custom handle in action
       createdAt: selectedFeature?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    } as Feature;
+    };
 
     try {
       const res = await saveFeatureAction(featureData, dataSource, user?.email || 'system');
@@ -222,6 +229,8 @@ export default function FeaturesOverviewPage() {
     setMatrixHardToCorrect(false);
     setMatrixAutomatedDecision(false);
     setMatrixPlanning(false);
+    setSelectedDepIds([]);
+    setDepSearch('');
   };
 
   const openEdit = (f: Feature) => {
@@ -233,7 +242,7 @@ export default function FeaturesOverviewPage() {
     setPurpose(f.purpose || '');
     setIsComplianceRelevant(!!f.isComplianceRelevant);
     setDeptId(f.deptId || '');
-    setOwnerId(f.ownerId || '');
+    setOwnerId(f.ownerId || 'none');
     setDataStoreId(f.dataStoreId || 'none');
     setMaintenanceNotes(f.maintenanceNotes || '');
     setValidFrom(f.validFrom || '');
@@ -248,7 +257,18 @@ export default function FeaturesOverviewPage() {
     setMatrixHardToCorrect(!!f.matrixHardToCorrect);
     setMatrixAutomatedDecision(!!f.matrixAutomatedDecision);
     setMatrixPlanning(!!f.matrixPlanning);
+    
+    // Load Dependencies
+    const deps = featureDeps?.filter((d: any) => d.featureId === f.id).map((d: any) => d.dependentFeatureId) || [];
+    setSelectedDepIds(deps);
+    setDepSearch('');
     setIsDialogOpen(true);
+  };
+
+  const toggleDependency = (id: string) => {
+    setSelectedDepIds(prev => 
+      prev.includes(id) ? prev.filter(did => did !== id) : [...prev, id]
+    );
   };
 
   const applyAiSuggestions = (s: any) => {
@@ -283,7 +303,7 @@ export default function FeaturesOverviewPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none uppercase tracking-wider">WorkflowHub</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase tracking-tight">Datenmanagement</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung und Dokumentation fachlicher Datenobjekte und Ablageorte.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung und Dokumentation fachlicher Datenobjekte.</p>
           </div>
         </div>
         <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all active:scale-95" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
@@ -315,19 +335,6 @@ export default function FeaturesOverviewPage() {
               <SelectItem value="archived" className="text-xs">Archiv</SelectItem>
             </SelectContent>
           </Select>
-          <div className="w-px h-4 bg-slate-200 my-auto mx-1" />
-          <Select value={carrierFilter} onValueChange={setCarrierFilter}>
-            <SelectTrigger className="border-none shadow-none h-full rounded-sm bg-transparent text-[10px] font-bold min-w-[140px]">
-              <SelectValue placeholder="Träger" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all" className="text-xs">Alle Träger</SelectItem>
-              <SelectItem value="wirtschaftseinheit" className="text-xs">Wirtschaftseinheit</SelectItem>
-              <SelectItem value="objekt" className="text-xs">Objekt</SelectItem>
-              <SelectItem value="mietvertrag" className="text-xs">Mietvertrag</SelectItem>
-              <SelectItem value="geschaeftspartner" className="text-xs">Partner</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
         <div className="flex items-center gap-2 px-3 h-9 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 shrink-0">
           <ShieldAlert className={cn("w-3.5 h-3.5", complianceOnly ? "text-emerald-600" : "text-slate-400")} />
@@ -346,9 +353,9 @@ export default function FeaturesOverviewPage() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Datenobjekt (Bezeichnung/Code)</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Datenobjekt (Bezeichnung)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Träger</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Zuständigkeit</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Kritikalität</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
@@ -431,17 +438,17 @@ export default function FeaturesOverviewPage() {
         )}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(v) => !v && setIsDialogOpen(false)}>
         <DialogContent className="max-w-5xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
+          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0 pr-10">
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-5">
-                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary border border-primary/10 shadow-sm">
+                <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary border border-white/10 shadow-lg">
                   <ListFilter className="w-6 h-6" />
                 </div>
                 <div className="min-w-0">
-                  <DialogTitle className="text-lg font-headline font-bold text-slate-900 truncate">{selectedFeature ? 'Datenobjekt aktualisieren' : 'Neues Datenobjekt erfassen'}</DialogTitle>
-                  <DialogDescription className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Zentrale Daten-Governance</DialogDescription>
+                  <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedFeature ? 'Datenobjekt aktualisieren' : 'Neues Datenobjekt erfassen'}</DialogTitle>
+                  <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Zentrale Daten-Governance & CIA-Mapping</DialogDescription>
                 </div>
               </div>
               <AiFormAssistant 
@@ -456,14 +463,15 @@ export default function FeaturesOverviewPage() {
             <div className="px-6 border-b shrink-0 bg-white">
               <TabsList className="h-12 bg-transparent gap-8 p-0">
                 <TabsTrigger value="base" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-primary transition-all">Stammdaten</TabsTrigger>
-                <TabsTrigger value="matrix" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-accent transition-all">Kritikalitäts-Matrix</TabsTrigger>
+                <TabsTrigger value="matrix" className="rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-accent transition-all">Kritikalität</TabsTrigger>
                 <TabsTrigger value="cia" className="rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-600 data-[state=active]:bg-transparent h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-indigo-600 transition-all">Schutzbedarf (CIA)</TabsTrigger>
+                <TabsTrigger value="deps" className="rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 h-full px-0 text-[10px] font-black uppercase tracking-widest text-slate-400 data-[state=active]:text-orange-600">Änderungsverbund</TabsTrigger>
               </TabsList>
             </div>
 
             <ScrollArea className="flex-1 bg-slate-50/30">
               <div className="p-8 space-y-10">
-                <TabsContent value="base" className="mt-0 space-y-8">
+                <TabsContent value="base" className="mt-0 space-y-8 animate-in fade-in">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-2 md:col-span-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Bezeichnung / Code</Label>
@@ -473,10 +481,10 @@ export default function FeaturesOverviewPage() {
                     <div className="space-y-2">
                       <Label className="text-[10px] font-black uppercase text-slate-400 ml-1 tracking-widest">Status</Label>
                       <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
                           <SelectItem value="active">Aktiv</SelectItem>
-                          <SelectItem value="in_preparation">In Vorbereitung</SelectItem>
+                          <SelectItem value="in_preparation">Vorbereitung</SelectItem>
                           <SelectItem value="open_questions">Offene Fragen</SelectItem>
                           <SelectItem value="archived">Archiv</SelectItem>
                         </SelectContent>
@@ -486,8 +494,8 @@ export default function FeaturesOverviewPage() {
                     <div className="space-y-2">
                       <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Träger</Label>
                       <Select value={carrier} onValueChange={(v: any) => setCarrier(v)}>
-                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent className="rounded-xl">
                           <SelectItem value="wirtschaftseinheit">Wirtschaftseinheit</SelectItem>
                           <SelectItem value="objekt">Objekt</SelectItem>
                           <SelectItem value="verwaltungseinheit">Verwaltungseinheit</SelectItem>
@@ -498,8 +506,8 @@ export default function FeaturesOverviewPage() {
                     </div>
 
                     <div className="p-6 bg-white border rounded-2xl md:col-span-2 shadow-sm space-y-6">
-                      <div className="flex items-center gap-2 border-b pb-3">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <div className="flex items-center gap-3 border-b pb-3">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
                         <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Verantwortung & Ablage</h4>
                       </div>
                       
@@ -508,7 +516,7 @@ export default function FeaturesOverviewPage() {
                           <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Verantwortliche Abteilung</Label>
                           <Select value={deptId} onValueChange={setDeptId}>
                             <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Abteilung wählen..." /></SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="rounded-xl">
                               {departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => (
                                 <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                               ))}
@@ -517,10 +525,11 @@ export default function FeaturesOverviewPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Owner)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Daten-Eigner (Rollen-Blueprint)</Label>
                           <Select value={ownerId} onValueChange={setOwnerId}>
-                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                            <SelectContent>
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="none">Keine spezifische Rolle</SelectItem>
                               {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
                                 <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>
                               ))}
@@ -529,15 +538,15 @@ export default function FeaturesOverviewPage() {
                         </div>
 
                         <div className="space-y-2 md:col-span-2">
-                          <Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Ablageort (Daten-Repository)</Label>
+                          <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Repository (Ablageort)</Label>
                           <Select value={dataStoreId} onValueChange={setDataStoreId}>
-                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white">
+                            <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white shadow-sm">
                               <div className="flex items-center gap-2">
                                 <Database className="w-3.5 h-3.5 text-slate-400" />
-                                <SelectValue placeholder="Repository wählen..." />
+                                <SelectValue placeholder="Wählen..." />
                               </div>
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="rounded-xl">
                               <SelectItem value="none">Kein spezifischer Ablageort</SelectItem>
                               {repositoryResources.map(res => (
                                 <SelectItem key={res.id} value={res.id}>{res.name}</SelectItem>
@@ -548,91 +557,91 @@ export default function FeaturesOverviewPage() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Gültig von</Label>
+                        <Input type="date" value={validFrom} onChange={e => setValidFrom(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white shadow-sm" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Gültig bis</Label>
+                        <Input type="date" value={validUntil} onChange={e => setValidUntil(e.target.value)} className="rounded-xl h-11 border-slate-200 bg-white shadow-sm" />
+                      </div>
+                    </div>
+
                     <div className="flex items-center justify-between p-4 bg-white border rounded-2xl md:col-span-2 shadow-sm">
                       <div className="space-y-0.5">
                         <Label className="text-[10px] font-bold uppercase text-slate-900">Compliance-relevant</Label>
-                        <p className="text-[8px] text-slate-400 uppercase font-black">Audit Fokus</p>
+                        <p className="text-[8px] text-slate-400 uppercase font-black">Teil des GRC-Monitorings</p>
                       </div>
                       <Switch checked={!!isComplianceRelevant} onCheckedChange={setIsComplianceRelevant} />
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Datenbeschreibung</Label>
-                      <Textarea value={description || ''} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[120px] p-4 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
+                      <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1 tracking-widest">Zweck & Datenumfang</Label>
+                      <Textarea value={description || ''} onChange={e => setDescription(e.target.value)} className="rounded-2xl min-h-[120px] p-5 border-slate-200 text-xs font-medium bg-white" placeholder="Fachliche Definition der Daten..." />
                     </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="matrix" className="mt-0 space-y-8">
+                <TabsContent value="matrix" className="mt-0 space-y-8 animate-in fade-in">
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <div className="flex items-center gap-2 border-b pb-3">
-                      <Activity className="w-4 h-4 text-accent" />
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Kritikalitäts-Punktematrix</h4>
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <Activity className="w-5 h-5 text-accent" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Punktematrix zur Kritikalität</h4>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-fin" checked={matrixFinancial as boolean} onCheckedChange={(v: any) => setMatrixFinancial(!!v)} />
-                          <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (z. B. Abrechnung)</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixFinancial(!matrixFinancial)}>
+                          <Checkbox id="mat-fin" checked={matrixFinancial as boolean} />
+                          <Label htmlFor="mat-fin" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt finanziell (Abrechnung)</Label>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-leg" checked={matrixLegal as boolean} onCheckedChange={(v: any) => setMatrixLegal(!!v)} />
-                          <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt vertraglich oder rechtlich</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixLegal(!matrixLegal)}>
+                          <Checkbox id="mat-leg" checked={matrixLegal as boolean} />
+                          <Label htmlFor="mat-leg" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt rechtlich (Vertrag)</Label>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-ext" checked={matrixExternal as boolean} onCheckedChange={(v: any) => setMatrixExternal(!!v)} />
-                          <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde, Partner, Behörde)</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixExternal(!matrixExternal)}>
+                          <Checkbox id="mat-ext" checked={matrixExternal as boolean} />
+                          <Label htmlFor="mat-ext" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler wirkt extern (Kunde/Behörde)</Label>
                         </div>
                       </div>
                       <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-hard" checked={matrixHardToCorrect as boolean} onCheckedChange={(v: any) => setMatrixHardToCorrect(!!v)} />
-                          <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist nicht leicht korrigierbar</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixHardToCorrect(!matrixHardToCorrect)}>
+                          <Checkbox id="mat-hard" checked={matrixHardToCorrect as boolean} />
+                          <Label htmlFor="mat-hard" className="text-[11px] font-bold leading-tight cursor-pointer">Fehler ist schwer korrigierbar</Label>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-auto" checked={matrixAutomatedDecision as boolean} onCheckedChange={(v: any) => setMatrixAutomatedDecision(!!v)} />
-                          <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in automatisierte Entscheidungen</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixAutomatedDecision(!matrixAutomatedDecision)}>
+                          <Checkbox id="mat-auto" checked={matrixAutomatedDecision as boolean} />
+                          <Label htmlFor="mat-auto" className="text-[11px] font-bold leading-tight cursor-pointer">Fließt in automatisierte Entscheidungen</Label>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <Checkbox id="mat-plan" checked={matrixPlanning as boolean} onCheckedChange={(v: any) => setMatrixPlanning(!!v)} />
-                          <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Daten fließen in langfristige Planung</Label>
+                        <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer" onClick={() => setMatrixPlanning(!matrixPlanning)}>
+                          <Checkbox id="mat-plan" checked={matrixPlanning as boolean} />
+                          <Label htmlFor="mat-plan" className="text-[11px] font-bold leading-tight cursor-pointer">Fließt in strategische Planung</Label>
                         </div>
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Resultierender Score:</p>
-                        <Badge className="bg-accent text-white rounded-md font-black">{currentScore} Punkte</Badge>
+                    <div className="pt-6 border-t flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Score:</p>
+                        <Badge className="bg-accent text-white rounded-lg font-black text-sm px-3 h-7 shadow-md">{currentScore} Pkt.</Badge>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">Einstufung:</p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-[10px] font-black uppercase text-slate-400">Stufe:</p>
                         <Badge className={cn(
-                          "rounded-full font-black uppercase text-[9px] px-3 border-none",
-                          currentLevel === 'high' ? "bg-red-50 text-red-600" : currentLevel === 'medium' ? "bg-orange-50 text-orange-600" : "bg-emerald-50 text-emerald-600"
+                          "rounded-full font-black uppercase text-[10px] px-4 h-7 border-none shadow-md",
+                          currentLevel === 'high' ? "bg-red-600 text-white" : currentLevel === 'medium' ? "bg-orange-500 text-white" : "bg-emerald-500 text-white"
                         )}>{currentLevel}</Badge>
                       </div>
                     </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="cia" className="mt-0 space-y-8">
+                <TabsContent value="cia" className="mt-0 space-y-8 animate-in fade-in">
                   <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-8">
-                    <div className="flex items-center gap-2 border-b pb-3">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Schutzbedarf der Daten (CIA)</h4>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs p-3 text-[10px] leading-relaxed">
-                            Definieren Sie hier den inhärenten Schutzbedarf dieses Datenobjekts. 
-                            IT-Systeme erben diese Werte automatisch nach dem Maximum-Prinzip.
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Inhärenten Schutzbedarf definieren (CIA)</h4>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -640,7 +649,7 @@ export default function FeaturesOverviewPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Vertraulichkeit</Label>
                         <Select value={confidentialityReq} onValueChange={(v:any) => setConfidentialityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
                             <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
                             <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
@@ -651,7 +660,7 @@ export default function FeaturesOverviewPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Integrität</Label>
                         <Select value={integrityReq} onValueChange={(v:any) => setIntegrityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
                             <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
                             <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
@@ -662,7 +671,7 @@ export default function FeaturesOverviewPage() {
                         <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verfügbarkeit</Label>
                         <Select value={availabilityReq} onValueChange={(v:any) => setAvailabilityReq(v)}>
                           <SelectTrigger className="rounded-xl h-11 border-slate-200 bg-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="rounded-xl">
                             <SelectItem value="low" className="text-[10px] font-bold uppercase">LOW</SelectItem>
                             <SelectItem value="medium" className="text-[10px] font-bold uppercase text-orange-600">MEDIUM</SelectItem>
                             <SelectItem value="high" className="text-[10px] font-bold uppercase text-red-600">HIGH</SelectItem>
@@ -672,12 +681,52 @@ export default function FeaturesOverviewPage() {
                     </div>
                   </div>
                 </TabsContent>
+
+                <TabsContent value="deps" className="mt-0 space-y-8 animate-in fade-in">
+                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
+                    <div className="flex items-center gap-3 border-b pb-3">
+                      <Network className="w-5 h-5 text-orange-600" />
+                      <h4 className="text-xs font-black uppercase text-slate-900 tracking-widest">Abhängige Datenobjekte (Änderungsverbund)</h4>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="relative group">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-orange-600 transition-colors" />
+                        <Input 
+                          placeholder="Weitere Objekte suchen..." 
+                          value={depSearch} 
+                          onChange={e => setDepSearch(e.target.value)}
+                          className="pl-10 h-11 rounded-xl bg-slate-50/50"
+                        />
+                      </div>
+                      <ScrollArea className="h-64 border rounded-2xl bg-slate-50/30 p-2">
+                        <div className="space-y-1">
+                          {features?.filter(f => f.id !== selectedFeature?.id && f.name.toLowerCase().includes(depSearch.toLowerCase())).map(f => (
+                            <div 
+                              key={f.id} 
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border",
+                                selectedDepIds.includes(f.id) ? "bg-orange-50 border-orange-200" : "bg-white border-transparent hover:bg-white hover:border-slate-200"
+                              )}
+                              onClick={() => toggleDependency(f.id)}
+                            >
+                              <Checkbox checked={selectedDepIds.includes(f.id)} onCheckedChange={() => toggleDependency(f.id)} />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate">{f.name}</p>
+                                <p className="text-[8px] font-black uppercase text-slate-400">{f.carrier}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                </TabsContent>
               </div>
             </ScrollArea>
 
             <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto rounded-xl font-bold text-[10px] px-8 h-11 tracking-widest text-slate-400 hover:bg-white">Abbrechen</Button>
-              <Button size="sm" onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto rounded-xl font-bold text-[10px] tracking-widest px-12 h-11 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95 gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-10 h-11 uppercase text-slate-400 hover:bg-white tracking-widest">Abbrechen</Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving} className="rounded-xl h-11 px-16 bg-primary hover:bg-primary/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2 active:scale-95">
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern
               </Button>
             </DialogFooter>

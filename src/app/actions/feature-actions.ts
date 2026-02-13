@@ -1,7 +1,7 @@
 
 'use server';
 
-import { saveCollectionRecord, getCollectionData, deleteCollectionRecord } from './mysql-actions';
+import { saveCollectionRecord, getCollectionData, deleteCollectionRecord, dbQuery } from './mysql-actions';
 import { Feature, FeatureLink, FeatureDependency, DataSource, FeatureProcessLink } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
@@ -10,12 +10,12 @@ import { logAuditEventAction } from './audit-actions';
  */
 function calculateMatrixCriticality(feature: Partial<Feature>): { score: number, label: 'low' | 'medium' | 'high' } {
   let score = 0;
-  if (feature.matrixFinancial) score++;
-  if (feature.matrixLegal) score++;
-  if (feature.matrixExternal) score++;
-  if (feature.matrixHardToCorrect) score++;
-  if (feature.matrixAutomatedDecision) score++;
-  if (feature.matrixPlanning) score++;
+  if (feature.matrixFinancial === true || feature.matrixFinancial === 1) score++;
+  if (feature.matrixLegal === true || feature.matrixLegal === 1) score++;
+  if (feature.matrixExternal === true || feature.matrixExternal === 1) score++;
+  if (feature.matrixHardToCorrect === true || feature.matrixHardToCorrect === 1) score++;
+  if (feature.matrixAutomatedDecision === true || feature.matrixAutomatedDecision === 1) score++;
+  if (feature.matrixPlanning === true || feature.matrixPlanning === 1) score++;
 
   let label: 'low' | 'medium' | 'high' = 'low';
   if (score >= 4) label = 'high';
@@ -27,7 +27,7 @@ function calculateMatrixCriticality(feature: Partial<Feature>): { score: number,
 /**
  * Speichert oder aktualisiert ein Datenobjekt.
  */
-export async function saveFeatureAction(feature: Feature, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
+export async function saveFeatureAction(feature: any, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   const isNew = !feature.id || feature.id === '';
   const id = isNew ? `feat-${Math.random().toString(36).substring(2, 9)}` : feature.id;
   const now = new Date().toISOString();
@@ -35,8 +35,10 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
   // Matrix Calculation
   const { score, label } = calculateMatrixCriticality(feature);
 
+  const { dependentFeatureIds, ...featureBaseData } = feature;
+
   const data = {
-    ...feature,
+    ...featureBaseData,
     id,
     criticality: label,
     criticalityScore: score,
@@ -46,7 +48,23 @@ export async function saveFeatureAction(feature: Feature, dataSource: DataSource
 
   try {
     const res = await saveCollectionRecord('features', id, data, dataSource);
+    
     if (res.success) {
+      // Sync Dependencies
+      if (dataSource === 'mysql') {
+        await dbQuery('DELETE FROM feature_dependencies WHERE featureId = ?', [id]);
+        if (dependentFeatureIds && Array.isArray(dependentFeatureIds)) {
+          for (const depId of dependentFeatureIds) {
+            const linkId = `fdep-${id}-${depId}`;
+            await saveCollectionRecord('feature_dependencies', linkId, {
+              id: linkId,
+              featureId: id,
+              dependentFeatureId: depId
+            }, dataSource);
+          }
+        }
+      }
+
       await logAuditEventAction(dataSource as any, {
         tenantId: feature.tenantId,
         actorUid: actorEmail,
