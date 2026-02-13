@@ -4,6 +4,7 @@ import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
+ * Optimiert für Enterprise-Reporting und GRC-Nachweise.
  */
 
 export async function exportToExcel(data: any[], fileName: string) {
@@ -92,12 +93,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const margin = 14;
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
-  const canvasHeight = 100; // Feste Höhe für die Karte im PDF
-
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text('Grafische Prozess-Landkarte', margin, startY + 5);
-
+  
   // Koordinaten-Normalisierung (Scale & Fit)
   const xValues = nodes.map(n => positions[n.id]?.x || 0);
   const yValues = nodes.map(n => positions[n.id]?.y || 0);
@@ -108,7 +104,14 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
 
   const rangeX = (maxX - minX) || 1;
   const rangeY = (maxY - minY) || 1;
-  const scale = Math.min((canvasWidth - 40) / rangeX, (canvasHeight - 20) / rangeY, 0.5);
+  
+  // Dynamische Skalierung
+  const scale = Math.min((canvasWidth - 40) / rangeX, 0.4);
+  const actualCanvasHeight = Math.max(60, rangeY * scale + 30);
+
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text('Ablauf-Visualisierung', margin, startY + 5);
 
   const getPdfCoords = (id: string) => {
     const pos = positions[id] || { x: 0, y: 0 };
@@ -118,24 +121,30 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     };
   };
 
-  // Draw Edges
+  // Draw Edges (Pfeile)
   doc.setDrawColor(200);
   edges.forEach(edge => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
+    doc.setLineWidth(0.2);
     doc.line(s.x, s.y, t.x, t.y);
     
+    // Pfeilspitze simulieren
+    const angle = Math.atan2(t.y - s.y, t.x - s.x);
+    doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
+    doc.line(t.x, t.y, t.x - 2 * Math.cos(angle + Math.PI/6), t.y - 2 * Math.sin(angle + Math.PI/6));
+
     if (edge.label) {
       doc.setFontSize(5);
       doc.setTextColor(100);
-      doc.text(edge.label, (s.x + t.x) / 2, (s.y + t.y) / 2, { align: 'center' });
+      doc.text(edge.label, (s.x + t.x) / 2, (s.y + t.y) / 2 - 1, { align: 'center' });
     }
   });
 
-  // Draw Nodes
-  nodes.forEach(node => {
+  // Draw Nodes (Knoten)
+  nodes.forEach((node, index) => {
     const { x, y } = getPdfCoords(node.id);
-    const r = 4; // Node radius
+    const r = 4;
 
     let color = [240, 240, 240];
     if (node.type === 'start') color = [16, 185, 129];
@@ -147,12 +156,17 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setFillColor(color[0], color[1], color[2]);
     doc.circle(x, y, r, 'FD');
 
+    // Index-Nummer im Knoten
+    doc.setFontSize(5);
+    doc.setTextColor(node.type === 'subprocess' ? 255 : 0);
+    doc.text(`${index + 1}`, x, y + 1.5, { align: 'center' });
+
     doc.setFontSize(6);
     doc.setTextColor(0);
     doc.text(node.title, x, y + r + 4, { align: 'center', maxWidth: 30 });
   });
 
-  return startY + canvasHeight + 10;
+  return startY + actualCanvasHeight + 15;
 }
 
 /**
@@ -170,7 +184,7 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(tenant.name, 14, 10);
-    doc.text('Vertraulich / Audit-Dokument', pageWidth - 14, 10, { align: 'right' });
+    doc.text('Vertraulich / Prozess-Dokumentation', pageWidth - 14, 10, { align: 'right' });
     doc.setDrawColor(230);
     doc.line(14, 12, pageWidth - 14, 12);
 
@@ -231,8 +245,7 @@ export async function exportDetailedProcessPdf(
         ['Automatisierungsgrad', process.automationLevel || 'manuell'],
         ['Frequenz', process.processingFrequency || 'on demand'],
         ['Input (Eingang)', process.inputs || 'Keine Angabe'],
-        ['Output (Ergebnis)', process.outputs || 'Keine Angabe'],
-        ['Strategische Ziele / KPIs', process.kpis || '---']
+        ['Output (Ergebnis)', process.outputs || 'Keine Angabe']
       ],
       theme: 'grid',
       styles: { fontSize: 9, cellPadding: 3 },
@@ -241,33 +254,36 @@ export async function exportDetailedProcessPdf(
 
     // 2. Visuelle Darstellung
     const graphY = (doc as any).lastAutoTable.finalY + 15;
-    await drawProcessGraph(doc, version, graphY);
+    const tableY = await drawProcessGraph(doc, version, graphY);
 
     // 3. Operative Details (Tabellarisch)
-    doc.addPage();
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235);
-    doc.text('2. Operativer Leitfaden & GRC-Bezug', 14, 25);
+    doc.text('2. Operativer Leitfaden & GRC-Bezug', 14, tableY + 5);
     
-    const stepsData = (version.model_json.nodes || []).map((node) => {
+    const stepsData = (version.model_json.nodes || []).map((node, index) => {
       const role = jobTitles.find(j => j.id === node.roleId);
       const resNames = resources.filter(r => node.resourceIds?.includes(r.id)).map(r => r.name).join(', ');
       const featNames = allFeatures.filter(f => node.featureIds?.includes(f.id)).map(f => f.name).join(', ');
       
       const details = [
-        node.description || '',
+        node.description ? `Tätigkeit: ${node.description}` : '',
         node.checklist?.length ? `Checkliste:\n- ${node.checklist.join('\n- ')}` : '',
-        node.tips ? `Tipp: ${node.tips}` : '',
+        node.tips ? `Expertentipp: ${node.tips}` : '',
         node.errors ? `Achtung: ${node.errors}` : ''
       ].filter(Boolean).join('\n\n');
 
       const successors = version.model_json.edges
         ?.filter(e => e.source === node.id)
-        .map(e => `${e.label ? '['+e.label+'] → ' : '→ '}${version.model_json.nodes.find(n => n.id === e.target)?.title}`)
+        .map(e => {
+          const targetNode = version.model_json.nodes.find(n => n.id === e.target);
+          const targetIndex = version.model_json.nodes.findIndex(n => n.id === e.target) + 1;
+          return `${e.label ? '['+e.label+'] → ' : '→ '}(${targetIndex}) ${targetNode?.title}`;
+        })
         .join('\n');
 
       return [
-        { content: node.title, styles: { fontStyle: 'bold' } },
+        { content: `${index + 1}. ${node.title}`, styles: { fontStyle: 'bold' } },
         role?.name || '---',
         `${resNames}${resNames && featNames ? ' | ' : ''}${featNames}` || '---',
         details || '---',
@@ -276,8 +292,8 @@ export async function exportDetailedProcessPdf(
     });
 
     autoTable(doc, {
-      startY: 30,
-      head: [['Arbeitsschritt', 'Verantwortung', 'Systeme / Daten', 'Durchführung & Hinweise', 'Nächste Schritte']],
+      startY: tableY + 10,
+      head: [['Nr / Schritt', 'Verantwortung', 'Systeme / Daten', 'Durchführung & Hilfen', 'Nächste Schritte']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
@@ -287,7 +303,7 @@ export async function exportDetailedProcessPdf(
         1: { width: 30 }, 
         2: { width: 35 },
         3: { width: 55 },
-        4: { width: 30 }
+        4: { width: 35 }
       }
     });
 
@@ -322,7 +338,7 @@ export async function exportProcessManualPdf(
     doc.rect(0, 0, 210, 297, 'F');
     doc.setTextColor(255);
     doc.setFontSize(36);
-    doc.text('Unternehmens-Handbuch', 105, 100, { align: 'center' });
+    doc.text('Prozess-Handbuch', 105, 100, { align: 'center' });
     doc.setFontSize(18);
     doc.text(tenant.name, 105, 115, { align: 'center' });
     doc.setFontSize(12);
@@ -340,7 +356,7 @@ export async function exportProcessManualPdf(
     processes.forEach((p, idx) => {
       doc.setFontSize(10);
       doc.text(`${idx + 1}. ${p.title}`, 14, tocY);
-      doc.text(`..........`, 150, tocY); // Füllpunkte
+      doc.text(`..........`, 150, tocY);
       tocY += 8;
       if (tocY > 270) { doc.addPage(); tocY = 20; }
     });
@@ -357,7 +373,6 @@ export async function exportProcessManualPdf(
       doc.setDrawColor(230);
       doc.line(14, 35, 196, 35);
 
-      // Header-Tabelle für den Prozess
       autoTable(doc, {
         startY: 40,
         body: [
@@ -370,20 +385,38 @@ export async function exportProcessManualPdf(
         columnStyles: { 0: { fontStyle: 'bold', width: 30 } }
       });
 
-      const currentY = (doc as any).lastAutoTable.finalY + 10;
-      await drawProcessGraph(doc, ver, currentY);
+      const graphY = (doc as any).lastAutoTable.finalY + 10;
+      const tableY = await drawProcessGraph(doc, ver, graphY);
 
       autoTable(doc, {
-        startY: currentY + 110,
-        head: [['Schritt', 'Rolle', 'Tätigkeit', 'Nächster']],
-        body: ver.model_json.nodes.map(n => [
-          n.title, 
-          jobTitles.find(j => j.id === n.roleId)?.name || '-',
-          n.description || '-',
-          ver.model_json.edges.filter(e => e.source === n.id).map(e => e.label || '→').join(', ')
-        ]),
+        startY: tableY + 5,
+        head: [['Nr', 'Schritt', 'Rolle', 'Tätigkeit / Hinweise', 'Nächster']],
+        body: ver.model_json.nodes.map((n, i) => {
+          const succs = ver.model_json.edges
+            .filter(e => e.source === n.id)
+            .map(e => {
+              const targetNode = ver.model_json.nodes.find(node => node.id === e.target);
+              const targetIdx = ver.model_json.nodes.findIndex(node => node.id === e.target) + 1;
+              return `(${targetIdx}) ${targetNode?.title}`;
+            }).join('\n');
+
+          const detailInfo = [
+            n.description || '',
+            n.checklist?.length ? `Check:\n- ${n.checklist.join('\n- ')}` : '',
+            n.tips ? `Tipp: ${n.tips}` : ''
+          ].filter(Boolean).join('\n\n');
+
+          return [
+            `${i + 1}`,
+            n.title, 
+            jobTitles.find(j => j.id === n.roleId)?.name || '-',
+            detailInfo || '-',
+            succs || 'Ende'
+          ];
+        }),
         theme: 'striped',
-        styles: { fontSize: 7 }
+        styles: { fontSize: 7, cellPadding: 3 },
+        columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 60 } }
       });
     }
 
