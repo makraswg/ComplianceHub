@@ -3,37 +3,38 @@
 Dieses Dokument beschreibt die theoretische Architektur für die Erweiterung des PolicyHubs um eine integrierte Richtlinienverwaltung.
 
 ## 1. Problemstellung
-Aktuell sind Richtlinien (Dienstanweisungen, Sicherheitskonzepte) oft isolierte PDF-Dokumente. Es fehlt die Verbindung zu den operativen Maßnahmen im RiskHub und den Prozessen im WorkflowHub.
+Aktuell sind Richtlinien (Dienstanweisungen, Sicherheitskonzept) oft isolierte PDF-Dokumente auf Fileservern. Es fehlt die Revisionssicherheit innerhalb der GRC-Plattform.
 
-## 2. Lösungsansatz: "Living Documents"
-Richtlinien im ComplianceHub sollen dynamische Dokumente sein, die ihre Gültigkeit aus den verknüpften operativen Daten beziehen.
+## 2. Lösungsansatz: "Isolated Document Registry"
+Der Einstieg erfolgt isoliert von den restlichen Modulen, um eine saubere Dokumentenverwaltung aufzubauen.
 
 ### Kern-Komponenten
 - **Policy Registry**: Datenbankgestützte Verwaltung von Richtlinientiteln, Kategorien und Verantwortlichkeiten.
-- **Versioning Engine**: Unterstützung von Major/Minor-Versionen mit Genehmigungs-Workflows (Draft -> Review -> Published).
-- **Relational Embedding**: Integration von Risk-Measures direkt in den Textfluss. 
-  *Beispiel: Kapitel 4.1 referenziert die Maßnahme "MSR-101 (Passwortkomplexität)". Ist diese im RiskHub nicht als "wirksam" markiert, erhält die Richtlinie einen Warnhinweis.*
+- **Markdown Editor**: Erstellung der Inhalte direkt im Browser. Markdown wird bevorzugt, da es textbasiert ist (einfache Versionierung/Diffs) und später "Smart Tags" (Verknüpfungen zu Risiken/Maßnahmen) ermöglicht.
+- **Status Workflow**: Einfacher Lebenszyklus: `Draft` (Entwurf) -> `Review` (In Prüfung) -> `Published` (Veröffentlicht) -> `Archived` (Archiviert).
+- **Versioning Engine**: Jede Veröffentlichung erzeugt eine unveränderbare Version (V1.0, V2.0). Korrekturen erzeugen Minor-Revisions (V1.1).
 
 ## 3. Datenmodell (Theoretisch)
 
 ### Entity: `Policy`
 - `id`: Eindeutige Kennung
+- `title`: Name des Dokuments
 - `type`: DA (Dienstanweisung), BV (Betriebsvereinbarung), ISK (Sicherheitskonzept), DS (Datenschutz)
 - `ownerRoleId`: Verantwortliche Stelle
-- `reviewInterval`: Tage bis zur nächsten Prüfung
+- `reviewInterval`: Tage bis zur nächsten obligatorischen Prüfung
 - `status`: draft | review | published | archived
 
 ### Entity: `PolicyVersion`
 - `policyId`: Referenz auf Policy
 - `version`: Versionsnummer
-- `content`: Markdown/HTML Inhalt
-- `approvalLog`: JSON-Log der Freigaben
+- `content`: Inhalt im Markdown-Format
+- `changelog`: Kurze Beschreibung der Änderungen
 - `validFrom`: Gültigkeitsdatum
 
-## 4. Synergie-Effekte
-- **Audit-Readiness**: Bei einer Prüfung kann per Klick bewiesen werden, dass die Vorgabe in der Richtlinie durch eine operativ wirksame Kontrolle (RiskHub) gedeckt ist.
-- **Automatisierung**: Wenn ein neues IT-System (Resource) registriert wird, schlägt die KI vor, welche Richtlinien für den Betrieb relevant sind.
-- **Lifecycle**: Neue Mitarbeiter erhalten im Onboarding automatisch Zugriff auf die für ihr Rollenprofil relevanten Richtlinien.
+## 4. Ausbaustufe: "Smart Documents" (Später)
+Nach dem isolierten Start können Markdown-Tags eingeführt werden:
+- `{{measure:id}}`: Bettet den Status einer Maßnahme live in den Text ein.
+- `{{resource:id}}`: Zeigt Details eines IT-Systems im Dokument an.
 
 ---
-*Konzeptstand: Februar 2024 - Strategische Erweiterung PolicyHub.*
+*Konzeptstand: Februar 2024 - Fokus auf Markdown und isoliertem Start.*
