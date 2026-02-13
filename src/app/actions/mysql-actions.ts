@@ -1,4 +1,3 @@
-
 'use server';
 
 import { dbQuery, testMysqlConnection } from '@/lib/mysql';
@@ -31,6 +30,7 @@ const collectionToTableMap: { [key: string]: string } = {
   bundles: 'bundles',
   jiraConfigs: 'jiraConfigs',
   aiConfigs: 'aiConfigs',
+  aiAuditCriteria: 'aiAuditCriteria',
   smtpConfigs: 'smtpConfigs',
   syncJobs: 'syncJobs',
   helpContent: 'helpContent',
@@ -62,8 +62,7 @@ const collectionToTableMap: { [key: string]: string } = {
   task_comments: 'task_comments',
   media: 'media',
   backup_jobs: 'backup_jobs',
-  resource_update_processes: 'resource_update_processes',
-  aiAuditCriteria: 'aiAuditCriteria'
+  resource_update_processes: 'resource_update_processes'
 };
 
 function normalizeRecord(item: any, tableName: string) {
@@ -170,7 +169,6 @@ export async function saveCollectionRecord(collectionName: string, id: string, d
     const placeholders = keys.map(() => '?').join(', ');
     const updates = keys.map(key => `\`${key}\` = VALUES(\`${key}\`)`).join(', ');
     
-    // Nutzt dbQuery, welche pool.execute() für Prepared Statements verwendet (Checkliste E)
     const sql = `INSERT INTO \`${tableName}\` (\`${keys.join('`, `')}\`) VALUES (${placeholders}) ON DUPLICATE KEY UPDATE ${updates}`;
     await dbQuery(sql, values);
     return { success: true, error: null };
@@ -194,6 +192,9 @@ export async function testMysqlConnectionAction() {
   return await testMysqlConnection();
 }
 
+/**
+ * Aktualisiert das Passwort eines Plattform-Benutzers.
+ */
 export async function updatePlatformUserPasswordAction(email: string, password: string) {
   const salt = bcrypt.genSaltSync(10);
   const hashedPassword = bcrypt.hashSync(password, salt);

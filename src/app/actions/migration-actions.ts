@@ -84,6 +84,7 @@ export async function runDatabaseMigrationAction(): Promise<{ success: boolean; 
 
 /**
  * Erstellt den ersten Administrator, den Standard-Mandanten und die SuperAdmin-Rolle.
+ * Die Rolle wird als echter Datensatz in platformRoles angelegt.
  */
 export async function createInitialAdminAction(data: { 
   name: string, 
@@ -96,18 +97,22 @@ export async function createInitialAdminAction(data: {
     const pool = getPool();
     connection = await pool.getConnection();
 
+    console.log("[SETUP] Starte Initialisierung...");
+
     // 1. Mandant erstellen
     const tenantId = 't1';
     await connection.query(
       'INSERT INTO `tenants` (id, name, slug, createdAt, status) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', 
       [tenantId, data.tenantName, data.tenantName.toLowerCase().replace(/[^a-z0-9]/g, '-'), new Date().toISOString(), 'active']
     );
+    console.log("[SETUP] Mandant angelegt.");
 
     // 2. Standardrolle superAdmin initialisieren
+    // Dies entspricht der Konfiguration, die auch über das UI bearbeitet werden kann.
     const superAdminRole = {
       id: 'superAdmin',
       name: 'Super Administrator',
-      description: 'Plattformweiter Vollzugriff auf alle Module und Einstellungen.',
+      description: 'Systemweite Vollberechtigung (Initial erstellt).',
       permissions: JSON.stringify({
         iam: 'write',
         risks: 'write',
@@ -123,6 +128,7 @@ export async function createInitialAdminAction(data: {
       'INSERT INTO `platformRoles` (id, name, description, permissions) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), permissions = VALUES(permissions)',
       [superAdminRole.id, superAdminRole.name, superAdminRole.description, superAdminRole.permissions]
     );
+    console.log("[SETUP] Super-Admin Rolle konfiguriert.");
 
     // 3. Admin erstellen
     const salt = bcrypt.genSaltSync(10);
@@ -133,9 +139,11 @@ export async function createInitialAdminAction(data: {
       'INSERT INTO `platformUsers` (id, email, password, displayName, role, tenantId, enabled, createdAt, authSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), password = VALUES(password)',
       [adminId, data.email, hashedPassword, data.name, 'superAdmin', 'all', 1, new Date().toISOString(), 'local']
     );
+    console.log("[SETUP] Administrator-Account erstellt.");
 
     return { success: true, message: 'Setup erfolgreich abgeschlossen.' };
   } catch (error: any) {
+    console.error("[SETUP-ERROR]", error);
     return { success: false, message: `Setup-Fehler: ${error.message}` };
   } finally {
     if (connection) connection.release();
