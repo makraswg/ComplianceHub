@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department, Feature, ProcessNode } from './types';
@@ -81,7 +82,8 @@ export async function exportGdprExcel(activities: any[]) {
 }
 
 /**
- * Berechnet ein horizontales, geschichtetes Layout (Layered DAG) basierend auf Rängen und Lanes.
+ * Berechnet ein horizontales, geschichtetes Layout (Layered DAG) basierend auf topologischen Rängen.
+ * Verhindert Flachklopfen des Graphen.
  */
 function calculateLayeredLayout(nodes: ProcessNode[], edges: any[]) {
   const ranks: Record<string, number> = {};
@@ -90,7 +92,7 @@ function calculateLayeredLayout(nodes: ProcessNode[], edges: any[]) {
 
   nodes.forEach(n => ranks[n.id] = 0);
 
-  // 1. Ranking: Längster Pfad vom Start bestimmt den Rang (X-Achse)
+  // 1. Ranking: Topologische Tiefe (X-Achse)
   let changed = true;
   let limit = nodes.length * 2;
   while (changed && limit > 0) {
@@ -104,7 +106,7 @@ function calculateLayeredLayout(nodes: ProcessNode[], edges: any[]) {
     limit--;
   }
 
-  // 2. Lane-Zuweisung: Knoten mit gleichem Rang werden vertikal verteilt (Y-Achse)
+  // 2. Lane-Zuweisung: Knoten mit gleichem Rang vertikal verteilen (Y-Achse)
   const sortedNodes = [...nodes].sort((a, b) => ranks[a.id] - ranks[b.id]);
   sortedNodes.forEach(node => {
     const r = ranks[node.id];
@@ -113,19 +115,20 @@ function calculateLayeredLayout(nodes: ProcessNode[], edges: any[]) {
     laneOccupancyPerRank[r] = currentLane + 1;
   });
 
-  const layout: Record<string, { x: number, y: number }> = {};
-  const H_STEP = 50; // Horizontaler Abstand pro Rang
-  const V_STEP = 30; // Vertikaler Abstand pro Lane
+  const layout: Record<string, { x: number, y: number, r: number, l: number }> = {};
+  const H_STEP = 50; 
+  const V_STEP = 30; 
 
   nodes.forEach(n => {
     const r = ranks[n.id];
     const l = lanes[n.id];
     const totalLanesAtRank = laneOccupancyPerRank[r];
-    // Zentriere Lanes vertikal um den Rang-Mittelpunkt
     const vOffset = ((totalLanesAtRank - 1) * V_STEP) / 2;
     layout[n.id] = {
       x: r * H_STEP,
-      y: l * V_STEP - vOffset
+      y: l * V_STEP - vOffset,
+      r,
+      l
     };
   });
 
@@ -149,7 +152,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  // Skalierung berechnen (X-Achse ist nun führend)
   const rangeX = maxRank * 50 || 1;
   const scale = Math.min((canvasWidth - 40) / rangeX, 1.0);
   const graphHeight = Math.max(40, maxLanes * 35);
@@ -163,22 +165,32 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     const pos = layout[id] || { x: 0, y: 0 };
     return {
       x: margin + 20 + (pos.x * scale),
-      y: startY + 25 + (pos.y) // Y ist zentriert durch layout-Logic
+      y: startY + 25 + (pos.y)
     };
   };
 
-  // Pfeile zeichnen
+  // 1. Alle Kanten zeichnen (Keine Deduplizierung)
   doc.setLineWidth(0.25);
   edges.forEach(edge => {
     const s = getPdfCoords(edge.source);
     const t = getPdfCoords(edge.target);
+    
     const outDegree = edges.filter(e => e.source === edge.source).length;
+    const inDegree = edges.filter(e => e.target === edge.target).length;
+    const isBranch = outDegree > 1 || inDegree > 1;
     
-    // Farbe basierend auf Verzweigung
-    if (outDegree > 1) doc.setDrawColor(180, 83, 9); // Bernstein für Verzweigungen
-    else doc.setDrawColor(148, 163, 184); // Schiefergrau für Standard
+    if (isBranch) doc.setDrawColor(180, 83, 9); // Amber
+    else doc.setDrawColor(148, 163, 184); // Slate
     
-    doc.line(s.x, s.y, t.x, t.y);
+    // Einfache Bezier-Kurve für bessere Sichtbarkeit bei Überlappungen
+    const midX = (s.x + t.x) / 2;
+    const midY = (s.y + t.y) / 2;
+    const cp1x = s.x + (t.x - s.x) / 3;
+    const cp2x = s.x + 2 * (t.x - s.x) / 3;
+    
+    // Zeichne Kurve
+    doc.lines([[t.x - s.x, t.y - s.y]], s.x, s.y, [1, 1], 'S');
+    
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
     // Pfeilspitze
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
@@ -186,8 +198,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
 
     if (edge.label) {
       doc.setFontSize(5);
-      const midX = (s.x + t.x) / 2;
-      const midY = (s.y + t.y) / 2;
       doc.setFillColor(255, 255, 255);
       doc.rect(midX - 5, midY - 2, 10, 4, 'F');
       doc.setTextColor(71, 85, 105);
@@ -195,7 +205,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     }
   });
 
-  // Knoten zeichnen
+  // 2. Knoten zeichnen
   nodes.forEach((node, i) => {
     const { x, y } = getPdfCoords(node.id);
     const r = 4;
@@ -203,14 +213,13 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     const inDegree = edges.filter(e => e.target === node.id).length;
     const isBranch = outDegree > 1 || inDegree > 1;
 
-    let color = [241, 245, 249]; // Slate 100
+    let color = [241, 245, 249]; 
     if (node.type === 'start') color = [16, 185, 129];
     else if (node.type === 'end') color = [239, 68, 68];
     else if (node.type === 'decision' || isBranch) color = [245, 158, 11];
     else if (node.type === 'subprocess') color = [79, 70, 229];
 
     doc.setFillColor(color[0], color[1], color[2]);
-    // Einzelne RGB Werte statt Array für jsPDF Kompatibilität
     if (isBranch) doc.setDrawColor(180, 83, 9);
     else doc.setDrawColor(100, 116, 139);
     
@@ -226,7 +235,7 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.text(node.title, x, y + r + 3.5, { align: 'center', maxWidth: 25 });
   });
 
-  return startY + graphHeight + 35; // Dynamischer Abstand basierend auf Graphenhöhe
+  return startY + graphHeight + 35; 
 }
 
 function addPageDecorations(doc: any, tenant: Tenant) {
@@ -430,8 +439,14 @@ export async function exportProcessManualPdf(
         doc.setDrawColor(241, 245, 249);
         doc.line(14, 30, 196, 30);
 
-        const resNames = resources.filter(r => ver.model_json.nodes.some(n => n.resourceIds?.includes(r.id))).map(r => r.name).join(', ') || '---';
-        const featNames = allFeatures.filter(f => ver.model_json.nodes.some(n => n.featureIds?.includes(f.id))).map(f => f.name).join(', ') || '---';
+        const usedResourceIds = new Set<string>();
+        const usedFeatureIds = new Set<string>();
+        ver.model_json.nodes.forEach(n => {
+          n.resourceIds?.forEach(id => usedResourceIds.add(id));
+          n.featureIds?.forEach(id => usedFeatureIds.add(id));
+        });
+        const resNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
+        const featNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || '---';
 
         autoTable(doc, {
           startY: 35,
@@ -462,7 +477,6 @@ export async function exportProcessManualPdf(
                 const targetNode = ver.model_json.nodes.find(node => node.id === e.target);
                 const targetIdx = ver.model_json.nodes.findIndex(node => node.id === e.target) + 1;
                 const label = e.label ? `[${e.label}] ` : '';
-                // Wenn es ein Subprozess ist, versuche die Seite zu referenzieren
                 const pRef = targetNode?.type === 'subprocess' && targetNode.targetProcessId ? ` (S. ${processPages[targetNode.targetProcessId] || '?'})` : '';
                 return `${label}→ (${targetIdx}) ${targetNode?.title}${pRef}`;
               }).join('\n');
@@ -502,7 +516,6 @@ export async function exportProcessManualPdf(
         const pageNum = processPages[p.id]?.toString() || '?';
         doc.text(label, 14, tocY);
         
-        // Führungslinie zeichnen
         const labelWidth = doc.getTextWidth(label);
         const pageNumWidth = doc.getTextWidth(pageNum);
         const lineStart = 14 + labelWidth + 3;
