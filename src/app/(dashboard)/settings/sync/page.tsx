@@ -130,9 +130,13 @@ export default function SyncSettingsPage() {
 
   const handleOpenImport = async () => {
     setIsImportOpen(true);
+    fetchAdUsers();
+  };
+
+  const fetchAdUsers = async (query: string = '') => {
     setIsFetchingAd(true);
     try {
-      const users = await getAdUsersAction(tenantDraft, dataSource);
+      const users = await getAdUsersAction(tenantDraft, dataSource, query);
       setAdUsers(users);
     } catch (e: any) {
       toast({ variant: "destructive", title: "AD Fehler", description: e.message });
@@ -157,15 +161,6 @@ export default function SyncSettingsPage() {
       setIsImporting(false);
     }
   };
-
-  const filteredAdUsers = useMemo(() => {
-    if (!adUsers) return [];
-    return adUsers.filter(u => 
-      u.first?.toLowerCase().includes(adSearch.toLowerCase()) || 
-      u.last?.toLowerCase().includes(adSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(adSearch.toLowerCase())
-    );
-  }, [adUsers, adSearch]);
 
   const handleRunJob = async (jobId: string) => {
     setIsJobRunning(jobId);
@@ -476,13 +471,24 @@ export default function SyncSettingsPage() {
           </DialogHeader>
 
           <div className="p-4 bg-slate-50 border-b flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input placeholder="AD Suche (Name, E-Mail)..." value={adSearch} onChange={e => setAdSearch(e.target.value)} className="pl-10 h-11 bg-white rounded-xl shadow-none border-slate-200" />
+            <div className="flex flex-1 items-center gap-3 max-w-xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input 
+                  placeholder="In AD suchen (z.B. Testmann)..." 
+                  value={adSearch} 
+                  onChange={e => setAdSearch(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && fetchAdUsers(adSearch)}
+                  className="pl-10 h-11 bg-white rounded-xl shadow-none border-slate-200" 
+                />
+              </div>
+              <Button onClick={() => fetchAdUsers(adSearch)} disabled={isFetchingAd} className="h-11 rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest">
+                {isFetchingAd ? <Loader2 className="w-4 h-4 animate-spin" /> : "AD Suchen"}
+              </Button>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-[10px] font-black uppercase text-slate-400">{selectedAdUsernames.length} ausgewählt</span>
-              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames(filteredAdUsers.map(u => u.username))} className="h-8 text-[10px] font-bold rounded-lg uppercase">Alle wählen</Button>
+              <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames(adUsers.map(u => u.username))} className="h-8 text-[10px] font-bold rounded-lg uppercase">Alle wählen</Button>
               <Button variant="outline" size="sm" onClick={() => setSelectedAdUsernames([])} className="h-8 text-[10px] font-bold rounded-lg uppercase">Leeren</Button>
             </div>
           </div>
@@ -493,9 +499,17 @@ export default function SyncSettingsPage() {
                 <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
                 <p className="text-[10px] font-bold uppercase text-slate-400 animate-pulse">Lese Daten aus dem Active Directory...</p>
               </div>
+            ) : adUsers.length === 0 ? (
+              <div className="py-32 text-center space-y-4 opacity-40">
+                <Search className="w-16 h-16 mx-auto text-slate-300" />
+                <div>
+                  <p className="text-sm font-black uppercase">Keine AD-Benutzer gefunden</p>
+                  <p className="text-xs font-bold max-w-xs mx-auto mt-2 italic">Prüfen Sie Ihre LQL-Filterregeln oder suchen Sie gezielt nach einem Namen.</p>
+                </div>
+              </div>
             ) : (
               <Table>
-                <TableHeader className="sticky top-0 bg-white z-10">
+                <TableHeader className="sticky top-0 bg-white z-10 shadow-sm">
                   <TableRow>
                     <TableHead className="w-12 px-6"></TableHead>
                     <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase">Benutzer im AD</TableHead>
@@ -504,7 +518,7 @@ export default function SyncSettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAdUsers.map((u) => {
+                  {adUsers.map((u) => {
                     const alreadyExists = hubUsers?.some(hu => hu.externalId === u.username || hu.email.toLowerCase() === u.email.toLowerCase());
                     return (
                       <TableRow key={u.username} className={cn("group hover:bg-slate-50 transition-colors border-b", selectedAdUsernames.includes(u.username) && "bg-primary/5")}>

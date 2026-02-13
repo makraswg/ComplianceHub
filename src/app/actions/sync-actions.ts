@@ -117,17 +117,29 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 /**
  * Ruft verfügbare Benutzer aus dem AD ab (Simulation).
  */
-export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql') {
+export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql', searchQuery: string = '') {
   try {
     await new Promise(resolve => setTimeout(resolve, 1200));
     
-    const adUsers = [
+    let adUsers = [
       { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@compliance-hub.local', dept: 'IT & Digitalisierung', title: 'Systemadministrator', company: 'Wohnbau Nord' },
       { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@compliance-hub.local', dept: 'Recht', title: 'Datenschutz', company: 'Wohnbau Nord' },
       { username: 'a.baeck', first: 'Andreas', last: 'Baeck', email: 'a.baeck@compliance-hub.local', dept: 'Technik', title: 'Hausmeister', company: 'Wohnbau Nord' },
       { username: 'j.schmidt', first: 'Julia', last: 'Schmidt', email: 'j.schmidt@compliance-hub.local', dept: 'Finanzen', title: 'Buchhaltung', company: 'Wohnbau Nord' },
-      { username: 'ext.kratz', first: 'Marcel', last: 'Kratzing', email: 'm.kratz@extern.de', dept: 'Beratung', title: 'Externer Berater', company: 'Extern' }
+      { username: 'ext.kratz', first: 'Marcel', last: 'Kratzing', email: 'm.kratz@extern.de', dept: 'Beratung', title: 'Externer Berater', company: 'Extern' },
+      { username: 's.test', first: 'Stefan', last: 'Testmann', email: 'stefan.test@compliance-hub.local', dept: 'Entwicklung', title: 'Tester', company: 'Wohnbau Nord' }
     ];
+
+    // Filter simulation by query
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      adUsers = adUsers.filter(u => 
+        u.username.toLowerCase().includes(q) || 
+        u.first.toLowerCase().includes(q) || 
+        u.last.toLowerCase().includes(q) || 
+        u.email.toLowerCase().includes(q)
+      );
+    }
 
     const tenantsRes = await getCollectionData('tenants', dataSource);
     const allTenants = (tenantsRes.data || []) as Tenant[];
@@ -148,7 +160,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       };
     });
 
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, mapped);
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, { query: searchQuery, results: mapped });
     return mapped;
   } catch (e: any) {
     await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'error', e.message, e);
