@@ -116,19 +116,28 @@ export async function testLdapConnectionAction(config: Partial<Tenant>): Promise
 
 /**
  * Ruft verfügbare Benutzer aus dem AD ab (Simulation).
+ * Diese Funktion sucht primär im AD-Bestand.
  */
 export async function getAdUsersAction(config: Partial<Tenant>, dataSource: DataSource = 'mysql', searchQuery: string = '') {
   try {
+    // Log start of AD search
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', 
+      `Suche im AD gestartet (Filter: ${searchQuery || 'alle'}). Pfad: ${config.ldapBaseDn || 'Root'}`, 
+      { filter: config.ldapUserFilter, query: searchQuery }
+    );
+
     await new Promise(resolve => setTimeout(resolve, 1200));
     
-    // Simulations-Daten
+    // Simulations-Daten (Repräsentiert den Stand im AD)
     let adUsers = [
       { username: 'm.mustermann', first: 'Max', last: 'Mustermann', email: 'm.mustermann@compliance-hub.local', dept: 'IT & Digitalisierung', title: 'Systemadministrator', company: 'Wohnbau Nord' },
       { username: 'e.beispiel', first: 'Erika', last: 'Beispiel', email: 'e.beispiel@compliance-hub.local', dept: 'Recht', title: 'Datenschutz', company: 'Wohnbau Nord' },
       { username: 'a.baeck', first: 'Andreas', last: 'Baeck', email: 'a.baeck@compliance-hub.local', dept: 'Technik', title: 'Hausmeister', company: 'Wohnbau Nord' },
       { username: 'j.schmidt', first: 'Julia', last: 'Schmidt', email: 'j.schmidt@compliance-hub.local', dept: 'Finanzen', title: 'Buchhaltung', company: 'Wohnbau Nord' },
       { username: 'ext.kratz', first: 'Marcel', last: 'Kratzing', email: 'm.kratz@extern.de', dept: 'Beratung', title: 'Externer Berater', company: 'Extern' },
-      { username: 's.test', first: 'Stefan', last: 'Testmann', email: 'stefan.test@compliance-hub.local', dept: 'Entwicklung', title: 'Tester', company: 'Wohnbau Nord' }
+      { username: 's.test', first: 'Stefan', last: 'Testmann', email: 'stefan.test@compliance-hub.local', dept: 'Entwicklung', title: 'Tester', company: 'Wohnbau Nord' },
+      { username: 'h.aecker', first: 'Hermann', last: 'Aecker', email: 'h.aecker@compliance-hub.local', dept: 'Finanzen', title: 'Kreditoren', company: 'Wohnbau Nord' },
+      { username: 'l.lüdenscheid', first: 'Lars', last: 'Lüdenscheid', email: 'l.luedenscheid@compliance-hub.local', dept: 'IT', title: 'Junior Admin', company: 'Wohnbau Nord' }
     ];
 
     // Filter simulation by query
@@ -148,6 +157,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
     const mapped = adUsers.map(adUser => {
       const normAdCompany = normalizeForMatch(adUser.company);
       
+      // Match tenant by name or slug using fuzzy normalization
       let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany);
       
       if (!matchedTenant) {
@@ -161,12 +171,11 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       };
     });
 
-    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer gefunden`, { 
+    await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'success', `${mapped.length} Benutzer im AD gefunden`, { 
       query: searchQuery, 
-      baseDn: config.ldapBaseDn,
-      filter: config.ldapUserFilter,
-      results: mapped 
+      results: mapped.map(u => u.username)
     });
+    
     return mapped;
   } catch (e: any) {
     await logLdapInteraction(dataSource, config.id || 'global', 'AD Enumeration', 'error', e.message, e);

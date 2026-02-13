@@ -240,7 +240,7 @@ export default function SyncSettingsPage() {
                   <Input value={tenantDraft.ldapPort || ''} onChange={e => setTenantDraft({...tenantDraft, ldapPort: e.target.value})} placeholder="389 / 636" className="rounded-xl h-12" />
                 </div>
                 <div className="space-y-3 lg:col-span-3">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Base DN</Label>
+                  <Label className="text-[10px) font-black uppercase text-slate-400 ml-1">Base DN</Label>
                   <Input value={tenantDraft.ldapBaseDn || ''} onChange={e => setTenantDraft({...tenantDraft, ldapBaseDn: e.target.value})} placeholder="OU=Users,DC=firma,DC=local" className="rounded-xl h-12" />
                 </div>
                 <div className="space-y-3">
