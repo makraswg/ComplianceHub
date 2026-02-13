@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -28,7 +27,8 @@ import {
   AlertTriangle,
   FileText,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Zap
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
