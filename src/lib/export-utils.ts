@@ -94,7 +94,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const pageWidth = doc.internal.pageSize.getWidth();
   const canvasWidth = pageWidth - (2 * margin);
   
-  // Koordinaten-Normalisierung (Scale & Fit)
   const xValues = nodes.map(n => positions[n.id]?.x || 0);
   const yValues = nodes.map(n => positions[n.id]?.y || 0);
   const minX = Math.min(...xValues);
@@ -105,13 +104,12 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
   const rangeX = (maxX - minX) || 1;
   const rangeY = (maxY - minY) || 1;
   
-  // Dynamische Skalierung
   const scale = Math.min((canvasWidth - 40) / rangeX, 0.4);
   const actualCanvasHeight = Math.max(60, rangeY * scale + 30);
 
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text('Ablauf-Visualisierung', margin, startY + 5);
+  doc.text('Ablauf-Visualisierung (Designer Map)', margin, startY + 5);
 
   const getPdfCoords = (id: string) => {
     const pos = positions[id] || { x: 0, y: 0 };
@@ -121,7 +119,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     };
   };
 
-  // Draw Edges (Pfeile)
   doc.setDrawColor(200);
   edges.forEach(edge => {
     const s = getPdfCoords(edge.source);
@@ -129,7 +126,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setLineWidth(0.2);
     doc.line(s.x, s.y, t.x, t.y);
     
-    // Pfeilspitze simulieren
     const angle = Math.atan2(t.y - s.y, t.x - s.x);
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle - Math.PI/6), t.y - 2 * Math.sin(angle - Math.PI/6));
     doc.line(t.x, t.y, t.x - 2 * Math.cos(angle + Math.PI/6), t.y - 2 * Math.sin(angle + Math.PI/6));
@@ -141,7 +137,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     }
   });
 
-  // Draw Nodes (Knoten)
   nodes.forEach((node, index) => {
     const { x, y } = getPdfCoords(node.id);
     const r = 4;
@@ -156,7 +151,6 @@ async function drawProcessGraph(doc: any, version: ProcessVersion, startY: numbe
     doc.setFillColor(color[0], color[1], color[2]);
     doc.circle(x, y, r, 'FD');
 
-    // Index-Nummer im Knoten
     doc.setFontSize(5);
     doc.setTextColor(node.type === 'subprocess' ? 255 : 0);
     doc.text(`${index + 1}`, x, y + 1.5, { align: 'center' });
@@ -180,7 +174,6 @@ function addPageDecorations(doc: any, tenant: Tenant) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     
-    // Header
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text(tenant.name, 14, 10);
@@ -188,7 +181,6 @@ function addPageDecorations(doc: any, tenant: Tenant) {
     doc.setDrawColor(230);
     doc.line(14, 12, pageWidth - 14, 12);
 
-    // Footer
     doc.line(14, pageHeight - 15, pageWidth - 14, pageHeight - 15);
     doc.text(`Seite ${i} von ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
     doc.text(`System: ComplianceHub • Export: ${new Date().toLocaleDateString()}`, 14, pageHeight - 10);
@@ -216,6 +208,16 @@ export async function exportDetailedProcessPdf(
     const dept = departments.find(d => d.id === process.responsibleDepartmentId);
     const owner = jobTitles.find(j => j.id === process.ownerRoleId);
 
+    // GRC Aggregation
+    const usedResourceIds = new Set<string>();
+    const usedFeatureIds = new Set<string>();
+    version.model_json.nodes.forEach(n => {
+      n.resourceIds?.forEach(id => usedResourceIds.add(id));
+      n.featureIds?.forEach(id => usedFeatureIds.add(id));
+    });
+    const resourceNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || 'Keine verknüpft';
+    const featureNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || 'Keine verknüpft';
+
     // Deckblatt
     doc.setFillColor(37, 99, 235);
     doc.rect(0, 0, 210, 40, 'F');
@@ -230,7 +232,7 @@ export async function exportDetailedProcessPdf(
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Organisation: ${tenant.name}`, 14, 70);
-    doc.text(`Status: ${process.status.toUpperCase()} | Version: ${version.version}.0 | Stand: ${timestamp}`, 14, 75);
+    doc.text(`Version: ${version.version}.0 | Stand: ${timestamp}`, 14, 75);
 
     // 1. Management Summary
     doc.setFontSize(14);
@@ -240,31 +242,33 @@ export async function exportDetailedProcessPdf(
     autoTable(doc, {
       startY: 100,
       body: [
-        ['Zuständige Abteilung', dept?.name || '---'],
-        ['Process Owner (Rolle)', owner?.name || '---'],
+        ['Verantwortliche Abteilung', dept?.name || '---'],
+        ['Verantwortlich (Rolle)', owner?.name || '---'],
+        ['Freigabe-Status', process.status.toUpperCase()],
+        ['IT-Ressourcen', resourceNames],
+        ['Verarbeitete Daten', featureNames],
         ['Automatisierungsgrad', process.automationLevel || 'manuell'],
         ['Frequenz', process.processingFrequency || 'on demand'],
-        ['Input (Eingang)', process.inputs || 'Keine Angabe'],
-        ['Output (Ergebnis)', process.outputs || 'Keine Angabe']
+        ['Input (Eingang)', process.inputs || '---'],
+        ['Output (Ergebnis)', process.outputs || '---']
       ],
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 3 },
-      columnStyles: { 0: { fontStyle: 'bold', width: 50, fillColor: [245, 247, 250] } }
+      styles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 55, fillColor: [245, 247, 250] } }
     });
 
     // 2. Visuelle Darstellung
     const graphY = (doc as any).lastAutoTable.finalY + 15;
     const tableY = await drawProcessGraph(doc, version, graphY);
 
-    // 3. Operative Details (Tabellarisch)
+    // 3. Operative Details
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235);
-    doc.text('2. Operativer Leitfaden & GRC-Bezug', 14, tableY + 5);
+    doc.text('2. Operativer Leitfaden & Durchführung', 14, tableY + 5);
     
     const stepsData = (version.model_json.nodes || []).map((node, index) => {
       const role = jobTitles.find(j => j.id === node.roleId);
-      const resNames = resources.filter(r => node.resourceIds?.includes(r.id)).map(r => r.name).join(', ');
-      const featNames = allFeatures.filter(f => node.featureIds?.includes(f.id)).map(f => f.name).join(', ');
+      const nodeRes = resources.filter(r => node.resourceIds?.includes(r.id)).map(r => r.name).join(', ');
       
       const details = [
         node.description ? `Tätigkeit: ${node.description}` : '',
@@ -278,14 +282,15 @@ export async function exportDetailedProcessPdf(
         .map(e => {
           const targetNode = version.model_json.nodes.find(n => n.id === e.target);
           const targetIndex = version.model_json.nodes.findIndex(n => n.id === e.target) + 1;
-          return `${e.label ? '['+e.label+'] → ' : '→ '}(${targetIndex}) ${targetNode?.title}`;
+          const decisionLabel = e.label ? `[${e.label}] ` : '';
+          return `${decisionLabel}→ (${targetIndex}) ${targetNode?.title}`;
         })
         .join('\n');
 
       return [
         { content: `${index + 1}. ${node.title}`, styles: { fontStyle: 'bold' } },
         role?.name || '---',
-        `${resNames}${resNames && featNames ? ' | ' : ''}${featNames}` || '---',
+        nodeRes || '---',
         details || '---',
         successors || 'Ende'
       ];
@@ -293,16 +298,16 @@ export async function exportDetailedProcessPdf(
 
     autoTable(doc, {
       startY: tableY + 10,
-      head: [['Nr / Schritt', 'Verantwortung', 'Systeme / Daten', 'Durchführung & Hilfen', 'Nächste Schritte']],
+      head: [['Nr / Schritt', 'Zuständigkeit', 'Systeme', 'Durchführung & Hilfen', 'Nächster Schritt']],
       body: stepsData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], fontSize: 8 },
-      styles: { fontSize: 7, cellPadding: 4, overflow: 'linebreak' },
+      styles: { fontSize: 7, cellPadding: 3.5, overflow: 'linebreak' },
       columnStyles: { 
         0: { width: 35 }, 
         1: { width: 30 }, 
-        2: { width: 35 },
-        3: { width: 55 },
+        2: { width: 30 },
+        3: { width: 60 },
         4: { width: 35 }
       }
     });
@@ -343,46 +348,54 @@ export async function exportProcessManualPdf(
     doc.text(tenant.name, 105, 115, { align: 'center' });
     doc.setFontSize(12);
     doc.setTextColor(150);
-    doc.text(`Gesamtdokumentation der Geschäftsprozesse`, 105, 135, { align: 'center' });
+    doc.text(`Zentrale Prozessdokumentation & GRC-Nachweis`, 105, 135, { align: 'center' });
     doc.text(`Stand: ${now} | Umfang: ${processes.length} Prozesse`, 105, 142, { align: 'center' });
 
-    // Inhaltsverzeichnis
+    // Inhaltsverzeichnis (TOC) - Placeholder
     doc.addPage();
     doc.setTextColor(0);
     doc.setFontSize(18);
     doc.text('Inhaltsverzeichnis', 14, 30);
-    let tocY = 45;
+    
+    const tocData: any[] = [];
+    const processPages: Record<string, number> = {};
 
-    processes.forEach((p, idx) => {
-      doc.setFontSize(10);
-      doc.text(`${idx + 1}. ${p.title}`, 14, tocY);
-      doc.text(`..........`, 150, tocY);
-      tocY += 8;
-      if (tocY > 270) { doc.addPage(); tocY = 20; }
-    });
-
-    // Prozesse einzeln generieren
+    // Prozesse generieren und Positionen merken
     for (const p of processes) {
       const ver = versions.find(v => v.process_id === p.id && v.version === p.currentVersion);
       if (!ver) continue;
 
       doc.addPage();
+      processPages[p.id] = (doc as any).internal.getNumberOfPages();
+      
       doc.setFontSize(22);
       doc.setTextColor(37, 99, 235);
       doc.text(p.title, 14, 30);
       doc.setDrawColor(230);
       doc.line(14, 35, 196, 35);
 
+      // GRC Header
+      const usedResourceIds = new Set<string>();
+      const usedFeatureIds = new Set<string>();
+      ver.model_json.nodes.forEach(n => {
+        n.resourceIds?.forEach(id => usedResourceIds.add(id));
+        n.featureIds?.forEach(id => usedFeatureIds.add(id));
+      });
+      const resNames = resources.filter(r => usedResourceIds.has(r.id)).map(r => r.name).join(', ') || '---';
+      const featNames = allFeatures.filter(f => usedFeatureIds.has(f.id)).map(f => f.name).join(', ') || '---';
+
       autoTable(doc, {
         startY: 40,
         body: [
-          ['Abteilung', departments.find(d => d.id === p.responsibleDepartmentId)?.name || '---'],
-          ['Owner', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
-          ['Automation', p.automationLevel || '---']
+          ['Verantwortliche Abteilung', departments.find(d => d.id === p.responsibleDepartmentId)?.name || '---'],
+          ['Verantwortlich (Rolle)', jobTitles.find(j => j.id === p.ownerRoleId)?.name || '---'],
+          ['IT-Infrastruktur', resNames],
+          ['Verarbeitete Daten', featNames],
+          ['Freigabe-Status', p.status.toUpperCase()]
         ],
-        theme: 'plain',
-        styles: { fontSize: 8 },
-        columnStyles: { 0: { fontStyle: 'bold', width: 30 } }
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 2 },
+        columnStyles: { 0: { fontStyle: 'bold', width: 45, fillColor: [245, 247, 250] } }
       });
 
       const graphY = (doc as any).lastAutoTable.finalY + 10;
@@ -390,14 +403,15 @@ export async function exportProcessManualPdf(
 
       autoTable(doc, {
         startY: tableY + 5,
-        head: [['Nr', 'Schritt', 'Rolle', 'Tätigkeit / Hinweise', 'Nächster']],
+        head: [['Nr', 'Arbeitsschritt', 'Zuständigkeit', 'Durchführung / Hilfen', 'Nächster Schritt']],
         body: ver.model_json.nodes.map((n, i) => {
           const succs = ver.model_json.edges
             .filter(e => e.source === n.id)
             .map(e => {
               const targetNode = ver.model_json.nodes.find(node => node.id === e.target);
               const targetIdx = ver.model_json.nodes.findIndex(node => node.id === e.target) + 1;
-              return `(${targetIdx}) ${targetNode?.title}`;
+              const decisionLabel = e.label ? `[${e.label}] ` : '';
+              return `${decisionLabel}→ (${targetIdx}) ${targetNode?.title}`;
             }).join('\n');
 
           const detailInfo = [
@@ -415,10 +429,23 @@ export async function exportProcessManualPdf(
           ];
         }),
         theme: 'striped',
-        styles: { fontSize: 7, cellPadding: 3 },
-        columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 60 } }
+        styles: { fontSize: 6.5, cellPadding: 2.5 },
+        columnStyles: { 0: { width: 8 }, 1: { width: 35 }, 3: { width: 65 }, 4: { width: 35 } }
       });
+
+      tocData.push([`${tocData.length + 1}. ${p.title}`, processPages[p.id].toString()]);
     }
+
+    // Zurück zur TOC Seite und Daten schreiben
+    doc.setPage(2);
+    autoTable(doc, {
+      startY: 40,
+      head: [['Prozessbezeichnung', 'Seite']],
+      body: tocData,
+      theme: 'plain',
+      styles: { fontSize: 9, cellPadding: 2 },
+      columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+    });
 
     addPageDecorations(doc, tenant);
     doc.save(`Prozesshandbuch_${tenant.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
