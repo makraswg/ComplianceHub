@@ -143,7 +143,7 @@ export default function DashboardPage() {
         const reviewed = deptAssignments.filter((a: any) => !!a.lastReviewedAt).length;
         const score = total > 0 ? Math.floor((reviewed * 100) / total) : 100;
 
-        return { name: d.name, score: score, count: total };
+        return { id: d.id, name: d.name, score: score, count: total };
     }).sort((a, b) => b.score - a.score).slice(0, 5);
 
     return { resilienceScore, riskCoverage, deptRanking: deptStats };
@@ -229,7 +229,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="p-6 space-y-4">
                 {complianceHealth.deptRanking.map((dept, idx) => (
-                    <div key={dept.name} className="space-y-1.5">
+                    <div key={dept.id || idx} className="space-y-1.5">
                         <div className="flex items-center justify-between text-[10px] font-bold">
                             <div className="flex items-center gap-2">
                                 <span className="w-4 text-slate-300 font-black italic">#{idx+1}</span>
