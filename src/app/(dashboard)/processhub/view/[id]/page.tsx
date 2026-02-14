@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
@@ -51,7 +52,9 @@ import {
   Image as ImageIcon,
   Paperclip,
   FileDown,
-  RefreshCw
+  RefreshCw,
+  ArrowDownCircle,
+  ArrowUpCircle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -340,6 +343,9 @@ function ProcessDetailViewContent() {
   }, [jobTitles, departments]);
 
   if (!mounted) return null;
+  if (isTenantsLoading) return null;
+
+  const isTenantsLoading = !tenants;
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-50 relative w-full">
@@ -368,24 +374,122 @@ function ProcessDetailViewContent() {
 
       <div className="flex-1 flex overflow-hidden h-full relative">
         <aside className="w-80 border-r bg-white flex flex-col shrink-0 hidden lg:flex shadow-sm">
-          <ScrollArea className="flex-1 p-6 space-y-10">
+          <ScrollArea className="flex-1 p-6 space-y-8">
             <section className="space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2"><Info className="w-3.5 h-3.5" /> Stammdaten</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                <Info className="w-3.5 h-3.5" /> Stammdaten & Kontext
+              </h3>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
-                  <p className="text-xs font-bold text-slate-800">{departments?.find(d => d.id === currentProcess?.responsibleDepartmentId)?.name || '---'}</p>
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Kurzbeschreibung</Label>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium italic">
+                    "{currentProcess?.description || 'Keine Beschreibung verfügbar.'}"
+                  </p>
                 </div>
+                
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
+                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                    <Building2 className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[11px] font-bold text-slate-800">
+                      {departments?.find(d => d.id === currentProcess?.responsibleDepartmentId)?.name || '---'}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="space-y-1">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Process Owner</Label>
-                  <p className="text-xs font-bold text-slate-800">{getFullRoleName(currentProcess?.ownerRoleId)}</p>
+                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+                    <span className="text-[11px] font-bold text-slate-800">
+                      {getFullRoleName(currentProcess?.ownerRoleId)}
+                    </span>
+                  </div>
                 </div>
+
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Automatisierungsgrad</Label>
-                  <Badge variant="outline" className="text-[9px] font-black h-5 px-2 bg-slate-50 uppercase border-slate-200">{currentProcess?.automationLevel || 'manual'}</Badge>
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Regulatorik / Framework</Label>
+                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                    <Scale className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-[11px] font-bold text-slate-800">
+                      {currentProcess?.regulatoryFramework || 'Allgemeiner Standard'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </section>
+
+            <section className="space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 border-b pb-2 flex items-center gap-2">
+                <Workflow className="w-3.5 h-3.5" /> ISO Schnittstellen
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Eingang (Inputs)</Label>
+                  <div className="p-2.5 bg-indigo-50/30 border border-indigo-100 rounded-xl flex items-start gap-2">
+                    <ArrowDownCircle className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold text-slate-700 leading-tight">{currentProcess?.inputs || '---'}</p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400">Ausgang (Outputs)</Label>
+                  <div className="p-2.5 bg-emerald-50/30 border border-emerald-100 rounded-xl flex items-start gap-2">
+                    <ArrowUpCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold text-slate-700 leading-tight">{currentProcess?.outputs || '---'}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                <Activity className="w-3.5 h-3.5" /> Operative Metriken
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-2 bg-slate-50 rounded-lg border flex flex-col gap-1">
+                  <span className="text-[8px] font-black text-slate-400 uppercase">Automation</span>
+                  <Badge variant="outline" className="text-[9px] font-black h-5 border-none bg-white shadow-sm">{currentProcess?.automationLevel || 'manual'}</Badge>
+                </div>
+                <div className="p-2 bg-slate-50 rounded-lg border flex flex-col gap-1">
+                  <span className="text-[8px] font-black text-slate-400 uppercase">Frequenz</span>
+                  <Badge variant="outline" className="text-[9px] font-black h-5 border-none bg-white shadow-sm">{currentProcess?.processingFrequency?.replace('_', ' ') || 'on demand'}</Badge>
+                </div>
+                <div className="p-2 bg-slate-50 rounded-lg border flex flex-col gap-1 col-span-2">
+                  <span className="text-[8px] font-black text-slate-400 uppercase">Datenvolumen</span>
+                  <Badge variant="outline" className="text-[9px] font-black h-5 border-none bg-white shadow-sm">{currentProcess?.dataVolume || 'low'}</Badge>
+                </div>
+              </div>
+            </section>
+
+            {currentProcess?.kpis && (
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
+                  <Target className="w-3.5 h-3.5 text-primary" /> Messgrößen (KPIs)
+                </h3>
+                <div className="p-3 bg-white border rounded-xl shadow-sm italic text-[11px] text-slate-600 leading-relaxed">
+                  {currentProcess.kpis}
+                </div>
+              </section>
+            )}
+
+            {currentProcess?.openQuestions && (
+              <section className="space-y-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-600 border-b pb-2 flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5" /> Offene Punkte
+                </h3>
+                <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl text-[11px] text-amber-900 font-medium">
+                  {currentProcess.openQuestions}
+                </div>
+              </section>
+            )}
+
+            <div className="pb-20">
+              <div className="flex flex-wrap gap-1.5">
+                {currentProcess?.tags?.split(',').map((tag, i) => (
+                  <Badge key={i} className="bg-slate-100 text-slate-500 border-none text-[8px] font-black px-2 h-4 uppercase">{tag.trim()}</Badge>
+                ))}
+              </div>
+            </div>
           </ScrollArea>
         </aside>
 
