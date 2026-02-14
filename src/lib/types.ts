@@ -127,6 +127,7 @@ export interface PlatformRole {
     risks: 'none' | 'read' | 'write';
     processhub: 'none' | 'read' | 'write';
     gdpr: 'none' | 'read' | 'write';
+    policies: 'none' | 'read' | 'write';
     settings: 'none' | 'read' | 'write';
     audit: 'none' | 'read' | 'write';
     media: 'none' | 'read' | 'write';
@@ -263,9 +264,11 @@ export interface ProcessType {
 export interface Policy {
   id: string;
   tenantId: string;
+  parentId?: string; // Neu: Für Vererbung
   title: string;
   type: 'DA' | 'BV' | 'ISK' | 'DS';
   ownerRoleId?: string;
+  ownerUserId?: string; // Neu: Für feingranulare Rechte
   reviewInterval: number;
   status: 'draft' | 'review' | 'published' | 'archived';
   currentVersion: number;
@@ -279,11 +282,18 @@ export interface PolicyVersion {
   policyId: string;
   version: number;
   revision: number;
-  content: string; // Markdown
+  content: string; // Markdown/HTML
   changelog?: string;
   validFrom?: string;
   createdBy: string;
   createdAt: string;
+}
+
+export interface PolicyPermission {
+  id: string;
+  policyId: string;
+  platformRoleId: string;
+  permission: 'read' | 'write';
 }
 
 export interface RegulatoryOption {

@@ -2,13 +2,13 @@
 'use server';
 
 import { saveCollectionRecord, deleteCollectionRecord, getSingleRecord, getCollectionData } from './mysql-actions';
-import { Policy, PolicyVersion, DataSource } from '@/lib/types';
+import { Policy, PolicyVersion, PolicyPermission, DataSource } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
 /**
  * Speichert oder aktualisiert eine Richtlinie (Metadaten).
  */
-export async function savePolicyAction(policy: Partial<Policy>, dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
+export async function savePolicyAction(policy: Partial<Policy>, dataSource: DataSource = 'mysql', actorEmail: string = 'system', actorUserId: string = 'system') {
   const isNew = !policy.id;
   const id = policy.id || `pol-${Math.random().toString(36).substring(2, 9)}`;
   const now = new Date().toISOString();
@@ -18,6 +18,7 @@ export async function savePolicyAction(policy: Partial<Policy>, dataSource: Data
     id,
     tenantId: policy.tenantId || 'global',
     status: policy.status || 'draft',
+    ownerUserId: policy.ownerUserId || actorUserId,
     createdAt: policy.createdAt || now,
     updatedAt: now,
     currentVersion: policy.currentVersion || 1,
@@ -40,6 +41,49 @@ export async function savePolicyAction(policy: Partial<Policy>, dataSource: Data
   } catch (e: any) {
     return { success: false, error: e.message };
   }
+}
+
+/**
+ * Gibt eine Richtlinie offiziell frei (Status published).
+ */
+export async function approvePolicyAction(policyId: string, actorEmail: string, dataSource: DataSource = 'mysql') {
+  try {
+    const policyRes = await getSingleRecord('policies', policyId, dataSource);
+    const policy = policyRes.data as Policy;
+    if (!policy) throw new Error("Richtlinie nicht gefunden.");
+
+    const updated = { ...policy, status: 'published' as const, updatedAt: new Date().toISOString() };
+    const res = await saveCollectionRecord('policies', policyId, updated, dataSource);
+    
+    if (res.success) {
+      await logAuditEventAction(dataSource as any, {
+        tenantId: policy.tenantId,
+        actorUid: actorEmail,
+        action: `Richtlinie offiziell freigegeben: ${policy.title}`,
+        entityType: 'policy',
+        entityId: policyId,
+        after: updated
+      });
+    }
+    return res;
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/**
+ * Speichert eine Berechtigung für eine Richtlinie.
+ */
+export async function savePolicyPermissionAction(permission: Omit<PolicyPermission, 'id'>, dataSource: DataSource = 'mysql') {
+  const id = `perm-${permission.policyId}-${permission.platformRoleId}`;
+  return await saveCollectionRecord('policy_permissions', id, { ...permission, id }, dataSource);
+}
+
+/**
+ * Entfernt eine Berechtigung von einer Richtlinie.
+ */
+export async function removePolicyPermissionAction(id: string, dataSource: DataSource = 'mysql') {
+  return await deleteCollectionRecord('policy_permissions', id, dataSource);
 }
 
 /**
@@ -120,13 +164,13 @@ export async function commitPolicyVersionAction(
         ...policy,
         currentVersion: nextVersion,
         updatedAt: now,
-        status: isMajor ? 'published' : (policy.status === 'draft' ? 'review' : policy.status)
+        status: isMajor ? 'review' : (policy.status === 'draft' ? 'review' : policy.status)
       }, dataSource);
 
       await logAuditEventAction(dataSource as any, {
         tenantId: policy.tenantId,
         actorUid: actorEmail,
-        action: `Richtlinie "${policy.title}": ${isMajor ? 'Neue Hauptversion freigegeben' : 'Revision gespeichert'} (V${nextVersion}.${nextRevision})`,
+        action: `Richtlinie "${policy.title}": ${isMajor ? 'Neue Hauptversion zur Prüfung' : 'Revision gespeichert'} (V${nextVersion}.${nextRevision})`,
         entityType: 'policy',
         entityId: policyId,
         after: { version: nextVersion, revision: nextRevision, changelog }

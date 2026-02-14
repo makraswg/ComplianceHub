@@ -300,9 +300,11 @@ export const appSchema: AppSchema = {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
       tenantId: 'VARCHAR(255) NOT NULL',
+      parentId: 'VARCHAR(255)', // Neu: Für Vererbung
       title: 'VARCHAR(255) NOT NULL',
       type: 'VARCHAR(50) NOT NULL', 
       ownerRoleId: 'VARCHAR(255)',
+      ownerUserId: 'VARCHAR(255)', // Neu
       reviewInterval: 'INT DEFAULT 365',
       status: 'VARCHAR(50) DEFAULT "draft"',
       currentVersion: 'INT DEFAULT 1',
@@ -322,6 +324,14 @@ export const appSchema: AppSchema = {
       validFrom: 'VARCHAR(50)',
       createdBy: 'VARCHAR(255)',
       createdAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
+  policy_permissions: { // Neu
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      policyId: 'VARCHAR(255) NOT NULL',
+      platformRoleId: 'VARCHAR(255) NOT NULL',
+      permission: 'VARCHAR(20) NOT NULL', // 'read' | 'write'
     }
   },
   policy_links: {

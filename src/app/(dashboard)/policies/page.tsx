@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -31,7 +32,9 @@ import {
   Zap,
   LayoutGrid,
   Library,
-  Network
+  Network,
+  Lock,
+  ChevronDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,6 +76,7 @@ export default function PoliciesPage() {
   // Form State
   const [title, setTitle] = useState('');
   const [type, setType] = useState<Policy['type']>('DA');
+  const [parentId, setParentId] = useState<string>('none');
   const [ownerRoleId, setOwnerRoleId] = useState('');
   const [reviewInterval, setReviewInterval] = useState('365');
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -95,10 +99,12 @@ export default function PoliciesPage() {
         ...selectedPolicy,
         title,
         type,
+        parentId: parentId === 'none' ? undefined : parentId,
         ownerRoleId: ownerRoleId === 'none' ? undefined : ownerRoleId,
+        ownerUserId: user?.id,
         reviewInterval: parseInt(reviewInterval),
         tenantId: targetTenantId
-      }, dataSource, user?.email || 'system');
+      }, dataSource, user?.email || 'system', user?.id || 'system');
 
       if (res.success && importFile) {
         const reader = new FileReader();
@@ -139,6 +145,7 @@ export default function PoliciesPage() {
     setSelectedPolicy(null);
     setTitle('');
     setType('DA');
+    setParentId('none');
     setOwnerRoleId('none');
     setReviewInterval('365');
     setImportFile(null);
@@ -148,6 +155,7 @@ export default function PoliciesPage() {
     setSelectedPolicy(p);
     setTitle(p.title);
     setType(p.type);
+    setParentId(p.parentId || 'none');
     setOwnerRoleId(p.ownerRoleId || 'none');
     setReviewInterval(p.reviewInterval.toString());
     setImportFile(null);
@@ -176,12 +184,12 @@ export default function PoliciesPage() {
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-emerald-100 text-emerald-700 text-[9px] font-bold border-none uppercase tracking-widest">Policy Hub</Badge>
             <h1 className="text-2xl font-headline font-bold text-slate-800 dark:text-white uppercase tracking-tight">Richtlinien & Vorgaben</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung eigenständiger Dokumente und Richtlinien.</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Zentrale Verwaltung und Freigabe eigenständiger Richtlinien.</p>
           </div>
         </div>
         <div className="flex gap-2">
           <Button size="sm" className="h-9 rounded-xl font-bold text-xs px-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg active:scale-95 transition-all" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Neues Dokument
+            <Plus className="w-3.5 h-3.5 mr-2" /> Dokument anlegen
           </Button>
         </div>
       </div>
@@ -226,55 +234,67 @@ export default function PoliciesPage() {
             <TableHeader className="bg-slate-50/50 dark:bg-slate-700/50">
               <TableRow className="border-b dark:border-slate-700">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Dokument / Titel</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Typ</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Status</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Version</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Status</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Zuständigkeit</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPolicies.map(p => (
-                <TableRow key={p.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b dark:border-slate-700 last:border-0 cursor-pointer" onClick={() => router.push(`/policies/${p.id}`)}>
-                  <TableCell className="py-4 px-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center border shadow-inner bg-emerald-50 text-emerald-600 border-emerald-100">
-                        <FileText className="w-4 h-4" />
+              {filteredPolicies.map(p => {
+                const parent = policies.find(parent => parent.id === p.parentId);
+                return (
+                  <TableRow key={p.id} className="group hover:bg-slate-50 dark:hover:bg-slate-700/50 border-b dark:border-slate-700 last:border-0 cursor-pointer" onClick={() => router.push(`/policies/${p.id}`)}>
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-9 h-9 rounded-lg flex items-center justify-center border shadow-inner transition-colors",
+                          p.status === 'published' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-blue-50 text-blue-600 border-blue-100"
+                        )}>
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">{p.title}</div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Badge variant="outline" className="text-[7px] font-black h-3.5 px-1.5 border-slate-200 text-slate-500 uppercase">{p.type}</Badge>
+                            {parent && (
+                              <span className="text-[8px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" /> Erbt von: {parent.title}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-bold text-sm text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition-colors">{p.title}</div>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{getTenantSlug(p.tenantId)}</p>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge className={cn(
+                        "rounded-full text-[9px] font-black h-5 px-3 border-none shadow-sm uppercase",
+                        p.status === 'published' ? "bg-emerald-500 text-white" : p.status === 'review' ? "bg-orange-500 text-white" : "bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300"
+                      )}>{p.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-400">
+                        <Briefcase className="w-3.5 h-3.5 text-slate-300" />
+                        {jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'Owner-Stelle offen'}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-[8px] font-black h-4 px-1.5 border-slate-200 text-slate-500 uppercase">{p.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={cn(
-                      "rounded-full text-[9px] font-black h-5 px-3 border-none shadow-sm uppercase",
-                      p.status === 'published' ? "bg-emerald-500 text-white" : "bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300"
-                    )}>{p.status}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400">V{p.currentVersion}.0</span>
-                  </TableCell>
-                  <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/policies/${p.id}`)}><Eye className="w-3.5 h-3.5 text-primary" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5 text-slate-400" /></Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 dark:hover:bg-slate-600 transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
-                          <DropdownMenuItem onSelect={() => router.push(`/policies/${p.id}`)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Eye className="w-4 h-4 text-emerald-600" /> Details & Editor</DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => openEdit(p)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Pencil className="w-4 h-4 text-slate-400" /> Metadaten</DropdownMenuItem>
-                          <DropdownMenuSeparator className="my-1" />
-                          <DropdownMenuItem className="text-red-600 rounded-lg py-2.5 gap-3 text-xs font-bold" onSelect={() => { if(confirm("Richtlinie permanent löschen?")) deletePolicyAction(p.id, dataSource).then(() => refresh()); }}><Trash2 className="w-4 h-4" /> Löschen</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/policies/${p.id}`)}><Eye className="w-3.5 h-3.5 text-primary" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5 text-slate-400" /></Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-slate-100 dark:hover:bg-slate-600 transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
+                            <DropdownMenuItem onSelect={() => router.push(`/policies/${p.id}`)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Eye className="w-4 h-4 text-emerald-600" /> Details & Editor</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openEdit(p)} className="rounded-lg py-2.5 gap-3 text-xs font-bold"><Pencil className="w-4 h-4 text-slate-400" /> Metadaten & Vererbung</DropdownMenuItem>
+                            <DropdownMenuSeparator className="my-1" />
+                            <DropdownMenuItem className="text-red-600 rounded-lg py-2.5 gap-3 text-xs font-bold" onSelect={() => { if(confirm("Richtlinie permanent löschen?")) deletePolicyAction(p.id, dataSource).then(() => refresh()); }}><Trash2 className="w-4 h-4" /> Löschen</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}
@@ -288,8 +308,8 @@ export default function PoliciesPage() {
                 <ScrollText className="w-6 h-6" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedPolicy ? 'Richtlinie bearbeiten' : 'Neue Richtlinie anlegen'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Dokumenten-Governance & Versionierung</DialogDescription>
+                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">{selectedPolicy ? 'Dokument bearbeiten' : 'Neues Dokument anlegen'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Dokumenten-Metadaten & Berechtigungs-Basis</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -320,6 +340,25 @@ export default function PoliciesPage() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Berechtigungs-Vererbung (Parent)</Label>
+                <Select value={parentId} onValueChange={setParentId}>
+                  <SelectTrigger className="rounded-xl h-11 bg-slate-50 border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <SelectValue placeholder="Keine Vererbung (Eigenständig)" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="none">Keine Vererbung (Eigenständig)</SelectItem>
+                    {policies?.filter(p => p.id !== selectedPolicy?.id).map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[9px] text-slate-400 font-medium px-1">Unterdokumente erben automatisch alle Zugriffsrechte des gewählten Eltern-Dokuments.</p>
+              </div>
+
               {!selectedPolicy && (
                 <div className="space-y-4 pt-4 border-t border-dashed">
                   <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2">
@@ -332,8 +371,8 @@ export default function PoliciesPage() {
                       <p className="text-xs font-bold text-emerald-600">{importFile.name}</p>
                     ) : (
                       <>
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Existierende Datei hochladen</p>
-                        <p className="text-[10px] text-slate-400">PDF oder Word importiert Metadaten und Archiv-Kopie</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Datei hochladen</p>
+                        <p className="text-[10px] text-slate-400">PDF oder Word importiert Metadaten & Archiv-Kopie</p>
                       </>
                     )}
                   </div>

@@ -20,7 +20,8 @@ import {
   BrainCircuit,
   Activity,
   Layers,
-  FileStack
+  FileStack,
+  ScrollText
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -55,6 +56,7 @@ export default function PlatformRolesPage() {
     risks: 'none',
     processhub: 'none',
     gdpr: 'none',
+    policies: 'none',
     settings: 'none',
     audit: 'none',
     media: 'none'
@@ -103,7 +105,7 @@ export default function PlatformRolesPage() {
     setName(role.name);
     setDescription(role.description || '');
     setPermissions(role.permissions || {
-      iam: 'read', risks: 'none', processhub: 'none', gdpr: 'none', settings: 'none', audit: 'none', media: 'none'
+      iam: 'read', risks: 'none', processhub: 'none', gdpr: 'none', policies: 'none', settings: 'none', audit: 'none', media: 'none'
     });
     setIsDialogOpen(true);
   };
@@ -117,6 +119,7 @@ export default function PlatformRolesPage() {
       risks: 'none',
       processhub: 'none',
       gdpr: 'none',
+      policies: 'none',
       settings: 'none',
       audit: 'none',
       media: 'none'
@@ -148,11 +151,11 @@ export default function PlatformRolesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm">
+          <div className="w-12 h-12 bg-indigo-500/10 text-indigo-600 flex items-center justify-center rounded-xl border border-indigo-100 shadow-sm">
             <Lock className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Plattform-Rollen</h1>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white uppercase">Plattform-Rollen</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Berechtigungsprofile für den Zugriff auf Plattform-Module.</p>
           </div>
         </div>
@@ -169,7 +172,7 @@ export default function PlatformRolesPage() {
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Rollenbezeichnung</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">IAM</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center">Risiko</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Medien</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 text-center">Policies</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -194,7 +197,7 @@ export default function PlatformRolesPage() {
                     <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.risks === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.risks}</Badge>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.media === 'write' ? "bg-indigo-50 text-indigo-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.media || 'none'}</Badge>
+                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.policies === 'write' ? "bg-indigo-50 text-indigo-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.policies || 'none'}</Badge>
                   </TableCell>
                   <TableCell className="text-right px-6">
                     <div className="flex justify-end gap-1">
@@ -238,6 +241,7 @@ export default function PlatformRolesPage() {
                   <PermSelector label="IAM & Identitäten" icon={Layers} value={perms.iam} onChange={(v: any) => setPermissions({...perms, iam: v})} />
                   <PermSelector label="Risikomanagement" icon={Activity} value={perms.risks} onChange={(v: any) => setPermissions({...perms, risks: v})} />
                   <PermSelector label="ProzessHub" icon={Layers} value={perms.processhub} onChange={(v: any) => setPermissions({...perms, processhub: v})} />
+                  <PermSelector label="PolicyHub" icon={ScrollText} value={perms.policies} onChange={(v: any) => setPermissions({...perms, policies: v})} />
                   <PermSelector label="Datenschutz (VVT)" icon={FileCheck} value={perms.gdpr} onChange={(v: any) => setPermissions({...perms, gdpr: v})} />
                   <PermSelector label="Medienverwaltung" icon={FileStack} value={perms.media} onChange={(v: any) => setPermissions({...perms, media: v})} />
                   <PermSelector label="Systemeinstellungen" icon={Settings2} value={perms.settings} onChange={(v: any) => setPermissions({...perms, settings: v})} />
