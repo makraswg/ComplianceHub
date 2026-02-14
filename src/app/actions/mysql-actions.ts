@@ -88,7 +88,6 @@ function normalizeRecord(item: any, tableName: string) {
     ai_sessions: ['context_json'],
     ai_messages: ['structured_json'],
     platformRoles: ['permissions'],
-    processes: ['regulatoryFramework'],
     jobTitles: ['entitlementIds']
   };
 

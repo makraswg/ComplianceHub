@@ -12,50 +12,31 @@ import {
   Info,
   Briefcase,
   Building2,
-  CheckCircle,
-  Eye,
-  AlertTriangle,
-  Lightbulb,
+  CheckCircle2,
   GitBranch,
   ArrowRight,
-  Shield,
   Clock,
-  User as UserIcon,
   Layers,
-  FileText,
-  Tag,
   Zap,
-  CheckCircle2,
   Target,
   Server,
   AlertCircle,
   FileCheck,
-  UserCircle,
   LayoutGrid,
   List,
   PlayCircle,
-  StopCircle,
-  HelpCircle,
   Maximize2,
   Minus,
   Plus,
   Edit3,
   ArrowRightCircle,
-  ArrowLeftCircle,
-  Terminal,
-  Focus,
-  BrainCircuit,
-  ChevronDown,
-  Scale,
-  Settings2,
-  Database,
-  Image as ImageIcon,
-  Paperclip,
-  FileDown,
-  RefreshCw,
   ArrowDownCircle,
   ArrowUpCircle,
-  Workflow
+  Workflow,
+  Scale,
+  Image as ImageLucide,
+  Paperclip,
+  FileDown
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,7 +54,6 @@ import {
   ProcessingActivity, 
   JobTitle,
   UiConfig,
-  ProcessType,
   MediaFile,
   Tenant
 } from '@/lib/types';
@@ -81,7 +61,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
 import { toast } from '@/hooks/use-toast';
 
@@ -109,6 +89,7 @@ function ProcessDetailViewContent() {
   
   const hasAutoCentered = useRef(false);
   const stateRef = useRef({ position, scale, guideMode });
+  
   useEffect(() => {
     stateRef.current = { position, scale, guideMode };
   }, [position, scale, guideMode]);
@@ -413,7 +394,7 @@ function ProcessDetailViewContent() {
                   <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
                     <Scale className="w-3.5 h-3.5 text-emerald-600" />
                     <span className="text-[11px] font-bold text-slate-800">
-                      {currentProcess?.regulatoryFramework || 'Allgemeiner Standard'}
+                      {String(currentProcess?.regulatoryFramework || 'Allgemeiner Standard')}
                     </span>
                   </div>
                 </div>
@@ -559,7 +540,7 @@ function ProcessDetailViewContent() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, getFullRoleName, expandedByDefault = false, animationsEnabled }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, getFullRoleName, expandedByDefault = false }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = expandedByDefault || (isMapMode && isActive);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
@@ -572,7 +553,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isExpanded ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
-            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <HelpCircle className="w-6 h-6" /> : node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <GitBranch className="w-6 h-6" /> : node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -638,7 +619,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   <div className="flex flex-wrap gap-2">
                     {nodeMedia.map((f: any) => (
                       <div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}>
-                        <ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}
+                        <ImageLucide className="w-3 h-3 text-indigo-400" /> {f.fileName}
                       </div>
                     ))}
                   </div>
