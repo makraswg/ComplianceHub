@@ -54,6 +54,8 @@ const collectionToTableMap: { [key: string]: string } = {
   process_ops: 'process_ops',
   policies: 'policies',
   policy_versions: 'policy_versions',
+  policy_permissions: 'policy_permissions',
+  policy_links: 'policy_links',
   ai_sessions: 'ai_sessions',
   ai_messages: 'ai_messages',
   uiConfigs: 'uiConfigs',
@@ -92,15 +94,25 @@ function normalizeRecord(item: any, tableName: string) {
 
   if (jsonFields[tableName]) {
     jsonFields[tableName].forEach(field => {
-      if (item[field] && typeof item[field] === 'string') {
-        try { normalized[field] = JSON.parse(item[field]); } catch (e) { normalized[field] = []; }
+      const rawValue = item[field];
+      if (rawValue && typeof rawValue === 'string' && rawValue.trim() !== '') {
+        try { 
+          normalized[field] = JSON.parse(rawValue); 
+        } catch (e) { 
+          console.warn(`[Normalizer] Invalid JSON in ${tableName}.${field}:`, rawValue);
+          normalized[field] = field.toLowerCase().endsWith('ids') || field.toLowerCase().endsWith('groups') ? [] : {}; 
+        }
+      } else if (rawValue === '' || rawValue === null || rawValue === undefined) {
+        normalized[field] = field.toLowerCase().endsWith('ids') || field.toLowerCase().endsWith('groups') ? [] : {};
       }
     });
   }
 
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant'];
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'ldapUseTls', 'ldapAllowInvalidSsl'];
   boolFields.forEach(f => {
-    if (normalized[f] !== undefined) normalized[f] = normalized[f] === 1 || normalized[f] === true;
+    if (normalized[f] !== undefined) {
+      normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
+    }
   });
   return normalized;
 }
@@ -120,6 +132,7 @@ export async function getCollectionData(collectionName: string, dataSource: Data
 
   try {
     const rows: any = await dbQuery(`SELECT * FROM \`${tableName}\``);
+    if (!Array.isArray(rows)) return { data: [], error: null };
     return { data: rows.map((item: any) => normalizeRecord(item, tableName)), error: null };
   } catch (error: any) {
     return { data: null, error: error.message };
@@ -196,9 +209,6 @@ export async function testMysqlConnectionAction() {
   return await testMysqlConnection();
 }
 
-/**
- * Aktualisiert das Passwort eines Plattform-Benutzers.
- */
 export async function updatePlatformUserPasswordAction(email: string, password: string) {
   const salt = bcrypt.genSaltSync(10);
   const hashedPassword = bcrypt.hashSync(password, salt);
@@ -212,7 +222,7 @@ export async function updatePlatformUserPasswordAction(email: string, password: 
 
 export async function truncateDatabaseAreasAction() {
   try {
-    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media', 'ldapLogs', 'policies', 'policy_versions'];
+    const tables = ['users', 'tenants', 'risks', 'riskMeasures', 'riskControls', 'resources', 'entitlements', 'assignments', 'processes', 'process_versions', 'auditEvents', 'tasks', 'media', 'ldapLogs', 'policies', 'policy_versions', 'policy_permissions', 'policy_links'];
     await dbQuery('SET FOREIGN_KEY_CHECKS = 0');
     for (const table of tables) {
       await dbQuery(`DELETE FROM \`${table}\``);

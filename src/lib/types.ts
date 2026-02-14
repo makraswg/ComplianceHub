@@ -17,7 +17,6 @@ export interface Tenant {
   ldapBindDn?: string;
   ldapBindPassword?: string;
   ldapUserFilter?: string;
-  // AD / LDAP Erweiterte Felder
   ldapDomain?: string;
   ldapUseTls?: boolean | number;
   ldapAllowInvalidSsl?: boolean | number;
@@ -29,7 +28,7 @@ export interface Tenant {
   ldapAttrEmail?: string;
   ldapAttrDepartment?: string;
   ldapAttrGroups?: string; 
-  ldapAttrCompany?: string; // Neu: Für Mandanten-Matching
+  ldapAttrCompany?: string; 
 }
 
 export interface Department {
@@ -89,7 +88,7 @@ export interface User {
   onboardingDate?: string;
   offboardingDate?: string;
   lastSyncedAt: string;
-  adGroups?: string[]; // Synchronisierte Gruppen aus memberOf
+  adGroups?: string[]; 
   authSource?: 'local' | 'ldap';
 }
 
@@ -123,9 +122,14 @@ export interface PlatformRole {
   name: string;
   description: string;
   permissions: {
-    iam: 'none' | 'read' | 'write';
+    users: 'none' | 'read' | 'write';
+    roles: 'none' | 'read' | 'write';
+    groups: 'none' | 'read' | 'write';
     risks: 'none' | 'read' | 'write';
+    measures: 'none' | 'read' | 'write';
+    controls: 'none' | 'read' | 'write';
     processhub: 'none' | 'read' | 'write';
+    features: 'none' | 'read' | 'write';
     gdpr: 'none' | 'read' | 'write';
     policies: 'none' | 'read' | 'write';
     settings: 'none' | 'read' | 'write';
@@ -264,11 +268,11 @@ export interface ProcessType {
 export interface Policy {
   id: string;
   tenantId: string;
-  parentId?: string; // Neu: Für Vererbung
+  parentId?: string; 
   title: string;
   type: 'DA' | 'BV' | 'ISK' | 'DS';
   ownerRoleId?: string;
-  ownerUserId?: string; // Neu: Für feingranulare Rechte
+  ownerUserId?: string; 
   reviewInterval: number;
   status: 'draft' | 'review' | 'published' | 'archived';
   currentVersion: number;
@@ -282,7 +286,7 @@ export interface PolicyVersion {
   policyId: string;
   version: number;
   revision: number;
-  content: string; // Markdown/HTML
+  content: string; 
   changelog?: string;
   validFrom?: string;
   createdBy: string;
@@ -381,8 +385,8 @@ export interface BackupJob {
   storage_location: string;
   description?: string;
   responsible_type: 'internal' | 'external';
-  responsible_id?: string; // Role ID for internal
-  external_contact_id?: string; // Contact ID for external
+  responsible_id?: string; 
+  external_contact_id?: string; 
   it_process_id?: string;
   detail_process_id?: string;
   lastReviewDate?: string;

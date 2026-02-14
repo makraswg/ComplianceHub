@@ -38,12 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Sitzung beim Laden aus LocalStorage wiederherstellen (nur Client-seitig)
     const savedUser = localStorage.getItem('platform_session');
-    if (savedUser) {
+    if (savedUser && savedUser !== 'undefined' && savedUser !== 'null' && savedUser.trim() !== '') {
       try {
         const parsedUser = JSON.parse(savedUser);
-        setUserState(parsedUser);
-        setSessionCookie(parsedUser);
+        if (parsedUser && typeof parsedUser === 'object') {
+          setUserState(parsedUser);
+          setSessionCookie(parsedUser);
+        }
       } catch (e) {
+        console.warn("[AuthContext] Session data invalid, clearing...");
         localStorage.removeItem('platform_session');
         setSessionCookie(null);
       }

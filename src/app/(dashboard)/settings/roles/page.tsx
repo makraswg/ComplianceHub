@@ -21,7 +21,13 @@ import {
   Activity,
   Layers,
   FileStack,
-  ScrollText
+  ScrollText,
+  Users,
+  Target,
+  ListFilter,
+  ClipboardList,
+  Fingerprint,
+  Workflow
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
@@ -52,9 +58,14 @@ export default function PlatformRolesPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [perms, setPermissions] = useState<PlatformRole['permissions']>({
-    iam: 'read',
+    users: 'read',
+    roles: 'none',
+    groups: 'none',
     risks: 'none',
+    measures: 'none',
+    controls: 'none',
     processhub: 'none',
+    features: 'none',
     gdpr: 'none',
     policies: 'none',
     settings: 'none',
@@ -105,7 +116,7 @@ export default function PlatformRolesPage() {
     setName(role.name);
     setDescription(role.description || '');
     setPermissions(role.permissions || {
-      iam: 'read', risks: 'none', processhub: 'none', gdpr: 'none', policies: 'none', settings: 'none', audit: 'none', media: 'none'
+      users: 'read', roles: 'none', groups: 'none', risks: 'none', measures: 'none', controls: 'none', processhub: 'none', features: 'none', gdpr: 'none', policies: 'none', settings: 'none', audit: 'none', media: 'none'
     });
     setIsDialogOpen(true);
   };
@@ -115,14 +126,7 @@ export default function PlatformRolesPage() {
     setName('');
     setDescription('');
     setPermissions({
-      iam: 'read',
-      risks: 'none',
-      processhub: 'none',
-      gdpr: 'none',
-      policies: 'none',
-      settings: 'none',
-      audit: 'none',
-      media: 'none'
+      users: 'read', roles: 'none', groups: 'none', risks: 'none', measures: 'none', controls: 'none', processhub: 'none', features: 'none', gdpr: 'none', policies: 'none', settings: 'none', audit: 'none', media: 'none'
     });
   };
 
@@ -191,7 +195,7 @@ export default function PlatformRolesPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.iam === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.iam}</Badge>
+                    <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.users === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.users || 'none'}</Badge>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className={cn("text-[8px] font-bold h-5", r.permissions?.risks === 'write' ? "bg-emerald-50 text-emerald-600 border-none" : "bg-slate-50 text-slate-400 border-none")}>{r.permissions?.risks}</Badge>
@@ -217,13 +221,13 @@ export default function PlatformRolesPage() {
       </Card>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
-          <DialogHeader className="p-6 bg-slate-50 dark:bg-slate-900 border-b shrink-0">
+        <DialogContent className="max-w-4xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                 <Lock className="w-5 h-5" />
               </div>
-              <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">Berechtigungsprofil</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-white">Berechtigungsprofil</DialogTitle>
             </div>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
@@ -235,17 +239,48 @@ export default function PlatformRolesPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h3 className="text-[11px] font-bold text-slate-400 uppercase border-b pb-2">Modul-Berechtigungen</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <PermSelector label="IAM & Identitäten" icon={Layers} value={perms.iam} onChange={(v: any) => setPermissions({...perms, iam: v})} />
-                  <PermSelector label="Risikomanagement" icon={Activity} value={perms.risks} onChange={(v: any) => setPermissions({...perms, risks: v})} />
-                  <PermSelector label="ProzessHub" icon={Layers} value={perms.processhub} onChange={(v: any) => setPermissions({...perms, processhub: v})} />
-                  <PermSelector label="PolicyHub" icon={ScrollText} value={perms.policies} onChange={(v: any) => setPermissions({...perms, policies: v})} />
-                  <PermSelector label="Datenschutz (VVT)" icon={FileCheck} value={perms.gdpr} onChange={(v: any) => setPermissions({...perms, gdpr: v})} />
-                  <PermSelector label="Medienverwaltung" icon={FileStack} value={perms.media} onChange={(v: any) => setPermissions({...perms, media: v})} />
-                  <PermSelector label="Systemeinstellungen" icon={Settings2} value={perms.settings} onChange={(v: any) => setPermissions({...perms, settings: v})} />
-                  <PermSelector label="Audit & Protokoll" icon={BrainCircuit} value={perms.audit} onChange={(v: any) => setPermissions({...perms, audit: v})} />
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-black uppercase text-primary border-b pb-2 flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5" /> AccessHub (Identitäten)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <PermSelector label="Benutzerverzeichnis" icon={Fingerprint} value={perms.users} onChange={(v: any) => setPermissions({...perms, users: v})} />
+                    <PermSelector label="Rollenverwaltung" icon={ShieldCheck} value={perms.roles} onChange={(v: any) => setPermissions({...perms, roles: v})} />
+                    <PermSelector label="Gruppen & Sync" icon={Workflow} value={perms.groups} onChange={(v: any) => setPermissions({...perms, groups: v})} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-black uppercase text-accent border-b pb-2 flex items-center gap-2">
+                    <Target className="w-3.5 h-3.5" /> RiskHub (Risikomanagement)
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <PermSelector label="Risikoinventar" icon={AlertTriangle} value={perms.risks} onChange={(v: any) => setPermissions({...perms, risks: v})} />
+                    <PermSelector label="Maßnahmenplan" icon={ClipboardList} value={perms.measures} onChange={(v: any) => setPermissions({...perms, measures: v})} />
+                    <PermSelector label="Kontroll-Monitoring" icon={ShieldCheck} value={perms.controls} onChange={(v: any) => setPermissions({...perms, controls: v})} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-black uppercase text-emerald-600 border-b pb-2 flex items-center gap-2">
+                    <Workflow className="w-3.5 h-3.5" /> WorkflowHub & Dokumente
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <PermSelector label="Prozessübersicht" icon={Layers} value={perms.processhub} onChange={(v: any) => setPermissions({...perms, processhub: v})} />
+                    <PermSelector label="Datenmanagement" icon={ListFilter} value={perms.features} onChange={(v: any) => setPermissions({...perms, features: v})} />
+                    <PermSelector label="VVT & DSGVO" icon={FileCheck} value={perms.gdpr} onChange={(v: any) => setPermissions({...perms, gdpr: v})} />
+                    <PermSelector label="Richtlinien-Register" icon={ScrollText} value={perms.policies} onChange={(v: any) => setPermissions({...perms, policies: v})} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-[11px] font-black uppercase text-slate-400 border-b pb-2">System & Infrastruktur</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <PermSelector label="Medienverwaltung" icon={FileStack} value={perms.media} onChange={(v: any) => setPermissions({...perms, media: v})} />
+                    <PermSelector label="Systemeinstellungen" icon={Settings2} value={perms.settings} onChange={(v: any) => setPermissions({...perms, settings: v})} />
+                    <PermSelector label="Audit & Protokoll" icon={BrainCircuit} value={perms.audit} onChange={(v: any) => setPermissions({...perms, audit: v})} />
+                  </div>
                 </div>
               </div>
             </div>

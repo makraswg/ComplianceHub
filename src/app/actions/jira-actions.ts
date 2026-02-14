@@ -5,8 +5,19 @@ import { getCollectionData, saveCollectionRecord } from './mysql-actions';
 import { JiraConfig, JiraSyncItem, DataSource, Resource } from '@/lib/types';
 
 /**
- * Hilfsfunktion zum Bereinigen der Jira-URL.
+ * Hilfsfunktion zum sicheren Parsen von JSON aus Fetch-Responses.
  */
+async function safeParseJson(response: Response) {
+  const text = await response.text();
+  if (!text || text.trim() === '') return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("[Jira Action] JSON Parse Error:", e, "Raw Body:", text.substring(0, 200));
+    return null;
+  }
+}
+
 function cleanJiraUrl(url: string): string {
   if (!url) return '';
   let cleaned = url.trim();
@@ -30,17 +41,11 @@ function cleanJiraUrl(url: string): string {
   }
 }
 
-/**
- * Ruft die Jira-Konfiguration ab.
- */
 export async function getJiraConfigs(dataSource: DataSource = 'mysql'): Promise<JiraConfig[]> {
   const result = await getCollectionData('jiraConfigs', dataSource);
   return (result.data as JiraConfig[]) || [];
 }
 
-/**
- * Testet die Jira-Verbindung und liefert Informationen zum API-Token.
- */
 export async function testJiraConnectionAction(configData: Partial<JiraConfig>): Promise<{ 
   success: boolean; 
   message: string; 
@@ -66,7 +71,9 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
       return { success: false, message: `Jira antwortet mit Status ${status}` };
     }
 
-    const userData = await testRes.json();
+    const userData = await safeParseJson(testRes);
+    if (!userData) throw new Error("Leere Antwort von Jira erhalten.");
+    
     return { 
       success: true, 
       message: `Verbunden als ${userData.displayName}.`,
@@ -77,9 +84,6 @@ export async function testJiraConnectionAction(configData: Partial<JiraConfig>):
   }
 }
 
-/**
- * Ruft alle Projekte aus Jira ab.
- */
 export async function getJiraProjectsAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; projects?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
   const url = cleanJiraUrl(configData.url!);
@@ -91,14 +95,11 @@ export async function getJiraProjectsAction(configData: Partial<JiraConfig>): Pr
       cache: 'no-store'
     });
     if (!response.ok) return { success: false, error: `Jira API Fehler ${response.status}` };
-    const projects = await response.json();
+    const projects = await safeParseJson(response);
     return { success: true, projects: Array.isArray(projects) ? projects : [] };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-/**
- * Ruft Metadaten (Vorgangstypen und Status) für ein Projekt ab.
- */
 export async function getJiraProjectMetadataAction(configData: Partial<JiraConfig>, projectKey: string): Promise<{ 
   success: boolean; 
   issueTypes?: any[]; 
@@ -110,33 +111,28 @@ export async function getJiraProjectMetadataAction(configData: Partial<JiraConfi
   const auth = Buffer.from(`${configData.email}:${configData.apiToken}`).toString('base64');
 
   try {
-    // 1. Issue Types
     const itRes = await fetch(`${url}/rest/api/3/project/${projectKey}`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
     
     if (!itRes.ok) throw new Error(`Projekt-Metadaten Fehler ${itRes.status}`);
-    const projectData = await itRes.json();
-    const issueTypes = projectData.issueTypes || [];
+    const projectData = await safeParseJson(itRes);
+    const issueTypes = projectData?.issueTypes || [];
 
-    // 2. Statuses
     const stRes = await fetch(`${url}/rest/api/3/project/${projectKey}/statuses`, {
       headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
       cache: 'no-store'
     });
     
     if (!stRes.ok) throw new Error(`Status-Metadaten Fehler ${stRes.status}`);
-    const statusGroups = await stRes.json();
-    const allStatuses = statusGroups.flatMap((g: any) => g.statuses || []);
+    const statusGroups = await safeParseJson(stRes);
+    const allStatuses = (statusGroups || []).flatMap((g: any) => g.statuses || []);
 
     return { success: true, issueTypes, statuses: allStatuses };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-/**
- * Assets Discovery: Ruft Workspaces ab.
- */
 export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): Promise<{ success: boolean; workspaces?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken) return { success: false, error: 'Keine Zugangsdaten' };
   const url = cleanJiraUrl(configData.url!);
@@ -153,8 +149,8 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
       return { success: false, error: `Assets API Fehler ${response.status}` };
     }
     
-    const data = await response.json();
-    const rawValues = data.values || (Array.isArray(data) ? data : []);
+    const data = await safeParseJson(response);
+    const rawValues = data?.values || (Array.isArray(data) ? data : []);
     
     const workspaces = rawValues.map((w: any) => ({
       id: w.workspaceId || w.id,
@@ -165,9 +161,6 @@ export async function getJiraWorkspacesAction(configData: Partial<JiraConfig>): 
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-/**
- * Assets Discovery: Ruft Schemas für einen Workspace ab.
- */
 export async function getJiraSchemasAction(configData: Partial<JiraConfig>, workspaceId: string): Promise<{ success: boolean; schemas?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken || !workspaceId) return { success: false, error: 'Keine Workspace-Daten' };
   const url = cleanJiraUrl(configData.url!);
@@ -180,14 +173,11 @@ export async function getJiraSchemasAction(configData: Partial<JiraConfig>, work
     });
     
     if (!response.ok) return { success: false, error: `Schema API Fehler ${response.status}` };
-    const data = await response.json();
-    return { success: true, schemas: data.values || [] };
+    const data = await safeParseJson(response);
+    return { success: true, schemas: data?.values || [] };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-/**
- * Assets Discovery: Ruft Objekttypen für ein Schema ab.
- */
 export async function getJiraObjectTypesAction(configData: Partial<JiraConfig>, workspaceId: string, schemaId: string): Promise<{ success: boolean; objectTypes?: any[]; error?: string }> {
   if (!configData.url || !configData.apiToken || !workspaceId || !schemaId) return { success: false, error: 'Keine Schema-Daten' };
   const url = cleanJiraUrl(configData.url!);
@@ -200,14 +190,11 @@ export async function getJiraObjectTypesAction(configData: Partial<JiraConfig>, 
     });
     
     if (!response.ok) return { success: false, error: `ObjectType API Fehler ${response.status}` };
-    const data = await response.json();
-    return { success: true, objectTypes: Array.isArray(data) ? data : (data.values || []) };
+    const data = await safeParseJson(response);
+    return { success: true, objectTypes: Array.isArray(data) ? data : (data?.values || []) };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
 
-/**
- * Assets Discovery: Ruft Objekte eines bestimmten Typs ab.
- */
 export async function getJiraAssetObjectsAction(
   config: JiraConfig, 
   objectTypeId: string
@@ -226,16 +213,13 @@ export async function getJiraAssetObjectsAction(
     });
 
     if (!response.ok) return { success: false, error: `Assets API Fehler ${response.status}` };
-    const data = await response.json();
-    return { success: true, objects: data.values || [] };
+    const data = await safeParseJson(response);
+    return { success: true, objects: data?.values || [] };
   } catch (e: any) {
     return { success: false, error: e.message };
   }
 }
 
-/**
- * Assets Discovery: Importiert Jira Objekte in den Hub Ressourcenkatalog.
- */
 export async function importJiraAssetsAction(
   jiraObjects: any[], 
   targetTenantId: string, 
@@ -280,9 +264,6 @@ export async function importJiraAssetsAction(
   }
 }
 
-/**
- * Erstellt ein Ticket in Jira Cloud.
- */
 export async function createJiraTicket(
   configId: string, 
   summary: string, 
@@ -318,8 +299,8 @@ export async function createJiraTicket(
       cache: 'no-store'
     });
 
-    const data = await response.json();
-    if (!response.ok) return { success: false, error: `Jira API Fehler: ${JSON.stringify(data.errors)}` };
+    const data = await safeParseJson(response);
+    if (!response.ok) return { success: false, error: `Jira API Fehler: ${JSON.stringify(data?.errors || data)}` };
     return { success: true, key: data.key };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -330,9 +311,6 @@ export type JiraSyncResponse = {
   error?: string;
 };
 
-/**
- * Ruft Tickets basierend auf Status-Mapping ab.
- */
 export async function fetchJiraSyncItems(
   configId: string, 
   type: 'pending' | 'approved' | 'done',
@@ -363,8 +341,9 @@ export async function fetchJiraSyncItems(
       cache: 'no-store'
     });
 
-    const data = await response.json();
     if (!response.ok) return { success: false, items: [], error: 'JQL Fehler' };
+    const data = await safeParseJson(response);
+    if (!data) return { success: false, items: [], error: 'Leere Antwort von Jira' };
 
     const items = (data.issues || []).map((issue: any) => ({
       key: issue.key,
@@ -379,9 +358,6 @@ export async function fetchJiraSyncItems(
   } catch (e: any) { return { success: false, items: [], error: e.message }; }
 }
 
-/**
- * Schließt ein Jira Ticket ab.
- */
 export async function resolveJiraTicket(
   configId: string, 
   issueKey: string, 
@@ -409,7 +385,7 @@ export async function resolveJiraTicket(
         headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' }
       });
       if (transRes.ok) {
-        const transData = await transRes.json();
+        const transData = await safeParseJson(transRes);
         const target = transData?.transitions?.find((t: any) => t.name.toLowerCase() === config.doneStatusName!.toLowerCase());
         if (target) {
           await fetch(`${url}/rest/api/3/issue/${issueKey}/transitions`, {

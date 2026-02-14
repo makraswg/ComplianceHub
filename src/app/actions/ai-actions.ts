@@ -5,6 +5,20 @@ import { AiConfig, DataSource, Tenant } from '@/lib/types';
 import { getCollectionData } from './mysql-actions';
 
 /**
+ * Hilfsfunktion zum sicheren Parsen von JSON aus Fetch-Responses.
+ */
+async function safeParseJson(response: Response) {
+  const text = await response.text();
+  if (!text || text.trim() === '') return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("[AI Action] JSON Parse Error:", e);
+    return null;
+  }
+}
+
+/**
  * Testet die Verbindung zu einem Ollama Server.
  */
 export async function testOllamaConnectionAction(url: string): Promise<{ success: boolean; message: string }> {
@@ -17,8 +31,8 @@ export async function testOllamaConnectionAction(url: string): Promise<{ success
     });
 
     if (response.ok) {
-      const data = await response.json();
-      const models = data.models || [];
+      const data = await safeParseJson(response);
+      const models = data?.models || [];
       return { 
         success: true, 
         message: `Verbindung erfolgreich. ${models.length} Modelle gefunden.` 
@@ -53,10 +67,10 @@ export async function testOpenRouterConnectionAction(apiKey: string): Promise<{ 
     });
 
     if (response.ok) {
-      const data = await response.json();
+      const data = await safeParseJson(response);
       return { 
         success: true, 
-        message: `Verbindung erfolgreich. Limit: ${data.data?.limit || 'Unbekannt'}` 
+        message: `Verbindung erfolgreich. Limit: ${data?.data?.limit || 'Unbekannt'}` 
       };
     } else {
       return { 

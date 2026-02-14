@@ -83,8 +83,16 @@ export default function PoliciesPage() {
 
   const { data: policies, isLoading, refresh } = usePluggableCollection<Policy>('policies');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
 
   useEffect(() => { setMounted(true); }, []);
+
+  const statusMap: Record<string, string> = {
+    draft: 'Entwurf',
+    review: 'In Prüfung',
+    published: 'Veröffentlicht',
+    archived: 'Archiviert'
+  };
 
   const handleSave = async () => {
     if (!title || !type) {
@@ -172,6 +180,13 @@ export default function PoliciesPage() {
     }).sort((a, b) => a.title.localeCompare(b.title));
   }, [policies, search, typeFilter, activeTenantId]);
 
+  const getFullRoleName = (roleId: string) => {
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return 'Nicht zugewiesen';
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} — ${role.name}` : role.name;
+  };
+
   if (!mounted) return null;
 
   return (
@@ -235,7 +250,7 @@ export default function PoliciesPage() {
               <TableRow className="border-b dark:border-slate-700">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Dokument / Titel</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest text-center">Status</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Zuständigkeit</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Verantwortliche Rolle</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
               </TableRow>
             </TableHeader>
@@ -269,12 +284,12 @@ export default function PoliciesPage() {
                       <Badge className={cn(
                         "rounded-full text-[9px] font-black h-5 px-3 border-none shadow-sm uppercase",
                         p.status === 'published' ? "bg-emerald-500 text-white" : p.status === 'review' ? "bg-orange-500 text-white" : "bg-slate-100 dark:bg-slate-600 text-slate-500 dark:text-slate-300"
-                      )}>{p.status}</Badge>
+                      )}>{statusMap[p.status] || p.status}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-400">
                         <Briefcase className="w-3.5 h-3.5 text-slate-300" />
-                        {jobTitles.find(j => j.id === p.ownerRoleId)?.name || 'Owner-Stelle offen'}
+                        {getFullRoleName(p.ownerRoleId || '')}
                       </div>
                     </TableCell>
                     <TableCell className="text-right px-6" onClick={e => e.stopPropagation()}>
@@ -338,6 +353,24 @@ export default function PoliciesPage() {
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Review-Zyklus (Tage)</Label>
                   <Input type="number" value={reviewInterval} onChange={e => setReviewInterval(e.target.value)} className="rounded-xl h-11" />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Verantwortliche Rolle (Owner)</Label>
+                <Select value={ownerRoleId || 'none'} onValueChange={setOwnerRoleId}>
+                  <SelectTrigger className="rounded-xl h-11 bg-white border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <SelectValue placeholder="Wählen..." />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="none">Keine spezifische Rolle</SelectItem>
+                    {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                      <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

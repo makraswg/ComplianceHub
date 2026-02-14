@@ -67,7 +67,8 @@ import {
   Lock,
   UserPlus,
   ShieldAlert,
-  Settings2
+  Settings2,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -76,7 +77,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl, BookStackConfig, Tenant, PlatformRole, PolicyPermission } from '@/lib/types';
+import { Policy, PolicyVersion, JobTitle, MediaFile, Risk, RiskMeasure, Resource, RiskControl, BookStackConfig, Tenant, PlatformRole, PolicyPermission, Department } from '@/lib/types';
 import { approvePolicyAction, commitPolicyVersionAction, linkPolicyEntityAction, unlinkPolicyEntityAction, savePolicyPermissionAction, removePolicyPermissionAction } from '@/app/actions/policy-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { publishPolicyToBookStackAction } from '@/app/actions/bookstack-actions';
@@ -107,8 +108,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog';
 
-// TipTap Imports
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Table from '@tiptap/extension-table';
@@ -127,25 +127,18 @@ export default function PolicyDetailPage() {
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaPickerInputRef = useRef<HTMLInputElement>(null);
   
   const [mounted, setMounted] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
   const [changelog, setChangelog] = useState('');
 
-  // UI States
-  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
   const [isPermDialogOpen, setIsPermDialogOpen] = useState(false);
-
-  // Permission Form
   const [newPermRole, setNewPermRole] = useState('');
   const [newPermType, setNewPermType] = useState<'read' | 'write'>('read');
 
-  // AI State
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiAuditResult, setAiAuditResult] = useState<PolicyValidatorOutput | null>(null);
 
@@ -153,12 +146,12 @@ export default function PolicyDetailPage() {
   const { data: versions, refresh: refreshVersions } = usePluggableCollection<any>('policy_versions');
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: measures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: policyLinks, refresh: refreshLinks } = usePluggableCollection<any>('policy_links');
   const { data: permissions, refresh: refreshPerms } = usePluggableCollection<PolicyPermission>('policy_permissions');
   const { data: platformRoles } = usePluggableCollection<PlatformRole>('platformRoles');
-  const { data: bsConfigs } = usePluggableCollection<BookStackConfig>('bookstackConfigs');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
 
   const policy = useMemo(() => policies?.find(p => p.id === id), [policies, id]);
@@ -182,25 +175,13 @@ export default function PolicyDetailPage() {
     return permissions?.filter(p => p.policyId === policy.parentId) || [];
   }, [permissions, policy]);
 
-  const hasBookStack = bsConfigs?.some(c => c.enabled);
-  const tenant = useMemo(() => tenants?.find(t => t.id === policy?.tenantId), [tenants, policy]);
+  const statusMap: Record<string, string> = {
+    draft: 'Entwurf',
+    review: 'In Prüfung',
+    published: 'Veröffentlicht',
+    archived: 'Archiviert'
+  };
 
-  const linkedRisks = useMemo(() => {
-    const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'risk').map((l: any) => l.targetId);
-    return risks?.filter(r => ids?.includes(r.id)) || [];
-  }, [policyLinks, risks, id]);
-
-  const linkedMeasures = useMemo(() => {
-    const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'measure').map((l: any) => l.targetId);
-    return measures?.filter(m => ids?.includes(m.id)) || [];
-  }, [policyLinks, measures, id]);
-
-  const linkedPolicies = useMemo(() => {
-    const ids = policyLinks?.filter((l: any) => l.policyId === id && l.targetType === 'policy').map((l: any) => l.targetId);
-    return policies?.filter(p => ids?.includes(p.id)) || [];
-  }, [policyLinks, policies, id]);
-
-  // TipTap Editor Configuration
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -283,6 +264,31 @@ export default function PolicyDetailPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleAiAudit = async () => {
+    if (!policy || !editor) return;
+    setIsAiLoading(true);
+    try {
+      const res = await runPolicyValidation({
+        title: policy.title,
+        content: editor.getText(),
+        linkedRisks: risks?.filter(r => policyLinks?.some((l:any) => l.policyId === id && l.targetId === r.id)).map(r => ({ title: r.title, description: r.description })) || [],
+        linkedMeasures: measures?.filter(m => policyLinks?.some((l:any) => l.policyId === id && l.targetId === m.id)).map(m => ({ title: m.title, description: m.description || '' })) || [],
+        tenantId: policy.tenantId,
+        dataSource
+      });
+      setAiAuditResult(res);
+    } catch (e) {
+      toast({ variant: "destructive", title: "KI-Fehler", description: "Analyse fehlgeschlagen." });
+    } finally { setIsAiLoading(false); }
+  };
+
+  const getFullRoleName = (roleId: string) => {
+    const role = jobTitles?.find(j => j.id === roleId);
+    if (!role) return 'Nicht zugewiesen';
+    const dept = departments?.find(d => d.id === role.departmentId);
+    return dept ? `${dept.name} — ${role.name}` : role.name;
+  };
+
   if (!mounted) return null;
   if (isPolLoading) return <div className="h-full flex flex-col items-center justify-center py-40 gap-4"><Loader2 className="w-12 h-12 animate-spin text-emerald-600 opacity-20" /></div>;
   if (!policy) return null;
@@ -300,7 +306,7 @@ export default function PolicyDetailPage() {
               <Badge className={cn(
                 "rounded-full px-3 h-6 text-[10px] font-black uppercase border-none shadow-sm",
                 policy.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
-              )}>{policy.status}</Badge>
+              )}>{statusMap[policy.status] || policy.status}</Badge>
             </div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-2">
               <ScrollText className="w-3 h-3" /> Eigenständige Richtlinie • V{policy.currentVersion}.0
@@ -315,7 +321,7 @@ export default function PolicyDetailPage() {
             </Button>
           )}
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleAiAudit} disabled={isAiLoading}>
-            {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
+            {isAiLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI Audit
           </Button>
           {!editMode ? (
             <Button size="sm" className="h-10 rounded-xl font-bold text-xs px-8 bg-emerald-600 text-white shadow-lg active:scale-95 transition-all" onClick={() => setEditMode(true)}>
@@ -332,20 +338,20 @@ export default function PolicyDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <aside className="lg:col-span-1 space-y-6">
           <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-800 overflow-hidden">
-            <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-6"><CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Dokumenten-Info</CardTitle></CardHeader>
+            <CardHeader className="bg-slate-50 dark:bg-slate-700 border-b p-4 px-6"><CardTitle className="text-[11px] font-black uppercase tracking-widest text-slate-400">Zuständige Stelle (Owner)</CardTitle></CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ownership (Rolle)</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Verantwortung</p>
                   <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl shadow-inner">
                     <Briefcase className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{jobTitles?.find(j => j.id === policy.ownerRoleId)?.name || 'Nicht zugewiesen'}</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{getFullRoleName(policy.ownerRoleId || '')}</span>
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Integrität</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Status</p>
                   <Badge variant="outline" className={cn("w-full justify-center h-7 font-black", policy.status === 'published' ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700")}>
-                    {policy.status === 'published' ? 'OFFIZIELL GÜLTIG' : 'IN PRÜFUNG'}
+                    {statusMap[policy.status]?.toUpperCase() || 'ENTWURF'}
                   </Badge>
                 </div>
               </div>
@@ -357,10 +363,10 @@ export default function PolicyDetailPage() {
               <CardTitle className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                 <Paperclip className="w-3.5 h-3.5" /> Anhänge ({mediaFiles?.filter(m => m.entityId === id).length || 0})
               </CardTitle>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => fileInputRef.current?.click()}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => document.getElementById('media-upload')?.click()}>
                 <Plus className="w-4 h-4" />
               </Button>
-              <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+              <input type="file" id="media-upload" className="hidden" onChange={handleFileUpload} />
             </CardHeader>
             <CardContent className="p-4">
               <div className="space-y-2">
@@ -451,32 +457,10 @@ export default function PolicyDetailPage() {
                       {parentPermissions.map(p => (
                         <div key={p.id} className="p-4 px-6 flex items-center gap-3 opacity-60">
                           <ShieldAlert className="w-4 h-4 text-slate-400" />
-                          <div><p className="text-xs font-bold text-slate-800 dark:text-white">{platformRoles?.find(r => r.id === p.platformRoleId)?.name}</p><p className="text-[9px] text-slate-400 uppercase font-black">{p.permission} (inherited)</p></div>
+                          <div><p className="text-xs font-bold text-slate-800 dark:text-white">{platformRoles?.find(r => r.id === p.platformRoleId)?.name}</p><p className="text-[9px] text-slate-400 uppercase font-black">{p.permission} (vererbt)</p></div>
                         </div>
                       ))}
                       {parentPermissions.length === 0 && <p className="py-12 text-center text-[10px] text-slate-300 uppercase italic">Keine vererbten Rechte</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="links" className="space-y-6">
-              {/* Linked GRC Elements Content */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
-                  <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-4 px-8"><CardTitle className="text-xs font-black uppercase text-primary tracking-widest flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> Querverweise</CardTitle></CardHeader>
-                  <CardContent className="p-0">
-                    <div className="divide-y divide-slate-100">
-                      {linkedPolicies.map(lp => (
-                        <div key={lp.id} className="p-4 px-8 flex items-center justify-between group hover:bg-slate-50 transition-colors">
-                          <div className="flex items-center gap-4"><ScrollText className="w-5 h-5 text-indigo-400" /><span className="text-xs font-bold text-slate-800 dark:text-white">{lp.title}</span></div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => router.push(`/policies/${lp.id}`)}><ExternalLink className="w-3.5 h-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400" onClick={() => handleUnlink(lp.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -508,7 +492,7 @@ export default function PolicyDetailPage() {
 
       <Dialog open={isPermDialogOpen} onOpenChange={setIsPermDialogOpen}>
         <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden bg-white shadow-2xl border-none">
-          <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center gap-4">
               <Lock className="w-6 h-6 text-primary" />
               <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Zugriffsberechtigung hinzufügen</DialogTitle>
