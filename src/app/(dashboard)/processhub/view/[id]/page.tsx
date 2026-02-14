@@ -343,9 +343,9 @@ function ProcessDetailViewContent() {
   }, [jobTitles, departments]);
 
   if (!mounted) return null;
-  if (isTenantsLoading) return null;
-
+  
   const isTenantsLoading = !tenants;
+  if (isTenantsLoading) return null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-50 relative w-full">
