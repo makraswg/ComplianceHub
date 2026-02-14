@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, Suspense } from 'react';
@@ -47,7 +48,7 @@ import {
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
-  DropdownMenuTrigger,
+  DropdownMenuTrigger, 
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { 
@@ -87,6 +88,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function UsersPageContent() {
   const db = useFirestore();
@@ -104,7 +106,7 @@ function UsersPageContent() {
   const [email, setEmail] = useState('');
   const [department, setDepartment] = useState('');
   const [tenantId, setTenantId] = useState('');
-  const [userTitle, setUserTitle] = useState('');
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(true);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
@@ -134,19 +136,14 @@ function UsersPageContent() {
     return tenant ? tenant.slug : id;
   };
 
-  const getFullRoleName = (roleName: string, roleTenantId: string) => {
-    const job = jobTitles?.find((j: any) => j.name === roleName && j.tenantId === roleTenantId);
-    if (!job) return roleName;
-    const dept = departmentsData?.find((d: any) => d.id === job.departmentId);
-    return dept ? `${dept.name} — ${roleName}` : roleName;
-  };
+  const getJobById = (id: string) => jobTitles?.find((j: any) => j.id === id);
 
   const sortedRoles = useMemo(() => {
     if (!jobTitles || !departmentsData) return [];
     return [...jobTitles].sort((a, b) => {
       const deptA = departmentsData.find((d: any) => d.id === a.departmentId)?.name || '';
       const deptB = departmentsData.find((d: any) => d.id === b.departmentId)?.name || '';
-      if (deptA !== deptB) return deptA.localeCompare(deptA);
+      if (deptA !== deptB) return deptA.localeCompare(deptB);
       return a.name.localeCompare(b.name);
     });
   }, [jobTitles, departmentsData]);
@@ -157,10 +154,21 @@ function UsersPageContent() {
     const userAssignments = assignments.filter((a: any) => a.userId === user.id && a.status === 'active');
     const assignedEntitlementIds = userAssignments.map((a: any) => a.entitlementId);
     
-    const job = jobTitles?.find((j: any) => j.name === user.title && j.tenantId === user.tenantId);
-    const blueprintIds = job?.entitlementIds || [];
+    // Aggregieren aller Entitlements aus allen zugewiesenen Job-Blueprints
+    const userJobIds = user.jobIds || [];
+    const blueprintEntitlementIds = new Set<string>();
+    userJobIds.forEach((jid: string) => {
+      const job = jobTitles?.find((jt: any) => jt.id === jid);
+      job?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
+    });
     
-    const targetEntitlementIds = Array.from(new Set([...assignedEntitlementIds, ...blueprintIds]));
+    // Fallback: Wenn jobIds leer ist, prüfe das legacy 'title' Feld
+    if (userJobIds.length === 0 && user.title) {
+      const legacyJob = jobTitles?.find((jt: any) => jt.name === user.title && jt.tenantId === user.tenantId);
+      legacyJob?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
+    }
+
+    const targetEntitlementIds = Array.from(new Set([...assignedEntitlementIds, ...Array.from(blueprintEntitlementIds)]));
     const targetGroups = targetEntitlementIds
       .map(eid => entitlements.find((e: any) => e.id === eid)?.externalMapping)
       .filter(Boolean) as string[];
@@ -189,6 +197,11 @@ function UsersPageContent() {
     const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
     const isNew = !selectedUser;
     
+    // Wir halten 'title' für Kompatibilität auf dem ersten Job-Namen
+    const firstJobName = selectedJobIds.length > 0 
+      ? jobTitles?.find((j: any) => j.id === selectedJobIds[0])?.name || ''
+      : '';
+
     const userData = {
       ...selectedUser,
       id: userId,
@@ -196,7 +209,8 @@ function UsersPageContent() {
       email,
       department,
       tenantId,
-      title: userTitle,
+      title: firstJobName,
+      jobIds: selectedJobIds,
       enabled: enabled ? 1 : 0,
       authSource: selectedUser?.authSource || 'local',
       lastSyncedAt: new Date().toISOString()
@@ -254,7 +268,7 @@ function UsersPageContent() {
     setDisplayName('');
     setEmail('');
     setDepartment('');
-    setUserTitle('');
+    setSelectedJobIds([]);
     setEnabled(true);
     setTenantId(activeTenantId !== 'all' ? activeTenantId : '');
   };
@@ -264,7 +278,7 @@ function UsersPageContent() {
     setDisplayName(user.displayName);
     setEmail(user.email);
     setDepartment(user.department || '');
-    setUserTitle(user.title || '');
+    setSelectedJobIds(user.jobIds || []);
     setTenantId(user.tenantId);
     setEnabled(user.enabled === true || user.enabled === 1 || user.enabled === "1");
     setIsAddOpen(true);
@@ -362,7 +376,7 @@ function UsersPageContent() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Identität / Quelle</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Rollen-Standardzuweisung</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Organisatorische Rollen</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (AD Sync)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
@@ -373,6 +387,7 @@ function UsersPageContent() {
                 const isEnabled = u.enabled === true || u.enabled === 1 || u.enabled === "1";
                 const drift = calculateDrift(u);
                 const isAD = u.authSource === 'ldap' || !!u.externalId;
+                const userJobIds = u.jobIds || [];
                 
                 return (
                   <TableRow key={u.id} className="group hover:bg-slate-50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/users/${u.id}`)}>
@@ -399,9 +414,14 @@ function UsersPageContent() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                        <Briefcase className="w-3 h-3 text-slate-300" />
-                        {getFullRoleName(u.title, u.tenantId)}
+                      <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        {userJobIds.length > 0 ? userJobIds.map((jid: string) => (
+                          <Badge key={jid} variant="secondary" className="text-[8px] font-bold h-4 px-1.5 bg-slate-100 text-slate-600 border-none">
+                            {jobTitles?.find((j: any) => j.id === jid)?.name || jid}
+                          </Badge>
+                        )) : (
+                          <span className="text-[10px] text-slate-400 italic">Keine Rolle</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -472,7 +492,7 @@ function UsersPageContent() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if(!val && !isSaving) setIsAddOpen(false); }}>
-        <DialogContent className="max-w-md w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+        <DialogContent className="max-w-xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
@@ -483,47 +503,60 @@ function UsersPageContent() {
               </DialogTitle>
             </div>
           </DialogHeader>
-          <div className="p-6 space-y-6">
-            <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
-              <Input value={displayName} onChange={e => setDisplayName(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
-            </div>
-            <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
-            </div>
-            <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
-              <Select value={tenantId} onValueChange={setTenantId} disabled={isSaving}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
-                <SelectContent>
-                  {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label required className="text-[11px] font-bold text-slate-400 ml-1">Rollen-Standardzuweisung</Label>
-              <Select value={userTitle} onValueChange={setUserTitle} disabled={isSaving}>
-                <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Zuweisung wählen..." /></SelectTrigger>
-                <SelectContent>
-                  {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
-                    <SelectItem key={j.id} value={j.name}>{getFullRoleName(j.name, j.tenantId)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <ScrollArea className="flex-1">
+            <div className="p-6 space-y-6">
+              <div className="space-y-2">
+                <Label required className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
+                <Input value={displayName} onChange={e => setDisplayName(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
+              </div>
+              <div className="space-y-2">
+                <Label required className="text-[11px] font-bold text-slate-400 ml-1">E-Mail</Label>
+                <Input value={email} onChange={e => setEmail(e.target.value)} disabled={isSaving} className="rounded-md h-11 border-slate-200" />
+              </div>
+              <div className="space-y-2">
+                <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
+                <Select value={tenantId} onValueChange={setTenantId} disabled={isSaving}>
+                  <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
+                  <SelectContent>
+                    {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-bold text-slate-900">Konto aktiv</Label>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase">Login & Zugriff erlaubt</p>
+              <div className="space-y-4">
+                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Organisatorische Rollen (Blueprints)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
+                    <div 
+                      key={j.id} 
+                      className={cn(
+                        "flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all",
+                        selectedJobIds.includes(j.id) ? "bg-primary/5 border-primary" : "bg-white hover:bg-slate-50"
+                      )}
+                      onClick={() => setSelectedJobIds(prev => prev.includes(j.id) ? prev.filter(id => id !== j.id) : [...prev, j.id])}
+                    >
+                      <Checkbox checked={selectedJobIds.includes(j.id)} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold text-slate-800 truncate">{j.name}</p>
+                        <p className="text-[9px] text-slate-400 font-medium truncate">{departmentsData?.find((d:any) => d.id === j.departmentId)?.name || '---'}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <Switch checked={enabled} onCheckedChange={setEnabled} />
+              </div>
+
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border">
+                  <div className="space-y-0.5">
+                    <Label className="text-xs font-bold text-slate-900">Konto aktiv</Label>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">Login & Zugriff erlaubt</p>
+                  </div>
+                  <Switch checked={enabled} onCheckedChange={setEnabled} />
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isSaving} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSaveUser} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-sm">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
@@ -533,7 +566,7 @@ function UsersPageContent() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!blockerInfo} onOpenChange={(val) => !val && setBlockerInfo(null)}>
+      <AlertDialog open={!!blockerInfo} onOpenChange={(val) => { if(!val) setBlockerInfo(null); }}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
           <AlertDialogHeader>
             <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-600">

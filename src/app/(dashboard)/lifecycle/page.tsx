@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -109,26 +110,13 @@ export default function LifecyclePage() {
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewEmail] = useState('');
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [onboardingDate, setOnboardingDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Offboarding State
   const [leaverSearch, setLeaverSearch] = useState('');
   const [selectedLeaverId, setSelectedLeaverId] = useState<string | null>(null);
   const [offboardingDate, setOffboardingDate] = useState(new Date().toISOString().split('T')[0]);
-
-  // Rollen-Standardzuweisung Editor State
-  const [isBundleCreateOpen, setIsBundleCreateOpen] = useState(false);
-  const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
-  const [bundleName, setBundleName] = useState('');
-  const [bundleDesc, setBundleDesc] = useState('');
-  const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
-  const [roleSearchTerm, setRoleSearchTerm] = useState('');
-  const [adminOnlyFilter, setAdminOnlyFilter] = useState(false);
-
-  // Deletion state
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: users, isLoading: isUsersLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: bundles, isLoading: isBundlesLoading, refresh: refreshBundles } = usePluggableCollection<Bundle>('bundles');
@@ -173,8 +161,8 @@ export default function LifecyclePage() {
   };
 
   const startOnboarding = async () => {
-    if (!newUserName || !newUserEmail || (!selectedBundleId && !selectedJobId)) {
-      toast({ variant: "destructive", title: "Fehler", description: "Name, E-Mail und entweder Paket oder Rolle sind erforderlich." });
+    if (!newUserName || !newUserEmail || (selectedJobIds.length === 0 && !selectedBundleId)) {
+      toast({ variant: "destructive", title: "Fehler", description: "Name, E-Mail und mindestens eine Rolle sind erforderlich." });
       return;
     }
     
@@ -185,13 +173,18 @@ export default function LifecyclePage() {
       const userId = `u-onb-${Math.random().toString(36).substring(2, 9)}`;
       
       const bundle = bundles?.find(b => b.id === selectedBundleId);
-      const job = jobs?.find(j => j.id === selectedJobId);
-      const dept = departments?.find((d: any) => d.id === job?.departmentId);
       
       const allEntitlementIds = new Set<string>();
       bundle?.entitlementIds.forEach(id => allEntitlementIds.add(id));
-      job?.entitlementIds?.forEach(id => allEntitlementIds.add(id));
+      
+      selectedJobIds.forEach(jid => {
+        const job = jobs?.find(j => j.id === jid);
+        job?.entitlementIds?.forEach(id => allEntitlementIds.add(id));
+      });
 
+      const firstJob = selectedJobIds.length > 0 ? jobs?.find(j => j.id === selectedJobIds[0]) : null;
+      const dept = departments?.find((d: any) => d.id === firstJob?.departmentId);
+      
       const entitlementList = Array.from(allEntitlementIds);
 
       const userData = { 
@@ -204,7 +197,8 @@ export default function LifecyclePage() {
         status: 'active', 
         onboardingDate, 
         department: dept?.name || '',
-        title: job?.name || '',
+        title: firstJob?.name || '',
+        jobIds: selectedJobIds,
         lastSyncedAt: timestamp 
       };
       await saveCollectionRecord('users', userId, userData, dataSource);
@@ -214,7 +208,7 @@ export default function LifecyclePage() {
       jiraDescription += `- Name: ${newUserName}\n`;
       jiraDescription += `- E-Mail: ${newUserEmail}\n`;
       jiraDescription += `- Eintrittsdatum: ${onboardingDate}\n`;
-      jiraDescription += `- Abteilung: ${dept?.name || '---'}\n\n`;
+      jiraDescription += `- Abteilungen: ${Array.from(new Set(selectedJobIds.map(jid => departments?.find(d => d.id === jobs?.find(j => j.id === jid)?.departmentId)?.name))).join(', ')}\n\n`;
       
       jiraDescription += `BENÖTIGTE BERECHTIGUNGEN (${entitlementList.length}):\n`;
       for (const eid of entitlementList) {
@@ -249,28 +243,10 @@ export default function LifecyclePage() {
       });
 
       toast({ title: "Onboarding gestartet", description: "Identität wurde angelegt." });
-      setNewUserName(''); setNewEmail(''); setSelectedBundleId(null); setSelectedJobId(null);
+      setNewUserName(''); setNewEmail(''); setSelectedBundleId(null); setSelectedJobIds([]);
       refreshUsers(); refreshAssignments();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Fehler", description: error.message });
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleStartOffboarding = async () => {
-    if (!selectedLeaverId) return;
-    setIsActionLoading(true);
-    try {
-      const res = await startOffboardingAction(selectedLeaverId, offboardingDate, dataSource, user?.email || 'system');
-      if (res.success) {
-        toast({ title: "Offboarding eingeleitet", description: `Jira Ticket: ${res.jiraKey}` });
-        setSelectedLeaverId(null);
-        setLeaverSearch('');
-        refreshUsers(); refreshAssignments();
-      } else {
-        toast({ variant: "destructive", title: "Fehler", description: res.error });
-      }
     } finally {
       setIsActionLoading(false);
     }
@@ -318,44 +294,47 @@ export default function LifecyclePage() {
                     <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Stammdaten & Profil</Label>
                     <Input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Vollständiger Name" className="h-11 rounded-xl" />
                     <Input value={newUserEmail} onChange={e => setNewEmail(e.target.value)} placeholder="E-Mail Adresse" className="h-11 rounded-xl" />
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold text-slate-400">Eintrittsdatum</Label>
-                        <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="h-11 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[9px] font-bold text-slate-400">Rollenprofil (Blueprint)</Label>
-                        <Select value={selectedJobId || ''} onValueChange={setSelectedJobId}>
-                          <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger>
-                          <SelectContent>
-                            {sortedJobs?.filter((j: any) => activeTenantId === 'all' || j.tenantId === activeTenantId).map((job: any) => (
-                              <SelectItem key={job.id} value={job.id}>{getFullRoleName(job.id)}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="space-y-1">
+                      <Label className="text-[9px] font-bold text-slate-400">Eintrittsdatum</Label>
+                      <Input type="date" value={onboardingDate} onChange={e => setOnboardingDate(e.target.value)} className="h-11 rounded-xl" />
                     </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Zusatz-Pakete</Label>
+                <div className="space-y-6">
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Organisatorische Rollen (Blueprints)</Label>
                   <ScrollArea className="h-[250px] border rounded-xl p-2 bg-slate-50/50 shadow-inner">
-                    <div className="space-y-2">
-                      {bundles?.filter(b => b.status === 'active' && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
+                    <div className="space-y-1">
+                      {sortedJobs?.filter((j: any) => activeTenantId === 'all' || j.tenantId === activeTenantId).map((job: any) => (
                         <div 
-                          key={bundle.id} 
+                          key={job.id} 
                           className={cn(
-                            "p-3 rounded-lg border bg-white cursor-pointer transition-all",
-                            selectedBundleId === bundle.id ? "border-primary ring-1 ring-primary/20" : "hover:border-primary/30"
+                            "p-2.5 rounded-lg border bg-white cursor-pointer transition-all flex items-center gap-3",
+                            selectedJobIds.includes(job.id) ? "border-primary bg-primary/5 shadow-sm" : "hover:bg-slate-50"
                           )}
-                          onClick={() => setSelectedBundleId(selectedBundleId === bundle.id ? null : bundle.id)}
+                          onClick={() => setSelectedJobIds(prev => prev.includes(job.id) ? prev.filter(id => id !== job.id) : [...prev, job.id])}
                         >
-                          <p className="text-xs font-bold text-slate-800">{bundle.name}</p>
-                          <p className="text-[9px] text-slate-400">{bundle.entitlementIds?.length || 0} Rechte</p>
+                          <Checkbox checked={selectedJobIds.includes(job.id)} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-bold text-slate-800 truncate">{job.name}</p>
+                            <p className="text-[9px] text-slate-400 font-medium truncate">{departments?.find((d:any) => d.id === job.departmentId)?.name || '---'}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </ScrollArea>
+                  
+                  <Separator />
+                  
+                  <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Optionales Zusatz-Paket</Label>
+                  <Select value={selectedBundleId || 'none'} onValueChange={v => setSelectedBundleId(v === 'none' ? null : v)}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Paket wählen..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Kein Zusatzpaket</SelectItem>
+                      {bundles?.filter(b => b.status === 'active' && (activeTenantId === 'all' || b.tenantId === activeTenantId)).map(bundle => (
+                        <SelectItem key={bundle.id} value={bundle.id}>{bundle.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </CardContent>

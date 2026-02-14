@@ -68,15 +68,28 @@ export default function AccessHubDashboard() {
     const adminRoles = new Set(entitlements.filter(e => e.isAdmin).map(e => e.id));
     const admins = new Set(activeAssignments.filter(a => adminRoles.has(a.entitlementId)).map(a => a.userId)).size;
 
-    // Drift Detection
+    // Drift Detection (Updated for Multi-Role Support)
     let driftCount = 0;
     fUsers.forEach(u => {
       const uAss = activeAssignments.filter(a => a.userId === u.id);
-      const job = jobs?.find(j => j.name === u.title && j.tenantId === u.tenantId);
-      const blueprintIds = job?.entitlementIds || [];
-      const assignedIds = uAss.map(a => a.entitlementId);
       
-      const targetIds = Array.from(new Set([...assignedIds, ...blueprintIds]));
+      // Sammeln aller Gruppen aus allen zugewiesenen Job-Blueprints
+      const userJobIds = u.jobIds || [];
+      const blueprintEntitlementIds = new Set<string>();
+      userJobIds.forEach((jid: string) => {
+        const job = jobs?.find(jt => jt.id === jid);
+        job?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
+      });
+
+      // Legacy fallback
+      if (userJobIds.length === 0 && u.title) {
+        const legacyJob = jobs?.find(jt => jt.name === u.title && jt.tenantId === u.tenantId);
+        legacyJob?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
+      }
+
+      const assignedEntitlementIds = uAss.map(a => a.entitlementId);
+      
+      const targetIds = Array.from(new Set([...assignedEntitlementIds, ...Array.from(blueprintEntitlementIds)]));
       const targetGroups = targetIds.map(eid => entitlements.find(e => e.id === eid)?.externalMapping).filter(Boolean);
       const actualGroups = u.adGroups || [];
       

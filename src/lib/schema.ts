@@ -17,7 +17,8 @@ export const appSchema: AppSchema = {
       externalId: 'VARCHAR(255)',
       displayName: 'VARCHAR(255) NOT NULL',
       email: 'VARCHAR(255) NOT NULL',
-      title: 'VARCHAR(255)',
+      title: 'VARCHAR(255)', // Legacy single title
+      jobIds: 'TEXT', // New: JSON array of job (blueprint) IDs
       department: 'VARCHAR(255)',
       enabled: 'BOOLEAN DEFAULT TRUE',
       status: 'VARCHAR(20) DEFAULT "active"',

@@ -49,32 +49,6 @@ export interface JobTitle {
   entitlementIds?: string[];
 }
 
-export interface ServicePartner {
-  id: string;
-  tenantId: string;
-  name: string;
-  industry?: string;
-  website?: string;
-  status: 'active' | 'archived';
-  createdAt: string;
-}
-
-export interface ServicePartnerContact {
-  id: string;
-  partnerId: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role?: string;
-}
-
-export interface ServicePartnerArea {
-  id: string;
-  partnerId: string;
-  name: string;
-  description?: string;
-}
-
 export interface User {
   id: string;
   tenantId: string;
@@ -82,7 +56,8 @@ export interface User {
   displayName: string;
   email: string;
   department: string;
-  title: string;
+  title: string; // Keep for compatibility (first role name)
+  jobIds: string[]; // New: Multiple role IDs
   enabled: boolean | number;
   status?: 'active' | 'archived';
   onboardingDate?: string;

@@ -33,7 +33,7 @@ import {
   Pencil,
   Globe,
   Server
-} from 'lucide-react';
+} from 'lucide-center';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -81,10 +81,22 @@ export default function UserDetailPage() {
     if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
 
     const activeAssignedIds = userAssignments.filter(a => a.status === 'active').map(a => a.entitlementId);
-    const job = jobs?.find(j => j.name === user.title && j.tenantId === user.tenantId);
-    const blueprintIds = job?.entitlementIds || [];
     
-    const targetIds = Array.from(new Set([...activeAssignedIds, ...blueprintIds]));
+    // Aggregieren aller Entitlements aus allen zugeordneten Jobs
+    const userJobIds = user.jobIds || [];
+    const blueprintEntitlementIds = new Set<string>();
+    userJobIds.forEach(jid => {
+      const job = jobs?.find(j => j.id === jid);
+      job?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
+    });
+
+    // Fallback Legacy
+    if (userJobIds.length === 0 && user.title) {
+      const legacyJob = jobs?.find(j => j.name === user.title && j.tenantId === user.tenantId);
+      legacyJob?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
+    }
+    
+    const targetIds = Array.from(new Set([...activeAssignedIds, ...Array.from(blueprintEntitlementIds)]));
     const targetGroups = targetIds
       .map(eid => entitlements.find(e => e.id === eid)?.externalMapping)
       .filter(Boolean) as string[];
@@ -147,7 +159,7 @@ export default function UserDetailPage() {
           <Button variant="outline" size="sm" className="h-9 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm transition-all" onClick={() => router.push(`/reviews?search=${user.displayName}`)}>
             <RotateCcw className="w-3.5 h-3.5 mr-2" /> Review starten
           </Button>
-          <Button size="sm" className="h-9 rounded-xl font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all">
+          <Button size="sm" className="h-9 rounded-xl font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg active:scale-95 transition-all" onClick={() => router.push(`/users?edit=${user.id}`)}>
             <Pencil className="w-3.5 h-3.5 mr-2" /> Profil bearbeiten
           </Button>
         </div>
@@ -168,9 +180,20 @@ export default function UserDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Standardzuweisung</p>
-                  <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                    <Briefcase className="w-4 h-4 text-indigo-600" /> {user.title || '---'}
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Organisatorische Rollen</p>
+                  <div className="flex flex-col gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                    {user.jobIds && user.jobIds.length > 0 ? user.jobIds.map(jid => {
+                      const job = jobs?.find(j => j.id === jid);
+                      return (
+                        <div key={jid} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> {job?.name || jid}
+                        </div>
+                      );
+                    }) : (
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400 italic">
+                        <Briefcase className="w-3.5 h-3.5 opacity-30" /> {user.title || 'Keine Rolle'}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -298,7 +321,7 @@ export default function UserDetailPage() {
                       <ShieldAlert className="w-5 h-5 text-amber-600" />
                       <div>
                         <CardTitle className="text-sm font-bold uppercase tracking-tight">Fehlende Rollen (AD Drift)</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">In Standardzuweisung definiert, aber im AD nicht vorhanden</CardDescription>
+                        <CardDescription className="text-[10px] font-bold uppercase text-slate-400 mt-0.5">In Standardzuweisungen definiert, aber im AD nicht vorhanden</CardDescription>
                       </div>
                     </div>
                   </CardHeader>

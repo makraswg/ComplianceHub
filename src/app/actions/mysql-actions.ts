@@ -76,7 +76,7 @@ function normalizeRecord(item: any, tableName: string) {
   const normalized = { ...item };
   
   const jsonFields: Record<string, string[]> = {
-    users: ['adGroups'],
+    users: ['adGroups', 'jobIds'],
     groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
