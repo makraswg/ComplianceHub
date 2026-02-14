@@ -72,6 +72,11 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       id: contactId, partnerId, name: 'Support Team Wodis', email: 'support@aareon.de', phone: '+49 6131 301-0', role: 'Enterprise Support'
     }, dataSource);
 
+    const partnerTechId = 'sp-elektro-nord';
+    await saveCollectionRecord('servicePartners', partnerTechId, {
+      id: partnerTechId, tenantId: t1Id, name: 'Elektro-Technik Nord GmbH', industry: 'Handwerk / Technik', website: 'https://www.elektro-nord.local', status: 'active', createdAt: offsetDate(200)
+    }, dataSource);
+
     await saveCollectionRecord('servicePartnerAreas', 'spa-erp', {
       id: 'spa-erp', partnerId, name: 'ERP Betrieb', description: 'Hosting und Support für Wodis Sigma.'
     }, dataSource);
@@ -160,7 +165,8 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     }
 
     // --- 9. PROZESSE & BCM ---
-    // Disaster Recovery Process
+    
+    // 9.1 IT-NOTFALLPLÄNE
     const disasterProcId = 'p-disaster-erp';
     await saveCollectionRecord('processes', disasterProcId, {
       id: disasterProcId, tenantId: t1Id, title: 'BCM: Wiederherstellung ERP (SaaS Ausfall)', status: 'published',
@@ -179,12 +185,58 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       layout_json: { positions: { start: {x:50,y:100}, step1: {x:250,y:100}, step2: {x:500,y:100}, end: {x:750,y:100} } }
     }, dataSource);
 
-    // Standard Business Process linked to BCM
+    // 9.2 FACILITY MANAGEMENT NOTFALLPLÄNE
+    const powerOutageId = 'p-emg-power';
+    await saveCollectionRecord('processes', powerOutageId, {
+      id: powerOutageId, tenantId: t1Id, title: 'BCM: Stromausfall in Liegenschaft', status: 'published',
+      process_type_id: 'pt-disaster', currentVersion: 1, responsibleDepartmentId: 'd-tech', createdAt: offsetDate(5)
+    }, dataSource);
+
+    const powerNodes = [
+      { id: 'start', type: 'start', title: 'Meldung Stromausfall' },
+      { id: 'step1', type: 'step', title: 'Energieversorger kontaktieren', roleId: 'j-tech-ref' },
+      { id: 'step2', type: 'step', title: 'Aufzugsanlagen prüfen / Personenbefreiung', roleId: 'j-tech-ref' },
+      { id: 'step3', type: 'step', title: 'Notdienst Handwerker informieren', roleId: 'j-tech-ref' },
+      { id: 'end', type: 'end', title: 'Energieversorgung stabil' }
+    ];
+    await saveCollectionRecord('process_versions', `ver-${powerOutageId}-1`, {
+      id: `ver-${powerOutageId}-1`, process_id: powerOutageId, version: 1, revision: 1, created_at: now,
+      model_json: { nodes: powerNodes, edges: [{id:'pe1',source:'start',target:'step1'},{id:'pe2',source:'step1',target:'step2'},{id:'pe3',source:'step2',target:'step3'},{id:'pe4',source:'step3',target:'end'}] },
+      layout_json: { positions: { start: {x:50,y:100}, step1: {x:250,y:100}, step2: {x:500,y:100}, step3: {x:750,y:100}, end: {x:1000,y:100} } }
+    }, dataSource);
+
+    const floodingId = 'p-emg-flood';
+    await saveCollectionRecord('processes', floodingId, {
+      id: floodingId, tenantId: t1Id, title: 'BCM: Hochwasser / Großschadensereignis', status: 'published',
+      process_type_id: 'pt-disaster', currentVersion: 1, responsibleDepartmentId: 'd-tech', createdAt: offsetDate(5)
+    }, dataSource);
+
+    const floodNodes = [
+      { id: 'start', type: 'start', title: 'Meldung Wasserschaden' },
+      { id: 'step1', type: 'step', title: 'Hauptabsperrhähne schließen', roleId: 'j-tech-ref' },
+      { id: 'step2', type: 'step', title: 'Stromzufuhr gefährdeter Bereiche trennen', roleId: 'j-tech-ref' },
+      { id: 'step3', type: 'step', title: 'Schadensdokumentation für Versicherung', roleId: 'j-immo-kfm' },
+      { id: 'end', type: 'end', title: 'Gefahrenabwehr abgeschlossen' }
+    ];
+    await saveCollectionRecord('process_versions', `ver-${floodingId}-1`, {
+      id: `ver-${floodingId}-1`, process_id: floodingId, version: 1, revision: 1, created_at: now,
+      model_json: { nodes: floodNodes, edges: [{id:'fe1',source:'start',target:'step1'},{id:'fe2',source:'step1',target:'step2'},{id:'fe3',source:'step2',target:'step3'},{id:'fe4',source:'step3',target:'end'}] },
+      layout_json: { positions: { start: {x:50,y:100}, step1: {x:250,y:100}, step2: {x:500,y:100}, step3: {x:750,y:100}, end: {x:1000,y:100} } }
+    }, dataSource);
+
+    // 9.3 STANDARD BIZ-PROZESSE (LINKED TO BCM)
     const bizProcId = 'p-vermietung';
     await saveCollectionRecord('processes', bizProcId, {
       id: bizProcId, tenantId: t1Id, title: 'Mietvertragsabschluss (Standard)', status: 'published', currentVersion: 1,
       process_type_id: 'pt-corp', responsibleDepartmentId: 'd-best', emergencyProcessId: disasterProcId, 
       vvtId: 'vvt-rental', createdAt: offsetDate(30), automationLevel: 'partial'
+    }, dataSource);
+
+    const maintenanceProcId = 'p-maint-01';
+    await saveCollectionRecord('processes', maintenanceProcId, {
+      id: maintenanceProcId, tenantId: t1Id, title: 'Reparatur- und Instandhaltungsmanagement', status: 'published', currentVersion: 1,
+      process_type_id: 'pt-corp', responsibleDepartmentId: 'd-tech', emergencyProcessId: powerOutageId, 
+      createdAt: offsetDate(20), automationLevel: 'manual'
     }, dataSource);
 
     // --- 10. RISIKEN & TOMS ---
@@ -195,12 +247,27 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       description: 'Verfügbarkeitsrisiko bei SaaS-Ausfall durch Provider.', createdAt: offsetDate(20)
     }, dataSource);
 
+    const riskPowerId = 'rk-power-down';
+    await saveCollectionRecord('risks', riskPowerId, {
+      id: riskPowerId, tenantId: t1Id, title: 'Stromausfall in Wohnanlage', category: 'Betrieblich',
+      impact: 4, probability: 3, status: 'active', owner: 'Leitung Technik',
+      description: 'Gefahr für Bewohner (Aufzüge) und Infrastruktur.', createdAt: offsetDate(15)
+    }, dataSource);
+
     const measureId = 'msr-bcm-plan';
     await saveCollectionRecord('riskMeasures', measureId, {
       id: measureId, riskIds: [riskId], resourceIds: ['res-wodis'], title: 'BCM-Plan für ERP-Ausfall',
       description: 'Definition von Notfallprozessen und Wiederherstellungszeiten.',
       owner: 'CISO', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle',
       dueDate: in30Days, effectiveness: 5
+    }, dataSource);
+
+    const measurePowerId = 'msr-power-emg';
+    await saveCollectionRecord('riskMeasures', measurePowerId, {
+      id: measurePowerId, riskIds: [riskPowerId], title: 'Notfallplan Stromausfall',
+      description: 'Bereitschaftsdienste und Handlungsanweisungen für technische Störungen.',
+      owner: 'Facility Management', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle',
+      dueDate: in30Days, effectiveness: 4
     }, dataSource);
 
     await saveCollectionRecord('riskControls', 'ctrl-dr-test', {
@@ -224,11 +291,11 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     // --- 12. AUDIT LOG ---
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Massiver Demo-Daten-Import (Wohnbau-Szenario) abgeschlossen.',
-      entityType: 'system', entityId: 'seed-v10'
+      tenantId: 'global', actorUid: actorEmail, action: 'Massiver Demo-Daten-Import (Wohnbau-Szenario inkl. BCM Technik) abgeschlossen.',
+      entityType: 'system', entityId: 'seed-v11'
     });
 
-    return { success: true, message: "Tief vernetztes Wohnbau-Szenario erfolgreich geladen." };
+    return { success: true, message: "Tief vernetztes Wohnbau-Szenario mit BCM für Technik/IT erfolgreich geladen." };
   } catch (e: any) {
     console.error("Seeding Error:", e);
     return { success: false, error: e.message };
