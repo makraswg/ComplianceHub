@@ -40,6 +40,7 @@ import { logAuditEventAction } from './audit-actions';
 /**
  * Generiert eine massive Menge an vernetzten Demo-Daten für eine Wohnungsbaugesellschaft.
  * Deckt alle Module der Plattform ab (IAM, RiskHub, WorkflowHub, PolicyHub, ITSecHub).
+ * NEU: Inkludiert nun auch Subprozesse und komplexe Prozess-Relationen.
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -140,7 +141,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       }, dataSource);
     }
 
-    // --- 5. BENUTZER (15 Stück) ---
+    // --- 5. BENUTZER ---
     const usersList = [
       { id: 'u-01', name: 'Max Vorstand', email: 'm.vorstand@wohnbau.de', dept: 'Geschäftsführung', jobs: ['j-gf'] },
       { id: 'u-02', name: 'Erika IT-Leitung', email: 'e.it@wohnbau.de', dept: 'IT & Digitalisierung', jobs: ['j-it-head', 'j-it-admin'] },
@@ -164,7 +165,6 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         id: u.id, tenantId: t1Id, externalId: `ad-${u.id}`, displayName: u.name, email: u.email, department: u.dept, enabled: true, status: 'active', authSource: 'ldap', lastSyncedAt: now, jobIds: u.jobs, adGroups: ['DOMAIN_USERS', 'VPN_ACCESS']
       }, dataSource);
 
-      // Standard-Einzelzuweisungen für Kernsysteme
       for (const resId of ['res-wodis', 'res-m365', 'res-teams']) {
         const assId = `ass-direct-${u.id}-${resId}`;
         await saveCollectionRecord('assignments', assId, {
@@ -173,45 +173,75 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       }
     }
 
-    // --- 6. PROZESSE & MODELLE (8 Stück + BCM) ---
+    // --- 6. PROZESSE & SUBPROZESSE (11 Stück) ---
     const processesData = [
-      { id: 'proc-miete-01', type: 'pt-corp', title: 'Mietvertragsabschluss', dept: 'd-best', owner: 'j-immo-kfm', inputs: 'Interessentendaten', outputs: 'Unterzeichneter Mietvertrag' },
-      { id: 'proc-rep-01', type: 'pt-corp', title: 'Reparaturmanagement', dept: 'd-tech', owner: 'j-tech-ref', inputs: 'Schadensmeldung', outputs: 'Abgeschlossene Reparatur' },
-      { id: 'proc-pay-01', type: 'pt-corp', title: 'Zahlungslauf Buchhaltung', dept: 'd-fibu', owner: 'j-buchhalter', inputs: 'Rechnungen', outputs: 'Bank-Zahlungsdatei' },
-      { id: 'proc-patch-01', type: 'pt-update', title: 'IT Patch-Management', dept: 'd-it', owner: 'j-it-admin', inputs: 'CVE Alerts', outputs: 'Sichere Systeme' },
-      { id: 'proc-backup-01', type: 'pt-backup', title: 'Tägliche Datensicherung', dept: 'd-it', owner: 'j-it-admin', inputs: 'DB Snapshots', outputs: 'Verifizierte Backups' },
-      { id: 'proc-emg-wodis', type: 'pt-disaster', title: 'BCM: Ausfall ERP System', dept: 'd-it', owner: 'j-it-head', tags: 'Kritisch' },
-      { id: 'proc-emg-strom', type: 'pt-disaster', title: 'BCM: Stromausfall Liegenschaft', dept: 'd-tech', owner: 'j-tech-ref', tags: 'Facility' },
-      { id: 'proc-emg-flood', type: 'pt-disaster', title: 'BCM: Hochwasser / Großschaden', dept: 'd-tech', owner: 'j-tech-ref', tags: 'FM' }
+      { id: 'proc-miete-01', type: 'pt-corp', title: 'Mietvertragsabschluss', dept: 'd-best', owner: 'j-immo-kfm' },
+      { id: 'proc-credit-01', type: 'pt-corp', title: 'Bonitätsprüfung', dept: 'd-fibu', owner: 'j-buchhalter' },
+      { id: 'proc-key-01', type: 'pt-corp', title: 'Schlüsselübergabe & Protokoll', dept: 'd-best', owner: 'j-immo-kfm' },
+      { id: 'proc-rep-01', type: 'pt-corp', title: 'Reparaturmanagement', dept: 'd-tech', owner: 'j-tech-ref' },
+      { id: 'proc-handyman-01', type: 'pt-corp', title: 'Handwerkersteuerung', dept: 'd-tech', owner: 'j-tech-ref' },
+      { id: 'proc-pay-01', type: 'pt-corp', title: 'Zahlungslauf Buchhaltung', dept: 'd-fibu', owner: 'j-buchhalter' },
+      { id: 'proc-patch-01', type: 'pt-update', title: 'IT Patch-Management', dept: 'd-it', owner: 'j-it-admin' },
+      { id: 'proc-backup-01', type: 'pt-backup', title: 'Tägliche Datensicherung', dept: 'd-it', owner: 'j-it-admin' },
+      { id: 'proc-emg-wodis', type: 'pt-disaster', title: 'BCM: Ausfall ERP System', dept: 'd-it', owner: 'j-it-head' },
+      { id: 'proc-emg-strom', type: 'pt-disaster', title: 'BCM: Stromausfall Liegenschaft', dept: 'd-tech', owner: 'j-tech-ref' },
+      { id: 'proc-emg-flood', type: 'pt-disaster', title: 'BCM: Hochwasser / Großschaden', dept: 'd-tech', owner: 'j-tech-ref' }
     ];
 
     for (const p of processesData) {
       await saveCollectionRecord('processes', p.id, {
         id: p.id, tenantId: t1Id, title: p.title, status: 'published', process_type_id: p.type, 
-        responsibleDepartmentId: p.dept, ownerRoleId: p.owner, currentVersion: 1, createdAt: now, updatedAt: now,
-        inputs: p.inputs, outputs: p.outputs, tags: p.tags
+        responsibleDepartmentId: p.dept, ownerRoleId: p.owner, currentVersion: 1, createdAt: now, updatedAt: now
       }, dataSource);
 
-      // Prozess-Modell (Nodes & Edges)
-      const nodes: ProcessNode[] = [
-        { id: 'start', type: 'start', title: 'START', checklist: [] },
-        { id: 'step-1', type: 'step', title: 'Vorbereitung', description: 'Daten sichten und Dokumente bereitstellen.', roleId: p.owner, resourceIds: ['res-m365'] },
-        { id: 'step-2', type: 'step', title: 'Durchführung', description: 'Operative Umsetzung im Kernsystem.', roleId: p.owner, resourceIds: [p.id.includes('miete') ? 'res-wodis' : 'res-sap'] },
-        { id: 'end', type: 'end', title: 'ABSCHLUSS', checklist: ['Ergebnis protokollieren', 'Vorgang schließen'] }
-      ];
-      
-      const edges = [
-        { id: 'e1', source: 'start', target: 'step-1' },
-        { id: 'e2', source: 'step-1', target: 'step-2' },
-        { id: 'e3', source: 'step-2', target: 'end' }
-      ];
+      let nodes: ProcessNode[] = [];
+      let edges: any[] = [];
+
+      // Spezifische Modellierung für Hierarchien
+      if (p.id === 'proc-miete-01') {
+        nodes = [
+          { id: 'start', type: 'start', title: 'START', checklist: [] },
+          { id: 'step-1', type: 'step', title: 'Unterlagen sichten', description: 'Prüfung der Mieterselbstauskunft.', roleId: 'j-immo-kfm', resourceIds: ['res-m365'] },
+          { id: 'sub-1', type: 'subprocess', title: 'Bonitätsprüfung', description: 'Delegation an Finanzbuchhaltung.', targetProcessId: 'proc-credit-01', roleId: 'j-immo-kfm' },
+          { id: 'step-2', type: 'step', title: 'Vertragserstellung', description: 'Erfassung in Wodis Sigma.', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
+          { id: 'sub-2', type: 'subprocess', title: 'Übergabe', description: 'Übergabe der Liegenschaft.', targetProcessId: 'proc-key-01', roleId: 'j-immo-kfm' },
+          { id: 'end', type: 'end', title: 'ENDE', checklist: ['Vorgang archiviert'] }
+        ];
+        edges = [
+          { id: 'e1', source: 'start', target: 'step-1' },
+          { id: 'e2', source: 'step-1', target: 'sub-1' },
+          { id: 'e3', source: 'sub-1', target: 'step-2' },
+          { id: 'e4', source: 'step-2', target: 'sub-2' },
+          { id: 'e5', source: 'sub-2', target: 'end' }
+        ];
+      } else if (p.id === 'proc-rep-01') {
+        nodes = [
+          { id: 'start', type: 'start', title: 'Meldung eingegangen', checklist: [] },
+          { id: 'step-1', type: 'step', title: 'Schaden sichten', description: 'Technische Bewertung des Schadens.', roleId: 'j-tech-ref', resourceIds: ['res-m365'] },
+          { id: 'sub-1', type: 'subprocess', title: 'Handwerker beauftragen', description: 'Koordination via Mareon.', targetProcessId: 'proc-handyman-01', roleId: 'j-tech-ref' },
+          { id: 'end', type: 'end', title: 'Instandgesetzt', checklist: ['Abnahme erfolgt', 'Rechnung freigegeben'] }
+        ];
+        edges = [
+          { id: 'e1', source: 'start', target: 'step-1' },
+          { id: 'e2', source: 'step-1', target: 'sub-1' },
+          { id: 'e3', source: 'sub-1', target: 'end' }
+        ];
+      } else {
+        // Standardmodell für andere Prozesse
+        nodes = [
+          { id: 'start', type: 'start', title: 'START', checklist: [] },
+          { id: 'step-1', type: 'step', title: 'Durchführung', description: 'Operative Umsetzung.', roleId: p.owner, resourceIds: ['res-m365'] },
+          { id: 'end', type: 'end', title: 'ABSCHLUSS', checklist: [] }
+        ];
+        edges = [{ id: 'e1', source: 'start', target: 'step-1' }, { id: 'e2', source: 'step-1', target: 'end' }];
+      }
 
       const version: ProcessVersion = {
         id: `ver-${p.id}-1`,
         process_id: p.id,
         version: 1,
         model_json: { nodes, edges, roles: [], isoFields: {}, customFields: {} },
-        layout_json: { positions: { 'start': { x: 50, y: 150 }, 'step-1': { x: 300, y: 150 }, 'step-2': { x: 600, y: 150 }, 'end': { x: 900, y: 150 } } },
+        layout_json: { positions: {} }, 
         revision: 1,
         created_by_user_id: 'system',
         created_at: now
@@ -230,30 +260,18 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       id: measureId, riskIds: [riskId], resourceIds: ['res-veeam', 'res-hpe'], title: 'Offline-Backup (Air-Gap)', owner: 'Erika IT-Leitung', status: 'active', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', dueDate: in30Days, description: 'Trennung der Backup-Infrastruktur vom produktiven Netzwerk.'
     }, dataSource);
 
-    // Kontroll-Monitoring
     await saveCollectionRecord('riskControls', 'ctrl-airgap-01', {
       id: 'ctrl-airgap-01', measureId: measureId, title: 'Vierteljährlicher Air-Gap Test', owner: 'Ingo It-Support', status: 'completed', isEffective: true, checkType: 'Test', lastCheckDate: today, evidenceDetails: 'Testlauf erfolgreich durchgeführt. Medien physikalisch getrennt.'
     }, dataSource);
 
     // --- 8. DATENMANAGEMENT (FEATURES) ---
-    const featuresList = [
-      { id: 'f-mieter', name: 'Mieterstamm', carrier: 'wirtschaftseinheit', dept: 'd-best', desc: 'Sämtliche Stammdaten der Mieter und Vertragspartner.' },
-      { id: 'f-bank', name: 'Bankverbindung', carrier: 'geschaeftspartner', dept: 'd-fibu', desc: 'SEPA-Mandate und Kontodaten für den Lastschrifteinzug.' }
-    ];
-    for (const f of featuresList) {
-      await saveCollectionRecord('features', f.id, {
-        ...f, id: f.id, tenantId: t1Id, status: 'active', purpose: 'Vertragsabwicklung', criticality: 'high', criticalityScore: 5, confidentialityReq: 'high', integrityReq: 'high', availabilityReq: 'medium', matrixLegal: true, isComplianceRelevant: true, deptId: f.dept, createdAt: now, updatedAt: now
-      }, dataSource);
-    }
-
-    // --- 9. RICHTLINIEN (POLICIES) ---
-    const policyId = 'pol-itsec-01';
-    await saveCollectionRecord('policies', policyId, {
-      id: policyId, tenantId: t1Id, title: 'IT-Sicherheitsleitlinie', type: 'ISK', status: 'published', ownerRoleId: 'j-it-head', currentVersion: 1, reviewInterval: 365, createdAt: now, updatedAt: now
+    await saveCollectionRecord('features', 'f-mieter', {
+      id: 'f-mieter', name: 'Mieterstamm', carrier: 'wirtschaftseinheit', tenantId: t1Id, status: 'active', purpose: 'Vertragsabwicklung', criticality: 'high', criticalityScore: 5, confidentialityReq: 'high', integrityReq: 'high', availabilityReq: 'medium', matrixLegal: true, isComplianceRelevant: true, deptId: 'd-best', createdAt: now, updatedAt: now, description: 'Sämtliche Stammdaten der Mieter.'
     }, dataSource);
 
-    await saveCollectionRecord('policy_versions', `pv-${policyId}-1-0`, {
-      id: `pv-${policyId}-1-0`, policyId, version: 1, revision: 0, content: '<h1>IT-Sicherheitsleitlinie</h1><p>Diese Leitlinie definiert den Rahmen für die Informationssicherheit in der Wohnbau Nord GmbH.</p>', changelog: 'Initialrelease', validFrom: today, createdBy: actorEmail, createdAt: now
+    // --- 9. RICHTLINIEN ---
+    await saveCollectionRecord('policies', 'pol-itsec-01', {
+      id: 'pol-itsec-01', tenantId: t1Id, title: 'IT-Sicherheitsleitlinie', type: 'ISK', status: 'published', ownerRoleId: 'j-it-head', currentVersion: 1, reviewInterval: 365, createdAt: now, updatedAt: now
     }, dataSource);
 
     // --- 10. ITSEC MONITORING (BACKUPS) ---
@@ -261,16 +279,11 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       id: 'bj-wodis-sql', resourceId: 'res-sql', name: 'Wodis SQL Full Dump', cycle: 'Täglich', storage_location: 'HPE StoreOnce / Cloud', responsible_type: 'internal', responsible_id: 'j-it-admin', it_process_id: 'proc-backup-01', createdAt: now
     }, dataSource);
 
-    // --- 11. AUDIT & SYNC ---
-    await saveCollectionRecord('aiAuditCriteria', 'crit-sod-fibu', {
-      id: 'crit-sod-fibu', title: 'SoD: Fibu vs IT-Admin', description: 'Benutzer in der Finanzbuchhaltung dürfen keine administrativen Rechte im ERP oder AD besitzen.', severity: 'critical', enabled: true
-    }, dataSource);
-
     await logAuditEventAction(dataSource, {
-      tenantId: t1Id, actorUid: actorEmail, action: 'Massives Enterprise Demo-Szenario erfolgreich generiert.', entityType: 'system', entityId: 'seed-massive'
+      tenantId: t1Id, actorUid: actorEmail, action: 'Enterprise Demo-Szenario inkl. Subprozessen generiert.', entityType: 'system', entityId: 'seed-hierarchical'
     });
 
-    return { success: true, message: "Enterprise-Szenario geladen: 30 Ressourcen, 15 Nutzer, 8 Prozesse mit Modellen, BCM-Szenarien und GRC-Ketten." };
+    return { success: true, message: "Enterprise-Szenario mit 11 vernetzten Prozessen und Subprozessen geladen." };
   } catch (e: any) {
     console.error("Massive Seeding Error:", e);
     return { success: false, error: e.message };
