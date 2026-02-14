@@ -39,7 +39,7 @@ import { logAuditEventAction } from './audit-actions';
 
 /**
  * Generiert eine massive Menge an vernetzten Demo-Daten für eine Wohnungsbaugesellschaft.
- * Fokus: 30 Ressourcen, 15 Nutzer, 8 Prozesse mit Modellen, GRC-Ketten.
+ * Deckt alle Module der Plattform ab (IAM, RiskHub, WorkflowHub, PolicyHub, ITSecHub).
  */
 export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actorEmail: string = 'system') {
   try {
@@ -76,24 +76,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     ];
     for (const d of depts) await saveCollectionRecord('departments', d.id, { ...d, tenantId: t1Id, status: 'active' }, dataSource);
 
-    // --- 3. ROLLEN-BLUEPRINTS (JOB TITLES) ---
-    const jobsList = [
-      { id: 'j-it-admin', deptId: 'd-it', name: 'IT-Systemadministrator' },
-      { id: 'j-it-head', deptId: 'd-it', name: 'Leiter IT & Digitalisierung' },
-      { id: 'j-immo-kfm', deptId: 'd-best', name: 'Immobilienkaufmann' },
-      { id: 'j-buchhalter', deptId: 'd-fibu', name: 'Finanzbuchhalter' },
-      { id: 'j-hr-ref', deptId: 'd-hr', name: 'Personalreferent' },
-      { id: 'j-tech-ref', deptId: 'd-tech', name: 'Technik / Bauleitung' },
-      { id: 'j-legal-dsb', deptId: 'd-legal', name: 'Datenschutzbeauftragter' },
-      { id: 'j-gf', deptId: 'd-mgmt', name: 'Geschäftsführer' }
-    ];
-    for (const j of jobsList) {
-      await saveCollectionRecord('jobTitles', j.id, {
-        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: []
-      }, dataSource);
-    }
-
-    // --- 4. RESSOURCEN (30 Stück) ---
+    // --- 3. RESSOURCEN (30 Stück) ---
     const resourcesList = [
       { id: 'res-wodis', name: 'Aareon Wodis Sigma', type: 'Software', model: 'SaaS Shared', cat: 'ERP' },
       { id: 'res-mareon', name: 'Mareon Portal', type: 'Software', model: 'SaaS Shared', cat: 'Handwerker-Anbindung' },
@@ -135,9 +118,26 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
         backupRequired: true, updatesRequired: true, dataLocation: 'Region West', createdAt: offsetDate(30)
       }, dataSource);
 
-      // Entitlements
-      await saveCollectionRecord('entitlements', `e-${r.id}-user`, { id: `e-${r.id}-user`, resourceId: r.id, name: 'Standard User', riskLevel: 'low', isAdmin: false, tenantId: t1Id }, dataSource);
-      await saveCollectionRecord('entitlements', `e-${r.id}-admin`, { id: `e-${r.id}-admin`, resourceId: r.id, name: 'System Admin', riskLevel: 'high', isAdmin: true, tenantId: t1Id }, dataSource);
+      // Entitlements (Standard-Set für jedes System)
+      await saveCollectionRecord('entitlements', `e-${r.id}-user`, { id: `e-${r.id}-user`, resourceId: r.id, name: 'Standard User', riskLevel: 'low', isAdmin: false, tenantId: t1Id, externalMapping: `ACL_${r.id.toUpperCase()}_USER` }, dataSource);
+      await saveCollectionRecord('entitlements', `e-${r.id}-admin`, { id: `e-${r.id}-admin`, resourceId: r.id, name: 'System Admin', riskLevel: 'high', isAdmin: true, tenantId: t1Id, externalMapping: `ACL_${r.id.toUpperCase()}_ADMIN` }, dataSource);
+    }
+
+    // --- 4. ROLLEN-BLUEPRINTS (JOB TITLES) ---
+    const jobsList = [
+      { id: 'j-it-admin', deptId: 'd-it', name: 'IT-Systemadministrator', ents: ['e-res-ad-admin', 'e-res-sql-admin', 'e-res-vmw-admin', 'e-res-veeam-admin'] },
+      { id: 'j-it-head', deptId: 'd-it', name: 'Leiter IT & Digitalisierung', ents: ['e-res-azure-admin', 'e-res-jsm-admin'] },
+      { id: 'j-immo-kfm', deptId: 'd-best', name: 'Immobilienkaufmann', ents: ['e-res-wodis-user', 'res-mareon-user', 'e-res-m365-user'] },
+      { id: 'j-buchhalter', deptId: 'd-fibu', name: 'Finanzbuchhalter', ents: ['e-res-sap-user', 'e-res-datev-user', 'e-res-m365-user'] },
+      { id: 'j-hr-ref', deptId: 'd-hr', name: 'Personalreferent', ents: ['e-res-sap-user', 'e-res-m365-user', 'e-res-docu-user'] },
+      { id: 'j-tech-ref', deptId: 'd-tech', name: 'Technik / Bauleitung', ents: ['e-res-planon-user', 'e-res-mareon-user'] },
+      { id: 'j-legal-dsb', deptId: 'd-legal', name: 'Datenschutzbeauftragter', ents: ['e-res-docu-user', 'e-res-conf-user'] },
+      { id: 'j-gf', deptId: 'd-mgmt', name: 'Geschäftsführer', ents: ['e-res-sap-user', 'e-res-m365-user', 'e-res-graf-user'] }
+    ];
+    for (const j of jobsList) {
+      await saveCollectionRecord('jobTitles', j.id, {
+        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: j.ents
+      }, dataSource);
     }
 
     // --- 5. BENUTZER (15 Stück) ---
@@ -161,42 +161,43 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
 
     for (const u of usersList) {
       await saveCollectionRecord('users', u.id, {
-        id: u.id, tenantId: t1Id, externalId: `ad-${u.id}`, displayName: u.name, email: u.email, department: u.dept, enabled: true, status: 'active', authSource: 'ldap', lastSyncedAt: now, jobIds: u.jobs, adGroups: ['DOMAIN_USERS']
+        id: u.id, tenantId: t1Id, externalId: `ad-${u.id}`, displayName: u.name, email: u.email, department: u.dept, enabled: true, status: 'active', authSource: 'ldap', lastSyncedAt: now, jobIds: u.jobs, adGroups: ['DOMAIN_USERS', 'VPN_ACCESS']
       }, dataSource);
 
-      // Zuweisungen für Wodis und M365 (Default für alle)
-      for (const resId of ['res-wodis', 'res-m365']) {
-        const assId = `ass-${u.id}-${resId}`;
+      // Standard-Einzelzuweisungen für Kernsysteme
+      for (const resId of ['res-wodis', 'res-m365', 'res-teams']) {
+        const assId = `ass-direct-${u.id}-${resId}`;
         await saveCollectionRecord('assignments', assId, {
           id: assId, userId: u.id, entitlementId: `e-${resId}-user`, status: 'active', grantedBy: actorEmail, grantedAt: now, validFrom: today, tenantId: t1Id, syncSource: 'manual'
         }, dataSource);
       }
     }
 
-    // --- 6. PROZESSE & MODELLE (8 Stück) ---
+    // --- 6. PROZESSE & MODELLE (8 Stück + BCM) ---
     const processesData = [
-      { id: 'proc-miete-01', type: 'pt-corp', title: 'Mietvertragsabschluss', dept: 'd-best', owner: 'j-immo-kfm' },
-      { id: 'proc-rep-01', type: 'pt-corp', title: 'Reparaturmanagement', dept: 'd-tech', owner: 'j-tech-ref' },
-      { id: 'proc-pay-01', type: 'pt-corp', title: 'Zahlungslauf Buchhaltung', dept: 'd-fibu', owner: 'j-buchhalter' },
-      { id: 'proc-patch-01', type: 'pt-update', title: 'Server Patching', dept: 'd-it', owner: 'j-it-admin' },
-      { id: 'proc-backup-01', type: 'pt-backup', title: 'Tägliche Sicherung', dept: 'd-it', owner: 'j-it-admin' },
-      { id: 'proc-emg-wodis', type: 'pt-disaster', title: 'NOTFALL: Ausfall ERP System', dept: 'd-it', owner: 'j-it-head' },
-      { id: 'proc-emg-strom', type: 'pt-disaster', title: 'NOTFALL: Stromausfall Liegenschaft', dept: 'd-tech', owner: 'j-tech-ref' },
-      { id: 'proc-emg-flood', type: 'pt-disaster', title: 'NOTFALL: Hochwasser / Großschaden', dept: 'd-tech', owner: 'j-tech-ref' }
+      { id: 'proc-miete-01', type: 'pt-corp', title: 'Mietvertragsabschluss', dept: 'd-best', owner: 'j-immo-kfm', inputs: 'Interessentendaten', outputs: 'Unterzeichneter Mietvertrag' },
+      { id: 'proc-rep-01', type: 'pt-corp', title: 'Reparaturmanagement', dept: 'd-tech', owner: 'j-tech-ref', inputs: 'Schadensmeldung', outputs: 'Abgeschlossene Reparatur' },
+      { id: 'proc-pay-01', type: 'pt-corp', title: 'Zahlungslauf Buchhaltung', dept: 'd-fibu', owner: 'j-buchhalter', inputs: 'Rechnungen', outputs: 'Bank-Zahlungsdatei' },
+      { id: 'proc-patch-01', type: 'pt-update', title: 'IT Patch-Management', dept: 'd-it', owner: 'j-it-admin', inputs: 'CVE Alerts', outputs: 'Sichere Systeme' },
+      { id: 'proc-backup-01', type: 'pt-backup', title: 'Tägliche Datensicherung', dept: 'd-it', owner: 'j-it-admin', inputs: 'DB Snapshots', outputs: 'Verifizierte Backups' },
+      { id: 'proc-emg-wodis', type: 'pt-disaster', title: 'BCM: Ausfall ERP System', dept: 'd-it', owner: 'j-it-head', tags: 'Kritisch' },
+      { id: 'proc-emg-strom', type: 'pt-disaster', title: 'BCM: Stromausfall Liegenschaft', dept: 'd-tech', owner: 'j-tech-ref', tags: 'Facility' },
+      { id: 'proc-emg-flood', type: 'pt-disaster', title: 'BCM: Hochwasser / Großschaden', dept: 'd-tech', owner: 'j-tech-ref', tags: 'FM' }
     ];
 
     for (const p of processesData) {
       await saveCollectionRecord('processes', p.id, {
         id: p.id, tenantId: t1Id, title: p.title, status: 'published', process_type_id: p.type, 
-        responsibleDepartmentId: p.dept, ownerRoleId: p.owner, currentVersion: 1, createdAt: now, updatedAt: now
+        responsibleDepartmentId: p.dept, ownerRoleId: p.owner, currentVersion: 1, createdAt: now, updatedAt: now,
+        inputs: p.inputs, outputs: p.outputs, tags: p.tags
       }, dataSource);
 
       // Prozess-Modell (Nodes & Edges)
       const nodes: ProcessNode[] = [
-        { id: 'start', type: 'start', title: 'PROZESSSTART', checklist: [] },
+        { id: 'start', type: 'start', title: 'START', checklist: [] },
         { id: 'step-1', type: 'step', title: 'Vorbereitung', description: 'Daten sichten und Dokumente bereitstellen.', roleId: p.owner, resourceIds: ['res-m365'] },
-        { id: 'step-2', type: 'step', title: 'Durchführung', description: 'Operative Umsetzung im System.', roleId: p.owner, resourceIds: [p.id.includes('miete') ? 'res-wodis' : 'res-sap'] },
-        { id: 'end', type: 'end', title: 'ABSCHLUSS', checklist: [] }
+        { id: 'step-2', type: 'step', title: 'Durchführung', description: 'Operative Umsetzung im Kernsystem.', roleId: p.owner, resourceIds: [p.id.includes('miete') ? 'res-wodis' : 'res-sap'] },
+        { id: 'end', type: 'end', title: 'ABSCHLUSS', checklist: ['Ergebnis protokollieren', 'Vorgang schließen'] }
       ];
       
       const edges = [
@@ -221,26 +222,57 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
     // --- 7. RISIKEN & MASSNAHMEN ---
     const riskId = 'rk-ransom-01';
     await saveCollectionRecord('risks', riskId, {
-      id: riskId, tenantId: t1Id, title: 'Ransomware-Angriff auf ERP', category: 'IT-Sicherheit', impact: 5, probability: 3, status: 'active', assetId: 'res-wodis', description: 'Verschlüsselung der ERP-Datenbank durch Schadsoftware.', createdAt: now
+      id: riskId, tenantId: t1Id, title: 'Ransomware-Angriff auf ERP', category: 'IT-Sicherheit', impact: 5, probability: 3, status: 'active', assetId: 'res-wodis', description: 'Verschlüsselung der ERP-Datenbank durch Schadsoftware.', treatmentStrategy: 'mitigate', owner: 'Erika IT-Leitung', createdAt: now
     }, dataSource);
 
     const measureId = 'msr-backup-airgap';
     await saveCollectionRecord('riskMeasures', measureId, {
-      id: measureId, riskIds: [riskId], resourceIds: ['res-veeam', 'res-hpe'], title: 'Offline-Backup (Air-Gap)', owner: 'Erika IT-Leitung', status: 'active', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', dueDate: in30Days
+      id: measureId, riskIds: [riskId], resourceIds: ['res-veeam', 'res-hpe'], title: 'Offline-Backup (Air-Gap)', owner: 'Erika IT-Leitung', status: 'active', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', dueDate: in30Days, description: 'Trennung der Backup-Infrastruktur vom produktiven Netzwerk.'
     }, dataSource);
 
-    // --- 8. AUDIT ---
+    // Kontroll-Monitoring
+    await saveCollectionRecord('riskControls', 'ctrl-airgap-01', {
+      id: 'ctrl-airgap-01', measureId: measureId, title: 'Vierteljährlicher Air-Gap Test', owner: 'Ingo It-Support', status: 'completed', isEffective: true, checkType: 'Test', lastCheckDate: today, evidenceDetails: 'Testlauf erfolgreich durchgeführt. Medien physikalisch getrennt.'
+    }, dataSource);
+
+    // --- 8. DATENMANAGEMENT (FEATURES) ---
+    const featuresList = [
+      { id: 'f-mieter', name: 'Mieterstamm', carrier: 'wirtschaftseinheit', dept: 'd-best', desc: 'Sämtliche Stammdaten der Mieter und Vertragspartner.' },
+      { id: 'f-bank', name: 'Bankverbindung', carrier: 'geschaeftspartner', dept: 'd-fibu', desc: 'SEPA-Mandate und Kontodaten für den Lastschrifteinzug.' }
+    ];
+    for (const f of featuresList) {
+      await saveCollectionRecord('features', f.id, {
+        ...f, id: f.id, tenantId: t1Id, status: 'active', purpose: 'Vertragsabwicklung', criticality: 'high', criticalityScore: 5, confidentialityReq: 'high', integrityReq: 'high', availabilityReq: 'medium', matrixLegal: true, isComplianceRelevant: true, deptId: f.dept, createdAt: now, updatedAt: now
+      }, dataSource);
+    }
+
+    // --- 9. RICHTLINIEN (POLICIES) ---
+    const policyId = 'pol-itsec-01';
+    await saveCollectionRecord('policies', policyId, {
+      id: policyId, tenantId: t1Id, title: 'IT-Sicherheitsleitlinie', type: 'ISK', status: 'published', ownerRoleId: 'j-it-head', currentVersion: 1, reviewInterval: 365, createdAt: now, updatedAt: now
+    }, dataSource);
+
+    await saveCollectionRecord('policy_versions', `pv-${policyId}-1-0`, {
+      id: `pv-${policyId}-1-0`, policyId, version: 1, revision: 0, content: '<h1>IT-Sicherheitsleitlinie</h1><p>Diese Leitlinie definiert den Rahmen für die Informationssicherheit in der Wohnbau Nord GmbH.</p>', changelog: 'Initialrelease', validFrom: today, createdBy: actorEmail, createdAt: now
+    }, dataSource);
+
+    // --- 10. ITSEC MONITORING (BACKUPS) ---
+    await saveCollectionRecord('backup_jobs', 'bj-wodis-sql', {
+      id: 'bj-wodis-sql', resourceId: 'res-sql', name: 'Wodis SQL Full Dump', cycle: 'Täglich', storage_location: 'HPE StoreOnce / Cloud', responsible_type: 'internal', responsible_id: 'j-it-admin', it_process_id: 'proc-backup-01', createdAt: now
+    }, dataSource);
+
+    // --- 11. AUDIT & SYNC ---
     await saveCollectionRecord('aiAuditCriteria', 'crit-sod-fibu', {
       id: 'crit-sod-fibu', title: 'SoD: Fibu vs IT-Admin', description: 'Benutzer in der Finanzbuchhaltung dürfen keine administrativen Rechte im ERP oder AD besitzen.', severity: 'critical', enabled: true
     }, dataSource);
 
     await logAuditEventAction(dataSource, {
-      tenantId: t1Id, actorUid: actorEmail, action: 'Enterprise Demo-Daten-Import (30 Ressourcen, 15 Nutzer, 8 Prozesse) abgeschlossen.', entityType: 'system', entityId: 'seed-massive'
+      tenantId: t1Id, actorUid: actorEmail, action: 'Massives Enterprise Demo-Szenario erfolgreich generiert.', entityType: 'system', entityId: 'seed-massive'
     });
 
-    return { success: true, message: "Enterprise-Szenario geladen: 30 Ressourcen, 15 Nutzer, 8 Prozesse mit Modellen." };
+    return { success: true, message: "Enterprise-Szenario geladen: 30 Ressourcen, 15 Nutzer, 8 Prozesse mit Modellen, BCM-Szenarien und GRC-Ketten." };
   } catch (e: any) {
-    console.error("Seeding Error:", e);
+    console.error("Massive Seeding Error:", e);
     return { success: false, error: e.message };
   }
 }
