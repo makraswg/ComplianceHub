@@ -33,7 +33,7 @@ import {
   Pencil,
   Globe,
   Server
-} from 'lucide-center';
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -136,7 +136,7 @@ export default function UserDetailPage() {
   const isEnabled = user.enabled === true || user.enabled === 1 || user.enabled === "1";
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
+    <div className="space-y-6 pb-20 animate-in fade-in duration-700 p-4 md:p-8">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/users')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">
@@ -207,7 +207,7 @@ export default function UserDetailPage() {
               <Separator className="bg-slate-100 dark:bg-slate-800" />
               
               <div className="space-y-3">
-                <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">AD-Integrität</p>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">AD-Integrität</p>
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-[10px] font-black">
                     <span className={cn(driftInfo.integrity === 100 ? "text-emerald-600" : "text-amber-600")}>{driftInfo.integrity}% Match</span>
