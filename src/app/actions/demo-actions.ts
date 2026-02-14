@@ -1,7 +1,7 @@
 'use server';
 
 import { saveCollectionRecord } from './mysql-actions';
-import { DataSource, Risk, RiskMeasure, Process, ProcessingActivity, Resource, Feature, User, Assignment, JobTitle, ProcessNode, ProcessOperation, RiskControl, PlatformUser, DataSubjectGroup, DataCategory } from '@/lib/types';
+import { DataSource, Risk, RiskMeasure, Process, ProcessingActivity, Resource, Feature, User, Assignment, JobTitle, ProcessNode, ProcessOperation, RiskControl, PlatformUser, DataSubjectGroup, DataCategory, ServicePartner, ServicePartnerContact, ServicePartnerArea, DataStore, Task, TaskComment } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
 /**
@@ -39,7 +39,6 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'd-it', tenantId: t1Id, name: 'IT & Digitalisierung' },
       { id: 'd-hr', tenantId: t1Id, name: 'Personalwesen' },
       { id: 'd-tech', tenantId: t1Id, name: 'Technik / Instandhaltung' },
-      { id: 'd-mkt', tenantId: t1Id, name: 'Marketing & Kommunikation' },
       { id: 'd-legal', tenantId: t1Id, name: 'Recht & Datenschutz' }
     ];
     for (const d of departmentsData) await saveCollectionRecord('departments', d.id, { ...d, status: 'active' }, dataSource);
@@ -49,8 +48,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'dsg-mieter', name: 'Mieter', tenantId: t1Id, status: 'active' },
       { id: 'dsg-interessent', name: 'Mietinteressenten', tenantId: t1Id, status: 'active' },
       { id: 'dsg-mitarbeiter', name: 'Mitarbeiter', tenantId: t1Id, status: 'active' },
-      { id: 'dsg-handwerker', name: 'Handwerker / Dienstleister', tenantId: t1Id, status: 'active' },
-      { id: 'dsg-eigentuemer', name: 'WEG-Eigentümer', tenantId: t1Id, status: 'active' }
+      { id: 'dsg-handwerker', name: 'Handwerker / Dienstleister', tenantId: t1Id, status: 'active' }
     ];
     for (const g of subjectGroups) await saveCollectionRecord('dataSubjectGroups', g.id, g, dataSource);
 
@@ -59,47 +57,71 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'dcat-bank', name: 'Bankverbindungen / Zahlungsdaten', tenantId: t1Id, status: 'active', isGdprRelevant: true },
       { id: 'dcat-bonitaet', name: 'Bonitätsdaten (Schufa / Crefo)', tenantId: t1Id, status: 'active', isGdprRelevant: true },
       { id: 'dcat-verbrauch', name: 'Verbrauchs- und Abrechnungsdaten', tenantId: t1Id, status: 'active', isGdprRelevant: true },
-      { id: 'dcat-bewerbung', name: 'Bewerberdaten (HR)', tenantId: t1Id, status: 'active', isGdprRelevant: true },
-      { id: 'dcat-gebaeude', name: 'Gebäude- und Objektdaten', tenantId: t1Id, status: 'active', isGdprRelevant: false }
+      { id: 'dcat-bewerbung', name: 'Bewerberdaten (HR)', tenantId: t1Id, status: 'active', isGdprRelevant: true }
     ];
     for (const c of dataCategories) await saveCollectionRecord('dataCategories', c.id, c, dataSource);
 
-    // --- 4. RESSOURCEN ---
+    // --- 4. SERVICE PARTNER & KONTAKTE ---
+    const partnerId = 'sp-aareon';
+    await saveCollectionRecord('servicePartners', partnerId, {
+      id: partnerId, tenantId: t1Id, name: 'Aareon Deutschland GmbH', industry: 'Software / ERP', website: 'https://www.aareon.de', status: 'active', createdAt: offsetDate(100)
+    }, dataSource);
+
+    const contactId = 'spc-aareon-support';
+    await saveCollectionRecord('servicePartnerContacts', contactId, {
+      id: contactId, partnerId, name: 'Support Team Wodis', email: 'support@aareon.de', phone: '+49 6131 301-0', role: 'Enterprise Support'
+    }, dataSource);
+
+    await saveCollectionRecord('servicePartnerAreas', 'spa-erp', {
+      id: 'spa-erp', partnerId, name: 'ERP Betrieb', description: 'Hosting und Support für Wodis Sigma.'
+    }, dataSource);
+
+    // --- 5. RESSOURCEN & DATA STORES ---
     const resourcesData = [
-      { id: 'res-wodis', name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true },
-      { id: 'res-archiv', name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true },
+      { id: 'res-wodis', name: 'Aareon Wodis Sigma', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true, backupRequired: true, updatesRequired: true },
+      { id: 'res-archiv', name: 'Aareon Archiv Kompakt', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'high', isDataRepository: true, backupRequired: true },
       { id: 'res-m365', name: 'Microsoft 365', assetType: 'Cloud Service', operatingModel: 'Cloud', criticality: 'medium', isIdentityProvider: true },
-      { id: 'res-ad', name: 'Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isIdentityProvider: true },
+      { id: 'res-ad', name: 'Active Directory', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isIdentityProvider: true, backupRequired: true, updatesRequired: true },
       { id: 'res-mareon', name: 'Mareon Handwerkerportal', assetType: 'Software', operatingModel: 'SaaS Shared', criticality: 'medium', isDataRepository: false },
-      { id: 'res-sql-cluster', name: 'MS SQL Cluster (Local)', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isDataRepository: true }
+      { id: 'res-sql-cluster', name: 'MS SQL Cluster (Local)', assetType: 'Infrastruktur', operatingModel: 'On-Premise', criticality: 'high', isDataRepository: true, backupRequired: true, updatesRequired: true }
     ];
+
     for (const r of resourcesData) {
       await saveCollectionRecord('resources', r.id, { 
         ...r, tenantId: t1Id, status: 'active', createdAt: offsetDate(45), 
         confidentialityReq: r.criticality, integrityReq: r.criticality, availabilityReq: r.criticality,
         dataClassification: r.criticality === 'high' ? 'confidential' : 'internal',
         hasPersonalData: true, 
-        dataLocation: r.operatingModel === 'On-Premise' ? 'RZ Hamburg' : 'Azure West Europe'
+        dataLocation: r.operatingModel === 'On-Premise' ? 'RZ Hamburg' : 'Azure West Europe',
+        externalOwnerPartnerId: r.operatingModel.includes('SaaS') ? partnerId : undefined,
+        externalOwnerContactId: r.operatingModel.includes('SaaS') ? contactId : undefined
       }, dataSource);
+
+      if (r.isDataRepository) {
+        const dsId = `ds-repo-${r.id}`;
+        await saveCollectionRecord('dataStores', dsId, {
+          id: dsId, tenantId: t1Id, name: `Repository: ${r.name}`, description: 'Zentraler Datenbestand.', status: 'active'
+        }, dataSource);
+      }
     }
 
-    // --- 5. SYSTEMROLLEN (ENTITLEMENTS) ---
+    // --- 6. SYSTEMROLLEN (ENTITLEMENTS) ---
     const entitlementsData = [
-      { id: 'e-wodis-user', resourceId: 'res-wodis', name: 'Standard-Anwender', riskLevel: 'low', isAdmin: false },
-      { id: 'e-wodis-admin', resourceId: 'res-wodis', name: 'Key-User / Admin', riskLevel: 'high', isAdmin: true },
-      { id: 'e-archiv-read', resourceId: 'res-archiv', name: 'Archiv-Leser', riskLevel: 'low', isAdmin: false },
-      { id: 'e-m365-user', resourceId: 'res-m365', name: 'Office Standard', riskLevel: 'low', isAdmin: false },
-      { id: 'e-ad-user', resourceId: 'res-ad', name: 'Domain User', riskLevel: 'low', isAdmin: false },
-      { id: 'e-mareon-tech', resourceId: 'res-mareon', name: 'Technik-Sachbearbeiter', riskLevel: 'medium', isAdmin: false }
+      { id: 'e-wodis-user', resourceId: 'res-wodis', name: 'Standard-Anwender', riskLevel: 'low', isAdmin: false, externalMapping: 'WODIS_USER' },
+      { id: 'e-wodis-admin', resourceId: 'res-wodis', name: 'Key-User / Admin', riskLevel: 'high', isAdmin: true, externalMapping: 'WODIS_ADMIN' },
+      { id: 'e-archiv-read', resourceId: 'res-archiv', name: 'Archiv-Leser', riskLevel: 'low', isAdmin: false, externalMapping: 'ARCHIV_READ' },
+      { id: 'e-m365-user', resourceId: 'res-m365', name: 'Office Standard', riskLevel: 'low', isAdmin: false, externalMapping: 'M365_USER' },
+      { id: 'e-ad-user', resourceId: 'res-ad', name: 'Domain User', riskLevel: 'low', isAdmin: false, externalMapping: 'DOMAIN_USER' },
+      { id: 'e-mareon-tech', resourceId: 'res-mareon', name: 'Technik-Sachbearbeiter', riskLevel: 'medium', isAdmin: false, externalMapping: 'MAREON_TECH' }
     ];
     for (const e of entitlementsData) await saveCollectionRecord('entitlements', e.id, { ...e, tenantId: t1Id }, dataSource);
 
-    // --- 6. STELLEN-BLUEPRINTS (RBAC) ---
+    // --- 7. STELLEN-BLUEPRINTS (RBAC) ---
     const jobsData = [
       { id: 'j-immo-kfm', departmentId: 'd-best', name: 'Immobilienkaufmann', ents: ['e-wodis-user', 'e-archiv-read', 'e-m365-user', 'e-ad-user'] },
       { id: 'j-it-admin', departmentId: 'd-it', name: 'Systemadministrator', ents: ['e-wodis-admin', 'e-m365-user', 'e-ad-user'] },
       { id: 'j-tech-ref', departmentId: 'd-tech', name: 'Technischer Referent', ents: ['e-mareon-tech', 'e-m365-user', 'e-ad-user'] },
-      { id: 'j-gf', departmentId: 'd-mgmt', name: 'Geschäftsführer', ents: ['e-m365-user', 'e-ad-user'] }
+      { id: 'j-ds-officer', departmentId: 'd-legal', name: 'Datenschutzbeauftragter', ents: ['e-m365-user', 'e-ad-user'] }
     ];
     for (const j of jobsData) {
       await saveCollectionRecord('jobTitles', j.id, { 
@@ -108,109 +130,105 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       }, dataSource);
     }
 
-    // --- 7. PROZESSE & VVT (Detailed Chain) ---
-    const processRegistry = [
-      { id: 'p-int-mgmt', title: 'Interessentenmanagement', dept: 'd-best', vvt: 'vvt-lead', next: 'p-vermietung', cats: ['dcat-stamm'], groups: ['dsg-interessent'] },
-      { id: 'p-vermietung', title: 'Mietvertragsabschluss', dept: 'd-best', vvt: 'vvt-contract', next: 'p-uebergabe', cats: ['dcat-stamm', 'dcat-bank', 'dcat-bonitaet'], groups: ['dsg-mieter'] },
-      { id: 'p-uebergabe', title: 'Wohnungsübergabe', dept: 'd-tech', vvt: 'vvt-handover', cats: ['dcat-gebaeude'], groups: ['dsg-mieter'] },
-      { id: 'p-maengel', title: 'Mängelanzeige (Mieter)', dept: 'd-best', vvt: 'vvt-support', next: 'p-instandhaltung', cats: ['dcat-stamm'], groups: ['dsg-mieter'] },
-      { id: 'p-instandhaltung', title: 'Instandsetzungsauftrag', dept: 'd-tech', vvt: 'vvt-workorder', cats: ['dcat-gebaeude'], groups: ['dsg-handwerker'], complex: true },
-      { id: 'p-bk-abr', title: 'Betriebskostenabrechnung', dept: 'd-best', vvt: 'vvt-utilities', cats: ['dcat-verbrauch', 'dcat-bank'], groups: ['dsg-mieter'] }
+    // --- 8. BENUTZER (MULTI-ROLE) ---
+    const usersData = [
+      { id: 'u-demo-01', name: 'Max Mustermann', email: 'm.mustermann@wohnbau-nord.de', dept: 'Bestandsmanagement', jobs: ['j-immo-kfm'], adGroups: ['DOMAIN_USER', 'WODIS_USER'] },
+      { id: 'u-demo-02', name: 'Erika IT-Leiterin', email: 'e.it@wohnbau-nord.de', dept: 'IT & Digitalisierung', jobs: ['j-it-admin', 'j-immo-kfm'], adGroups: ['DOMAIN_USER', 'WODIS_ADMIN', 'M365_USER'] },
+      { id: 'u-demo-03', name: 'Sarah Security', email: 's.compliance@wohnbau-nord.de', dept: 'Recht & Datenschutz', jobs: ['j-ds-officer'], adGroups: ['DOMAIN_USER'] }
     ];
 
-    for (const p of processRegistry) {
-      // Create VVT
-      await saveCollectionRecord('processingActivities', p.vvt, {
-        id: p.vvt, tenantId: t1Id, name: `VVT: ${p.title}`, status: 'active', version: '1.0',
-        responsibleDepartment: departmentsData.find(d => d.id === p.dept)?.name || 'General',
-        legalBasis: 'Art. 6 Abs. 1 lit. b (Vertrag)', 
-        description: `Dokumentation der Verarbeitungstätigkeiten für den Prozess ${p.title}.`,
-        retentionPeriod: '10 Jahre nach Abschluss', lastReviewDate: today
+    for (const u of usersData) {
+      await saveCollectionRecord('users', u.id, {
+        id: u.id, tenantId: t1Id, displayName: u.name, email: u.email, department: u.dept,
+        jobIds: u.jobs, title: u.jobs[0], enabled: true, status: 'active', adGroups: u.adGroups,
+        authSource: 'ldap', lastSyncedAt: offsetDate(1)
       }, dataSource);
 
-      // Create Process
-      await saveCollectionRecord('processes', p.id, {
-        id: p.id, tenantId: t1Id, title: p.title, status: 'published', currentVersion: 1,
-        responsibleDepartmentId: p.dept, vvtId: p.vvt, createdAt: offsetDate(30), updatedAt: now,
-        automationLevel: 'partial', dataVolume: 'medium', processingFrequency: 'daily'
-      }, dataSource);
-
-      // --- BRANCHING LOGIC ---
-      let nodes: ProcessNode[] = [];
-      let edges: any[] = [];
-      let positions: any = {};
-
-      if (p.complex) {
-        nodes = [
-          { id: 'start', type: 'start', title: 'Meldungseingang' },
-          { id: 'step1', type: 'step', title: 'Schadensaufnahme', roleId: 'j-tech-ref', resourceIds: ['res-m365'] },
-          { id: 'dec1', type: 'decision', title: 'Großauftrag > 1.000€?' },
-          { id: 'step2a', type: 'step', title: 'Freigabe Geschäftsführung', roleId: 'j-gf', resourceIds: ['res-m365'] },
-          { id: 'step3', type: 'step', title: 'Beauftragung Handwerker', roleId: 'j-tech-ref', resourceIds: ['res-mareon', 'res-wodis'] },
-          { id: 'end', type: 'end', title: 'Abschluss' }
-        ];
-        edges = [
-          { id: 'e1', source: 'start', target: 'step1' },
-          { id: 'e2', source: 'step1', target: 'dec1' },
-          { id: 'e3', source: 'dec1', target: 'step2a', label: 'Ja' },
-          { id: 'e4', source: 'dec1', target: 'step3', label: 'Nein' },
-          { id: 'e5', source: 'step2a', target: 'step3' },
-          { id: 'e6', source: 'step3', target: 'end' }
-        ];
-        positions = {
-          start: { x: 50, y: 150 }, step1: { x: 200, y: 150 }, dec1: { x: 450, y: 150 },
-          step2a: { x: 450, y: 300 }, step3: { x: 700, y: 150 }, end: { x: 950, y: 150 }
-        };
-      } else {
-        nodes = [
-          { id: 'start', type: 'start', title: 'Start' },
-          { id: 'step1', type: 'step', title: 'Datenerfassung', roleId: 'j-immo-kfm', resourceIds: ['res-m365'] },
-          { id: 'step2', type: 'step', title: 'System-Eintrag', roleId: 'j-immo-kfm', resourceIds: ['res-wodis'] },
-          { id: 'end', type: p.next ? 'subprocess' : 'end', title: p.next ? 'Weiterleitung' : 'Ende', targetProcessId: p.next || undefined }
-        ];
-        edges = [
-          {id:'e1',source:'start',target:'step1'}, {id:'e2',source:'step1',target:'step2'}, {id:'e3',source:'step2',target:'end'}
-        ];
-        positions = {start:{x:50,y:100},step1:{x:200,y:100},step2:{x:450,y:100},end:{x:700,y:100}};
+      // Create initial assignments based on blueprints
+      for (const jid of u.jobs) {
+        const job = jobsData.find(j => j.id === jid);
+        if (job) {
+          for (const eid of job.ents) {
+            const assId = `ass-${u.id}-${eid}`.substring(0, 50);
+            await saveCollectionRecord('assignments', assId, {
+              id: assId, userId: u.id, entitlementId: eid, status: 'active', tenantId: t1Id,
+              grantedBy: 'system-demo', grantedAt: offsetDate(30), validFrom: today, syncSource: 'blueprint'
+            }, dataSource);
+          }
+        }
       }
-
-      await saveCollectionRecord('process_versions', `ver-${p.id}-1`, {
-        id: `ver-${p.id}-1`, process_id: p.id, version: 1, 
-        model_json: { nodes, edges },
-        layout_json: { positions },
-        revision: 1, created_at: offsetDate(30)
-      }, dataSource);
     }
 
-    // --- 8. RISIKEN & KONTROLLEN ---
-    const r1Id = 'rk-data-loss';
-    await saveCollectionRecord('risks', r1Id, {
-      id: r1Id, tenantId: t1Id, title: 'Datenverlust im ERP (Wodis)', 
-      category: 'IT-Sicherheit', impact: 5, probability: 2, status: 'active', assetId: 'res-wodis', 
-      owner: 'CISO', createdAt: offsetDate(20), description: 'Szenario eines technischen Defekts im Cloud-Rechenzentrum.'
+    // --- 9. PROZESSE & BCM ---
+    // Disaster Recovery Process
+    const disasterProcId = 'p-disaster-erp';
+    await saveCollectionRecord('processes', disasterProcId, {
+      id: disasterProcId, tenantId: t1Id, title: 'BCM: Wiederherstellung ERP (SaaS Ausfall)', status: 'published',
+      process_type_id: 'pt-disaster', currentVersion: 1, responsibleDepartmentId: 'd-it', createdAt: offsetDate(10)
     }, dataSource);
 
-    const m1Id = 'msr-backup';
-    await saveCollectionRecord('riskMeasures', m1Id, {
-      id: m1Id, riskIds: [r1Id], resourceIds: ['res-wodis'], title: 'Revisionssicheres Backup & Restore', 
-      description: 'Regelmäßige Sicherung der SQL-Datenbanken.',
-      owner: 'Aareon Support', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle', 
+    const drNodes = [
+      { id: 'start', type: 'start', title: 'Meldung Totalausfall' },
+      { id: 'step1', type: 'step', title: 'Partner-Support kontaktieren', roleId: 'j-it-admin', resourceIds: ['res-wodis'] },
+      { id: 'step2', type: 'step', title: 'Notbetrieb einleiten (Excel-Listen)', roleId: 'j-immo-kfm' },
+      { id: 'end', type: 'end', title: 'System-Restore abgeschlossen' }
+    ];
+    await saveCollectionRecord('process_versions', `ver-${disasterProcId}-1`, {
+      id: `ver-${disasterProcId}-1`, process_id: disasterProcId, version: 1, revision: 1, created_at: now,
+      model_json: { nodes: drNodes, edges: [{id:'e1',source:'start',target:'step1'},{id:'e2',source:'step1',target:'step2'},{id:'e3',source:'step2',target:'end'}] },
+      layout_json: { positions: { start: {x:50,y:100}, step1: {x:250,y:100}, step2: {x:500,y:100}, end: {x:750,y:100} } }
+    }, dataSource);
+
+    // Standard Business Process linked to BCM
+    const bizProcId = 'p-vermietung';
+    await saveCollectionRecord('processes', bizProcId, {
+      id: bizProcId, tenantId: t1Id, title: 'Mietvertragsabschluss (Standard)', status: 'published', currentVersion: 1,
+      process_type_id: 'pt-corp', responsibleDepartmentId: 'd-best', emergencyProcessId: disasterProcId, 
+      vvtId: 'vvt-rental', createdAt: offsetDate(30), automationLevel: 'partial'
+    }, dataSource);
+
+    // --- 10. RISIKEN & TOMS ---
+    const riskId = 'rk-erp-down';
+    await saveCollectionRecord('risks', riskId, {
+      id: riskId, tenantId: t1Id, title: 'Ausfall des ERP-Systems (Wodis)', category: 'Betrieblich',
+      impact: 5, probability: 2, status: 'active', assetId: 'res-wodis', owner: 'IT-Leitung',
+      description: 'Verfügbarkeitsrisiko bei SaaS-Ausfall durch Provider.', createdAt: offsetDate(20)
+    }, dataSource);
+
+    const measureId = 'msr-bcm-plan';
+    await saveCollectionRecord('riskMeasures', measureId, {
+      id: measureId, riskIds: [riskId], resourceIds: ['res-wodis'], title: 'BCM-Plan für ERP-Ausfall',
+      description: 'Definition von Notfallprozessen und Wiederherstellungszeiten.',
+      owner: 'CISO', status: 'completed', isTom: true, tomCategory: 'Verfügbarkeitskontrolle',
       dueDate: in30Days, effectiveness: 5
     }, dataSource);
 
-    await saveCollectionRecord('riskControls', 'ctrl-backup-01', {
-      id: 'ctrl-backup-01', measureId: m1Id, title: 'Wöchentlicher Backup-Report Check', 
-      owner: 'IT-Leitung', status: 'completed', isEffective: true, checkType: 'Review',
-      lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Report liegt vor.'
+    await saveCollectionRecord('riskControls', 'ctrl-dr-test', {
+      id: 'ctrl-dr-test', measureId: measureId, title: 'Jährlicher Restore-Test Wodis',
+      owner: 'IT-Admin', status: 'completed', isEffective: true, checkType: 'Test',
+      lastCheckDate: today, nextCheckDate: in30Days, evidenceDetails: 'Testprotokoll vom ' + today + ' erfolgreich archiviert.'
     }, dataSource);
 
-    // --- 9. AUDIT LOG ---
+    // --- 11. OPERATIVE TASKS ---
+    const taskId = 'task-demo-01';
+    await saveCollectionRecord('tasks', taskId, {
+      id: taskId, tenantId: t1Id, title: 'Berechtigungs-Review Q1/2024', status: 'todo', priority: 'high',
+      assigneeId: 'u-demo-02', creatorId: 'system', entityType: 'assignment', entityId: 'all',
+      dueDate: in30Days, createdAt: now, updatedAt: now, description: 'Bitte alle administrativen Zugriffe in Wodis Sigma validieren.'
+    }, dataSource);
+
+    await saveCollectionRecord('task_comments', 'tcom-01', {
+      id: 'tcom-01', taskId, userId: 'u-demo-02', userName: 'Erika IT-Leiterin',
+      text: 'Start der Prüfung am Montag geplant.', createdAt: now
+    }, dataSource);
+
+    // --- 12. AUDIT LOG ---
     await logAuditEventAction(dataSource, {
-      tenantId: 'global', actorUid: actorEmail, action: 'Enterprise-Demo-Szenario erfolgreich geladen.',
-      entityType: 'system', entityId: 'seed-v9'
+      tenantId: 'global', actorUid: actorEmail, action: 'Massiver Demo-Daten-Import (Wohnbau-Szenario) abgeschlossen.',
+      entityType: 'system', entityId: 'seed-v10'
     });
 
-    return { success: true, message: "Enterprise Szenario erfolgreich geladen." };
+    return { success: true, message: "Tief vernetztes Wohnbau-Szenario erfolgreich geladen." };
   } catch (e: any) {
     console.error("Seeding Error:", e);
     return { success: false, error: e.message };
