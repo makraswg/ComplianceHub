@@ -811,6 +811,7 @@ function ProcessDesignerContent() {
                   getFullRoleName={getFullRoleName} 
                   animationsEnabled={animationsEnabled}
                   mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0}
+                  gridNodes={gridNodes}
                 />
               </div>
             ))}
@@ -967,11 +968,26 @@ function ProcessDesignerContent() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount = 0 }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount = 0, gridNodes = [] }: any) {
   const isActive = activeNodeId === node.id;
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
   const roleName = getFullRoleName(node.roleId);
+
+  // Get predecessor and successor nodes
+  const predecessorNodes = useMemo(() => {
+    if (!node.predecessorIds || !gridNodes) return [];
+    return node.predecessorIds
+      .map((id: string) => gridNodes.find((n: any) => n.id === id))
+      .filter(Boolean);
+  }, [node.predecessorIds, gridNodes]);
+  
+  const successorNodes = useMemo(() => {
+    if (!node.successorIds || !gridNodes) return [];
+    return node.successorIds
+      .map((id: string) => gridNodes.find((n: any) => n.id === id))
+      .filter(Boolean);
+  }, [node.successorIds, gridNodes]);
 
   return (
     <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
@@ -994,6 +1010,36 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         <CardContent className="p-6 space-y-6 animate-in fade-in overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
             <div className="space-y-4 overflow-hidden flex flex-col">
+              {/* Vorgänger und Nachfolger */}
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ablauf</Label>
+                <div className="space-y-1.5">
+                  {predecessorNodes.length > 0 && (
+                    <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-[8px] font-black text-blue-600 uppercase mb-1">◀ Vorgänger</p>
+                      <div className="space-y-1">
+                        {predecessorNodes.map((pred: any) => (
+                          <div key={pred.id} className="text-[9px] font-bold text-blue-700">{pred.title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {successorNodes.length > 0 && (
+                    <div className="p-2 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-[8px] font-black text-green-600 uppercase mb-1">Nachfolger ▶</p>
+                      <div className="space-y-1">
+                        {successorNodes.map((succ: any) => (
+                          <div key={succ.id} className="text-[9px] font-bold text-green-700">{succ.title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {predecessorNodes.length === 0 && successorNodes.length === 0 && (
+                    <p className="text-[9px] text-slate-300 italic">Keine Verbindungen</p>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
                 <ScrollArea className="max-h-[100px] pr-2">
@@ -1015,6 +1061,26 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   </div>
                 </ScrollArea>
               </div>
+
+              {/* Tipps */}
+              {node.tips && (
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">💡 Tipps</Label>
+                  <div className="p-2 bg-amber-50 rounded-lg border border-amber-100">
+                    <p className="text-[9px] text-amber-800">{node.tips}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Fehler/Probleme */}
+              {node.errors && (
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">⚠️ Häufige Fehler</Label>
+                  <div className="p-2 bg-red-50 rounded-lg border border-red-100">
+                    <p className="text-[9px] text-red-800">{node.errors}</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 flex flex-col">
@@ -1037,6 +1103,20 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   </div>
                 </div>
               </div>
+
+              {/* Links */}
+              {node.links && node.links.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">🔗 Ressourcen</Label>
+                  <div className="space-y-1.5">
+                    {node.links.map((link: any, idx: number) => (
+                      <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-2 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-all">
+                        <p className="text-[9px] font-bold text-primary underline">{link.title}</p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
