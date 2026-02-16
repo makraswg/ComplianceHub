@@ -180,7 +180,6 @@ function ProcessDesignerContent() {
   const [metaOpenQuestions, setMetaOpenQuestions] = useState('');
   const [metaDeptId, setMetaDeptId] = useState('none');
   const [metaOwnerRoleId, setMetaOwnerRoleId] = useState('none');
-  const [metaFramework, setMetaFramework] = useState('none');
   const [metaAutomation, setMetaAutomation] = useState<'manual' | 'partial' | 'full'>('manual');
   const [metaVolume, setMetaDataVolume] = useState<'low' | 'medium' | 'high'>('low');
   const [metaFrequency, setMetaFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'on_demand'>('on_demand');
@@ -216,7 +215,6 @@ function ProcessDesignerContent() {
       setMetaOpenQuestions(currentProcess.openQuestions || '');
       setMetaDeptId(currentProcess.responsibleDepartmentId || 'none');
       setMetaOwnerRoleId(currentProcess.ownerRoleId || 'none');
-      setMetaFramework(currentProcess.regulatoryFramework || 'none');
       setMetaAutomation(currentProcess.automationLevel || 'manual');
       setMetaDataVolume(currentProcess.dataVolume || 'low');
       setMetaFrequency(currentProcess.processingFrequency || 'on_demand');
@@ -552,7 +550,6 @@ function ProcessDesignerContent() {
         inputs: metaInputs, outputs: metaOutputs, kpis: metaKpis, tags: metaTags,
         openQuestions: metaOpenQuestions, responsibleDepartmentId: metaDeptId === 'none' ? undefined : metaDeptId,
         ownerRoleId: metaOwnerRoleId === 'none' ? undefined : metaOwnerRoleId,
-        regulatoryFramework: metaFramework === 'none' ? undefined : metaFramework,
         automationLevel: metaAutomation, dataVolume: metaVolume, processingFrequency: metaFrequency
       }, dataSource);
       if (res.success) { toast({ title: "Stammdaten gespeichert" }); refreshProc(); }

@@ -102,7 +102,7 @@ export default function RoleDetailPage() {
   }
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="px-6 space-y-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/roles')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl">
@@ -165,24 +165,28 @@ export default function RoleDetailPage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-none shadow-xl bg-slate-900 text-white overflow-hidden">
-            <CardContent className="p-8 space-y-6">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg">
-                <ShieldCheck className="w-6 h-6 text-white" />
+          <Card className="rounded-2xl border shadow-sm bg-white dark:bg-slate-900 overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b p-4 px-6">
+              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-400">Governance Status</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg">
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-headline font-bold text-slate-900 dark:text-white">Audit Ready</h3>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h3 className="text-xl font-headline font-black">Audit Ready</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Governance Status</p>
-              </div>
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-primary">
                   <span>Integrität</span>
                   <span className="text-emerald-400">100%</span>
                 </div>
-                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
                   <div className="h-full w-full bg-primary" />
                 </div>
-                <p className="text-[9px] text-slate-400 leading-relaxed italic">
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-relaxed italic">
                   Diese Rolle ist vollständig dokumentiert und in die Standardzuweisungen integriert.
                 </p>
               </div>
@@ -313,8 +317,8 @@ export default function RoleDetailPage() {
 
                 {/* Blueprints (Basis-Standardzuweisungen) */}
                 <Card className="rounded-2xl border shadow-sm bg-white overflow-hidden md:col-span-2">
-                  <CardHeader className="bg-slate-900 text-white p-6">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <CardHeader className="bg-slate-50/50 border-b p-6">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-900">
                       <Briefcase className="w-4 h-4 text-primary" /> Basis-Standardzuweisungen (Organisation)
                     </CardTitle>
                   </CardHeader>

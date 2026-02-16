@@ -58,7 +58,9 @@ import {
   JobTitle,
   UiConfig,
   MediaFile,
-  Tenant
+  Tenant,
+  ProcessType,
+  User
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -107,9 +109,15 @@ function ProcessDetailViewContent() {
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: mediaFiles } = usePluggableCollection<MediaFile>('media');
   const { data: activities } = usePluggableCollection<ProcessingActivity>('processingActivities');
+  const { data: processTypes } = usePluggableCollection<ProcessType>('process_types');
+  const { data: users } = usePluggableCollection<User>('users');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id && v.version === currentProcess?.currentVersion), [versions, id, currentProcess]);
+  const processType = useMemo(() => processTypes?.find(pt => pt.id === currentProcess?.process_type_id), [processTypes, currentProcess]);
+  const owner = useMemo(() => users?.find(u => u.id === currentProcess?.ownerUserId), [users, currentProcess]);
+  const emergencyProcess = useMemo(() => processes?.find(p => p.id === currentProcess?.emergencyProcessId), [processes, currentProcess]);
+  const processingActivity = useMemo(() => activities?.find(a => a.originalId === currentProcess?.vvtId), [activities, currentProcess]);
 
   const animationsEnabled = useMemo(() => {
     if (!uiConfigs || uiConfigs.length === 0) return true;
@@ -401,16 +409,79 @@ function ProcessDetailViewContent() {
                     </span>
                   </div>
                 </div>
+                
+                {processType && (
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-slate-400">Prozesstyp</Label>
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            {processType.name}
+                        </span>
+                    </div>
+                </div>
+                )}
+
+                {emergencyProcess && (
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-red-600">Notfall-Fallback</Label>
+                    <div className="flex items-center gap-2 p-2 bg-red-50/50 rounded-lg border border-red-100">
+                        <span className="text-[11px] font-bold text-red-800">
+                            {emergencyProcess.title}
+                        </span>
+                    </div>
+                </div>
+                )}
+
+                {processingActivity && (
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-slate-400">VVT ID</Label>
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            {processingActivity.name}
+                        </span>
+                    </div>
+                </div>
+                )}
+
+                {owner && (
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-slate-400">Process Owner (User)</Label>
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            {owner.displayName}
+                        </span>
+                    </div>
+                </div>
+                )}
+                
+                <div className="space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-slate-400">Erstellt am</Label>
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            {currentProcess?.createdAt ? new Date(currentProcess.createdAt).toLocaleString() : ''}
+                        </span>
+                    </div>
+                </div>
 
                 <div className="space-y-1">
-                  <Label className="text-[9px] font-black uppercase text-slate-400">Regulatorik / Framework</Label>
-                  <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
-                    <Scale className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-[11px] font-bold text-slate-800">
-                      {String(currentProcess?.regulatoryFramework || 'Allgemeiner Standard')}
-                    </span>
-                  </div>
+                    <Label className="text-[9px] font-black uppercase text-slate-400">Zuletzt aktualisiert</Label>
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                        <span className="text-[11px] font-bold text-slate-800">
+                            {currentProcess?.updatedAt ? new Date(currentProcess.updatedAt).toLocaleString() : ''}
+                        </span>
+                    </div>
                 </div>
+                
+                {currentProcess?.publishedVersion && (
+                    <div className="space-y-1">
+                        <Label className="text-[9px] font-black uppercase text-slate-400">Veröffentlichte Version</Label>
+                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
+                            <span className="text-[11px] font-bold text-slate-800">
+                                {currentProcess.publishedVersion}
+                            </span>
+                        </div>
+                    </div>
+                )}
               </div>
             </section>
 

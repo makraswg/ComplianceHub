@@ -207,7 +207,6 @@ export interface Process {
   outputs?: string;
   kpis?: string;
   openQuestions?: string; 
-  regulatoryFramework?: string; 
   status: 'draft' | 'published' | 'archived';
   ownerUserId?: string;
   ownerRoleId?: string;
