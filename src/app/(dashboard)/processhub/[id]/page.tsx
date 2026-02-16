@@ -287,7 +287,7 @@ function ProcessDesignerContent() {
           if (lane > activeLane) x += (WIDTH_DIFF / 2) + 40;
           if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
-        if (lv > activeLv) y += 340; 
+        if (lv > activeLv) y += 82; 
       }
       return { ...n, x, y, lv, lane };
     });
@@ -829,9 +829,9 @@ function ProcessDesignerContent() {
       </div>
 
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
-        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-2xl p-0 flex flex-col border-none shadow-2xl bg-white overflow-hidden z-50">
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-2xl p-0 flex flex-col border-none shadow-2xl bg-white overflow-hidden">
           {/* Header */}
-          <DialogHeader className="p-5 bg-gradient-to-r from-slate-50 to-white border-b shrink-0 relative">
+          <DialogHeader className="p-5 bg-gradient-to-r from-slate-50 to-white border-b shrink-0 space-y-3">
             <div className="flex items-center gap-4">
               <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shadow-md", 
                 editType === 'decision' ? "bg-amber-500 text-white" : 
@@ -846,6 +846,9 @@ function ProcessDesignerContent() {
                 <DialogTitle className="text-base font-bold">Prozessschritt bearbeiten</DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 mt-0.5">Dokumentieren Sie die Arbeitsanweisung</DialogDescription>
               </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-600">Schritt-Typ</span>
               <Select value={editType} onValueChange={(v:any) => setEditType(v)}>
                 <SelectTrigger className="w-40 h-9 text-xs rounded-lg">
                   <SelectValue />
@@ -1179,7 +1182,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   }, [node.successorIds, gridNodes]);
 
   return (
-    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-visible", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px]" : "w-64 h-[82px]")} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
+    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isActive ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
@@ -1200,67 +1203,118 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </div>
       </CardHeader>
       {isActive && (
-        <CardContent className="p-4 space-y-3 animate-in fade-in overflow-y-auto max-h-[420px]">
-          {/* Tätigkeit - Kurz */}
-          <div className="space-y-1.5 pb-2 border-b">
-            <Label className="text-[8px] font-black uppercase text-slate-500 tracking-widest">📝 Was ist zu tun?</Label>
-            <p className="text-[10px] text-slate-700 leading-relaxed italic line-clamp-2">"{node.description || 'Keine Beschreibung'}"</p>
+        <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+            <div className="space-y-4 overflow-hidden flex flex-col">
+              {/* Vorgänger und Nachfolger */}
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Ablauf</Label>
+                <div className="space-y-1.5">
+                  {predecessorNodes.length > 0 && (
+                    <div className="p-2 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-[8px] font-black text-blue-600 uppercase mb-1">◀ Vorgänger</p>
+                      <div className="space-y-1">
+                        {predecessorNodes.map((pred: any) => (
+                          <div key={pred.id} className="text-[9px] font-bold text-blue-700">{pred.title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {successorNodes.length > 0 && (
+                    <div className="p-2 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-[8px] font-black text-green-600 uppercase mb-1">Nachfolger ▶</p>
+                      <div className="space-y-1">
+                        {successorNodes.map((succ: any) => (
+                          <div key={succ.id} className="text-[9px] font-bold text-green-700">{succ.title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {predecessorNodes.length === 0 && successorNodes.length === 0 && (
+                    <p className="text-[9px] text-slate-300 italic">Keine Verbindungen</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
+                <ScrollArea className="max-h-[100px] pr-2">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung hinterlegt.'}"</p>
+                </ScrollArea>
+              </div>
+              
+              <div className="space-y-2 flex-1 min-h-0">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">✓ Checkliste für den Mitarbeiter</Label>
+                <ScrollArea className="h-full pr-2">
+                  <div className="space-y-1.5">
+                    {node.checklist?.map((item: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                        <span className="text-[11px] font-bold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                    {(!node.checklist || node.checklist.length === 0) && <p className="text-[10px] text-slate-300 italic">Keine Checkliste</p>}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Tipps */}
+              {node.tips && (
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">💡 Tipps</Label>
+                  <div className="p-2 bg-amber-50 rounded-lg border border-amber-100">
+                    <p className="text-[9px] text-amber-800">{node.tips}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Fehler/Probleme */}
+              {node.errors && (
+                <div className="space-y-1">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">⚠️ Häufige Fehler</Label>
+                  <div className="p-2 bg-red-50 rounded-lg border border-red-100">
+                    <p className="text-[9px] text-red-800">{node.errors}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 flex flex-col">
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Infrastruktur & Daten</Label>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">IT-Systeme</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="text-[8px] font-black h-5 border-indigo-100 bg-indigo-50/30 text-indigo-700 uppercase">{res.name}</Badge>)}
+                      {nodeResources?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Systeme</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Datenobjekte</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="text-[8px] font-black h-5 border-emerald-100 bg-emerald-50/30 text-emerald-700 uppercase">{f.name}</Badge>)}
+                      {nodeFeatures?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Datenobjekte</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Links */}
+              {node.links && node.links.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">🔗 Ressourcen</Label>
+                  <div className="space-y-1.5">
+                    {node.links.map((link: any, idx: number) => (
+                      <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="block p-2 bg-slate-50 rounded-lg border border-slate-100 hover:bg-slate-100 transition-all">
+                        <p className="text-[9px] font-bold text-primary underline">{link.title}</p>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* Ablauf - Kompakt */}
-          {(predecessorNodes.length > 0 || successorNodes.length > 0) && (
-            <div className="space-y-1.5 pb-2 border-b">
-              <Label className="text-[8px] font-black uppercase text-slate-500 tracking-widest">🔄 Ablauf</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {predecessorNodes.map((p: any) => <Badge key={p.id} className="bg-blue-100 text-blue-700 text-[8px]">◀ {p.title}</Badge>)}
-                {successorNodes.map((s: any) => <Badge key={s.id} className="bg-green-100 text-green-700 text-[8px]">{s.title} ▶</Badge>)}
-              </div>
-            </div>
-          )}
-
-          {/* Checkliste für Mitarbeiter */}
-          {node.checklist && node.checklist.length > 0 && (
-            <div className="space-y-1.5 pb-2 border-b">
-              <Label className="text-[8px] font-black uppercase text-slate-500 tracking-widest">✓ Checkliste</Label>
-              <ul className="space-y-1 text-[9px]">
-                {node.checklist.slice(0, 3).map((item: string, i: number) => (
-                  <li key={i} className="flex items-start gap-1.5">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-slate-700 line-clamp-1">{item}</span>
-                  </li>
-                ))}
-                {node.checklist.length > 3 && <li className="text-[8px] text-slate-400 italic">+{node.checklist.length - 3} weitere</li>}
-              </ul>
-            </div>
-          )}
-
-          {/* Tipps & Fehler - Kompakt */}
-          <div className="grid grid-cols-2 gap-2">
-            {node.tips && (
-              <div className="p-2 bg-amber-50 rounded border border-amber-100">
-                <p className="text-[7px] font-black text-amber-600 uppercase mb-0.5">💡 Tipps</p>
-                <p className="text-[8px] text-amber-800 line-clamp-2">{node.tips}</p>
-              </div>
-            )}
-            {node.errors && (
-              <div className="p-2 bg-red-50 rounded border border-red-100">
-                <p className="text-[7px] font-black text-red-600 uppercase mb-0.5">⚠️ Fehler</p>
-                <p className="text-[8px] text-red-800 line-clamp-2">{node.errors}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Ressourcen & Daten - Badges */}
-          {(nodeResources && nodeResources.length > 0 || nodeFeatures && nodeFeatures.length > 0) && (
-            <div className="pt-2 border-t space-y-1.5">
-              <Label className="text-[8px] font-black uppercase text-slate-500 tracking-widest">🖥️ Ressourcen & Daten</Label>
-              <div className="flex flex-wrap gap-1">
-                {nodeResources?.slice(0, 4).map((r: any) => <Badge key={r.id} variant="outline" className="text-[7px] bg-indigo-50 text-indigo-700">{r.name}</Badge>)}
-                {nodeFeatures?.slice(0, 4).map((f: any) => <Badge key={f.id} variant="outline" className="text-[7px] bg-emerald-50 text-emerald-700">{f.name}</Badge>)}
-                {(nodeResources?.length || 0) + (nodeFeatures?.length || 0) > 8 && <span className="text-[7px] text-slate-400">+{(nodeResources?.length || 0) + (nodeFeatures?.length || 0) - 8}</span>}
-              </div>
-            </div>
-          )}
         </CardContent>
       )}
     </Card>
