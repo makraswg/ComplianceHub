@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   GripVertical, 
   Plus, 
@@ -15,11 +15,11 @@ import {
   Paperclip,
   CheckCircle2,
   ArrowRight,
-  Copy
+  Zap,
+  MoreHorizontal
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { ProcessNode } from '@/lib/types';
 
@@ -115,27 +115,19 @@ export function ProcessStepsEditor({
 
   const getNodeIcon = (type: ProcessNode['type']) => {
     switch (type) {
-      case 'decision':
-        return <GitBranch className="w-4 h-4" />;
-      case 'start':
-        return <PlayCircle className="w-4 h-4" />;
-      case 'subprocess':
-        return <RefreshCw className="w-4 h-4" />;
-      default:
-        return <Activity className="w-4 h-4" />;
+      case 'decision': return <GitBranch className="w-3.5 h-3.5" />;
+      case 'start': return <PlayCircle className="w-3.5 h-3.5" />;
+      case 'subprocess': return <RefreshCw className="w-3.5 h-3.5" />;
+      default: return <Activity className="w-3.5 h-3.5" />;
     }
   };
 
-  const getNodeColor = (type: ProcessNode['type']) => {
+  const getNodeStyle = (type: ProcessNode['type']) => {
     switch (type) {
-      case 'decision':
-        return 'bg-amber-50 text-amber-600';
-      case 'start':
-        return 'bg-emerald-50 text-emerald-600';
-      case 'subprocess':
-        return 'bg-indigo-600 text-white';
-      default:
-        return 'bg-slate-50 text-slate-500';
+      case 'decision': return { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' };
+      case 'start': return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' };
+      case 'subprocess': return { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200' };
+      default: return { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200' };
     }
   };
 
@@ -143,40 +135,55 @@ export function ProcessStepsEditor({
   const hasChecklist = (node: ProcessNode) => node.checklist && node.checklist.length > 0;
 
   return (
-    <div className="space-y-3">
-      {/* Quick Add Buttons */}
-      <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 text-[9px] font-bold rounded-lg gap-1.5"
-          onClick={() => onQuickAdd('step')}
-        >
-          <Plus className="w-3 h-3" /> Schritt
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 text-[9px] font-bold rounded-lg gap-1.5"
-          onClick={() => onQuickAdd('decision')}
-        >
-          <Plus className="w-3 h-3" /> Weiche
-        </Button>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 text-[9px] font-bold rounded-lg gap-1.5"
-          onClick={() => onQuickAdd('subprocess')}
-        >
-          <Plus className="w-3 h-3" /> Referenz
-        </Button>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold text-slate-700">Prozessschritte</h3>
+        <span className="text-[10px] text-slate-400 font-medium">{nodes.length} Schritte</span>
+      </div>
+
+      {/* Quick Add - Prominent */}
+      <div className="p-3 bg-gradient-to-r from-primary/5 to-blue-50 rounded-xl border border-primary/10">
+        <p className="text-[9px] font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
+          <Zap className="w-3 h-3 text-primary" /> Neuen Schritt hinzufügen
+        </p>
+        <div className="grid grid-cols-3 gap-1.5">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-[9px] font-bold rounded-lg gap-1 bg-white hover:bg-slate-50 border-slate-200"
+            onClick={() => onQuickAdd('step')}
+          >
+            <Activity className="w-3 h-3 text-slate-500" /> Schritt
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-[9px] font-bold rounded-lg gap-1 bg-white hover:bg-amber-50 border-amber-200 text-amber-700"
+            onClick={() => onQuickAdd('decision')}
+          >
+            <GitBranch className="w-3 h-3" /> Weiche
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 text-[9px] font-bold rounded-lg gap-1 bg-white hover:bg-indigo-50 border-indigo-200 text-indigo-700"
+            onClick={() => onQuickAdd('subprocess')}
+          >
+            <RefreshCw className="w-3 h-3" /> Verweis
+          </Button>
+        </div>
       </div>
 
       {/* Steps List */}
-      <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-2">
+      <div className="space-y-1 max-h-[500px] overflow-y-auto">
         {nodes.length === 0 ? (
-          <div className="text-center py-8 text-slate-400">
-            <p className="text-[11px] font-bold uppercase">Keine Schritte vorhanden</p>
+          <div className="text-center py-12 px-4">
+            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+              <Plus className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-xs font-bold text-slate-500">Noch keine Schritte</p>
+            <p className="text-[10px] text-slate-400 mt-1">Fügen Sie oben den ersten Schritt hinzu</p>
           </div>
         ) : (
           nodes.map((node, index) => {
@@ -184,6 +191,7 @@ export function ProcessStepsEditor({
             const isDragging = draggedNode === node.id;
             const deps = nodeInfo[node.id];
             const expanded = expandedId === node.id;
+            const style = getNodeStyle(node.type);
 
             return (
               <div
@@ -193,16 +201,22 @@ export function ProcessStepsEditor({
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, index)}
                 className={cn(
-                  "group p-2 rounded-lg border transition-all cursor-move",
-                  isDragging ? "opacity-50 border-dashed" : "",
-                  isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-slate-200 bg-white hover:border-slate-300"
+                  "group rounded-lg border transition-all",
+                  isDragging ? "opacity-50 border-dashed border-primary" : "",
+                  isSelected 
+                    ? "border-primary bg-primary/5 shadow-sm" 
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm"
                 )}
               >
                 {/* Main Row */}
-                <div className="flex items-center gap-2" onClick={() => !inlineEditId && onNodeSelect(node.id)}>
-                  <GripVertical className="w-4 h-4 text-slate-300 shrink-0" />
+                <div 
+                  className="flex items-center gap-2 p-2 cursor-pointer" 
+                  onClick={() => !inlineEditId && onNodeSelect(node.id)}
+                >
+                  <GripVertical className="w-3.5 h-3.5 text-slate-300 shrink-0 cursor-grab active:cursor-grabbing" />
                   
-                  <div className={cn("w-7 h-7 rounded-md flex items-center justify-center shrink-0 border shadow-sm text-xs", getNodeColor(node.type))}>
+                  {/* Step Number & Icon */}
+                  <div className={cn("w-6 h-6 rounded-md flex items-center justify-center shrink-0", style.bg, style.text)}>
                     {getNodeIcon(node.type)}
                   </div>
 
@@ -217,26 +231,51 @@ export function ProcessStepsEditor({
                         if (e.key === 'Enter') handleInlineEditSave(node);
                         if (e.key === 'Escape') setInlineEditId(null);
                       }}
-                      className="h-6 text-[10px] flex-1 rounded"
+                      className="h-6 text-xs flex-1 rounded"
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-bold text-slate-800 truncate">
-                        {index + 1}. {node.title || 'Unbenannter Schritt'}
-                      </p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[7px] font-bold uppercase text-slate-400">{node.type}</span>
-                        {hasMedia(node.id) && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
-                        {hasChecklist(node) && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
-                        {deps?.predecessors.length > 0 && <Badge variant="outline" className="text-[7px] px-1 h-4">Eingang</Badge>}
-                        {deps?.successors.length > 0 && <Badge variant="outline" className="text-[7px] px-1 h-4">Ausgang</Badge>}
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-bold text-slate-400 w-4">{index + 1}.</span>
+                        <p className="text-[11px] font-semibold text-slate-800 truncate">
+                          {node.title || 'Unbenannt'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-5 mt-0.5">
+                        {hasMedia(node.id) && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-indigo-500">
+                            <Paperclip className="w-2.5 h-2.5" /> Datei
+                          </span>
+                        )}
+                        {hasChecklist(node) && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-emerald-500">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> {node.checklist?.length}
+                          </span>
+                        )}
+                        {deps?.successors.length > 0 && (
+                          <span className="text-[8px] text-slate-400">
+                            → {deps.successors.length} Nachfolger
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-primary hover:bg-primary/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNodeEdit(node);
+                      }}
+                      title="Bearbeiten"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -245,78 +284,59 @@ export function ProcessStepsEditor({
                         e.stopPropagation();
                         setExpandedId(expanded ? null : node.id);
                       }}
+                      title="Details"
                     >
-                      {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-primary hover:bg-primary/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleInlineEditStart(node);
-                      }}
-                    >
-                      <Edit3 className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNodeDelete(node.id);
-                      }}
-                    >
-                      <Trash2 className="w-3 h-3" />
+                      {expanded ? <ChevronUp className="w-3 h-3" /> : <MoreHorizontal className="w-3 h-3" />}
                     </Button>
                   </div>
                 </div>
 
                 {/* Expanded Details */}
                 {expanded && (
-                  <div className="mt-2 ml-6 pt-2 border-t border-slate-100 space-y-1.5">
+                  <div className="px-3 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 space-y-2">
                     {node.description && (
-                      <div className="text-[9px] text-slate-600 italic bg-slate-50 p-1.5 rounded">
-                        {node.description}
-                      </div>
+                      <p className="text-[10px] text-slate-600 italic leading-relaxed">
+                        "{node.description}"
+                      </p>
                     )}
                     
-                    {deps?.predecessors.length > 0 && (
-                      <div className="text-[8px] space-y-0.5">
-                        <p className="font-bold uppercase text-slate-400">◀ Von:</p>
-                        {deps.predecessors.map(p => (
-                          <div key={p.id} className="flex items-center gap-1 text-blue-600">
-                            <ArrowRight className="w-2 h-2" />
-                            <span className="font-medium">{p.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {deps?.predecessors.length > 0 && (
+                        <div className="text-[9px] bg-blue-50 text-blue-700 px-2 py-1 rounded-md">
+                          ◀ {deps.predecessors.map(p => p.title).join(', ')}
+                        </div>
+                      )}
+                      {deps?.successors.length > 0 && (
+                        <div className="text-[9px] bg-green-50 text-green-700 px-2 py-1 rounded-md">
+                          {deps.successors.map(s => s.title).join(', ')} ▶
+                        </div>
+                      )}
+                    </div>
 
-                    {deps?.successors.length > 0 && (
-                      <div className="text-[8px] space-y-0.5">
-                        <p className="font-bold uppercase text-slate-400">Zu:</p>
-                        {deps.successors.map(s => (
-                          <div key={s.id} className="flex items-center gap-1 text-green-600">
-                            <ArrowRight className="w-2 h-2" />
-                            <span className="font-medium">{s.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-[9px] w-full rounded-lg gap-1 hover:bg-slate-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNodeEdit(node);
-                      }}
-                    >
-                      <Edit3 className="w-3 h-3" /> Vollständig bearbeiten
-                    </Button>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[9px] flex-1 rounded-md gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNodeEdit(node);
+                        }}
+                      >
+                        <Edit3 className="w-3 h-3" /> Bearbeiten
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-[9px] text-red-500 hover:text-red-600 hover:bg-red-50 rounded-md gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNodeDelete(node.id);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" /> Löschen
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -324,6 +344,13 @@ export function ProcessStepsEditor({
           })
         )}
       </div>
+
+      {/* Hint */}
+      {nodes.length > 0 && (
+        <p className="text-[9px] text-slate-400 text-center italic">
+          Ziehen Sie Schritte zum Neuordnen • Klicken zum Auswählen
+        </p>
+      )}
     </div>
   );
 }

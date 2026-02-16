@@ -834,141 +834,320 @@ function ProcessDesignerContent() {
       </div>
 
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
-          <DialogHeader className="p-6 bg-slate-50 border-b shrink-0 pr-10">
-            <div className="flex items-center gap-5">
-              <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shadow-lg", editType === 'decision' ? "bg-amber-500 text-white" : "bg-primary text-white")}>
-                {editType === 'decision' ? <GitBranch className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+        <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-2xl p-0 flex flex-col border-none shadow-2xl bg-white overflow-hidden">
+          {/* Header */}
+          <DialogHeader className="p-5 bg-gradient-to-r from-slate-50 to-white border-b shrink-0">
+            <div className="flex items-center gap-4">
+              <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shadow-md", 
+                editType === 'decision' ? "bg-amber-500 text-white" : 
+                editType === 'start' ? "bg-emerald-500 text-white" :
+                editType === 'subprocess' ? "bg-indigo-500 text-white" : "bg-primary text-white"
+              )}>
+                {editType === 'decision' ? <GitBranch className="w-5 h-5" /> : 
+                 editType === 'start' ? <PlayCircle className="w-5 h-5" /> :
+                 editType === 'subprocess' ? <RefreshCw className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
               </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-lg font-headline font-bold uppercase tracking-tight">Schritt konfigurieren</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Definition der GRC-Abhängigkeiten</DialogDescription>
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="text-base font-bold">Prozessschritt bearbeiten</DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">Dokumentieren Sie die Arbeitsanweisung</DialogDescription>
               </div>
+              <Select value={editType} onValueChange={(v:any) => setEditType(v)}>
+                <SelectTrigger className="w-40 h-9 text-xs rounded-lg">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="start">🟢 Startpunkt</SelectItem>
+                  <SelectItem value="step">📋 Arbeitsschritt</SelectItem>
+                  <SelectItem value="decision">🔀 Entscheidung</SelectItem>
+                  <SelectItem value="subprocess">🔗 Verweis</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="base" className="flex-1 flex flex-col min-h-0">
-            <TabsList className="bg-white border-b h-12 px-6 justify-start gap-8 shrink-0">
-              <TabsTrigger value="base" className="text-[10px] font-bold uppercase tracking-widest h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">Basis</TabsTrigger>
-              <TabsTrigger value="grc" className="text-[10px] font-bold uppercase tracking-widest h-full rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-600 data-[state=active]:text-emerald-600">GRC</TabsTrigger>
-              <TabsTrigger value="rel" className="text-[10px] font-bold uppercase tracking-widest h-full rounded-none border-b-2 border-transparent data-[state=active]:border-amber-600 data-[state=active]:text-amber-600">Handover</TabsTrigger>
-              <TabsTrigger value="checklist" className="text-[10px] font-bold uppercase tracking-widest h-full rounded-none border-b-2 border-transparent data-[state=active]:border-orange-600 data-[state=active]:text-orange-600">Checkliste & Medien</TabsTrigger>
-            </TabsList>
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            <Tabs defaultValue="taetigkeit" className="w-full">
+              <TabsList className="sticky top-0 z-10 bg-white border-b w-full h-11 justify-start gap-0 rounded-none px-4">
+                <TabsTrigger value="taetigkeit" className="text-[10px] font-bold uppercase h-full rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary px-4">📝 Tätigkeit</TabsTrigger>
+                <TabsTrigger value="ablauf" className="text-[10px] font-bold uppercase h-full rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:text-amber-600 px-4">🔄 Ablauf</TabsTrigger>
+                <TabsTrigger value="ressourcen" className="text-[10px] font-bold uppercase h-full rounded-none border-b-2 border-transparent data-[state=active]:border-indigo-500 data-[state=active]:text-indigo-600 px-4">🖥️ Ressourcen</TabsTrigger>
+                <TabsTrigger value="pruefung" className="text-[10px] font-bold uppercase h-full rounded-none border-b-2 border-transparent data-[state=active]:border-emerald-500 data-[state=active]:text-emerald-600 px-4">✅ Prüfung</TabsTrigger>
+              </TabsList>
 
-            <ScrollArea className="flex-1 bg-slate-50/30">
-              <div className="p-8 space-y-10">
-                <TabsContent value="base" className="mt-0 space-y-8 animate-in fade-in">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Bezeichnung</Label><Input value={editTitle} onChange={e => setEditTitle(e.target.value)} className="h-12 text-sm font-bold rounded-xl" /></div>
-                    <div className="space-y-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Typ</Label><Select value={editType} onValueChange={(v:any) => setEditType(v)}><SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="start">Startpunkt</SelectItem><SelectItem value="step">Arbeitsschritt</SelectItem><SelectItem value="decision">Entscheidung (Weiche)</SelectItem><SelectItem value="subprocess">Referenz</SelectItem></SelectContent></Select></div>
-                    <div className="space-y-2 md:col-span-2"><Label className="text-[10px] font-bold uppercase text-slate-400">Beschreibung</Label><Textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="min-h-[120px] rounded-xl text-xs" /></div>
+              {/* Tab 1: Tätigkeit - Was wird gemacht? */}
+              <TabsContent value="taetigkeit" className="p-6 space-y-6 mt-0">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-700">Name des Schritts *</Label>
+                  <Input 
+                    value={editTitle} 
+                    onChange={e => setEditTitle(e.target.value)} 
+                    placeholder="z.B. Antrag prüfen, Daten erfassen, Freigabe erteilen..."
+                    className="h-11 text-sm font-medium rounded-lg" 
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-700">Was ist zu tun? (Arbeitsanweisung)</Label>
+                  <Textarea 
+                    value={editDesc} 
+                    onChange={e => setEditDesc(e.target.value)} 
+                    placeholder="Beschreiben Sie die Tätigkeit so, dass ein neuer Mitarbeiter sie verstehen und ausführen kann..."
+                    className="min-h-[120px] rounded-lg text-sm" 
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-amber-700 flex items-center gap-1.5">
+                      💡 Tipps & Hinweise
+                    </Label>
+                    <Textarea 
+                      value={editTips} 
+                      onChange={e => setEditTips(e.target.value)} 
+                      placeholder="Hilfreiche Tipps für die Durchführung..."
+                      className="min-h-[80px] rounded-lg text-xs bg-amber-50/50 border-amber-200 focus:border-amber-400" 
+                    />
                   </div>
-                </TabsContent>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-red-700 flex items-center gap-1.5">
+                      ⚠️ Häufige Fehler vermeiden
+                    </Label>
+                    <Textarea 
+                      value={editErrors} 
+                      onChange={e => setEditErrors(e.target.value)} 
+                      placeholder="Typische Fehler und wie man sie vermeidet..."
+                      className="min-h-[80px] rounded-lg text-xs bg-red-50/50 border-red-200 focus:border-red-400" 
+                    />
+                  </div>
+                </div>
+              </TabsContent>
 
-                <TabsContent value="grc" className="mt-0 space-y-8 animate-in fade-in">
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold uppercase text-slate-400">Ausführende Rolle</Label>
-                      <Select value={editRoleId || 'none'} onValueChange={setEditRoleId}><SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Rolle wählen..." /></SelectTrigger><SelectContent>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>)}</SelectContent></Select>
+              {/* Tab 2: Ablauf - Wie ist der Fluss? */}
+              <TabsContent value="ablauf" className="p-6 space-y-6 mt-0">
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                  <p className="text-xs text-blue-800 font-medium">
+                    <strong>Ablauf definieren:</strong> Wählen Sie aus, welche Schritte vor diesem kommen und wohin es danach weitergeht.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-700">Wer führt diesen Schritt aus?</Label>
+                  <Select value={editRoleId || 'none'} onValueChange={setEditRoleId}>
+                    <SelectTrigger className="h-10 rounded-lg">
+                      <SelectValue placeholder="Rolle/Position auswählen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— Keine Rolle zugewiesen —</SelectItem>
+                      {jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => (
+                        <SelectItem key={j.id} value={j.id}>{getFullRoleName(j.id)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Vorgänger */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold text-blue-700 flex items-center gap-1.5">
+                      ◀ Kommt von (Vorgänger)
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <Input placeholder="Suchen..." value={predSearch} onChange={e => setPredSearch(e.target.value)} className="h-9 text-xs pl-8 rounded-lg" />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-primary flex items-center gap-2"><Layers className="w-3.5 h-3.5" /> IT-Systeme</Label>
-                        <div className="relative group">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                          <Input placeholder="Suchen..." value={resSearch} onChange={e => setResSearch(e.target.value)} className="h-8 text-[10px] pl-8 rounded-lg" />
+                    <div className="border rounded-lg bg-white max-h-48 overflow-y-auto">
+                      {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(predSearch.toLowerCase())).map((n: any) => (
+                        <div 
+                          key={n.id} 
+                          className={cn("flex items-center gap-2 p-2.5 border-b last:border-0 cursor-pointer hover:bg-slate-50 transition-colors", editPredecessorIds.includes(n.id) && "bg-blue-50")}
+                          onClick={() => setEditPredecessorIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}
+                        >
+                          <Checkbox checked={editPredecessorIds.includes(n.id)} />
+                          <span className="text-xs font-medium">{n.title}</span>
                         </div>
-                        <div className="p-4 rounded-xl border bg-slate-50/50"><ScrollArea className="h-48">{resources?.filter(res => res.name.toLowerCase().includes(resSearch.toLowerCase())).map(res => (<div key={res.id} className="flex items-center gap-3 p-2"><Checkbox checked={editResIds.includes(res.id)} onCheckedChange={v => setEditResIds(v ? [...editResIds, res.id] : editResIds.filter(id => id !== res.id))} /><span className="text-[11px] font-bold">{res.name}</span></div>))}</ScrollArea></div>
-                      </div>
-                      <div className="space-y-4">
-                        <Label className="text-[10px] font-black uppercase text-emerald-600 flex items-center gap-2"><Database className="w-3.5 h-3.5" /> Datenobjekte</Label>
-                        <div className="relative group">
-                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                          <Input placeholder="Suchen..." value={featSearch} onChange={e => setFeatSearch(e.target.value)} className="h-8 text-[10px] pl-8 rounded-lg" />
-                        </div>
-                        <div className="p-4 rounded-xl border bg-slate-50/50"><ScrollArea className="h-48">{allFeatures?.filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase())).map(f => (<div key={f.id} className="flex items-center gap-3 p-2"><Checkbox checked={editFeatIds.includes(f.id)} onCheckedChange={v => setEditFeatIds(v ? [...editFeatIds, f.id] : editFeatIds.filter(id => id !== f.id))} /><span className="text-[11px] font-bold">{f.name}</span></div>))}</ScrollArea></div>
-                      </div>
+                      ))}
+                      {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id).length === 0 && (
+                        <p className="p-4 text-xs text-slate-400 text-center">Keine anderen Schritte vorhanden</p>
+                      )}
                     </div>
                   </div>
-                </TabsContent>
 
-                <TabsContent value="rel" className="mt-0 space-y-10 animate-in fade-in">
-                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-4">
-                    <Network className="w-6 h-6 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="text-xs font-bold text-amber-900 uppercase">Handover-Punkte</p>
-                      <p className="text-[10px] text-amber-700 font-medium leading-relaxed">Definieren Sie hier, wie Informationen in diesen Schritt gelangen und wohin sie weitergeleitet werden. Nutzen Sie Labels für Entscheidungs-Pfade (z.B. Ja/Nein).</p>
+                  {/* Nachfolger */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold text-green-700 flex items-center gap-1.5">
+                      Geht weiter zu (Nachfolger) ▶
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <Input placeholder="Suchen..." value={succSearch} onChange={e => setSuccSearch(e.target.value)} className="h-9 text-xs pl-8 rounded-lg" />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2 ml-1"><ArrowUpCircle className="w-4 h-4" /> Eingang (Vorgänger)</Label>
-                      <div className="relative group">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                        <Input placeholder="Filter..." value={predSearch} onChange={e => setPredSearch(e.target.value)} className="h-8 text-[10px] pl-8" />
-                      </div>
-                      <div className="p-4 rounded-xl border bg-white shadow-inner"><ScrollArea className="h-64">{activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(predSearch.toLowerCase())).map((n: any) => (<div key={n.id} className="flex items-center gap-3 p-2 cursor-pointer" onClick={() => setEditPredecessorIds(prev => prev.includes(n.id) ? prev.filter(id => id !== n.id) : [...prev, n.id])}><Checkbox checked={editPredecessorIds.includes(n.id)} /><span className="text-[11px] font-bold">{n.title}</span></div>))}</ScrollArea></div>
-                    </div>
-                    <div className="space-y-4">
-                      <Label className="text-[10px] font-black uppercase text-amber-600 flex items-center gap-2 ml-1"><ArrowDownCircle className="w-4 h-4" /> Ausgang (Nachfolger)</Label>
-                      <div className="relative group">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                        <Input placeholder="Filter..." value={succSearch} onChange={e => setSuccSearch(e.target.value)} className="h-8 text-[10px] pl-8" />
-                      </div>
-                      <div className="p-4 rounded-xl border bg-white shadow-inner">
-                        <ScrollArea className="h-64">
-                          {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => {
-                            const link = editSuccessors.find(s => s.targetId === n.id);
-                            return (
-                              <div key={n.id} className="p-2 space-y-2 border-b last:border-0">
-                                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setEditSuccessors(prev => link ? prev.filter(s => s.targetId !== n.id) : [...prev, { targetId: n.id, label: '' }])}><Checkbox checked={!!link} /><span className="text-[11px] font-bold">{n.title}</span></div>
-                                {link && <Input placeholder="Bedingung (z.B. Ja/Nein)" value={link.label} onChange={e => setEditSuccessors(prev => prev.map(s => s.targetId === n.id ? { ...s, label: e.target.value } : s))} className="h-7 text-[10px] ml-7 w-[calc(100%-28px)]" />}
-                              </div>
-                            );
-                          })}
-                        </ScrollArea>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="checklist" className="mt-0 space-y-8 animate-in fade-in pb-20">
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Checkliste</Label>
-                    <div className="flex gap-2"><Input placeholder="Prüfpunkt..." value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCheckItem()} /><Button onClick={addCheckItem} className="bg-emerald-600"><Plus className="w-4 h-4" /></Button></div>
-                    <div className="space-y-2">{editChecklist.map((item, idx) => (<div key={idx} className="flex items-center justify-between p-2 bg-slate-50 border rounded-lg"><span className="text-xs">{item}</span><Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => removeCheckItem(idx)}><X className="w-3.5 h-3.5" /></Button></div>))}</div>
-                  </div>
-                  <div className="p-6 bg-white border rounded-2xl shadow-sm space-y-6">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Begleitmaterialien</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="p-8 border-2 border-dashed rounded-xl bg-slate-50 flex flex-col items-center justify-center text-center gap-3 hover:bg-white cursor-pointer transition-all" onClick={() => fileInputRef.current?.click()}>
-                        <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                        {isUploading ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileUp className="w-8 h-8 text-slate-300" />}
-                        <p className="text-xs font-bold text-slate-700">Klicken zum Hochladen</p>
-                        <p className="text-[10px] text-slate-400">Screenshots, Anleitungen, Belege</p>
-                      </div>
-                      <div className="space-y-2">
-                        {mediaFiles?.filter(m => m.subEntityId === editingNode?.id).map(f => (
-                          <div key={f.id} className="p-2 bg-white border rounded-lg flex items-center justify-between shadow-sm group/file">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <ImageIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                              <span className="text-[10px] font-bold truncate">{f.fileName}</span>
+                    <div className="border rounded-lg bg-white max-h-48 overflow-y-auto">
+                      {activeVersion?.model_json?.nodes?.filter((n: any) => n.id !== editingNode?.id && n.title.toLowerCase().includes(succSearch.toLowerCase())).map((n: any) => {
+                        const link = editSuccessors.find(s => s.targetId === n.id);
+                        return (
+                          <div key={n.id} className={cn("p-2.5 border-b last:border-0", link && "bg-green-50")}>
+                            <div 
+                              className="flex items-center gap-2 cursor-pointer hover:bg-slate-50 transition-colors"
+                              onClick={() => setEditSuccessors(prev => link ? prev.filter(s => s.targetId !== n.id) : [...prev, { targetId: n.id, label: '' }])}
+                            >
+                              <Checkbox checked={!!link} />
+                              <span className="text-xs font-medium">{n.title}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover/file:opacity-100 transition-all" onClick={() => { if(confirm("Datei löschen?")) deleteMediaAction(f.id, f.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3.5 h-3.5" /></Button>
+                            {link && (
+                              <Input 
+                                placeholder="Bedingung (z.B. 'Ja', 'Nein', 'Genehmigt')" 
+                                value={link.label} 
+                                onChange={e => setEditSuccessors(prev => prev.map(s => s.targetId === n.id ? { ...s, label: e.target.value } : s))} 
+                                className="h-7 text-[10px] mt-2 ml-6 w-[calc(100%-24px)]" 
+                                onClick={e => e.stopPropagation()}
+                              />
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
-                </TabsContent>
-              </div>
-            </ScrollArea>
+                </div>
+              </TabsContent>
 
-            <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex gap-2">
-              <Button variant="ghost" onClick={() => setIsNodeEditorOpen(false)} className="rounded-xl font-bold text-[10px] px-8">Abbrechen</Button>
-              <Button onClick={handleSaveNode} disabled={isApplying} className="rounded-xl bg-primary text-white font-bold text-[10px] px-12 shadow-lg gap-2">{isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Übernehmen</Button>
-            </DialogFooter>
-          </Tabs>
+              {/* Tab 3: Ressourcen - Was wird benötigt? */}
+              <TabsContent value="ressourcen" className="p-6 space-y-6 mt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* IT-Systeme */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+                      🖥️ Benötigte IT-Systeme
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <Input placeholder="Suchen..." value={resSearch} onChange={e => setResSearch(e.target.value)} className="h-9 text-xs pl-8 rounded-lg" />
+                    </div>
+                    <div className="border rounded-lg bg-white max-h-48 overflow-y-auto">
+                      {resources?.filter(res => res.name.toLowerCase().includes(resSearch.toLowerCase())).map(res => (
+                        <div 
+                          key={res.id} 
+                          className={cn("flex items-center gap-2 p-2.5 border-b last:border-0 cursor-pointer hover:bg-slate-50", editResIds.includes(res.id) && "bg-indigo-50")}
+                          onClick={() => setEditResIds(prev => prev.includes(res.id) ? prev.filter(id => id !== res.id) : [...prev, res.id])}
+                        >
+                          <Checkbox checked={editResIds.includes(res.id)} />
+                          <span className="text-xs font-medium">{res.name}</span>
+                        </div>
+                      ))}
+                      {(!resources || resources.length === 0) && <p className="p-4 text-xs text-slate-400 text-center">Keine IT-Systeme angelegt</p>}
+                    </div>
+                  </div>
+
+                  {/* Datenobjekte */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                      📊 Verwendete Daten/Dokumente
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                      <Input placeholder="Suchen..." value={featSearch} onChange={e => setFeatSearch(e.target.value)} className="h-9 text-xs pl-8 rounded-lg" />
+                    </div>
+                    <div className="border rounded-lg bg-white max-h-48 overflow-y-auto">
+                      {allFeatures?.filter(f => f.name.toLowerCase().includes(featSearch.toLowerCase())).map(f => (
+                        <div 
+                          key={f.id} 
+                          className={cn("flex items-center gap-2 p-2.5 border-b last:border-0 cursor-pointer hover:bg-slate-50", editFeatIds.includes(f.id) && "bg-emerald-50")}
+                          onClick={() => setEditFeatIds(prev => prev.includes(f.id) ? prev.filter(id => id !== f.id) : [...prev, f.id])}
+                        >
+                          <Checkbox checked={editFeatIds.includes(f.id)} />
+                          <span className="text-xs font-medium">{f.name}</span>
+                        </div>
+                      ))}
+                      {(!allFeatures || allFeatures.length === 0) && <p className="p-4 text-xs text-slate-400 text-center">Keine Datenobjekte angelegt</p>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Materialien Upload */}
+                <div className="space-y-3 pt-4 border-t">
+                  <Label className="text-xs font-bold text-slate-700">📎 Begleitmaterialien (Screenshots, Anleitungen, Vorlagen)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div 
+                      className="p-6 border-2 border-dashed rounded-xl bg-slate-50 flex flex-col items-center justify-center text-center gap-2 hover:bg-white hover:border-primary/50 cursor-pointer transition-all" 
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} disabled={isUploading} />
+                      {isUploading ? <Loader2 className="w-6 h-6 animate-spin text-primary" /> : <FileUp className="w-6 h-6 text-slate-400" />}
+                      <p className="text-xs font-bold text-slate-600">Datei hochladen</p>
+                    </div>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {mediaFiles?.filter(m => m.subEntityId === editingNode?.id).map(f => (
+                        <div key={f.id} className="p-2 bg-white border rounded-lg flex items-center justify-between shadow-sm group/file">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <ImageIcon className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            <span className="text-[10px] font-bold truncate">{f.fileName}</span>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 opacity-0 group-hover/file:opacity-100" onClick={() => { if(confirm("Datei löschen?")) deleteMediaAction(f.id, f.tenantId, user?.email || 'admin', dataSource).then(() => refreshMedia()); }}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      ))}
+                      {(!mediaFiles || mediaFiles.filter(m => m.subEntityId === editingNode?.id).length === 0) && (
+                        <p className="text-[10px] text-slate-400 italic p-2">Noch keine Dateien hochgeladen</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Tab 4: Prüfung - Qualitätssicherung */}
+              <TabsContent value="pruefung" className="p-6 space-y-6 mt-0">
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                  <p className="text-xs text-emerald-800 font-medium">
+                    <strong>Checkliste:</strong> Definieren Sie Prüfpunkte, die vor Abschluss des Schritts kontrolliert werden sollen.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Neuen Prüfpunkt eingeben und Enter drücken..." 
+                      value={newCheckItem} 
+                      onChange={e => setNewCheckItem(e.target.value)} 
+                      onKeyDown={e => e.key === 'Enter' && addCheckItem()} 
+                      className="h-10 rounded-lg"
+                    />
+                    <Button onClick={addCheckItem} className="bg-emerald-600 hover:bg-emerald-700 h-10 px-4">
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {editChecklist.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic text-center py-8">Noch keine Prüfpunkte definiert</p>
+                    ) : (
+                      editChecklist.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-white border rounded-lg group hover:border-slate-300">
+                          <div className="flex items-center gap-3">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            <span className="text-sm">{item}</span>
+                          </div>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 opacity-0 group-hover:opacity-100" onClick={() => removeCheckItem(idx)}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Footer */}
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex justify-between items-center">
+            <p className="text-[10px] text-slate-400">* Pflichtfeld</p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsNodeEditorOpen(false)} className="rounded-lg h-9 px-6 text-xs">Abbrechen</Button>
+              <Button onClick={handleSaveNode} disabled={isApplying || !editTitle.trim()} className="rounded-lg bg-primary text-white h-9 px-8 text-xs gap-2">
+                {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} 
+                Speichern
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
