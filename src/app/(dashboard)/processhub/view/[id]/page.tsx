@@ -243,11 +243,24 @@ function ProcessDetailViewContent() {
     const el = containerRef.current;
     if (!el) return;
 
+    const canScrollInside = (target: HTMLElement | null) => {
+      if (!target) return false;
+      if (target.closest('[data-allow-scroll="true"]')) return true;
+      let el: HTMLElement | null = target;
+      while (el && el !== containerRef.current) {
+        const style = window.getComputedStyle(el);
+        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
+        if (isScrollable) return true;
+        el = el.parentElement;
+      }
+      return false;
+    };
+
     const handleWheelNative = (e: WheelEvent) => {
       const { position: pos, scale: s, guideMode: mode } = stateRef.current;
       if (mode !== 'structure') return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-allow-scroll="true"]')) return;
+      if (canScrollInside(target)) return;
       e.preventDefault();
       
       const delta = e.deltaY * -0.001;

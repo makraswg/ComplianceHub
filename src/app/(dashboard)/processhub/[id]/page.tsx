@@ -1207,7 +1207,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </div>
       </CardHeader>
       {isActive && (
-        <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
+        <CardContent data-allow-scroll="true" className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
             <div className="space-y-4 overflow-hidden flex flex-col">
               {/* Vorgänger und Nachfolger */}
