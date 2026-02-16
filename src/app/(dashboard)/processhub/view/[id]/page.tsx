@@ -66,6 +66,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { exportDetailedProcessPdf } from '@/lib/export-utils';
@@ -90,6 +91,8 @@ function ProcessDetailViewContent() {
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [connectionPaths, setConnectionPaths] = useState<any[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
 
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -243,6 +246,8 @@ function ProcessDetailViewContent() {
     const handleWheelNative = (e: WheelEvent) => {
       const { position: pos, scale: s, guideMode: mode } = stateRef.current;
       if (mode !== 'structure') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-allow-scroll="true"]')) return;
       e.preventDefault();
       
       const delta = e.deltaY * -0.001;
@@ -315,6 +320,11 @@ function ProcessDetailViewContent() {
       setTimeout(() => centerOnNode(nodeId), 50);
     }
   }, [activeNodeId, centerOnNode]);
+
+  const handlePreviewFile = (file: MediaFile) => {
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
 
   const handleExportPdf = async () => {
     if (!currentProcess || !activeVersion || !tenants || !jobTitles || !departments) return;
@@ -583,6 +593,7 @@ function ProcessDetailViewContent() {
                       getFullRoleName={getFullRoleName} 
                       allNodes={gridNodes} 
                       mediaFiles={mediaFiles} 
+                      onPreviewFile={handlePreviewFile}
                       expandedByDefault 
                       animationsEnabled={animationsEnabled} 
                     />
@@ -612,7 +623,7 @@ function ProcessDetailViewContent() {
                   </g>
                 ))}
               </svg>
-              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} getFullRoleName={getFullRoleName} animationsEnabled={animationsEnabled} gridNodes={gridNodes} processes={processes} /></div>))}
+              {gridNodes.map(node => (<div key={node.id} className="absolute transition-all duration-500" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}><ProcessStepCard node={node} isMapMode activeNodeId={activeNodeId} setActiveNodeId={handleNodeClick} resources={resources} allFeatures={allFeatures} mediaFiles={mediaFiles} getFullRoleName={getFullRoleName} animationsEnabled={animationsEnabled} gridNodes={gridNodes} processes={processes} onPreviewFile={handlePreviewFile} /></div>))}
             </div>
           )}
           {guideMode === 'structure' && (
@@ -628,11 +639,43 @@ function ProcessDetailViewContent() {
           )}
         </main>
       </div>
+
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-sm font-bold">{previewFile?.fileName || 'Anhang'}</DialogTitle>
+            <DialogDescription className="text-[10px]">Vorschau</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 h-[calc(85vh-64px)] bg-slate-950">
+            {previewFile && isImageFile(previewFile) && (
+              <img src={previewFile.fileUrl} alt={previewFile.fileName} className="w-full h-full object-contain" />
+            )}
+            {previewFile && isPdfFile(previewFile) && (
+              <iframe title={previewFile.fileName} src={previewFile.fileUrl} className="w-full h-full" />
+            )}
+            {previewFile && !isImageFile(previewFile) && !isPdfFile(previewFile) && (
+              <div className="w-full h-full flex items-center justify-center text-slate-200 text-sm">
+                Keine Vorschau verfuegbar
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, getFullRoleName, expandedByDefault = false, gridNodes = [], processes = [] }: any) {
+function isImageFile(file: MediaFile) {
+  const name = (file.fileName || '').toLowerCase();
+  return file.fileType?.startsWith('image/') || name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.gif') || name.endsWith('.webp') || name.endsWith('.svg');
+}
+
+function isPdfFile(file: MediaFile) {
+  const name = (file.fileName || '').toLowerCase();
+  return file.fileType?.includes('pdf') || name.endsWith('.pdf');
+}
+
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, mediaFiles, getFullRoleName, expandedByDefault = false, gridNodes = [], processes = [], onPreviewFile }: any) {
   const isActive = activeNodeId === node.id;
   const isExpanded = expandedByDefault || (isMapMode && isActive);
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
@@ -676,7 +719,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         </div>
       </CardHeader>
       {isExpanded && (
-        <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
+        <CardContent data-allow-scroll="true" className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
             <div className="space-y-4 overflow-hidden flex flex-col">
               {/* Vorgänger und Nachfolger */}
@@ -792,7 +835,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Materialien ({nodeMedia.length})</Label>
                   <div className="flex flex-wrap gap-2">
                     {nodeMedia.map((f: any) => (
-                      <div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}>
+                      <div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); if (onPreviewFile) onPreviewFile(f); }}>
                         <ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}
                       </div>
                     ))}
