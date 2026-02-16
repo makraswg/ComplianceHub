@@ -287,7 +287,7 @@ function ProcessDesignerContent() {
           if (lane > activeLane) x += (WIDTH_DIFF / 2) + 40;
           if (lane < activeLane) x -= (WIDTH_DIFF / 2) + 40;
         }
-        if (lv > activeLv) y += 82; 
+        if (lv > activeLv) y += 338; 
       }
       return { ...n, x, y, lv, lane };
     });
@@ -338,7 +338,7 @@ function ProcessDesignerContent() {
       if (sNode && tNode) {
         const sIsExp = sNode.id === selectedNodeId;
         const isPathActive = sIsExp || tNode.id === selectedNodeId;
-        const sH = 82; 
+        const sH = sIsExp ? 420 : 82; 
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
         const tX = tNode.x + OFFSET_X + 128;
