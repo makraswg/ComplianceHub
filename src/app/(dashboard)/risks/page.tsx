@@ -437,8 +437,8 @@ function RiskDashboardContent() {
               </div>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 bg-slate-50/30">
-            <div className="p-8 space-y-6">
+          <div className="flex-1 min-h-0 bg-slate-50/30 overflow-hidden">
+            <div className="p-8 space-y-6 h-full">
               <div className="flex flex-col md:flex-row md:items-center gap-3">
                 <div className="flex-1">
                   <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Ressourcen filtern</Label>
@@ -447,8 +447,8 @@ function RiskDashboardContent() {
                 <div className="text-[10px] font-bold text-slate-400 uppercase">Auswahl: {Object.values(subRiskScores).filter(s => s.selected).length}</div>
               </div>
 
-              <ScrollArea className="max-h-[55vh]">
-                <div className="space-y-2 pr-2">
+              <div className="max-h-[55vh] overflow-y-auto pr-2">
+                <div className="space-y-2">
                   {resources?.filter(res => res.name.toLowerCase().includes(subRiskResourceSearch.toLowerCase())).map(res => {
                     const score = subRiskScores[res.id];
                     if (!score) return null;
@@ -495,9 +495,9 @@ function RiskDashboardContent() {
                     <div className="py-12 text-center opacity-30 italic text-[10px] uppercase font-bold">Keine Ressourcen definiert</div>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </div>
-          </ScrollArea>
+          </div>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
             <Button variant="ghost" size="sm" onClick={() => setIsSubRiskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
             <Button size="sm" onClick={handleCreateSubRisks} disabled={isSaving} className="rounded-xl h-11 px-12 bg-accent hover:bg-accent/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
