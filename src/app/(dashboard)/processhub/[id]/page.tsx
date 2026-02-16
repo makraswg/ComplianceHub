@@ -647,9 +647,6 @@ function ProcessDesignerContent() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className={cn("h-8 rounded-md text-[10px] font-bold border-slate-200 gap-2 transition-all", isDiagramLocked ? "bg-slate-100 text-slate-400" : "hover:bg-amber-50 text-amber-600")} onClick={() => setIsDiagramLocked(!isDiagramLocked)}>
-            {isDiagramLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />} {isDiagramLocked ? 'Karte fixiert' : 'Navigation aktiv'}
-          </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
             {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Revision sichern
           </Button>
@@ -685,11 +682,11 @@ function ProcessDesignerContent() {
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><Info className="w-3.5 h-3.5" /> Stammdaten</h3>
                   <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Prozesstitel</Label><Input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} className="h-10 text-xs font-bold rounded-xl" /></div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Prozesstyp</Label>
                     <Select value={metaTypeId} onValueChange={setMetaTypeId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{processTypes?.filter(t => t.enabled).map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent></Select>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-red-600 flex items-center gap-1.5">
                       <ShieldAlert className="w-3 h-3" /> BCM Notfall-Fallback
                     </Label>
@@ -728,19 +725,19 @@ function ProcessDesignerContent() {
 
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-indigo-600 border-b pb-2 flex items-center gap-2"><ArrowDownCircle className="w-3.5 h-3.5" /> Input & Output</h3>
-                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Eingang (Inputs)</Label><Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?" className="min-h-[60px] text-xs rounded-xl" /></div>
-                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Ergebnisse (Outputs)</Label><Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was wird geliefert?" className="min-h-[60px] text-xs rounded-xl" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Eingang (Inputs)</Label><Textarea value={metaInputs} onChange={e => setMetaInputs(e.target.value)} placeholder="Was wird benötigt?" className="min-h-[60px] text-xs rounded-xl" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Ergebnisse (Outputs)</Label><Textarea value={metaOutputs} onChange={e => setMetaOutputs(e.target.value)} placeholder="Was wird geliefert?" className="min-h-[60px] text-xs rounded-xl" /></div>
                 </section>
 
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-primary border-b pb-2 flex items-center gap-2">
                     <UserCircle className="w-3.5 h-3.5" /> Governance & Verantwortung
                   </h3>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
                     <Select value={metaDeptId} onValueChange={setMetaDeptId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent>{departments?.filter(d => activeTenantId === 'all' || d.tenantId === activeTenantId).map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Process Owner (Rolle)</Label>
                     <Select value={metaOwnerRoleId} onValueChange={setMetaOwnerRoleId}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue placeholder="Wählen..." /></SelectTrigger><SelectContent>{jobTitles?.filter(j => activeTenantId === 'all' || j.tenantId === activeTenantId).map(j => <SelectItem key={j.id} value={j.id}>{j.name}</SelectItem>)}</SelectContent></Select>
                   </div>
@@ -755,11 +752,11 @@ function ProcessDesignerContent() {
                     </div>
                     <p className="text-[9px] text-emerald-700 leading-relaxed italic">Diese Daten fließen direkt in den DSGVO-Bericht ein.</p>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Automatisierungsgrad</Label>
                     <Select value={metaAutomation} onValueChange={(v:any) => setMetaAutomation(v)}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="manual">Manuell</SelectItem><SelectItem value="partial">Teil-Automatisiert</SelectItem><SelectItem value="full">Dunkelverarbeitung</SelectItem></SelectContent></Select>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="text-[10px] font-black uppercase text-slate-400">Datenvolumen</Label>
                     <Select value={metaVolume} onValueChange={(v:any) => setMetaDataVolume(v)}><SelectTrigger className="h-10 text-xs rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Gering (Einzeldatensätze)</SelectItem><SelectItem value="medium">Mittel</SelectItem><SelectItem value="high">Massenverarbeitung</SelectItem></SelectContent></Select>
                   </div>
@@ -767,8 +764,8 @@ function ProcessDesignerContent() {
 
                 <section className="space-y-4">
                   <h3 className="text-[10px] font-black uppercase text-slate-400 border-b pb-2 flex items-center gap-2"><Tag className="w-3.5 h-3.5" /> Analyse</h3>
-                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Messgrößen (KPIs)</Label><Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Erfolgskriterien..." className="min-h-[60px] text-xs rounded-xl" /></div>
-                  <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Review</Label><Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Was ist noch zu klären?" className="min-h-[60px] text-xs rounded-xl border-amber-200 bg-amber-50/20" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Messgrößen (KPIs)</Label><Textarea value={metaKpis} onChange={e => setMetaKpis(e.target.value)} placeholder="Erfolgskriterien..." className="min-h-[60px] text-xs rounded-xl" /></div>
+                  <div className="space-y-2"><Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Review</Label><Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Was ist noch zu klären?" className="min-h-[60px] text-xs rounded-xl border-amber-200 bg-amber-50/20" /></div>
                 </section>
 
                 <div className="pt-4 border-t pb-20"><Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Stammdaten sichern</Button></div>
@@ -779,7 +776,7 @@ function ProcessDesignerContent() {
 
         <main 
           ref={containerRef}
-          className={cn("flex-1 relative overflow-hidden bg-slate-200", !isDiagramLocked ? "cursor-grab active:cursor-grabbing" : "cursor-default")} 
+          className={cn("flex-1 relative overflow-auto bg-slate-200 cursor-grab active:cursor-grabbing")} 
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -810,14 +807,12 @@ function ProcessDesignerContent() {
               <div key={node.id} className="absolute transition-all duration-500 ease-in-out" style={{ left: node.x + OFFSET_X, top: node.y + OFFSET_Y }}>
                 <ProcessStepCard 
                   node={node} isMapMode={{ activeNodeId: selectedNodeId }} activeNodeId={selectedNodeId} 
-                  setActiveNodeId={(id: string) => {
-                    handleNodeClick(id);
-                    if (selectedNodeId === id) openNodeEditor(node);
-                  }} 
+                  setActiveNodeId={(id: string) => handleNodeClick(id)}
                   resources={resources} allFeatures={allFeatures} 
                   getFullRoleName={getFullRoleName} 
                   animationsEnabled={animationsEnabled}
                   mediaCount={mediaFiles?.filter(m => m.subEntityId === node.id).length || 0}
+                  onEdit={openNodeEditor}
                   gridNodes={gridNodes}
                 />
               </div>
@@ -1162,7 +1157,7 @@ function ProcessDesignerContent() {
   );
 }
 
-function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount = 0, gridNodes = [] }: any) {
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount = 0, gridNodes = [], onEdit }: any) {
   const isActive = activeNodeId === node.id;
   const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
   const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
@@ -1198,7 +1193,11 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
           </div>
         </div>
-        {mediaCount > 0 && !isActive && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
+        <div className="flex items-center gap-2">
+          {mediaCount > 0 && !isActive && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
+          {isActive && <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={(e) => { e.stopPropagation(); onEdit?.(node); }}><Edit3 className="w-4 h-4" /></Button>}
+          {isActive && <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600" onClick={(e) => { e.stopPropagation(); setActiveNodeId(null); }}><X className="w-4 h-4" /></Button>}
+        </div>
       </CardHeader>
       {isActive && (
         <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
@@ -1242,7 +1241,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
               </div>
               
               <div className="space-y-2 flex-1 min-h-0">
-                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prüfschritte</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">✓ Checkliste für den Mitarbeiter</Label>
                 <ScrollArea className="h-full pr-2">
                   <div className="space-y-1.5">
                     {node.checklist?.map((item: string, i: number) => (

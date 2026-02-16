@@ -39,7 +39,8 @@ import {
   FileDown,
   Crosshair,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -382,15 +383,15 @@ function ProcessDetailViewContent() {
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-2 flex items-center gap-2">
                 <Info className="w-3.5 h-3.5" /> Stammdaten & Kontext
               </h3>
-              <div className="space-y-4">
-                <div className="space-y-1">
+              <div className="space-y-3">
+                <div className="space-y-2">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Kurzbeschreibung</Label>
                   <p className="text-[11px] text-slate-600 leading-relaxed font-medium italic">
                     "{currentProcess?.description || 'Keine Beschreibung verfügbar.'}"
                   </p>
                 </div>
                 
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Verantwortliche Abteilung</Label>
                   <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
                     <Building2 className="w-3.5 h-3.5 text-primary" />
@@ -400,7 +401,7 @@ function ProcessDetailViewContent() {
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Label className="text-[9px] font-black uppercase text-slate-400">Process Owner</Label>
                   <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
                     <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
@@ -411,7 +412,7 @@ function ProcessDetailViewContent() {
                 </div>
                 
                 {processType && (
-                <div className="space-y-1">
+                <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-slate-400">Prozesstyp</Label>
                     <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border">
                         <span className="text-[11px] font-bold text-slate-800">
@@ -422,7 +423,7 @@ function ProcessDetailViewContent() {
                 )}
 
                 {emergencyProcess && (
-                <div className="space-y-1">
+                <div className="space-y-2">
                     <Label className="text-[9px] font-black uppercase text-red-600">Notfall-Fallback</Label>
                     <div className="flex items-center gap-2 p-2 bg-red-50/50 rounded-lg border border-red-100">
                         <span className="text-[11px] font-bold text-red-800">
@@ -665,7 +666,10 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
             <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
           </div>
         </div>
-        {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
+        <div className="flex items-center gap-2">
+          {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
+          {isMapMode && isActive && <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-600" onClick={(e) => { e.stopPropagation(); setActiveNodeId(null); }}><X className="w-4 h-4" /></Button>}
+        </div>
       </CardHeader>
       {isExpanded && (
         <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
@@ -709,7 +713,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
               </div>
               
               <div className="space-y-2 flex-1 min-h-0">
-                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prüfschritte</Label>
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">✓ Checkliste für den Mitarbeiter</Label>
                 <ScrollArea className="h-full pr-2">
                   <div className="space-y-1.5">
                     {node.checklist?.map((item: string, i: number) => (
