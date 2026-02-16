@@ -82,6 +82,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ProcessStepsEditor } from '@/components/processhub/ProcessStepsEditor';
+import { ProcessStepWizard } from '@/components/processhub/ProcessStepWizard';
 
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
@@ -140,6 +142,7 @@ function ProcessDesignerContent() {
   const [isCloning, setIsCloning] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<any>(null);
   const [connectionPaths, setConnectionPaths] = useState<any[]>([]);
 
@@ -519,6 +522,45 @@ function ProcessDesignerContent() {
   };
 
   const handleQuickAdd = (type: 'step' | 'decision' | 'subprocess') => {
+    setIsWizardOpen(true);
+  };
+
+  const handleCreateStepFromWizard = async (stepData: Partial<ProcessNode>) => {
+    if (!activeVersion) return;
+    const newId = `${stepData.type}-${Date.now()}`;
+    const nodes = activeVersion.model_json.nodes || [];
+    const predecessor = selectedNodeId ? nodes.find((n: any) => n.id === selectedNodeId) : (nodes.length > 0 ? nodes[nodes.length - 1] : null);
+    
+    const newNode: ProcessNode = {
+      id: newId,
+      type: stepData.type || 'step',
+      title: stepData.title || 'Unbenannter Schritt',
+      description: stepData.description,
+      checklist: stepData.checklist || [],
+      roleId: predecessor?.roleId || '',
+      resourceIds: stepData.resourceIds || predecessor?.resourceIds || [],
+      featureIds: stepData.featureIds || predecessor?.featureIds || []
+    };
+
+    const ops: ProcessOperation[] = [{ type: 'ADD_NODE', payload: { node: newNode } }];
+    if (predecessor) {
+      ops.push({ type: 'ADD_EDGE', payload: { edge: { id: `edge-${Date.now()}`, source: predecessor.id, target: newId } } });
+    }
+    
+    handleApplyOps(ops).then(s => { if(s) handleNodeClick(newId); });
+  };
+
+  const handleNodesReorder = async (reorderedNodes: ProcessNode[]) => {
+    if (!activeVersion) return;
+    const ops: ProcessOperation[] = [{ 
+      type: 'REORDER_NODES', 
+      payload: { nodes: reorderedNodes } 
+    }];
+    
+    handleApplyOps(ops);
+  };
+
+  const handleQuickAddOld = (type: 'step' | 'decision' | 'subprocess') => {
     if (!activeVersion) return;
     const newId = `${type}-${Date.now()}`;
     const titles = { step: 'Neuer Schritt', decision: 'Entscheidung?', subprocess: 'Referenz' };
@@ -623,54 +665,19 @@ function ProcessDesignerContent() {
             </TabsList>
             
             <TabsContent value="steps" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col p-0">
-              <div className="px-6 py-4 border-b bg-white space-y-4 shrink-0">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Element hinzufügen</h3>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('step')}><PlusCircle className="w-3.5 h-3.5 text-primary" /> Schritt</Button>
-                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('decision')}><GitBranch className="w-3.5 h-3.5 text-amber-600" /> Weiche</Button>
-                  <Button variant="outline" size="sm" className="h-9 text-[10px] font-bold rounded-xl shadow-sm gap-2" onClick={() => handleQuickAdd('subprocess')}><RefreshCw className="w-3.5 h-3.5 text-indigo-600" /> Referenz</Button>
-                </div>
-                <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-blue-600 fill-current" />
-                  <p className="text-[9px] text-blue-700 font-bold leading-tight">Neu erzeugte Elemente werden automatisch mit dem aktiven Schritt verbunden.</p>
-                </div>
+              <div className="px-6 py-4 border-b bg-white shrink-0">
+                <ProcessStepsEditor
+                  nodes={sortedSidebarNodes}
+                  edges={activeVersion?.model_json?.edges || []}
+                  selectedNodeId={selectedNodeId}
+                  onNodeSelect={handleNodeClick}
+                  onNodeEdit={openNodeEditor}
+                  onNodeDelete={handleDeleteNode}
+                  onNodesReorder={handleNodesReorder}
+                  onQuickAdd={handleQuickAdd}
+                  mediaFiles={mediaFiles}
+                />
               </div>
-              <ScrollArea className="flex-1 bg-slate-50/30">
-                <div className="p-4 space-y-2 pb-32">
-                  {sortedSidebarNodes.map((node: any) => {
-                    const hasMedia = mediaFiles?.some(m => m.subEntityId === node.id);
-                    const hasChecklist = node.checklist && node.checklist.length > 0;
-                    
-                    return (
-                      <div key={node.id} className={cn("group flex items-center gap-3 p-2 rounded-xl border transition-all cursor-pointer bg-white shadow-sm hover:border-primary/20", selectedNodeId === node.id ? "border-primary ring-2 ring-primary/5" : "border-slate-100")} onClick={() => handleNodeClick(node.id)}>
-                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-inner", 
-                          node.type === 'decision' ? "bg-amber-50 text-amber-600" : 
-                          node.type === 'start' ? "bg-emerald-50 text-emerald-600" :
-                          node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-500"
-                        )}>
-                          {node.type === 'decision' ? <GitBranch className="w-4 h-4" /> : 
-                           node.type === 'start' ? <PlayCircle className="w-4 h-4" /> :
-                           node.type === 'subprocess' ? <RefreshCw className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-[11px] font-bold text-slate-800 truncate leading-tight">{node.title}</p>
-                            <div className="flex gap-0.5">
-                              {hasMedia && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
-                              {hasChecklist && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-400" />}
-                            </div>
-                          </div>
-                          <p className="text-[8px] font-bold uppercase text-slate-400 mt-0.5">{node.type}</p>
-                        </div>
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/5" onClick={(e) => { e.stopPropagation(); openNodeEditor(node); }}><Edit3 className="w-3.5 h-3.5" /></Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600" onClick={(e) => { e.stopPropagation(); handleDeleteNode(node.id); }}><Trash2 className="w-3.5 h-3.5" /></Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </ScrollArea>
             </TabsContent>
 
             <TabsContent value="meta" className="flex-1 m-0 overflow-hidden data-[state=active]:flex flex-col p-0">
@@ -964,6 +971,14 @@ function ProcessDesignerContent() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* Step Wizard */}
+      <ProcessStepWizard
+        open={isWizardOpen}
+        onOpenChange={setIsWizardOpen}
+        onCreateStep={handleCreateStepFromWizard}
+        connectedToNodeId={selectedNodeId}
+      />
     </div>
   );
 }
