@@ -272,53 +272,43 @@ function ProcessDetailViewContent() {
     }
   }, [mounted, gridNodes, centerOnNode]);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const canScrollInside = (target: HTMLElement | null) => {
-      if (!target) return false;
-      if (target.closest('[data-allow-scroll="true"]')) return true;
-      let el: HTMLElement | null = target;
-      while (el && el !== containerRef.current) {
-        const style = window.getComputedStyle(el);
-        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll') && el.scrollHeight > el.clientHeight;
-        if (isScrollable) return true;
-        el = el.parentElement;
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    const { position: pos, scale: s, guideMode: mode } = stateRef.current;
+    if (mode !== 'structure') return;
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      if (target.closest('[data-allow-scroll="true"]')) return;
+      let current: HTMLElement | null = target;
+      while (current && current !== containerRef.current) {
+        const style = window.getComputedStyle(current);
+        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+        if (isScrollable) return;
+        current = current.parentElement;
       }
-      return false;
-    };
+    }
 
-    const handleWheelNative = (e: WheelEvent) => {
-      const { position: pos, scale: s, guideMode: mode } = stateRef.current;
-      if (mode !== 'structure') return;
-      const target = e.target as HTMLElement | null;
-      if (canScrollInside(target)) return;
-      e.preventDefault();
+    e.preventDefault();
 
-      if (e.ctrlKey || e.metaKey) {
-        const delta = e.deltaY * -0.001;
-        const newScale = Math.min(Math.max(0.2, s + delta), 2);
+    if (e.ctrlKey || e.metaKey) {
+      const delta = e.deltaY * -0.001;
+      const newScale = Math.min(Math.max(0.2, s + delta), 2);
 
-        const rect = el.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
 
-        const pivotX = (mouseX - pos.x) / s;
-        const pivotY = (mouseY - pos.y) / s;
+      const pivotX = (mouseX - pos.x) / s;
+      const pivotY = (mouseY - pos.y) / s;
 
-        const newX = mouseX - pivotX * newScale;
-        const newY = mouseY - pivotY * newScale;
+      const newX = mouseX - pivotX * newScale;
+      const newY = mouseY - pivotY * newScale;
 
-        setPosition({ x: newX, y: newY });
-        setScale(newScale);
-      } else {
-        setPosition({ x: pos.x - e.deltaX, y: pos.y - e.deltaY });
-      }
-    };
-
-    el.addEventListener('wheel', handleWheelNative, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheelNative);
+      setPosition({ x: newX, y: newY });
+      setScale(newScale);
+    } else {
+      setPosition({ x: pos.x - e.deltaX, y: pos.y - e.deltaY });
+    }
   }, []);
 
   const updateFlowLines = useCallback(() => {
@@ -628,6 +618,7 @@ function ProcessDetailViewContent() {
           ref={containerRef}
           className={cn("flex-1 relative overflow-hidden", guideMode === 'structure' ? "bg-slate-200 cursor-grab active:cursor-grabbing" : "bg-slate-50")} 
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+          onWheel={handleWheel}
         >
           {guideMode === 'list' ? (
             <ScrollArea className="h-full p-10">
