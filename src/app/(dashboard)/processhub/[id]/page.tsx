@@ -789,7 +789,7 @@ function ProcessDesignerContent() {
               <defs><marker id="arrowhead" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><polygon points="0 0, 5 2.5, 0 5" fill="currentColor" /></marker></defs>
               {connectionPaths.map((p, i) => (
                 <g key={i}>
-                  <path d={p.path} fill="none" stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} strokeWidth={p.isActive ? "3" : "1.5"} markerEnd="url(#arrowhead)" className={cn("transition-all", animationsEnabled && p.isActive && "animate-flow-dash")} />
+                  <path d={p.path} fill="none" stroke={p.isActive ? "hsl(var(--primary))" : "#94a3b8"} strokeWidth={p.isActive ? "3" : "1.5"} strokeDasharray={p.isActive ? "8,4" : "none"} markerEnd="url(#arrowhead)" className={cn("transition-all", animationsEnabled && p.isActive && "animate-flow-dash")} />
                   {p.label && (
                     <g transform={`translate(${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[1]}, ${(p.path.match(/C\s([\d.-]+)\s([\d.-]+)/) || [])[2]})`}>
                       <rect x="-30" y="-10" width="60" height="20" rx="4" fill="white" stroke="#cbd5e1" strokeWidth="1" />
