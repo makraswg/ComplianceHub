@@ -139,7 +139,7 @@ export function ProcessStepsEditor({
     }
   };
 
-  const hasMedia = (nodeId: string) => mediaFiles.some(m => m.subEntityId === nodeId);
+  const hasMedia = (nodeId: string) => mediaFiles?.some(m => m.subEntityId === nodeId) ?? false;
   const hasChecklist = (node: ProcessNode) => node.checklist && node.checklist.length > 0;
 
   return (
