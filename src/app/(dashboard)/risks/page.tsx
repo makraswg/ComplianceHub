@@ -447,53 +447,55 @@ function RiskDashboardContent() {
                 <div className="text-[10px] font-bold text-slate-400 uppercase">Auswahl: {Object.values(subRiskScores).filter(s => s.selected).length}</div>
               </div>
 
-              <div className="space-y-2">
-                {resources?.filter(res => res.name.toLowerCase().includes(subRiskResourceSearch.toLowerCase())).map(res => {
-                  const score = subRiskScores[res.id];
-                  if (!score) return null;
-                  return (
-                    <div key={res.id} className={cn(
-                      "p-4 rounded-2xl border bg-white shadow-sm flex flex-col lg:flex-row lg:items-center gap-4",
-                      score.selected ? "border-accent/30" : "border-slate-100"
-                    )}>
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <Checkbox checked={score.selected} onCheckedChange={(v) => updateSubRiskScore(res.id, { selected: Boolean(v) })} className="rounded-md" />
-                        <div className="min-w-0">
-                          <div className="text-sm font-bold text-slate-800 truncate">{res.name}</div>
-                          <div className="text-[9px] font-black uppercase text-slate-400 mt-0.5">{res.assetType}</div>
+              <ScrollArea className="max-h-[55vh]">
+                <div className="space-y-2 pr-2">
+                  {resources?.filter(res => res.name.toLowerCase().includes(subRiskResourceSearch.toLowerCase())).map(res => {
+                    const score = subRiskScores[res.id];
+                    if (!score) return null;
+                    return (
+                      <div key={res.id} className={cn(
+                        "p-4 rounded-2xl border bg-white shadow-sm flex flex-col lg:flex-row lg:items-center gap-4",
+                        score.selected ? "border-accent/30" : "border-slate-100"
+                      )}>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Checkbox checked={score.selected} onCheckedChange={(v) => updateSubRiskScore(res.id, { selected: Boolean(v) })} className="rounded-md" />
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-slate-800 truncate">{res.name}</div>
+                            <div className="text-[9px] font-black uppercase text-slate-400 mt-0.5">{res.assetType}</div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-slate-400">Impact</Label>
+                            <Select value={score.impact} onValueChange={(v) => updateSubRiskScore(res.id, { impact: v })}>
+                              <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[9px] font-bold uppercase text-slate-400">Wahrsch.</Label>
+                            <Select value={score.probability} onValueChange={(v) => updateSubRiskScore(res.id, { probability: v })}>
+                              <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl">
+                                {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1 sm:col-span-1 col-span-2">
+                            <Label className="text-[9px] font-bold uppercase text-slate-400">Begruendung</Label>
+                            <Input value={score.reason} onChange={e => updateSubRiskScore(res.id, { reason: e.target.value })} className="h-9 rounded-lg border-slate-200 bg-white text-xs" placeholder="Kurz begruenden..." />
+                          </div>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-bold uppercase text-slate-400">Impact</Label>
-                          <Select value={score.impact} onValueChange={(v) => updateSubRiskScore(res.id, { impact: v })}>
-                            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[9px] font-bold uppercase text-slate-400">Wahrsch.</Label>
-                          <Select value={score.probability} onValueChange={(v) => updateSubRiskScore(res.id, { probability: v })}>
-                            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="rounded-xl">
-                              {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1 sm:col-span-1 col-span-2">
-                          <Label className="text-[9px] font-bold uppercase text-slate-400">Begruendung</Label>
-                          <Input value={score.reason} onChange={e => updateSubRiskScore(res.id, { reason: e.target.value })} className="h-9 rounded-lg border-slate-200 bg-white text-xs" placeholder="Kurz begruenden..." />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {(!resources || resources.length === 0) && (
-                  <div className="py-12 text-center opacity-30 italic text-[10px] uppercase font-bold">Keine Ressourcen definiert</div>
-                )}
-              </div>
+                    );
+                  })}
+                  {(!resources || resources.length === 0) && (
+                    <div className="py-12 text-center opacity-30 italic text-[10px] uppercase font-bold">Keine Ressourcen definiert</div>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
