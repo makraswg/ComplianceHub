@@ -306,9 +306,8 @@ function ProcessDesignerContent() {
     const node = gridNodes.find(n => n.id === nodeId);
     if (!node || !containerRef.current) return;
     setIsProgrammaticMove(true);
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const containerHeight = containerRect.height;
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
 
     const edges = activeVersion?.model_json?.edges || [];
     const neighborIds = new Set<string>([nodeId]);
@@ -331,8 +330,8 @@ function ProcessDesignerContent() {
       ? (bottom - top)
       : (EXPANDED_NODE_HEIGHT + (V_GAP * 2));
 
-    const availableHeight = Math.max(200, containerHeight - 20);
-    const targetScale = Math.min(1.4, Math.max(0.2, availableHeight / spanHeight));
+    const availableHeight = Math.max(200, containerHeight - 8);
+    const targetScale = Math.min(1.6, Math.max(0.2, availableHeight / spanHeight));
 
     const nodeWidth = nodeId === node.id ? 600 : 256;
     const nodeCenterX = node.x + OFFSET_X + (nodeWidth / 2);
@@ -341,8 +340,8 @@ function ProcessDesignerContent() {
       : (node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2));
 
     setPosition({
-      x: -(nodeCenterX * targetScale) + (containerRect.left + (containerWidth / 2)),
-      y: -(nodeCenterY * targetScale) + (containerRect.top + (containerHeight / 2))
+      x: -(nodeCenterX * targetScale) + (containerWidth / 2),
+      y: -(nodeCenterY * targetScale) + (containerHeight / 2)
     });
     setScale(targetScale);
     setTimeout(() => setIsProgrammaticMove(false), 850);
