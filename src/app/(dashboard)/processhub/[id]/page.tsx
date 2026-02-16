@@ -365,6 +365,54 @@ function ProcessDesignerContent() {
     }
   }, [mounted, gridNodes, centerOnNode]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const canScrollInside = (target: HTMLElement | null) => {
+      if (!target) return false;
+      if (target.closest('[data-allow-scroll="true"]')) return true;
+      let current: HTMLElement | null = target;
+      while (current && current !== containerRef.current) {
+        const style = window.getComputedStyle(current);
+        const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight;
+        if (isScrollable) return true;
+        current = current.parentElement;
+      }
+      return false;
+    };
+
+    const handleWheelNative = (e: WheelEvent) => {
+      const { position: pos, scale: s } = stateRef.current;
+      const target = e.target as HTMLElement | null;
+      if (canScrollInside(target)) return;
+      e.preventDefault();
+
+      if (e.ctrlKey || e.metaKey) {
+        const delta = e.deltaY * -0.001;
+        const newScale = Math.min(Math.max(0.2, s + delta), 2);
+
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const pivotX = (mouseX - pos.x) / s;
+        const pivotY = (mouseY - pos.y) / s;
+
+        const newX = mouseX - pivotX * newScale;
+        const newY = mouseY - pivotY * newScale;
+
+        setPosition({ x: newX, y: newY });
+        setScale(newScale);
+      } else {
+        setPosition({ x: pos.x - e.deltaX, y: pos.y - e.deltaY });
+      }
+    };
+
+    el.addEventListener('wheel', handleWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheelNative);
+  }, []);
+
   const updateFlowLines = useCallback(() => {
     if (!activeVersion || gridNodes.length === 0) { setConnectionPaths([]); return; }
     const edges = activeVersion.model_json.edges || [];

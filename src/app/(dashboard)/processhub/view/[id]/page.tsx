@@ -295,22 +295,26 @@ function ProcessDetailViewContent() {
       const target = e.target as HTMLElement | null;
       if (canScrollInside(target)) return;
       e.preventDefault();
-      
-      const delta = e.deltaY * -0.001;
-      const newScale = Math.min(Math.max(0.2, s + delta), 2);
-      
-      const rect = el.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-      
-      const pivotX = (mouseX - pos.x) / s;
-      const pivotY = (mouseY - pos.y) / s;
-      
-      const newX = mouseX - pivotX * newScale;
-      const newY = mouseY - pivotY * newScale;
-      
-      setPosition({ x: newX, y: newY });
-      setScale(newScale);
+
+      if (e.ctrlKey || e.metaKey) {
+        const delta = e.deltaY * -0.001;
+        const newScale = Math.min(Math.max(0.2, s + delta), 2);
+
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const pivotX = (mouseX - pos.x) / s;
+        const pivotY = (mouseY - pos.y) / s;
+
+        const newX = mouseX - pivotX * newScale;
+        const newY = mouseY - pivotY * newScale;
+
+        setPosition({ x: newX, y: newY });
+        setScale(newScale);
+      } else {
+        setPosition({ x: pos.x - e.deltaX, y: pos.y - e.deltaY });
+      }
     };
 
     el.addEventListener('wheel', handleWheelNative, { passive: false });
