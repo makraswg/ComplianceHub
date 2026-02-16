@@ -73,6 +73,8 @@ import { toast } from '@/hooks/use-toast';
 
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
+const H_GAP = 350;
+const V_GAP = 160;
 const COLLAPSED_NODE_HEIGHT = 82;
 const EXPANDED_NODE_HEIGHT = 460;
 
@@ -177,8 +179,6 @@ function ProcessDetailViewContent() {
       });
     }
 
-    const H_GAP = 350;
-    const V_GAP = 160; 
     const WIDTH_DIFF = 600 - 256;
 
     return nodes.map(n => {
@@ -208,7 +208,9 @@ function ProcessDetailViewContent() {
 
     if (guideMode === 'structure') {
       setIsProgrammaticMove(true);
-      const targetScale = 1.0;
+      const spanHeight = EXPANDED_NODE_HEIGHT + (V_GAP * 2);
+      const availableHeight = Math.max(200, containerRef.current.clientHeight - 120);
+      const targetScale = Math.min(1, Math.max(0.5, availableHeight / spanHeight));
       const containerWidth = containerRef.current.clientWidth;
       const containerHeight = containerRef.current.clientHeight;
 
