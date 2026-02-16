@@ -34,10 +34,10 @@ import {
   ArrowUpCircle,
   Workflow,
   Scale,
-  Image as ImageLucide,
+  ImageIcon,
   Paperclip,
   FileDown,
-  Focus,
+  Crosshair,
   ChevronDown,
   RefreshCw
 } from 'lucide-react';
@@ -98,7 +98,7 @@ function ProcessDetailViewContent() {
   }, [position, scale, guideMode]);
 
   const { data: uiConfigs } = usePluggableCollection<UiConfig>('uiConfigs');
-  const { data: processes } = usePluggableCollection<Process>('processes');
+  const { data: processes, refresh } = usePluggableCollection<Process>('processes');
   const { data: versions } = usePluggableCollection<any>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
@@ -156,8 +156,14 @@ function ProcessDetailViewContent() {
       levelOccupancy.add(finalLane);
       processed.add(id);
 
-      const children = edges.filter(e => e.source === id).map(e => e.target);
-      children.forEach((childId, idx) => { queue.push({ id: childId, lane: finalLane + idx }); });
+      const children = edges.filter(e => e.source === id).map(e => {
+        const found = nodes.find(n => n.id === e.target);
+        return found ? e.target : null;
+      }).filter(Boolean);
+      
+      children.forEach((childId, idx) => { 
+        if (childId) queue.push({ id: childId, lane: finalLane + idx }); 
+      });
     }
 
     const H_GAP = 350;
@@ -328,7 +334,6 @@ function ProcessDetailViewContent() {
   }, [jobTitles, departments]);
 
   const syncDiagram = () => {
-    // Placeholder function for sync button
     refresh();
   };
 
@@ -542,7 +547,7 @@ function ProcessDetailViewContent() {
                 <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.max(0.2, s - 0.1))}><Minus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Verkleinern</TooltipContent></Tooltip>
               </TooltipProvider>
               <Separator className="my-1" />
-              <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(activeNodeId || gridNodes[0].id); }}><Focus className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(activeNodeId || gridNodes[0].id); }}><Crosshair className="w-5 h-5" /></Button>
             </div>
           )}
         </main>
@@ -630,7 +635,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
                   <div className="flex flex-wrap gap-2">
                     {nodeMedia.map((f: any) => (
                       <div key={f.id} className="p-2 bg-slate-50 rounded-lg border text-[10px] font-bold flex items-center gap-2 shadow-sm hover:bg-white transition-all" onClick={(e) => { e.stopPropagation(); window.open(f.fileUrl, '_blank'); }}>
-                        <ImageLucide className="w-3 h-3 text-indigo-400" /> {f.fileName}
+                        <ImageIcon className="w-3 h-3 text-indigo-400" /> {f.fileName}
                       </div>
                     ))}
                   </div>

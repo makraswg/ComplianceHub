@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, Suspense } from 'react';
@@ -55,7 +56,7 @@ import {
   FileUp,
   ImageIcon,
   FileText,
-  Focus,
+  Crosshair,
   Paperclip,
   ShieldAlert,
   Flame
@@ -335,8 +336,7 @@ function ProcessDesignerContent() {
       const tNode = gridNodes.find(n => n.id === edge.target);
       if (sNode && tNode) {
         const sIsExp = sNode.id === selectedNodeId;
-        const tIsExp = tNode.id === selectedNodeId;
-        const isPathActive = sIsExp || tIsExp;
+        const isPathActive = sIsExp || tNode.id === selectedNodeId;
         const sH = sIsExp ? 420 : 82; 
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
@@ -710,7 +710,7 @@ function ProcessDesignerContent() {
                                 onClick={handleCloneAsEmergency}
                                 disabled={isCloning}
                               >
-                                {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4" />}
+                                {isCloning ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlameKindling className="w-4 h-4" />}
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent className="text-[9px] font-black uppercase bg-slate-800 text-white border-none shadow-xl">Prozess als Notfall-Basis klonen</TooltipContent>
@@ -767,7 +767,7 @@ function ProcessDesignerContent() {
                   <div className="space-y-1.5"><Label className="text-[10px] font-black uppercase text-slate-400">Offene Fragen / Review</Label><Textarea value={metaOpenQuestions} onChange={e => setMetaOpenQuestions(e.target.value)} placeholder="Was ist noch zu klären?" className="min-h-[60px] text-xs rounded-xl border-amber-200 bg-amber-50/20" /></div>
                 </section>
 
-                <div className="pt-4 border-t pb-20"><Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Stammdaten sichern</Button></div>
+                <div className="pt-4 border-t pb-20"><Button onClick={handleSaveMetadata} disabled={isSavingMeta} className="w-full h-10 rounded-xl bg-blue-600 text-white font-bold text-[10px] uppercase gap-2 shadow-lg">{isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Stammdaten sichern</Button></div>
               </ScrollArea>
             </TabsContent>
           </Tabs>
@@ -823,7 +823,7 @@ function ProcessDesignerContent() {
             <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.min(2, s + 0.1))}><Plus className="w-5 h-5" /></Button>
             <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.max(0.2, s - 0.1))}><Minus className="w-5 h-5" /></Button>
             <Separator className="my-1" />
-            <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(selectedNodeId || gridNodes[0].id); }}><Focus className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(selectedNodeId || gridNodes[0].id); }}><Crosshair className="w-5 h-5" /></Button>
           </div>
         </main>
       </div>
@@ -967,5 +967,91 @@ function ProcessDesignerContent() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeId, resources, allFeatures, getFullRoleName, animationsEnabled, mediaCount = 0 }: any) {
+  const isActive = activeNodeId === node.id;
+  const nodeResources = resources?.filter((r:any) => node.resourceIds?.includes(r.id));
+  const nodeFeatures = allFeatures?.filter((f:any) => node.featureIds?.includes(f.id));
+  const roleName = getFullRoleName(node.roleId);
+
+  return (
+    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
+      <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isActive ? "bg-slate-50 border-b" : "border-b-0")}>
+        <div className="flex items-center gap-4 min-w-0">
+          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
+            {node.type === 'start' ? <PlayCircle className="w-6 h-6" /> : node.type === 'decision' ? <GitBranch className="w-6 h-6" /> : node.type === 'subprocess' ? <RefreshCw className="w-6 h-6" /> : <Activity className="w-6 h-6" />}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h4 className={cn("font-black uppercase tracking-tight text-slate-900 truncate", !isActive ? "text-[10px]" : "text-sm")}>{node.title}</h4>
+              {mediaCount > 0 && !isActive && <Paperclip className="w-2.5 h-2.5 text-indigo-400" />}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5"><Briefcase className="w-3 h-3 text-slate-400" /><span className="text-[10px] font-bold text-slate-500 truncate max-w-[150px]">{roleName}</span></div>
+          </div>
+        </div>
+        {mediaCount > 0 && !isActive && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
+      </CardHeader>
+      {isActive && (
+        <CardContent className="p-6 space-y-6 animate-in fade-in overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+            <div className="space-y-4 overflow-hidden flex flex-col">
+              <div className="space-y-1">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Tätigkeit</Label>
+                <ScrollArea className="max-h-[100px] pr-2">
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium italic">"{node.description || 'Keine Beschreibung hinterlegt.'}"</p>
+                </ScrollArea>
+              </div>
+              
+              <div className="space-y-2 flex-1 min-h-0">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Prüfschritte</Label>
+                <ScrollArea className="h-full pr-2">
+                  <div className="space-y-1.5">
+                    {node.checklist?.map((item: string, i: number) => (
+                      <div key={i} className="flex items-start gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5" />
+                        <span className="text-[11px] font-bold text-slate-700">{item}</span>
+                      </div>
+                    ))}
+                    {(!node.checklist || node.checklist.length === 0) && <p className="text-[10px] text-slate-300 italic">Keine Checkliste</p>}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            <div className="space-y-4 flex flex-col">
+              <div className="space-y-2">
+                <Label className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Infrastruktur & Daten</Label>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">IT-Systeme</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeResources?.map((res:any) => <Badge key={res.id} variant="outline" className="text-[8px] font-black h-5 border-indigo-100 bg-indigo-50/30 text-indigo-700 uppercase">{res.name}</Badge>)}
+                      {nodeResources?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Systeme</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Datenobjekte</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nodeFeatures?.map((f:any) => <Badge key={f.id} variant="outline" className="text-[8px] font-black h-5 border-emerald-100 bg-emerald-50/30 text-emerald-700 uppercase">{f.name}</Badge>)}
+                      {nodeFeatures?.length === 0 && <span className="text-[9px] text-slate-300 italic">Keine Datenobjekte</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+export default function ProcessDesignerPage() {
+  return (
+    <Suspense fallback={<div className="flex h-full w-full items-center justify-center py-40"><Loader2 className="w-10 h-10 animate-spin text-primary opacity-20" /></div>}>
+      <ProcessDesignerContent />
+    </Suspense>
   );
 }
