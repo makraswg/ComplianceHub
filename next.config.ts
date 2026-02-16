@@ -13,6 +13,12 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    // Required for Next.js 15 in Cloud Workstations to prevent CORS/ChunkLoad errors
+    allowedDevOrigins: [
+      '6000-firebase-studio-1770064892100.cluster-hllxpfasbba62ri4b2ygaupuxu.cloudworkstations.dev',
+      'localhost:9002',
+      'localhost:3000'
+    ]
   },
   images: {
     remotePatterns: [
