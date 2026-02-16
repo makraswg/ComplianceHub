@@ -52,7 +52,7 @@ import {
 import { cn } from '@/lib/utils';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { Risk, RiskMeasure, Resource, RiskControl } from '@/lib/types';
+import { Risk, RiskMeasure, Resource, RiskControl, Hazard, HazardMeasure, HazardMeasureRelation } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
@@ -83,11 +83,15 @@ function RiskMeasuresContent() {
   const [tomCategory, setTomCategory] = useState<RiskMeasure['tomCategory']>('Zugriffskontrolle');
   const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([]);
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   const { data: measures, isLoading, refresh } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: risks } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: controls } = usePluggableCollection<RiskControl>('riskControls');
+  const { data: hazards } = usePluggableCollection<Hazard>('hazards');
+  const { data: hazardMeasures } = usePluggableCollection<HazardMeasure>('hazardMeasures');
+  const { data: hazardMeasureRelations } = usePluggableCollection<HazardMeasureRelation>('hazardMeasureRelations');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -158,6 +162,7 @@ function RiskMeasuresContent() {
     setIsTom(false);
     setSelectedRiskIds([]);
     setSelectedResourceIds([]);
+    setCatalogSearch('');
   };
 
   const applyAiSuggestions = (s: any) => {
@@ -165,6 +170,42 @@ function RiskMeasuresContent() {
     if (s.description) setDesc(s.description);
     if (s.tomCategory) setTomCategory(s.tomCategory);
     toast({ title: "KI-Vorschläge übernommen" });
+  };
+
+  const relatedHazardCodes = useMemo(() => {
+    if (!risks || !hazards || selectedRiskIds.length === 0) return [];
+    const hazardIds = new Set(risks.filter(r => selectedRiskIds.includes(r.id)).map(r => r.hazardId).filter(Boolean) as string[]);
+    return hazards.filter(h => hazardIds.has(h.id)).map(h => h.code);
+  }, [hazards, risks, selectedRiskIds]);
+
+  const filteredCatalogMeasures = useMemo(() => {
+    if (!hazardMeasures) return [] as HazardMeasure[];
+    const searchValue = catalogSearch.toLowerCase();
+    const measureMatchesSearch = (m: HazardMeasure) =>
+      m.title.toLowerCase().includes(searchValue) ||
+      m.code.toLowerCase().includes(searchValue) ||
+      m.baustein.toLowerCase().includes(searchValue);
+
+    if (!hazardMeasureRelations || relatedHazardCodes.length === 0) {
+      return hazardMeasures.filter(measureMatchesSearch).slice(0, 200);
+    }
+
+    const allowedMeasureIds = new Set(
+      hazardMeasureRelations
+        .filter(rel => relatedHazardCodes.includes(rel.hazardCode))
+        .map(rel => rel.measureId)
+    );
+
+    return hazardMeasures
+      .filter(m => allowedMeasureIds.has(m.id))
+      .filter(measureMatchesSearch)
+      .slice(0, 200);
+  }, [catalogSearch, hazardMeasures, hazardMeasureRelations, relatedHazardCodes]);
+
+  const applyCatalogMeasure = (measure: HazardMeasure) => {
+    setTitle(`${measure.code} ${measure.title}`);
+    setDesc(prev => prev || `BSI-Maßnahme ${measure.code} (${measure.baustein}).`);
+    setIsTom(true);
   };
 
   if (!mounted) return null;
@@ -415,6 +456,47 @@ function RiskMeasuresContent() {
                             )}
                           </div>
                         </ScrollArea>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 md:col-span-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <Label className="text-[10px] font-black uppercase text-slate-600 tracking-widest flex items-center gap-2 ml-1">
+                          <ClipboardList className="w-3.5 h-3.5" /> BSI-Maßnahmenkatalog
+                        </Label>
+                        <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+                          {relatedHazardCodes.length > 0 ? `Gefährdungen: ${relatedHazardCodes.join(', ')}` : 'Keine Gefährdung verknüpft'}
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-2xl border bg-white shadow-inner space-y-3">
+                        <Input
+                          placeholder="BSI-Maßnahme suchen (Code, Titel, Baustein)..."
+                          value={catalogSearch}
+                          onChange={(e) => setCatalogSearch(e.target.value)}
+                          className="h-9 text-xs rounded-lg border-slate-200"
+                        />
+                        <ScrollArea className="h-64">
+                          <div className="space-y-1">
+                            {filteredCatalogMeasures.map(measure => (
+                              <div key={measure.id} className="flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-slate-200 hover:bg-slate-50 transition-all">
+                                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[9px] font-black">{measure.code}</div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate">{measure.title}</p>
+                                  <p className="text-[8px] font-black uppercase text-slate-400 mt-0.5">Baustein: {measure.baustein}</p>
+                                </div>
+                                <Button variant="outline" size="sm" className="h-8 px-3 text-[10px] font-black uppercase" onClick={() => applyCatalogMeasure(measure)}>
+                                  Übernehmen
+                                </Button>
+                              </div>
+                            ))}
+                            {filteredCatalogMeasures.length === 0 && (
+                              <div className="py-10 text-center opacity-40 italic text-[10px] uppercase font-bold">Keine BSI-Maßnahmen gefunden</div>
+                            )}
+                          </div>
+                        </ScrollArea>
+                        <p className="text-[9px] text-slate-400 font-medium">
+                          Tipp: Verknüpfen Sie zuerst das Risiko. Dann werden die passenden BSI-Maßnahmen automatisch gefiltert.
+                        </p>
                       </div>
                     </div>
 

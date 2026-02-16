@@ -574,6 +574,19 @@ export interface HazardModule {
   title: string;
 }
 
+export interface HazardMeasure {
+  id: string;
+  code: string;
+  title: string;
+  baustein: string;
+}
+
+export interface HazardMeasureRelation {
+  id: string;
+  measureId: string;
+  hazardCode: string;
+}
+
 export interface Catalog {
   id: string;
   name: string;

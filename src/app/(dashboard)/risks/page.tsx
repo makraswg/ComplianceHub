@@ -94,6 +94,10 @@ function RiskDashboardContent() {
   const [isRiskDialogOpen, setIsRiskDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<Risk | null>(null);
+  const [isSubRiskDialogOpen, setIsSubRiskDialogOpen] = useState(false);
+  const [subRiskTarget, setSubRiskTarget] = useState<Risk | null>(null);
+  const [subRiskResourceSearch, setSubRiskResourceSearch] = useState('');
+  const [subRiskScores, setSubRiskScores] = useState<Record<string, { selected: boolean; impact: string; probability: string; reason: string }>>({});
 
   // Form Search States
   const [assetSearch, setAssetSearch] = useState('');
@@ -209,6 +213,107 @@ function RiskDashboardContent() {
     setAssetSearch(''); setParentSearch('');
   };
 
+  const initSubRiskScores = (risk: Risk) => {
+    if (!resources) return;
+    const next: Record<string, { selected: boolean; impact: string; probability: string; reason: string }> = {};
+    resources.forEach(res => {
+      next[res.id] = {
+        selected: false,
+        impact: risk.impact.toString(),
+        probability: risk.probability.toString(),
+        reason: ''
+      };
+    });
+    setSubRiskScores(next);
+  };
+
+  const openSubRiskBulk = (risk: Risk) => {
+    setSubRiskTarget(risk);
+    setSubRiskResourceSearch('');
+    initSubRiskScores(risk);
+    setIsSubRiskDialogOpen(true);
+  };
+
+  useEffect(() => {
+    if (!isSubRiskDialogOpen || !subRiskTarget || !resources) return;
+    if (Object.keys(subRiskScores).length === 0) {
+      initSubRiskScores(subRiskTarget);
+    }
+  }, [isSubRiskDialogOpen, subRiskScores, subRiskTarget, resources]);
+
+  const updateSubRiskScore = (resourceId: string, patch: Partial<{ selected: boolean; impact: string; probability: string; reason: string }>) => {
+    setSubRiskScores(prev => ({
+      ...prev,
+      [resourceId]: { ...prev[resourceId], ...patch }
+    }));
+  };
+
+  const handleCreateSubRisks = async () => {
+    if (!subRiskTarget || !resources) return;
+    const selectedResources = resources.filter(res => subRiskScores[res.id]?.selected);
+    if (selectedResources.length === 0) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte mindestens eine Ressource auswählen." });
+      return;
+    }
+
+    setIsSaving(true);
+    const now = new Date().toISOString();
+    const targetTenantId = activeTenantId === 'all' ? 't1' : activeTenantId;
+
+    const newSubRisks: Risk[] = selectedResources.map(res => {
+      const score = subRiskScores[res.id];
+      return {
+        id: `risk-${Math.random().toString(36).substring(2, 9)}`,
+        tenantId: targetTenantId,
+        assetId: res.id,
+        processId: subRiskTarget.processId,
+        hazardId: subRiskTarget.hazardId,
+        parentId: subRiskTarget.id,
+        title: `${subRiskTarget.title} - ${res.name}`,
+        category: subRiskTarget.category,
+        description: subRiskTarget.description,
+        impact: parseInt(score.impact),
+        probability: parseInt(score.probability),
+        bruttoReason: score.reason,
+        owner: subRiskTarget.owner || user?.displayName || 'N/A',
+        status: subRiskTarget.status,
+        treatmentStrategy: subRiskTarget.treatmentStrategy || 'mitigate',
+        createdAt: now
+      };
+    });
+
+    const existingSubs = (risks || []).filter(r => r.parentId === subRiskTarget.id);
+    const combinedSubs = [...existingSubs, ...newSubRisks];
+    const bestSub = combinedSubs.reduce((best, current) => {
+      if (!best) return current;
+      const bestScore = best.impact * best.probability;
+      const currentScore = current.impact * current.probability;
+      return currentScore > bestScore ? current : best;
+    }, undefined as Risk | undefined);
+
+    const newReasonLines = newSubRisks
+      .filter(r => r.bruttoReason)
+      .map(r => `Sub-Risiko ${r.title}: ${r.bruttoReason}`);
+    const combinedReason = [subRiskTarget.bruttoReason, ...newReasonLines].filter(Boolean).join('\n');
+
+    try {
+      await Promise.all(newSubRisks.map(r => saveCollectionRecord('risks', r.id, r, dataSource)));
+      if (bestSub) {
+        await saveCollectionRecord('risks', subRiskTarget.id, {
+          ...subRiskTarget,
+          impact: bestSub.impact,
+          probability: bestSub.probability,
+          bruttoReason: combinedReason || subRiskTarget.bruttoReason
+        }, dataSource);
+      }
+      toast({ title: `Sub-Risiken erstellt: ${newSubRisks.length}` });
+      setIsSubRiskDialogOpen(false);
+      refresh();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const openSubRisk = (risk: Risk) => {
     resetForm();
     setParentId(risk.id);
@@ -242,7 +347,7 @@ function RiskDashboardContent() {
             <div className="flex justify-end items-center gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/risks/${risk.id}`)}><Eye className="w-3.5 h-3.5 text-primary" /></Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(risk)}><Pencil className="w-3.5 h-3.5 text-slate-400" /></Button>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl w-64 p-1 shadow-2xl border"><DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> Bearbeiten</DropdownMenuItem><DropdownMenuItem onSelect={() => openSubRisk(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><PlusCircle className="w-3.5 h-3.5" /> Sub-Risiko erstellen</DropdownMenuItem><DropdownMenuSeparator className="my-1" /><DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl w-64 p-1 shadow-2xl border"><DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> Bearbeiten</DropdownMenuItem>{!isSub && <DropdownMenuItem onSelect={() => openSubRiskBulk(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><PlusCircle className="w-3.5 h-3.5" /> Sub-Risiken je Ressource</DropdownMenuItem>}<DropdownMenuItem onSelect={() => openSubRisk(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><PlusCircle className="w-3.5 h-3.5" /> Sub-Risiko erstellen</DropdownMenuItem><DropdownMenuSeparator className="my-1" /><DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </div>
           </TableCell>
         </TableRow>
@@ -278,11 +383,11 @@ function RiskDashboardContent() {
       </div>
 
       <Dialog open={isRiskDialogOpen} onOpenChange={setIsRiskDialogOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white">
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white min-h-0">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
             <div className="flex items-center gap-5"><div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent border border-accent/10"><ShieldAlert className="w-6 h-6" /></div><div className="min-w-0"><DialogTitle className="text-lg font-headline font-bold text-white truncate uppercase tracking-tight">{selectedRisk ? 'Risiko aktualisieren' : 'Neues Risiko erfassen'}</DialogTitle><DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">Identifikation & Bewertung von Bedrohungen</DialogDescription></div></div>
           </DialogHeader>
-          <ScrollArea className="flex-1 bg-slate-50/30">
+          <ScrollArea className="flex-1 min-h-0 bg-slate-50/30">
             <div className="p-8 space-y-10 pb-20">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2 md:col-span-2"><Label required className="text-[10px] font-bold uppercase text-slate-400 ml-1">Bezeichnung des Risikos</Label><Input value={title} onChange={e => setTitle(e.target.value)} className="rounded-xl h-12 text-sm font-bold border-slate-200 bg-white" placeholder="z.B. Datendiebstahl..." /></div>
@@ -316,6 +421,87 @@ function RiskDashboardContent() {
             </div>
           </ScrollArea>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2"><Button variant="ghost" size="sm" onClick={() => setIsRiskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button><Button size="sm" onClick={handleSaveRisk} disabled={isSaving || !title} className="rounded-xl h-11 px-12 bg-accent hover:bg-accent/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Speichern</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSubRiskDialogOpen} onOpenChange={setIsSubRiskDialogOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-2xl p-0 overflow-hidden flex flex-col border-none shadow-2xl bg-white min-h-0">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent border border-accent/10">
+                <Split className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-headline font-bold text-white truncate uppercase tracking-tight">Sub-Risiken pro Ressource</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold uppercase tracking-widest mt-0.5">{subRiskTarget ? subRiskTarget.title : 'Hauptrisiko wählen'}</DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <ScrollArea className="flex-1 min-h-0 bg-slate-50/30">
+            <div className="p-8 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-3">
+                <div className="flex-1">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400 ml-1">Ressourcen filtern</Label>
+                  <Input value={subRiskResourceSearch} onChange={e => setSubRiskResourceSearch(e.target.value)} className="rounded-xl h-10 text-xs border-slate-200 bg-white" placeholder="Ressourcen suchen..." />
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Auswahl: {Object.values(subRiskScores).filter(s => s.selected).length}</div>
+              </div>
+
+              <div className="space-y-2">
+                {resources?.filter(res => res.name.toLowerCase().includes(subRiskResourceSearch.toLowerCase())).map(res => {
+                  const score = subRiskScores[res.id];
+                  if (!score) return null;
+                  return (
+                    <div key={res.id} className={cn(
+                      "p-4 rounded-2xl border bg-white shadow-sm flex flex-col lg:flex-row lg:items-center gap-4",
+                      score.selected ? "border-accent/30" : "border-slate-100"
+                    )}>
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Checkbox checked={score.selected} onCheckedChange={(v) => updateSubRiskScore(res.id, { selected: Boolean(v) })} className="rounded-md" />
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-slate-800 truncate">{res.name}</div>
+                          <div className="text-[9px] font-black uppercase text-slate-400 mt-0.5">{res.assetType}</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full lg:w-auto">
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-bold uppercase text-slate-400">Impact</Label>
+                          <Select value={score.impact} onValueChange={(v) => updateSubRiskScore(res.id, { impact: v })}>
+                            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[9px] font-bold uppercase text-slate-400">Wahrsch.</Label>
+                          <Select value={score.probability} onValueChange={(v) => updateSubRiskScore(res.id, { probability: v })}>
+                            <SelectTrigger className="h-9 rounded-lg border-slate-200 bg-white text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {['1','2','3','4','5'].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1 sm:col-span-1 col-span-2">
+                          <Label className="text-[9px] font-bold uppercase text-slate-400">Begruendung</Label>
+                          <Input value={score.reason} onChange={e => updateSubRiskScore(res.id, { reason: e.target.value })} className="h-9 rounded-lg border-slate-200 bg-white text-xs" placeholder="Kurz begruenden..." />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {(!resources || resources.length === 0) && (
+                  <div className="py-12 text-center opacity-30 italic text-[10px] uppercase font-bold">Keine Ressourcen definiert</div>
+                )}
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col-reverse sm:flex-row gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsSubRiskDialogOpen(false)} className="rounded-xl font-bold text-[10px] px-8 h-11 uppercase">Abbrechen</Button>
+            <Button size="sm" onClick={handleCreateSubRisks} disabled={isSaving} className="rounded-xl h-11 px-12 bg-accent hover:bg-accent/90 text-white font-bold text-[10px] uppercase shadow-lg gap-2">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Sub-Risiken erstellen
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
