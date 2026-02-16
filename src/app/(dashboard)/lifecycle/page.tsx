@@ -252,6 +252,30 @@ export default function LifecyclePage() {
     }
   };
 
+  const handleStartOffboarding = async () => {
+    if (!selectedLeaverId) {
+      toast({ variant: "destructive", title: "Fehler", description: "Bitte einen Mitarbeiter auswählen." });
+      return;
+    }
+    
+    setIsActionLoading(true);
+    try {
+      const res = await startOffboardingAction(selectedLeaverId, offboardingDate, dataSource, user?.email || 'system');
+      if (res.success) {
+        toast({ title: "Offboarding eingeleitet", description: `Jira-Ticket erstellt: ${res.jiraKey}` });
+        setSelectedLeaverId(null);
+        refreshUsers();
+        refreshAssignments();
+      } else {
+        toast({ variant: "destructive", title: "Fehler", description: res.error });
+      }
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Systemfehler", description: e.message });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
