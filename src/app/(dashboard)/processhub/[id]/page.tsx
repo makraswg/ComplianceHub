@@ -87,6 +87,8 @@ import { ProcessStepWizard } from '@/components/processhub/ProcessStepWizard';
 
 const OFFSET_X = 2500;
 const OFFSET_Y = 2500;
+const COLLAPSED_NODE_HEIGHT = 82;
+const EXPANDED_NODE_HEIGHT = 460;
 
 function ensureUniqueId(requestedId: string | null | undefined, usedIds: Set<string>, prefix: string = 'node'): string {
   const idStr = String(requestedId || '').trim().toLowerCase();
@@ -338,7 +340,7 @@ function ProcessDesignerContent() {
       if (sNode && tNode) {
         const sIsExp = sNode.id === selectedNodeId;
         const isPathActive = sIsExp || tNode.id === selectedNodeId;
-        const sH = sIsExp ? 420 : 82; 
+        const sH = sIsExp ? EXPANDED_NODE_HEIGHT : COLLAPSED_NODE_HEIGHT; 
         const sX = sNode.x + OFFSET_X + 128;
         const sY = sNode.y + OFFSET_Y + sH;
         const tX = tNode.x + OFFSET_X + 128;
@@ -1182,7 +1184,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   }, [node.successorIds, gridNodes]);
 
   return (
-    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
+    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px] h-[460px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isActive ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
