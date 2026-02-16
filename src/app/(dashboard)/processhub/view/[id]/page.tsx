@@ -651,7 +651,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   }, [node.successorIds, gridNodes]);
 
   return (
-    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isMapMode && (isActive ? "w-[600px] h-[420px]" : "w-64 h-[82px]"))} style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
+    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isMapMode && (isActive ? "w-[600px]" : "w-64 h-[82px]"))} style={isMapMode && isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isExpanded ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>
@@ -668,7 +668,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
         {nodeMedia && nodeMedia.length > 0 && !isExpanded && <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full h-4 px-1.5"><Paperclip className="w-2.5 h-2.5" /></Badge>}
       </CardHeader>
       {isExpanded && (
-        <CardContent className="p-6 space-y-6 animate-in fade-in overflow-hidden">
+        <CardContent className="p-6 space-y-4 animate-in fade-in overflow-y-auto max-h-[380px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
             <div className="space-y-4 overflow-hidden flex flex-col">
               {/* Vorgänger und Nachfolger */}
