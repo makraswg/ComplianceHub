@@ -306,14 +306,41 @@ function ProcessDesignerContent() {
     const node = gridNodes.find(n => n.id === nodeId);
     if (!node || !containerRef.current) return;
     setIsProgrammaticMove(true);
-    const spanHeight = EXPANDED_NODE_HEIGHT + (V_GAP * 2);
-    const availableHeight = Math.max(200, containerRef.current.clientHeight - 100);
-    const targetScale = Math.min(1.05, Math.max(0.65, availableHeight / spanHeight));
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
-    const nodeCenterY = node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2);
+
+    const edges = activeVersion?.model_json?.edges || [];
+    const neighborIds = new Set<string>([nodeId]);
+    edges.forEach((edge: any) => {
+      if (edge.source === nodeId) neighborIds.add(edge.target);
+      if (edge.target === nodeId) neighborIds.add(edge.source);
+    });
+
+    let top = Infinity;
+    let bottom = -Infinity;
+    gridNodes.forEach(n => {
+      if (!neighborIds.has(n.id)) return;
+      const height = n.id === nodeId ? EXPANDED_NODE_HEIGHT : COLLAPSED_NODE_HEIGHT;
+      const y = n.y + OFFSET_Y;
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y + height);
+    });
+
+    const spanHeight = Number.isFinite(top) && Number.isFinite(bottom)
+      ? (bottom - top)
+      : (EXPANDED_NODE_HEIGHT + (V_GAP * 2));
+
+    const availableHeight = Math.max(200, containerHeight - 60);
+    const targetScale = Math.min(1.15, Math.max(0.75, availableHeight / spanHeight));
+
+    const nodeWidth = nodeId === node.id ? 600 : 256;
+    const nodeCenterX = node.x + OFFSET_X + (nodeWidth / 2);
+    const nodeCenterY = (Number.isFinite(top) && Number.isFinite(bottom))
+      ? ((top + bottom) / 2)
+      : (node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2));
+
     setPosition({
-      x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
+      x: -(nodeCenterX * targetScale) + (containerWidth / 2),
       y: -(nodeCenterY * targetScale) + (containerHeight / 2)
     });
     setScale(targetScale);
@@ -824,11 +851,11 @@ function ProcessDesignerContent() {
             ))}
           </div>
 
-          <div className="absolute bottom-8 right-8 z-50 bg-white/95 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
-            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.min(2, s + 0.1))}><Plus className="w-5 h-5" /></Button>
-            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.max(0.2, s - 0.1))}><Minus className="w-5 h-5" /></Button>
+          <div data-zoom-control="true" className="absolute bottom-8 right-8 z-50 bg-white/95 backdrop-blur-md border rounded-2xl p-1.5 shadow-2xl flex flex-col gap-1.5">
+            <Button variant="ghost" size="icon" className="h-10 w-10" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(2, s + 0.1)); }}><Plus className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-10 w-10" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.2, s - 0.1)); }}><Minus className="w-5 h-5" /></Button>
             <Separator className="my-1" />
-            <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(selectedNodeId || gridNodes[0].id); }}><Crosshair className="w-5 h-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); if(gridNodes.length > 0) centerOnNode(selectedNodeId || gridNodes[0].id); }}><Crosshair className="w-5 h-5" /></Button>
           </div>
         </main>
       </div>
