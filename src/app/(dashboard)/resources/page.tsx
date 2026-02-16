@@ -425,6 +425,12 @@ function ResourcesPageContent() {
           <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => exportResourcesExcel(filteredResources, tenants || [])}>
             <Download className="w-3.5 h-3.5 mr-2" /> Export
           </Button>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-slate-200 active:scale-95" onClick={() => router.push('/roles')}>
+            <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Rollen anzeigen
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 rounded-md font-bold text-xs px-4 border-blue-200 text-blue-700 hover:bg-blue-50 active:scale-95" onClick={() => router.push('/roles?new=true')}>
+            <Plus className="w-3.5 h-3.5 mr-2" /> Neue Rolle
+          </Button>
           <Button size="sm" className="h-9 rounded-md font-bold text-xs px-6 bg-primary hover:bg-primary/90 text-white shadow-lg transition-all active:scale-95" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
             <Plus className="w-3.5 h-3.5 mr-2" /> Neue Ressource
           </Button>

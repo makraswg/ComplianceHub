@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
+  Globe
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

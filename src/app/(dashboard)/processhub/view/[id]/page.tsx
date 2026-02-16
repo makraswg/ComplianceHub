@@ -38,7 +38,8 @@ import {
   Paperclip,
   FileDown,
   Focus,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -326,6 +327,11 @@ function ProcessDetailViewContent() {
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
 
+  const syncDiagram = () => {
+    // Placeholder function for sync button
+    refresh();
+  };
+
   if (!mounted) return null;
   
   const isTenantsLoading = !tenants;
@@ -530,8 +536,11 @@ function ProcessDetailViewContent() {
           )}
           {guideMode === 'structure' && (
             <div className="absolute bottom-8 right-8 z-50 bg-white shadow-2xl border rounded-2xl p-1.5 flex flex-col gap-1.5">
-              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.min(2, s + 0.1))}><Plus className="w-5 h-5" /></Button>
-              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.max(0.2, s - 0.1))}><Minus className="w-5 h-5" /></Button>
+              <TooltipProvider>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={syncDiagram} className="h-9 w-9 rounded-xl hover:bg-slate-100 transition-all"><RefreshCw className="w-4 h-4 text-slate-600" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Aktualisieren</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" onClick={() => setScale(s => Math.min(2, s + 0.1))} className="h-10 w-10"><Plus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Vergrößern</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setScale(s => Math.max(0.2, s - 0.1))}><Minus className="w-5 h-5" /></Button></TooltipTrigger><TooltipContent side="left" className="text-[10px] font-bold uppercase">Verkleinern</TooltipContent></Tooltip>
+              </TooltipProvider>
               <Separator className="my-1" />
               <Button variant="ghost" size="icon" className="h-10 w-10 text-primary" onClick={() => { if(gridNodes.length > 0) centerOnNode(activeNodeId || gridNodes[0].id); }}><Focus className="w-5 h-5" /></Button>
             </div>
