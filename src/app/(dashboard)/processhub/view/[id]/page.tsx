@@ -217,9 +217,10 @@ function ProcessDetailViewContent() {
       const containerWidth = containerRef.current.clientWidth;
       const containerHeight = containerRef.current.clientHeight;
 
+      const nodeCenterY = node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2);
       setPosition({
         x: -(node.x + OFFSET_X) * targetScale + containerWidth / 2 - (128 * targetScale),
-        y: -(node.y + OFFSET_Y) * targetScale + containerHeight / 2 - (150 * targetScale)
+        y: -(nodeCenterY * targetScale) + (containerHeight / 2)
       });
       setScale(targetScale);
       setTimeout(() => setIsProgrammaticMove(false), 850);
