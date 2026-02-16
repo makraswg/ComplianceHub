@@ -214,35 +214,41 @@ function ProcessDetailViewContent() {
       const containerWidth = containerRef.current.clientWidth;
       const containerHeight = containerRef.current.clientHeight;
 
-      const edges = activeVersion?.model_json?.edges || [];
-      const neighborIds = new Set<string>([nodeId]);
-      edges.forEach((edge: any) => {
-        if (edge.source === nodeId) neighborIds.add(edge.target);
-        if (edge.target === nodeId) neighborIds.add(edge.source);
-      });
+      const isExpanded = activeNodeId === nodeId;
+      let targetScale = 1;
+      let nodeCenterY = node.y + OFFSET_Y + (COLLAPSED_NODE_HEIGHT / 2);
 
-      let top = Infinity;
-      let bottom = -Infinity;
-      gridNodes.forEach(n => {
-        if (!neighborIds.has(n.id)) return;
-        const height = n.id === nodeId ? EXPANDED_NODE_HEIGHT : COLLAPSED_NODE_HEIGHT;
-        const y = n.y + OFFSET_Y;
-        top = Math.min(top, y);
-        bottom = Math.max(bottom, y + height);
-      });
+      if (isExpanded) {
+        const edges = activeVersion?.model_json?.edges || [];
+        const neighborIds = new Set<string>([nodeId]);
+        edges.forEach((edge: any) => {
+          if (edge.source === nodeId) neighborIds.add(edge.target);
+          if (edge.target === nodeId) neighborIds.add(edge.source);
+        });
 
-      const spanHeight = Number.isFinite(top) && Number.isFinite(bottom)
-        ? (bottom - top)
-        : (EXPANDED_NODE_HEIGHT + (V_GAP * 2));
+        let top = Infinity;
+        let bottom = -Infinity;
+        gridNodes.forEach(n => {
+          if (!neighborIds.has(n.id)) return;
+          const height = n.id === nodeId ? EXPANDED_NODE_HEIGHT : COLLAPSED_NODE_HEIGHT;
+          const y = n.y + OFFSET_Y;
+          top = Math.min(top, y);
+          bottom = Math.max(bottom, y + height);
+        });
 
-      const availableHeight = Math.max(200, containerHeight - 8);
-      const targetScale = Math.min(1.6, Math.max(0.2, availableHeight / spanHeight));
+        const spanHeight = Number.isFinite(top) && Number.isFinite(bottom)
+          ? (bottom - top)
+          : (EXPANDED_NODE_HEIGHT + (V_GAP * 2));
 
-      const nodeWidth = nodeId === node.id ? 600 : 256;
+        const availableHeight = Math.max(200, containerHeight - 8);
+        targetScale = Math.min(1.6, Math.max(0.2, availableHeight / spanHeight));
+        nodeCenterY = (Number.isFinite(top) && Number.isFinite(bottom))
+          ? ((top + bottom) / 2)
+          : (node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2));
+      }
+
+      const nodeWidth = isExpanded ? 600 : 256;
       const nodeCenterX = node.x + OFFSET_X + (nodeWidth / 2);
-      const nodeCenterY = (Number.isFinite(top) && Number.isFinite(bottom))
-        ? ((top + bottom) / 2)
-        : (node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2));
 
       setPosition({
         x: -(nodeCenterX * targetScale) + (containerWidth / 2),
