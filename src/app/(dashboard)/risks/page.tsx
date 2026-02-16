@@ -209,6 +209,16 @@ function RiskDashboardContent() {
     setAssetSearch(''); setParentSearch('');
   };
 
+  const openSubRisk = (risk: Risk) => {
+    resetForm();
+    setParentId(risk.id);
+    setCategory(risk.category);
+    setAssetId(risk.assetId || 'none');
+    setProcessId(risk.processId || 'none');
+    setHazardId(risk.hazardId || '');
+    setIsRiskDialogOpen(true);
+  };
+
   const RiskRow = ({ risk, isSub = false }: { risk: Risk, isSub?: boolean }) => {
     const score = risk.impact * risk.probability;
     const asset = resources?.find(r => r.id === risk.assetId);
@@ -232,7 +242,7 @@ function RiskDashboardContent() {
             <div className="flex justify-end items-center gap-1">
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/risks/${risk.id}`)}><Eye className="w-3.5 h-3.5 text-primary" /></Button>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(risk)}><Pencil className="w-3.5 h-3.5 text-slate-400" /></Button>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl w-64 p-1 shadow-2xl border"><DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> Bearbeiten</DropdownMenuItem><DropdownMenuSeparator className="my-1" /><DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 rounded-md hover:bg-white transition-all shadow-sm"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="rounded-xl w-64 p-1 shadow-2xl border"><DropdownMenuItem onSelect={() => openEdit(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5" /> Bearbeiten</DropdownMenuItem><DropdownMenuItem onSelect={() => openSubRisk(risk)} className="rounded-lg py-2 gap-2 text-xs font-bold"><PlusCircle className="w-3.5 h-3.5" /> Sub-Risiko erstellen</DropdownMenuItem><DropdownMenuSeparator className="my-1" /><DropdownMenuItem className="text-red-600 rounded-lg py-2 gap-2 text-xs font-bold" onSelect={() => { if(confirm("Risiko unwiderruflich löschen?")) deleteCollectionRecord('risks', risk.id, dataSource).then(() => refresh()); }}><Trash2 className="w-3.5 h-3.5" /> Löschen</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </div>
           </TableCell>
         </TableRow>
