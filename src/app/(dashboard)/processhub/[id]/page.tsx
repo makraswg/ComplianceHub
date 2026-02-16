@@ -307,8 +307,8 @@ function ProcessDesignerContent() {
     if (!node || !containerRef.current) return;
     setIsProgrammaticMove(true);
     const spanHeight = EXPANDED_NODE_HEIGHT + (V_GAP * 2);
-    const availableHeight = Math.max(200, containerRef.current.clientHeight - 120);
-    const targetScale = Math.min(1, Math.max(0.5, availableHeight / spanHeight));
+    const availableHeight = Math.max(200, containerRef.current.clientHeight - 100);
+    const targetScale = Math.min(1.05, Math.max(0.65, availableHeight / spanHeight));
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
     setPosition({
