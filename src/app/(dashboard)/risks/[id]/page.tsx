@@ -92,23 +92,31 @@ export default function RiskDetailPage() {
     return new Set((linkedMeasures || []).map(m => m.id));
   }, [linkedMeasures]);
 
+  const normalizeHazardCode = (value?: string | null) => {
+    if (!value) return '';
+    return value.trim().replace(/\s+/g, ' ').toUpperCase();
+  };
+
   const relatedHazardCodes = useMemo(() => {
-    if (!risk || !hazards) return [] as string[];
-    const hazard = hazards.find(h => h.id === risk.hazardId);
-    return hazard ? [hazard.code] : [];
+    if (!risk) return [] as string[];
+    const directCode = normalizeHazardCode(risk.hazardId);
+    if (/^G\s*0\.\d+/i.test(directCode)) return [directCode];
+    if (!hazards) return [] as string[];
+    const hazardById = hazards.find(h => h.id === risk.hazardId);
+    if (hazardById) return [normalizeHazardCode(hazardById.code)];
+    const hazardByCode = hazards.find(h => normalizeHazardCode(h.code) === directCode);
+    return hazardByCode ? [normalizeHazardCode(hazardByCode.code)] : [];
   }, [hazards, risk]);
 
   const suggestedBsiMeasures = useMemo(() => {
-    if (!hazardMeasures) return [] as HazardMeasure[];
+    if (!hazardMeasures || !hazardMeasureRelations) return [] as HazardMeasure[];
     const searchValue = bsiSearch.toLowerCase();
     const matchesSearch = (m: HazardMeasure) =>
       m.title.toLowerCase().includes(searchValue) ||
       m.code.toLowerCase().includes(searchValue) ||
       m.baustein.toLowerCase().includes(searchValue);
 
-    if (!hazardMeasureRelations || relatedHazardCodes.length === 0) {
-      return hazardMeasures.filter(matchesSearch).slice(0, 200);
-    }
+    if (relatedHazardCodes.length === 0) return [] as HazardMeasure[];
 
     const allowedMeasureIds = new Set(
       hazardMeasureRelations
@@ -154,10 +162,22 @@ export default function RiskDetailPage() {
     }
   };
 
+  const addedMeasureCodes = useMemo(() => {
+    return new Set(
+      (linkedMeasures || [])
+        .map(m => (m.title || '').trim().split(' ')[0])
+        .filter(Boolean)
+        .map(code => code.toUpperCase())
+    );
+  }, [linkedMeasures]);
+
   const handleAddBsiMeasure = async (measure: HazardMeasure) => {
     if (!risk) return;
     const idValue = `msr-bsi-${risk.id}-${measure.id}`.replace(/[^a-z0-9-]/gi, '_').toLowerCase();
-    if (addedMeasureIds.has(idValue)) return;
+    if (addedMeasureIds.has(idValue) || addedMeasureCodes.has(measure.code.toUpperCase())) {
+      toast({ title: "BSI-Maßnahme bereits hinzugefügt" });
+      return;
+    }
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const data: RiskMeasure = {
       id: idValue,
@@ -362,9 +382,9 @@ export default function RiskDetailPage() {
             </div>
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-2">
-                {suggestedBsiMeasures.map(measure => {
+                  {suggestedBsiMeasures.map(measure => {
                   const idValue = `msr-bsi-${risk.id}-${measure.id}`.replace(/[^a-z0-9-]/gi, '_').toLowerCase();
-                  const isAdded = addedMeasureIds.has(idValue);
+                    const isAdded = addedMeasureIds.has(idValue) || addedMeasureCodes.has(measure.code.toUpperCase());
                   return (
                     <div key={measure.id} className="p-4 rounded-2xl border bg-white shadow-sm flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">{measure.code}</div>
@@ -379,7 +399,9 @@ export default function RiskDetailPage() {
                   );
                 })}
                 {suggestedBsiMeasures.length === 0 && (
-                  <div className="py-12 text-center opacity-40 italic text-[10px] uppercase font-bold">Keine BSI-Maßnahmen gefunden</div>
+                  <div className="py-12 text-center opacity-50 text-[10px] uppercase font-bold">
+                    Keine passenden BSI-Maßnahmen. Bitte eine Gefährdung verknüpfen.
+                  </div>
                 )}
               </div>
             </ScrollArea>
