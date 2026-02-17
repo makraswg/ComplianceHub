@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { 
   ChevronLeft, 
   Loader2, 
@@ -49,6 +49,7 @@ import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 export default function RiskDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = usePlatformAuth();
   const { dataSource, activeTenantId } = useSettings();
   const [mounted, setMounted] = useState(false);
@@ -70,6 +71,13 @@ export default function RiskDetailPage() {
   const { data: hazardMeasureRelations } = usePluggableCollection<HazardMeasureRelation>('hazardMeasureRelations');
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (searchParams.get('bsi') === '1') {
+      setIsBsiOpen(true);
+    }
+  }, [mounted, searchParams]);
 
   const risk = useMemo(() => risks?.find(r => r.id === id), [risks, id]);
   const asset = useMemo(() => resources?.find(r => r.id === risk?.assetId), [resources, risk]);
