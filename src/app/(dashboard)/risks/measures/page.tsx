@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   ClipboardCheck, 
@@ -66,6 +66,8 @@ function RiskMeasuresContent() {
   const { dataSource, activeTenantId } = useSettings();
   const { user: platformUser } = usePlatformAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const processedRiskParam = useRef<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -94,6 +96,18 @@ function RiskMeasuresContent() {
   const { data: hazardMeasureRelations } = usePluggableCollection<HazardMeasureRelation>('hazardMeasureRelations');
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!mounted || !risks) return;
+    const riskParam = searchParams.get('riskId');
+    if (!riskParam || processedRiskParam.current === riskParam) return;
+    const exists = risks.some(r => r.id === riskParam);
+    if (!exists) return;
+    processedRiskParam.current = riskParam;
+    resetForm();
+    setSelectedRiskIds([riskParam]);
+    setIsDialogOpen(true);
+  }, [mounted, risks, searchParams]);
 
   const handleSave = async () => {
     if (!title || selectedRiskIds.length === 0) {

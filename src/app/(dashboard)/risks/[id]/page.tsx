@@ -24,7 +24,8 @@ import {
   Pencil,
   BrainCircuit,
   Settings2,
-  Info
+  Info,
+  BookOpenCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { Risk, Resource, RiskMeasure, RiskControl, Process, Task, PlatformUser } from '@/lib/types';
+import { Risk, Resource, RiskMeasure, RiskControl, Process, Task, PlatformUser, Hazard, HazardMeasure, HazardMeasureRelation } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -41,6 +42,9 @@ import { toast } from '@/hooks/use-toast';
 import { usePlatformAuth } from '@/context/auth-context';
 import { getRiskAdvice, RiskAdvisorOutput } from '@/ai/flows/risk-advisor-flow';
 import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 
 export default function RiskDetailPage() {
   const { id } = useParams();
@@ -52,6 +56,8 @@ export default function RiskDetailPage() {
   // AI State
   const [isAdvisorLoading, setIsAdvisorLoading] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<RiskAdvisorOutput | null>(null);
+  const [isBsiOpen, setIsBsiOpen] = useState(false);
+  const [bsiSearch, setBsiSearch] = useState('');
 
   const { data: risks, isLoading: isRisksLoading } = usePluggableCollection<Risk>('risks');
   const { data: resources } = usePluggableCollection<Resource>('resources');
@@ -59,6 +65,9 @@ export default function RiskDetailPage() {
   const { data: allMeasures } = usePluggableCollection<RiskMeasure>('riskMeasures');
   const { data: allControls } = usePluggableCollection<RiskControl>('riskControls');
   const { data: allTasks } = usePluggableCollection<Task>('tasks');
+  const { data: hazards } = usePluggableCollection<Hazard>('hazards');
+  const { data: hazardMeasures } = usePluggableCollection<HazardMeasure>('hazardMeasures');
+  const { data: hazardMeasureRelations } = usePluggableCollection<HazardMeasureRelation>('hazardMeasureRelations');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -70,6 +79,40 @@ export default function RiskDetailPage() {
     allMeasures?.filter(m => m.riskIds?.includes(id as string)) || [],
     [allMeasures, id]
   );
+
+  const addedMeasureIds = useMemo(() => {
+    return new Set((linkedMeasures || []).map(m => m.id));
+  }, [linkedMeasures]);
+
+  const relatedHazardCodes = useMemo(() => {
+    if (!risk || !hazards) return [] as string[];
+    const hazard = hazards.find(h => h.id === risk.hazardId);
+    return hazard ? [hazard.code] : [];
+  }, [hazards, risk]);
+
+  const suggestedBsiMeasures = useMemo(() => {
+    if (!hazardMeasures) return [] as HazardMeasure[];
+    const searchValue = bsiSearch.toLowerCase();
+    const matchesSearch = (m: HazardMeasure) =>
+      m.title.toLowerCase().includes(searchValue) ||
+      m.code.toLowerCase().includes(searchValue) ||
+      m.baustein.toLowerCase().includes(searchValue);
+
+    if (!hazardMeasureRelations || relatedHazardCodes.length === 0) {
+      return hazardMeasures.filter(matchesSearch).slice(0, 200);
+    }
+
+    const allowedMeasureIds = new Set(
+      hazardMeasureRelations
+        .filter(rel => relatedHazardCodes.includes(rel.hazardCode))
+        .map(rel => rel.measureId)
+    );
+
+    return hazardMeasures
+      .filter(m => allowedMeasureIds.has(m.id))
+      .filter(matchesSearch)
+      .slice(0, 200);
+  }, [bsiSearch, hazardMeasureRelations, hazardMeasures, relatedHazardCodes]);
 
   const linkedControls = useMemo(() => {
     const measureIds = new Set(linkedMeasures.map(m => m.id));
@@ -100,6 +143,29 @@ export default function RiskDetailPage() {
       toast({ variant: "destructive", title: "KI-Fehler", description: "Beratung konnte nicht geladen werden." });
     } finally {
       setIsAdvisorLoading(false);
+    }
+  };
+
+  const handleAddBsiMeasure = async (measure: HazardMeasure) => {
+    if (!risk) return;
+    const idValue = `msr-bsi-${risk.id}-${measure.id}`.replace(/[^a-z0-9-]/gi, '_').toLowerCase();
+    if (addedMeasureIds.has(idValue)) return;
+    const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const data: RiskMeasure = {
+      id: idValue,
+      title: `${measure.code} ${measure.title}`,
+      description: `BSI-Maßnahme ${measure.code} (${measure.baustein}).`,
+      owner: user?.displayName || 'N/A',
+      dueDate,
+      status: 'planned',
+      riskIds: [risk.id],
+      resourceIds: risk.assetId ? [risk.assetId] : [],
+      effectiveness: 3,
+      isTom: true
+    } as RiskMeasure;
+    const res = await saveCollectionRecord('riskMeasures', idValue, data, dataSource);
+    if (res.success) {
+      toast({ title: "BSI-Maßnahme hinzugefügt" });
     }
   };
 
@@ -134,6 +200,12 @@ export default function RiskDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-emerald-200 text-emerald-700 hover:bg-emerald-50 shadow-sm" onClick={() => router.push(`/risks/measures?riskId=${risk.id}`)}>
+            <ClipboardList className="w-4 h-4 mr-2" /> Maßnahme erfassen
+          </Button>
+          <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm" onClick={() => setIsBsiOpen(true)}>
+            <BookOpenCheck className="w-4 h-4 mr-2" /> BSI Maßnahmen
+          </Button>
           <Button variant="outline" size="sm" className="h-10 rounded-xl font-bold text-xs px-6 border-indigo-200 text-indigo-700 hover:bg-indigo-50 shadow-sm" onClick={handleOpenAdvisor} disabled={isAdvisorLoading}>
             {isAdvisorLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <BrainCircuit className="w-4 h-4 mr-2" />} KI-Berater
           </Button>
@@ -270,6 +342,42 @@ export default function RiskDetailPage() {
           </Tabs>
         </div>
       </div>
+      <Sheet open={isBsiOpen} onOpenChange={setIsBsiOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-xl p-0">
+          <div className="flex h-full flex-col">
+            <SheetHeader className="p-6 border-b bg-slate-50">
+              <SheetTitle className="text-base font-headline uppercase tracking-tight">BSI Maßnahmen</SheetTitle>
+              <SheetDescription className="text-[10px] uppercase tracking-widest font-bold">Passend zur Gefährdung</SheetDescription>
+            </SheetHeader>
+            <div className="p-6 border-b">
+              <Input value={bsiSearch} onChange={e => setBsiSearch(e.target.value)} placeholder="Suche nach Code, Titel, Baustein..." className="h-10 rounded-lg text-xs" />
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-6 space-y-2">
+                {suggestedBsiMeasures.map(measure => {
+                  const idValue = `msr-bsi-${risk.id}-${measure.id}`.replace(/[^a-z0-9-]/gi, '_').toLowerCase();
+                  const isAdded = addedMeasureIds.has(idValue);
+                  return (
+                    <div key={measure.id} className="p-4 rounded-2xl border bg-white shadow-sm flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center text-[10px] font-black">{measure.code}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold text-slate-800 truncate">{measure.title}</div>
+                        <div className="text-[9px] font-black uppercase text-slate-400 mt-0.5">Baustein: {measure.baustein}</div>
+                      </div>
+                      <Button size="sm" variant={isAdded ? "outline" : "default"} className="h-9 px-4 text-[10px] font-black uppercase" disabled={isAdded} onClick={() => handleAddBsiMeasure(measure)}>
+                        {isAdded ? 'Hinzugefügt' : 'Hinzufügen'}
+                      </Button>
+                    </div>
+                  );
+                })}
+                {suggestedBsiMeasures.length === 0 && (
+                  <div className="py-12 text-center opacity-40 italic text-[10px] uppercase font-bold">Keine BSI-Maßnahmen gefunden</div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
