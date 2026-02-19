@@ -120,7 +120,7 @@ export default function SetupWizardPage() {
   const progress = (steps.indexOf(currentStep) / (steps.length - 1)) * 100;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-start sm:justify-center p-4 py-6 overflow-y-auto">
       <div className="w-full max-w-xl space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
@@ -135,7 +135,7 @@ export default function SetupWizardPage() {
         </div>
 
         <Card className="border-none shadow-2xl rounded-[2.5rem] bg-white overflow-hidden transition-all duration-500">
-          <ScrollArea className="max-h-[70vh]">
+          <ScrollArea className="h-[70dvh]">
             <CardContent className="p-10">
               
               {currentStep === 'welcome' && (
