@@ -208,7 +208,7 @@ export default function RiskDetailPage() {
   const bruteScore = risk.impact * risk.probability;
 
   return (
-    <div className="space-y-6 pb-20 animate-in fade-in duration-700">
+    <div className="p-4 md:p-8 space-y-6 pb-20 animate-in fade-in duration-700">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => router.push('/risks')} className="h-10 w-10 text-slate-400 hover:bg-slate-100 rounded-xl transition-all">

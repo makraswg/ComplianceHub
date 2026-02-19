@@ -21,7 +21,6 @@ import {
   Layers,
   Eye,
   ClipboardList,
-  ChevronRight,
   PlusCircle,
   X,
   AlertTriangle
@@ -186,10 +185,14 @@ function RiskMeasuresContent() {
     toast({ title: "KI-Vorschläge übernommen" });
   };
 
+  const normalizeHazardCode = (code: string): string => {
+    return code.trim().toUpperCase().replace(/\s+/g, '');
+  };
+
   const relatedHazardCodes = useMemo(() => {
     if (!risks || !hazards || selectedRiskIds.length === 0) return [];
     const hazardIds = new Set(risks.filter(r => selectedRiskIds.includes(r.id)).map(r => r.hazardId).filter(Boolean) as string[]);
-    return hazards.filter(h => hazardIds.has(h.id)).map(h => h.code);
+    return hazards.filter(h => hazardIds.has(h.id)).map(h => normalizeHazardCode(h.code));
   }, [hazards, risks, selectedRiskIds]);
 
   const filteredCatalogMeasures = useMemo(() => {
@@ -206,7 +209,7 @@ function RiskMeasuresContent() {
 
     const allowedMeasureIds = new Set(
       hazardMeasureRelations
-        .filter(rel => relatedHazardCodes.includes(rel.hazardCode))
+        .filter(rel => relatedHazardCodes.includes(normalizeHazardCode(rel.hazardCode)))
         .map(rel => rel.measureId)
     );
 
