@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, Building2, ChevronRight, Loader2, Pencil, PlusCircle, RotateCcw, Save as SaveIcon, X } from 'lucide-react';
+import { Archive, Building2, ChevronRight, GripVertical, Loader2, Pencil, PlusCircle, RotateCcw, Save as SaveIcon, Trash2, X } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,7 +20,7 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { toast } from '@/hooks/use-toast';
 
-import { saveCollectionRecord } from '@/app/actions/mysql-actions';
+import { deleteCollectionRecord, saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 
 import { Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Position, Resource, Tenant } from '@/lib/types';
@@ -49,6 +49,7 @@ export default function UnifiedOrganizationPage() {
   const [jobName, setJobName] = useState('');
   const [jobDesc, setJobDesc] = useState('');
   const [jobOrganizationalRoleIds, setJobOrganizationalRoleIds] = useState<string[]>([]);
+  const [draggedRoleId, setDraggedRoleId] = useState<string | null>(null);
   const [isSavingJob, setIsSavingJob] = useState(false);
 
   const [isRoleEditorOpen, setIsRoleEditorOpen] = useState(false);
@@ -75,13 +76,50 @@ export default function UnifiedOrganizationPage() {
   const tenantsInScope = useMemo(() => {
     return (tenants || [])
       .filter((tenant) => (activeTenantId === 'all' ? true : tenant.id === activeTenantId))
-      .filter((tenant) => (showArchived ? tenant.status === 'archived' : tenant.status !== 'archived'))
+      .filter((tenant) => {
+        if (!showArchived) return tenant.status !== 'archived';
+        const hasArchivedOrgUnits = (orgUnits || []).some((item) => item.tenantId === tenant.id && item.status === 'archived');
+        const hasArchivedJobs = (jobTitles || []).some((item) => item.tenantId === tenant.id && item.status === 'archived');
+        const hasArchivedRoles = (positions || []).some((item) => item.tenantId === tenant.id && item.status === 'archived');
+        return tenant.status === 'archived' || hasArchivedOrgUnits || hasArchivedJobs || hasArchivedRoles;
+      })
       .filter((tenant) => (!search ? true : tenant.name.toLowerCase().includes(search.toLowerCase())));
-  }, [tenants, activeTenantId, showArchived, search]);
+  }, [tenants, orgUnits, jobTitles, positions, activeTenantId, showArchived, search]);
 
   const orgUnitsInScope = useMemo(() => {
     return (orgUnits || []).filter((item) => (showArchived ? true : item.status !== 'archived'));
   }, [orgUnits, showArchived]);
+
+  const archivedBranchIds = useMemo(() => {
+    const childrenByParent = new Map<string, OrgUnit[]>();
+    (orgUnits || []).forEach((unit) => {
+      const key = unit.parentId || '__root__';
+      const existing = childrenByParent.get(key) || [];
+      existing.push(unit);
+      childrenByParent.set(key, existing);
+    });
+
+    const jobsByDepartment = new Map<string, JobTitle[]>();
+    (jobTitles || []).forEach((job) => {
+      const key = job.departmentId || '__none__';
+      const existing = jobsByDepartment.get(key) || [];
+      existing.push(job);
+      jobsByDepartment.set(key, existing);
+    });
+
+    const visibleIds = new Set<string>();
+    const visit = (node: OrgUnit): boolean => {
+      const children = childrenByParent.get(node.id) || [];
+      const hasArchivedChild = children.some((child) => visit(child));
+      const hasArchivedJob = (jobsByDepartment.get(node.id) || []).some((job) => job.status === 'archived');
+      const isVisible = node.status === 'archived' || hasArchivedJob || hasArchivedChild;
+      if (isVisible) visibleIds.add(node.id);
+      return isVisible;
+    };
+
+    (childrenByParent.get('__root__') || []).forEach((root) => visit(root));
+    return visibleIds;
+  }, [orgUnits, jobTitles]);
 
   const getTenantRootOrgUnit = (tenantId: string) => {
     return orgUnitsInScope.find((item) => item.tenantId === tenantId && !item.parentId);
@@ -301,6 +339,98 @@ export default function UnifiedOrganizationPage() {
     toast({ title: 'Status geändert' });
   };
 
+  const handleDeleteArchived = async (collection: 'tenants' | 'orgUnits' | 'jobTitles' | 'positions', item: any) => {
+    if (item.status !== 'archived') {
+      toast({ title: 'Nur archivierte Einträge können gelöscht werden.' });
+      return;
+    }
+
+    const label = collection === 'tenants' ? 'Mandant' : collection === 'orgUnits' ? 'Organisationseinheit' : collection === 'jobTitles' ? 'Stellenprofil' : 'Organisatorische Rolle';
+    if (!window.confirm(`${label} „${item.name}“ endgültig löschen?`)) return;
+
+    if (collection === 'tenants') {
+      const tenantId = item.id as string;
+
+      const tenantRoleIds = (positions || []).filter((role) => role.tenantId === tenantId).map((role) => role.id);
+      const roleAssignmentIds = (entitlementAssignments || [])
+        .filter((assignment) => assignment.tenantId === tenantId)
+        .filter((assignment) => assignment.subjectType === 'position' && tenantRoleIds.includes(assignment.subjectId))
+        .map((assignment) => assignment.id);
+
+      for (const assignmentId of roleAssignmentIds) {
+        await deleteCollectionRecord('entitlementAssignments', assignmentId, dataSource);
+      }
+
+      for (const role of (positions || []).filter((entry) => entry.tenantId === tenantId)) {
+        await deleteCollectionRecord('positions', role.id, dataSource);
+      }
+
+      for (const job of (jobTitles || []).filter((entry) => entry.tenantId === tenantId)) {
+        await deleteCollectionRecord('jobTitles', job.id, dataSource);
+      }
+
+      for (const unit of (orgUnits || []).filter((entry) => entry.tenantId === tenantId)) {
+        await deleteCollectionRecord('orgUnits', unit.id, dataSource);
+      }
+
+      const tenantDelete = await deleteCollectionRecord('tenants', tenantId, dataSource);
+      if (!tenantDelete.success) return;
+
+      await logAuditEventAction(dataSource, {
+        tenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `Mandant gelöscht: ${item.name}`,
+        entityType: 'tenant',
+        entityId: tenantId,
+      });
+
+      refreshTenants();
+      refreshOrgUnits();
+      refreshJobs();
+      refreshPositions();
+      refreshEntitlementAssignments();
+      toast({ title: 'Mandant gelöscht' });
+      return;
+    }
+
+    if (collection === 'orgUnits') {
+      const hasChildren = (orgUnits || []).some((unit) => unit.parentId === item.id);
+      const hasJobs = (jobTitles || []).some((job) => job.departmentId === item.id);
+      if (hasChildren || hasJobs) {
+        toast({ title: 'Organisationseinheit kann erst gelöscht werden, wenn Untereinheiten und Stellenprofile entfernt wurden.' });
+        return;
+      }
+    }
+
+    if (collection === 'positions') {
+      const assignmentIds = (entitlementAssignments || [])
+        .filter((assignment) => assignment.subjectType === 'position' && assignment.subjectId === item.id)
+        .map((assignment) => assignment.id);
+      for (const assignmentId of assignmentIds) {
+        await deleteCollectionRecord('entitlementAssignments', assignmentId, dataSource);
+      }
+    }
+
+    const res = await deleteCollectionRecord(collection, item.id, dataSource);
+    if (!res.success) return;
+
+    await logAuditEventAction(dataSource, {
+      tenantId: item.tenantId || item.id,
+      actorUid: authPlatformUser?.email || 'system',
+      action: `${label} gelöscht: ${item.name}`,
+      entityType: collection,
+      entityId: item.id,
+    });
+
+    if (collection === 'orgUnits') refreshOrgUnits();
+    if (collection === 'jobTitles') refreshJobs();
+    if (collection === 'positions') {
+      refreshPositions();
+      refreshEntitlementAssignments();
+    }
+    toast({ title: `${label} gelöscht` });
+  };
+
   const openJobEditor = (job: JobTitle) => {
     setEditingJob(job);
     setJobName(job.name);
@@ -467,6 +597,31 @@ export default function UnifiedOrganizationPage() {
     }
   };
 
+  const availableRolesForEditor = useMemo(() => {
+    const allRoles = (positions || [])
+      .filter((role) => role.tenantId === editingJob?.tenantId && role.status !== 'archived')
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return allRoles.filter((role) => !jobOrganizationalRoleIds.includes(role.id));
+  }, [positions, editingJob, jobOrganizationalRoleIds]);
+
+  const assignedRolesForEditor = useMemo(() => {
+    const roleMap = new Map((positions || []).map((role) => [role.id, role]));
+    return jobOrganizationalRoleIds
+      .map((id) => roleMap.get(id))
+      .filter((role): role is Position => !!role && role.status !== 'archived');
+  }, [positions, jobOrganizationalRoleIds]);
+
+  const handleRoleDrop = (target: 'available' | 'assigned') => {
+    if (!draggedRoleId) return;
+    setJobOrganizationalRoleIds((prev) => {
+      if (target === 'assigned') {
+        return prev.includes(draggedRoleId) ? prev : [...prev, draggedRoleId];
+      }
+      return prev.filter((id) => id !== draggedRoleId);
+    });
+    setDraggedRoleId(null);
+  };
+
   const getOrgUnitPath = (orgUnitId?: string) => {
     if (!orgUnitId) return '—';
     const names: string[] = [];
@@ -514,9 +669,17 @@ export default function UnifiedOrganizationPage() {
       .sort((a, b) => a.resourceName.localeCompare(b.resourceName));
   }, [entitlements, roleEditorTenantId, roleEntitlementSearch, resourceById]);
 
-  const renderOrgNode = (node: OrgUnit, level = 0): JSX.Element => {
-    const children = orgUnitsInScope.filter((item) => item.parentId === node.id);
-    const nodeJobs = (jobTitles || []).filter((job) => job.departmentId === node.id);
+  const renderOrgNode = (node: OrgUnit, level = 0): JSX.Element | null => {
+    const children = orgUnitsInScope
+      .filter((item) => item.parentId === node.id)
+      .filter((item) => (showArchived ? archivedBranchIds.has(item.id) : true));
+    const nodeJobs = (jobTitles || [])
+      .filter((job) => job.departmentId === node.id)
+      .filter((job) => (showArchived ? job.status === 'archived' : job.status !== 'archived'));
+
+    if (showArchived && node.status !== 'archived' && children.length === 0 && nodeJobs.length === 0) {
+      return null;
+    }
 
     return (
       <div key={node.id} className="space-y-2">
@@ -562,6 +725,16 @@ export default function UnifiedOrganizationPage() {
             >
               {node.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
             </Button>
+            {node.status === 'archived' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => handleDeleteArchived('orgUnits', node)}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -614,6 +787,11 @@ export default function UnifiedOrganizationPage() {
                   >
                     {job.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                   </Button>
+                  {job.status === 'archived' && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteArchived('jobTitles', job)}>
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -660,7 +838,9 @@ export default function UnifiedOrganizationPage() {
       <div className="space-y-4">
         {tenantsInScope.map((tenant) => {
           const root = getTenantRootOrgUnit(tenant.id);
-          const topLevelUnits = orgUnitsInScope.filter((item) => item.tenantId === tenant.id && item.parentId === root?.id);
+          const topLevelUnits = orgUnitsInScope
+            .filter((item) => item.tenantId === tenant.id && item.parentId === root?.id)
+            .filter((item) => (showArchived ? archivedBranchIds.has(item.id) : true));
 
           return (
             <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl group">
@@ -716,12 +896,21 @@ export default function UnifiedOrganizationPage() {
                   >
                     {tenant.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                   </Button>
+                  {tenant.status === 'archived' && (
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteArchived('tenants', tenant)}>
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
 
               <CardContent className="p-4 space-y-3">
                 {topLevelUnits.map((node) => renderOrgNode(node))}
-                {topLevelUnits.length === 0 && <p className="text-xs text-slate-500 italic px-2">Noch keine Organisationseinheiten vorhanden.</p>}
+                {topLevelUnits.length === 0 && (
+                  <p className="text-xs text-slate-500 italic px-2">
+                    {showArchived ? 'Keine archivierten Einträge in diesem Mandanten vorhanden.' : 'Noch keine Organisationseinheiten vorhanden.'}
+                  </p>
+                )}
 
                 {activeAddParentTenantId === tenant.id && (
                   <div className="p-3 bg-primary/5 rounded-xl flex items-center gap-3">
@@ -743,6 +932,9 @@ export default function UnifiedOrganizationPage() {
           );
         })}
       </div>
+      {tenantsInScope.length === 0 && showArchived && (
+        <p className="text-xs text-slate-500 italic">Keine archivierten Mandanten, Einheiten oder Stellenprofile gefunden.</p>
+      )}
 
       <Dialog open={isTenantDialogOpen} onOpenChange={(open) => !open && setIsTenantDialogOpen(false)}>
         <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
@@ -799,30 +991,64 @@ export default function UnifiedOrganizationPage() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {(positions || [])
-                  .filter((role) => role.tenantId === editingJob?.tenantId && role.status !== 'archived')
-                  .map((role) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div
+                  className="border rounded-xl p-3 bg-slate-50/50 space-y-2 min-h-[180px]"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleRoleDrop('available')}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Verfügbare Rollen</p>
+                  {availableRolesForEditor.map((role) => (
                     <div
                       key={role.id}
-                      className={cn(
-                        'p-3 border rounded-xl flex items-center gap-3',
-                        jobOrganizationalRoleIds.includes(role.id) ? 'border-primary bg-primary/5' : 'bg-white'
-                      )}
+                      draggable
+                      onDragStart={() => setDraggedRoleId(role.id)}
+                      onDragEnd={() => setDraggedRoleId(null)}
+                      className="p-2.5 border rounded-lg bg-white flex items-center gap-2 cursor-grab"
                     >
-                      <Checkbox
-                        checked={jobOrganizationalRoleIds.includes(role.id)}
-                        onCheckedChange={() =>
-                          setJobOrganizationalRoleIds((prev) =>
-                            prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
-                          )
-                        }
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[11px] font-bold truncate block">{role.name}</span>
-                      </div>
+                      <GripVertical className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-[11px] font-bold truncate flex-1">{role.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => setJobOrganizationalRoleIds((prev) => [...prev, role.id])}
+                      >
+                        +
+                      </Button>
                     </div>
                   ))}
+                </div>
+
+                <div
+                  className="border rounded-xl p-3 bg-primary/5 space-y-2 min-h-[180px]"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => handleRoleDrop('assigned')}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-wider text-primary">Zugewiesen</p>
+                  {assignedRolesForEditor.map((role) => (
+                    <div
+                      key={role.id}
+                      draggable
+                      onDragStart={() => setDraggedRoleId(role.id)}
+                      onDragEnd={() => setDraggedRoleId(null)}
+                      className="p-2.5 border rounded-lg bg-white border-primary/30 flex items-center gap-2 cursor-grab"
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="text-[11px] font-bold truncate flex-1">{role.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        onClick={() => setJobOrganizationalRoleIds((prev) => prev.filter((id) => id !== role.id))}
+                      >
+                        −
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </ScrollArea>
@@ -875,6 +1101,11 @@ export default function UnifiedOrganizationPage() {
                       <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleOrganizationalRoleStatus(role)}>
                         {role.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
                       </Button>
+                      {role.status === 'archived' && (
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteArchived('positions', role)}>
+                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
