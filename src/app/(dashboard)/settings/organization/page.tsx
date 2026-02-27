@@ -462,6 +462,20 @@ export default function UnifiedOrganizationPage() {
     }
   };
 
+  const getOrgUnitPath = (orgUnitId?: string) => {
+    if (!orgUnitId) return '—';
+    const names: string[] = [];
+    let current = orgUnitsInScope.find((item) => item.id === orgUnitId);
+    let guard = 0;
+    while (current && guard < 12) {
+      names.unshift(current.name);
+      if (!current.parentId) break;
+      current = orgUnitsInScope.find((item) => item.id === current?.parentId);
+      guard += 1;
+    }
+    return names.length > 0 ? names.join(' › ') : '—';
+  };
+
   const renderOrgNode = (node: OrgUnit, level = 0): JSX.Element => {
     const children = orgUnitsInScope.filter((item) => item.parentId === node.id);
     const nodeJobs = (jobTitles || []).filter((job) => job.departmentId === node.id);
