@@ -40,7 +40,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { User, Assignment, Entitlement, Resource, Tenant, JobTitle, Department, EntitlementAssignment, UserPosition, Position, UserCapability, Capability, UserOrgUnit, OrgUnit } from '@/lib/types';
+import { User, Assignment, Entitlement, Resource, Tenant, JobTitle, EntitlementAssignment, UserPosition, Position, UserCapability, Capability, UserOrgUnit, OrgUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -60,7 +60,6 @@ export default function UserDetailPage() {
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
-  const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
   const { data: entitlementAssignments } = usePluggableCollection<EntitlementAssignment>('entitlementAssignments');
   const { data: userPositions } = usePluggableCollection<UserPosition>('userPositions');
@@ -135,20 +134,40 @@ export default function UserDetailPage() {
     [userOrgUnits, id]
   );
 
+  const inheritedOrganizationalRoles = useMemo(() => {
+    if (!user?.jobIds?.length || !jobs || !positions) return [] as Position[];
+
+    const roleIds = new Set<string>();
+    user.jobIds.forEach((jobId) => {
+      const job = jobs.find((item) => item.id === jobId);
+      (job?.organizationalRoleIds || []).forEach((roleId) => roleIds.add(roleId));
+    });
+
+    return positions.filter((position) => roleIds.has(position.id) && position.status === 'active');
+  }, [user?.jobIds, jobs, positions]);
+
   const effectiveGrants = useMemo(() => {
     if (!user || !entitlements) return [];
 
     const scopedAssignments = (entitlementAssignments || []).filter((item) => item.tenantId === user.tenantId);
+    const eligibleRolePositionIds = new Set(inheritedOrganizationalRoles.map((role) => role.id));
+    const effectiveUserPositionIds = userPositionLinks
+      .map((item) => item.positionId)
+      .filter((positionId) => {
+        if (eligibleRolePositionIds.size === 0) return true;
+        return eligibleRolePositionIds.has(positionId);
+      });
+
     return computeEffectiveAccess({
       userId: user.id,
       userJobTitleIds: user.jobIds || [],
-      userPositionIds: userPositionLinks.map((item) => item.positionId),
+      userPositionIds: effectiveUserPositionIds,
       userCapabilityIds: userCapabilityLinks.map((item) => item.capabilityId),
       directAssignments: scopedAssignments.filter((item) => item.subjectType === 'person'),
       inheritedAssignments: scopedAssignments.filter((item) => item.subjectType !== 'person'),
       entitlements,
     });
-  }, [user, entitlements, entitlementAssignments, userPositionLinks, userCapabilityLinks]);
+  }, [user, entitlements, entitlementAssignments, userPositionLinks, userCapabilityLinks, inheritedOrganizationalRoles]);
 
   if (!mounted) return null;
 
@@ -269,6 +288,19 @@ export default function UserDetailPage() {
                     })}
                     {userPositionLinks.length === 0 && userCapabilityLinks.length === 0 && (
                       <div className="text-xs font-bold text-slate-400 italic">Keine Position/Function gepflegt</div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Organisatorische Rollen (aus Stellenprofil)</p>
+                  <div className="flex flex-col gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                    {inheritedOrganizationalRoles.map((role) => (
+                      <div key={role.id} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <Briefcase className="w-3.5 h-3.5 text-violet-600" /> {role.name}
+                      </div>
+                    ))}
+                    {inheritedOrganizationalRoles.length === 0 && (
+                      <div className="text-xs font-bold text-slate-400 italic">Keine organisatorischen Rollen zugeordnet</div>
                     )}
                   </div>
                 </div>

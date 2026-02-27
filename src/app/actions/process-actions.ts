@@ -381,25 +381,61 @@ export async function commitProcessVersionAction(
   actorUid: string,
   dataSource: DataSource = 'mysql'
 ) {
-  const versionId = `ver-${processId}-${versionNum}`;
-  const versionRes = await getSingleRecord('process_versions', versionId, dataSource);
-  const current = versionRes.data;
-  
-  if (!current) throw new Error("Keine Version zum Speichern gefunden.");
+  const processRes = await getSingleRecord('processes', processId, dataSource);
+  const process = processRes.data as Process | null;
+  if (!process) throw new Error("Prozess nicht gefunden.");
 
+  const draftVersionNum = versionNum || process.currentVersion;
+  const draftVersionId = `ver-${processId}-${draftVersionNum}`;
+  const versionRes = await getSingleRecord('process_versions', draftVersionId, dataSource);
+  const draftVersion = versionRes.data as ProcessVersion | null;
+
+  if (!draftVersion) throw new Error("Keine Entwurfs-Version zum Freigeben gefunden.");
+
+  const allVersionsRes = await getCollectionData('process_versions', dataSource);
+  const processVersions = (allVersionsRes.data || []).filter((v: any) => v.process_id === processId);
+  const maxVersion = processVersions.reduce((max: number, v: any) => Math.max(max, Number(v.version) || 0), 0);
+  const nextVersion = maxVersion + 1;
   const timestamp = new Date().toISOString();
-  const summary = `Version ${versionNum}.0 (Revision ${current.revision}) durch ${actorUid} gespeichert. Struktur-Integrität bestätigt.`;
+
+  const releasedVersion: ProcessVersion = {
+    id: `ver-${processId}-${nextVersion}`,
+    process_id: processId,
+    version: nextVersion,
+    model_json: JSON.parse(JSON.stringify(draftVersion.model_json)),
+    layout_json: JSON.parse(JSON.stringify(draftVersion.layout_json)),
+    revision: draftVersion.revision || 0,
+    created_by_user_id: actorUid,
+    created_at: timestamp
+  };
+
+  const saveRes = await saveCollectionRecord('process_versions', releasedVersion.id, releasedVersion, dataSource);
+  if (!saveRes.success) throw new Error(`Freigabe-Version konnte nicht gespeichert werden: ${saveRes.error}`);
+
+  const processUpdateRes = await updateProcessMetadataAction(processId, {
+    publishedVersion: nextVersion,
+    status: 'published',
+    updatedAt: timestamp
+  }, dataSource);
+
+  if (!processUpdateRes.success) {
+    throw new Error(`Prozessstatus konnte nicht aktualisiert werden: ${processUpdateRes.error}`);
+  }
+
+  const summary = `Neue Prozessversion freigegeben: V${nextVersion}.0 aus Entwurf V${draftVersionNum}.0 durch ${actorUid}.`;
 
   await logAuditEventAction(dataSource, {
-    tenantId: 'global',
+    tenantId: process.tenantId || 'global',
     actorUid,
     action: summary,
     entityType: 'process',
     entityId: processId,
-    after: current.model_json
+    after: {
+      publishedVersion: nextVersion,
+      sourceDraftVersion: draftVersionNum,
+      revision: draftVersion.revision || 0
+    }
   });
 
-  await updateProcessMetadataAction(processId, { updatedAt: timestamp }, dataSource);
-
-  return { success: true };
+  return { success: true, releasedVersion: nextVersion };
 }

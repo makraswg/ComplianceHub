@@ -141,7 +141,7 @@ export function AppSidebar() {
     { name: 'Dashboard', href: '/access/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
     { name: 'Rollenverwaltung', href: '/roles', icon: ShieldCheck },
-    { name: 'Zuweisungsgruppen', href: '/groups', icon: Workflow },
+    { name: 'Provisioning-Bundles', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },
     { name: 'Jira Gateway', href: '/jira-sync', icon: RefreshCw },
     { name: 'Lifecycle Hub', href: '/lifecycle', icon: UserPlus },
@@ -150,13 +150,13 @@ export function AppSidebar() {
 
   const hubModules = [
     { name: 'Datenmanagement', href: '/features', icon: ListFilter },
-    { name: 'Prozessübersicht', href: '/processhub', icon: Workflow },
+    { name: 'Prozessübersicht', href: '/processhub', icon: Workflow, excludeActivePrefixes: ['/processhub/disaster', '/processhub/map'] },
     { name: 'Notfallprozesse', href: '/processhub/disaster', icon: ShieldAlert },
     { name: 'Prozesslandkarte', href: '/processhub/map', icon: Network },
   ];
 
   const riskItems = [
-    { name: 'Risikoinventar', href: '/risks', icon: BarChart3 },
+    { name: 'Risikoinventar', href: '/risks', icon: BarChart3, excludeActivePrefixes: ['/risks/catalog', '/risks/measures', '/risks/controls', '/risks/reports'] },
     { name: 'Gefährdungskatalog', href: '/risks/catalog', icon: Library },
     { name: 'Maßnahmenplan', href: '/risks/measures', icon: ClipboardList },
     { name: 'Kontroll-Monitoring', href: '/risks/controls', icon: ShieldCheck },
@@ -170,7 +170,7 @@ export function AppSidebar() {
 
   const policyHubItems = [
     { name: 'Dashboard', href: '/gdpr/dashboard', icon: LayoutDashboard },
-    { name: 'VVT Register', href: '/gdpr', icon: FileCheck },
+    { name: 'VVT Register', href: '/gdpr', icon: FileCheck, excludeActivePrefixes: ['/gdpr/dashboard'] },
     { name: 'Richtlinien-Register', href: '/policies', icon: ScrollText },
     { name: 'KI Identity Audit', href: '/iam-audit', icon: BrainCircuit },
   ];
@@ -219,7 +219,8 @@ export function AppSidebar() {
   if (!mounted) return null;
 
   const NavLink = ({ item, activeColor = "bg-primary", isSubItem = false }: { item: any, activeColor?: string, isSubItem?: boolean }) => {
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && !isSubItem && pathname.startsWith(item.href));
+    const hasExcludedPrefix = (item.excludeActivePrefixes || []).some((prefix: string) => pathname.startsWith(prefix));
+    const isActive = pathname === item.href || (item.href !== '/dashboard' && !isSubItem && pathname.startsWith(item.href) && !hasExcludedPrefix);
     const isExact = pathname === item.href;
     const active = isSubItem ? isExact : isActive;
 

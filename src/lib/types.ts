@@ -82,6 +82,7 @@ export interface JobTitle {
   description?: string; 
   status: 'active' | 'archived';
   entitlementIds?: string[];
+  organizationalRoleIds?: string[];
 }
 
 export interface Position {
@@ -734,6 +735,34 @@ export interface Entitlement {
   isSharedAccount?: boolean | number;
   tenantId: string;
   externalMapping?: string;
+}
+
+export interface Bundle {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'archived';
+  entitlementIds?: string[];
+}
+
+export interface GroupMemberConfig {
+  key: string;
+  value: string;
+}
+
+export interface AssignmentGroup {
+  id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'archived';
+  userConfigs?: GroupMemberConfig[];
+  entitlementConfigs?: GroupMemberConfig[];
+  userIds?: string[];
+  entitlementIds?: string[];
+  targetSystem?: 'vaultwarden' | 'other' | string;
+  externalCollectionIds?: string[];
 }
 
 export interface Assignment {

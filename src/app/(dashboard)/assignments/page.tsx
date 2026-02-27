@@ -188,7 +188,7 @@ function AssignmentsPageContent() {
 
   const handleRevokeAssignment = (assignment: Assignment) => {
     if (assignment.originGroupId || assignment.syncSource === 'group') {
-      toast({ variant: "destructive", title: "Aktion verweigert", description: "Gruppenbasierte Zuweisungen werden über Gruppen gesteuert." });
+      toast({ variant: "destructive", title: "Aktion verweigert", description: "Bundle-basierte Zuweisungen werden über Provisioning-Bundles gesteuert." });
       return;
     }
     setAssignmentToRevoke(assignment);
@@ -404,7 +404,7 @@ function AssignmentsPageContent() {
                         )}>{a.status}</Badge>
                         {isGroupManaged && (
                           <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-full text-[8px] font-bold px-1.5 h-4 w-fit">
-                            Automatik
+                            Bundle-Automatik
                           </Badge>
                         )}
                       </div>

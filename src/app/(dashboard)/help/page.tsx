@@ -184,7 +184,7 @@ export default function HelpHubPage() {
                 desc="Identitäten sind das Fundament deiner Sicherheit. Hier steuerst du, wer was wann darf."
                 items={[
                   "Blueprints definieren: Erstelle Standard-Rechte für Job-Profile (z.B. IT-Admin).",
-                  "Automatisierung: Onboarding-Pakete bündeln Rollen für neue Mitarbeiter.",
+                  "Automatisierung: Onboarding nutzt Stellenprofil (Pflicht) plus optionale Zusatzfunktionen.",
                   "Drift-Detection: Gleihe das AD/LDAP gegen deine Blueprints ab.",
                   "Access Reviews: Prüfe regelmäßig, ob Berechtigungen noch nötig sind."
                 ]}

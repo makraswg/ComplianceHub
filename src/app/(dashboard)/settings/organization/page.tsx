@@ -22,7 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 
-import { Entitlement, JobTitle, OrgUnit, OrgUnitType, Tenant } from '@/lib/types';
+import { Entitlement, JobTitle, OrgUnit, OrgUnitType, Position, Tenant } from '@/lib/types';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -48,12 +48,15 @@ export default function UnifiedOrganizationPage() {
   const [jobName, setJobName] = useState('');
   const [jobDesc, setJobDesc] = useState('');
   const [jobEntitlementIds, setJobEntitlementIds] = useState<string[]>([]);
+  const [jobOrganizationalRoleIds, setJobOrganizationalRoleIds] = useState<string[]>([]);
+  const [newOrgRoleName, setNewOrgRoleName] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
 
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: orgUnits, refresh: refreshOrgUnits } = usePluggableCollection<OrgUnit>('orgUnits');
   const { data: orgUnitTypes, refresh: refreshOrgUnitTypes } = usePluggableCollection<OrgUnitType>('orgUnitTypes');
   const { data: jobTitles, refresh: refreshJobs } = usePluggableCollection<JobTitle>('jobTitles');
+  const { data: positions, refresh: refreshPositions } = usePluggableCollection<Position>('positions');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
 
   useEffect(() => setMounted(true), []);
@@ -248,6 +251,7 @@ export default function UnifiedOrganizationPage() {
         name: newName.trim(),
         status: 'active' as const,
         entitlementIds: [],
+        organizationalRoleIds: [],
       };
 
       await saveCollectionRecord('jobTitles', id, payload, dataSource);
@@ -291,7 +295,40 @@ export default function UnifiedOrganizationPage() {
     setJobName(job.name);
     setJobDesc(job.description || '');
     setJobEntitlementIds(job.entitlementIds || []);
+    setJobOrganizationalRoleIds(job.organizationalRoleIds || []);
+    setNewOrgRoleName('');
     setIsEditorOpen(true);
+  };
+
+  const createOrganizationalRole = async () => {
+    if (!editingJob || !newOrgRoleName.trim()) return;
+
+    const id = `pos-${Math.random().toString(36).substring(2, 8)}`;
+    const payload = {
+      id,
+      tenantId: editingJob.tenantId,
+      name: newOrgRoleName.trim(),
+      orgUnitId: editingJob.departmentId,
+      jobTitleId: editingJob.id,
+      status: 'active' as const,
+    };
+
+    const res = await saveCollectionRecord('positions', id, payload, dataSource);
+    if (!res.success) return;
+
+    await logAuditEventAction(dataSource, {
+      tenantId: editingJob.tenantId,
+      actorUid: authPlatformUser?.email || 'system',
+      action: `Organisatorische Rolle angelegt: ${newOrgRoleName}`,
+      entityType: 'position',
+      entityId: id,
+      after: payload,
+    });
+
+    setJobOrganizationalRoleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setNewOrgRoleName('');
+    refreshPositions();
+    toast({ title: 'Organisatorische Rolle angelegt' });
   };
 
   const saveJobEdits = async () => {
@@ -303,6 +340,7 @@ export default function UnifiedOrganizationPage() {
       name: jobName,
       description: jobDesc,
       entitlementIds: jobEntitlementIds,
+      organizationalRoleIds: jobOrganizationalRoleIds,
     };
 
     try {
@@ -609,6 +647,42 @@ export default function UnifiedOrganizationPage() {
                     >
                       <Checkbox checked={jobEntitlementIds.includes(ent.id)} />
                       <span className="text-[11px] font-bold truncate">{ent.name}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="pt-6 border-t space-y-4">
+              <Label className="text-xs font-bold text-primary block">Organisatorische Rollen ({jobOrganizationalRoleIds.length})</Label>
+
+              <div className="flex gap-2">
+                <Input
+                  value={newOrgRoleName}
+                  onChange={(event) => setNewOrgRoleName(event.target.value)}
+                  placeholder="Neue organisatorische Rolle..."
+                  className="h-10 text-xs"
+                />
+                <Button type="button" onClick={createOrganizationalRole} className="h-10">Anlegen</Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {(positions || [])
+                  .filter((role) => role.tenantId === editingJob?.tenantId && role.status !== 'archived')
+                  .map((role) => (
+                    <div
+                      key={role.id}
+                      className={cn(
+                        'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
+                        jobOrganizationalRoleIds.includes(role.id) ? 'border-primary bg-primary/5' : 'bg-white'
+                      )}
+                      onClick={() =>
+                        setJobOrganizationalRoleIds((prev) =>
+                          prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
+                        )
+                      }
+                    >
+                      <Checkbox checked={jobOrganizationalRoleIds.includes(role.id)} />
+                      <span className="text-[11px] font-bold truncate">{role.name}</span>
                     </div>
                   ))}
               </div>

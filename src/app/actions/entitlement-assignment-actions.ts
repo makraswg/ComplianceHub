@@ -2,7 +2,7 @@
 
 import { getCollectionData, getSingleRecord, saveCollectionRecord } from './mysql-actions';
 import { logAuditEventAction } from './audit-actions';
-import { Assignment, DataSource, Department, Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Tenant, User, UserCapability, UserPosition } from '@/lib/types';
+import { Assignment, DataSource, Department, Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Position, Tenant, User, UserCapability, UserPosition } from '@/lib/types';
 import { computeEffectiveAccess } from '@/lib/effective-access';
 
 function nowIso() {
@@ -97,26 +97,45 @@ export async function getEffectiveAccessForUserAction(
     const user = userResponse.data as User | null;
     if (!user) return { data: [], error: 'Benutzer nicht gefunden.' };
 
-    const [entitlementRows, assignmentRows, userPositionsRows, userCapabilitiesRows] = await Promise.all([
+    const [entitlementRows, assignmentRows, userPositionsRows, userCapabilitiesRows, jobTitlesRows, positionsRows] = await Promise.all([
       getCollectionData('entitlements', dataSource),
       getCollectionData('entitlementAssignments', dataSource),
       getCollectionData('userPositions', dataSource),
       getCollectionData('userCapabilities', dataSource),
+      getCollectionData('jobTitles', dataSource),
+      getCollectionData('positions', dataSource),
     ]);
 
     if (entitlementRows.error) return { data: [], error: entitlementRows.error };
     if (assignmentRows.error) return { data: [], error: assignmentRows.error };
     if (userPositionsRows.error) return { data: [], error: userPositionsRows.error };
     if (userCapabilitiesRows.error) return { data: [], error: userCapabilitiesRows.error };
+    if (jobTitlesRows.error) return { data: [], error: jobTitlesRows.error };
+    if (positionsRows.error) return { data: [], error: positionsRows.error };
 
     const entitlements = (entitlementRows.data || []) as Entitlement[];
     const assignments = (assignmentRows.data || []) as EntitlementAssignment[];
     const userPositions = (userPositionsRows.data || []) as UserPosition[];
     const userCapabilities = (userCapabilitiesRows.data || []) as UserCapability[];
+    const jobTitles = (jobTitlesRows.data || []) as JobTitle[];
+    const positions = (positionsRows.data || []) as Position[];
+
+    const allowedRolePositionIds = new Set<string>();
+    (user.jobIds || []).forEach((jobId) => {
+      const job = jobTitles.find((item) => item.id === jobId);
+      (job?.organizationalRoleIds || []).forEach((positionId) => allowedRolePositionIds.add(positionId));
+    });
 
     const userPositionIds = userPositions
       .filter((item) => item.userId === userId && item.status === 'active')
-      .map((item) => item.positionId);
+      .map((item) => item.positionId)
+      .filter((positionId) => {
+        if (allowedRolePositionIds.size === 0) return true;
+        const position = positions.find((item) => item.id === positionId);
+        if (!position) return false;
+        if (position.jobTitleId) return allowedRolePositionIds.has(positionId) || allowedRolePositionIds.has(position.jobTitleId);
+        return allowedRolePositionIds.has(positionId);
+      });
 
     const userCapabilityIds = userCapabilities
       .filter((item) => item.userId === userId && item.status === 'active')

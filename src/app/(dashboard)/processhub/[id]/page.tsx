@@ -59,7 +59,9 @@ import {
   Crosshair,
   Paperclip,
   ShieldAlert,
-  FlameKindling
+  FlameKindling,
+  History,
+  GitCompare
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -133,6 +135,7 @@ function ProcessDesignerContent() {
   const [isDiagramLocked, setIsDiagramLocked] = useState(false);
   const [isProgrammaticMove, setIsProgrammaticMove] = useState(false);
   const hasAutoCentered = useRef(false);
+  const hasDraggedRef = useRef(false);
   
   const stateRef = useRef({ position, scale, isDiagramLocked });
   useEffect(() => {
@@ -144,6 +147,8 @@ function ProcessDesignerContent() {
   const [isCommitting, setIsCommitting] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
+  const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
+  const [selectedComparisonVersionId, setSelectedComparisonVersionId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -193,7 +198,7 @@ function ProcessDesignerContent() {
 
   const { data: uiConfigs } = usePluggableCollection<UiConfig>('uiConfigs');
   const { data: processes, refresh: refreshProc } = usePluggableCollection<Process>('processes');
-  const { data: versions, refresh: refreshVersion } = usePluggableCollection<any>('process_versions');
+  const { data: versions, refresh: refreshVersion } = usePluggableCollection<ProcessVersion>('process_versions');
   const { data: jobTitles } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: resources } = usePluggableCollection<Resource>('resources');
@@ -202,7 +207,22 @@ function ProcessDesignerContent() {
   const { data: mediaFiles, refresh: refreshMedia } = usePluggableCollection<MediaFile>('media');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
-  const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id), [versions, id]);
+  const processVersions = useMemo(() => {
+    if (!versions || !currentProcess) return [];
+    return versions
+      .filter(v => v.process_id === currentProcess.id)
+      .sort((a, b) => b.version - a.version);
+  }, [versions, currentProcess]);
+
+  const activeVersion = useMemo(() => {
+    if (!currentProcess || !processVersions.length) return null;
+    return processVersions.find(v => v.version === currentProcess.currentVersion) || processVersions[processVersions.length - 1] || null;
+  }, [currentProcess, processVersions]);
+
+  const selectedComparisonVersion = useMemo(() => {
+    if (!selectedComparisonVersionId || !processVersions.length) return null;
+    return processVersions.find(v => v.id === selectedComparisonVersionId) || null;
+  }, [selectedComparisonVersionId, processVersions]);
 
   const animationsEnabled = useMemo(() => {
     if (!uiConfigs || uiConfigs.length === 0) return true;
@@ -337,9 +357,9 @@ function ProcessDesignerContent() {
 
       const availableHeight = Math.max(200, containerHeight - 8);
       targetScale = Math.min(1.6, Math.max(0.2, availableHeight / spanHeight));
-      nodeCenterY = (Number.isFinite(top) && Number.isFinite(bottom))
-        ? ((top + bottom) / 2)
-        : (node.y + OFFSET_Y + (EXPANDED_NODE_HEIGHT / 2));
+      const nodeTopY = node.y + OFFSET_Y;
+      const desiredTopOffset = Math.max(72, Math.min(140, containerHeight * 0.14));
+      nodeCenterY = nodeTopY + ((containerHeight / 2 - desiredTopOffset) / targetScale);
     }
 
     const nodeWidth = isExpanded ? 600 : 256;
@@ -442,12 +462,9 @@ function ProcessDesignerContent() {
   useEffect(() => { updateFlowLines(); }, [gridNodes, selectedNodeId, updateFlowLines]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
-    if (selectedNodeId === nodeId) {
-      setSelectedNodeId(null);
-    } else {
-      setSelectedNodeId(nodeId);
-      setTimeout(() => centerOnNode(nodeId), 50);
-    }
+    if (selectedNodeId === nodeId) return;
+    setSelectedNodeId(nodeId);
+    setTimeout(() => centerOnNode(nodeId), 50);
   }, [selectedNodeId, centerOnNode]);
 
   const openNodeEditor = (node: any) => {
@@ -581,14 +598,30 @@ function ProcessDesignerContent() {
     setIsProgrammaticMove(false);
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    hasDraggedRef.current = false;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
+    const dx = e.clientX - dragStart.x - position.x;
+    const dy = e.clientY - dragStart.y - position.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+      hasDraggedRef.current = true;
+    }
     setPosition({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
   const handleMouseUp = () => { setIsDragging(false); };
+
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false;
+      return;
+    }
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('[data-process-step-card="true"]')) return;
+    setSelectedNodeId(null);
+  };
 
   const handleApplyOps = async (ops: any[]) => {
     if (!activeVersion || !user || !ops.length) return false;
@@ -705,9 +738,20 @@ function ProcessDesignerContent() {
     setIsCommitting(true);
     try {
       const res = await commitProcessVersionAction(currentProcess.id, activeVersion.version, user.email || user.id, dataSource);
-      if (res.success) { toast({ title: "Revision gespeichert" }); refreshVersion(); }
+      if (res.success) {
+        toast({ title: `Version V${res.releasedVersion}.0 freigegeben` });
+        refreshVersion();
+        refreshProc();
+      }
     } finally { setIsCommitting(false); }
   };
+
+  useEffect(() => {
+    if (!isVersionDialogOpen || !processVersions.length) return;
+    if (selectedComparisonVersionId) return;
+    const preferred = processVersions.find(v => v.version === currentProcess?.publishedVersion) || processVersions[0];
+    setSelectedComparisonVersionId(preferred?.id || null);
+  }, [isVersionDialogOpen, processVersions, selectedComparisonVersionId, currentProcess]);
 
   const getFullRoleName = useCallback((roleId?: string) => {
     if (!roleId) return '---';
@@ -716,6 +760,51 @@ function ProcessDesignerContent() {
     const dept = departments?.find(d => d.id === role.departmentId);
     return dept ? `${dept.name} — ${role.name}` : role.name;
   }, [jobTitles, departments]);
+
+  const versionDiff = useMemo(() => {
+    if (!activeVersion || !selectedComparisonVersion) return null;
+
+    const currentNodes = activeVersion.model_json?.nodes || [];
+    const compareNodes = selectedComparisonVersion.model_json?.nodes || [];
+    const currentEdges = activeVersion.model_json?.edges || [];
+    const compareEdges = selectedComparisonVersion.model_json?.edges || [];
+
+    const currentNodeMap = new Map(currentNodes.map((node: any) => [String(node.id), node]));
+    const compareNodeMap = new Map(compareNodes.map((node: any) => [String(node.id), node]));
+
+    const addedNodes = currentNodes.filter((node: any) => !compareNodeMap.has(String(node.id))).length;
+    const removedNodes = compareNodes.filter((node: any) => !currentNodeMap.has(String(node.id))).length;
+
+    let changedNodes = 0;
+    currentNodes.forEach((node: any) => {
+      const baseline = compareNodeMap.get(String(node.id));
+      if (!baseline) return;
+      if (JSON.stringify(node) !== JSON.stringify(baseline)) changedNodes++;
+    });
+
+    const edgeKey = (edge: any) => String(edge.id || `${edge.source}->${edge.target}:${edge.label || ''}`);
+    const currentEdgeMap = new Map(currentEdges.map((edge: any) => [edgeKey(edge), edge]));
+    const compareEdgeMap = new Map(compareEdges.map((edge: any) => [edgeKey(edge), edge]));
+
+    const addedEdges = currentEdges.filter((edge: any) => !compareEdgeMap.has(edgeKey(edge))).length;
+    const removedEdges = compareEdges.filter((edge: any) => !currentEdgeMap.has(edgeKey(edge))).length;
+
+    let changedEdges = 0;
+    currentEdges.forEach((edge: any) => {
+      const baseline = compareEdgeMap.get(edgeKey(edge));
+      if (!baseline) return;
+      if (JSON.stringify(edge) !== JSON.stringify(baseline)) changedEdges++;
+    });
+
+    return {
+      addedNodes,
+      removedNodes,
+      changedNodes,
+      addedEdges,
+      removedEdges,
+      changedEdges
+    };
+  }, [activeVersion, selectedComparisonVersion]);
 
   if (!mounted) return null;
 
@@ -729,12 +818,17 @@ function ProcessDesignerContent() {
               <h2 className="font-headline font-bold text-sm md:text-base tracking-tight text-slate-900 truncate max-w-md">{currentProcess?.title}</h2>
               <Badge className="bg-primary/10 text-primary border-none rounded-full text-[9px] font-bold px-2 h-4 hidden md:flex">Designer</Badge>
             </div>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">V{activeVersion?.version}.0 • Rev. {activeVersion?.revision}</p>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+              Entwurf V{currentProcess?.currentVersion || '-'} • Freigegeben V{currentProcess?.publishedVersion || '-'} • Rev. {activeVersion?.revision || 0}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold px-4 gap-2" onClick={() => setIsVersionDialogOpen(true)}>
+            <History className="w-3.5 h-3.5" /> Versionen
+          </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
-            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Revision sichern
+            {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Freigeben (neue Version)
           </Button>
         </div>
       </header>
@@ -866,6 +960,7 @@ function ProcessDesignerContent() {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          onClick={handleCanvasClick}
         >
           <div 
             className="absolute inset-0 origin-top-left"
@@ -913,6 +1008,91 @@ function ProcessDesignerContent() {
           </div>
         </main>
       </div>
+
+      <Dialog open={isVersionDialogOpen} onOpenChange={setIsVersionDialogOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[88vh] p-0 overflow-hidden">
+          <DialogHeader className="p-5 border-b bg-slate-50">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" /> Versionen & Unterschiede
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Neue Versionen entstehen erst bei Freigabe. Bis dahin arbeiten Sie im Entwurf.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-[420px] max-h-[calc(88vh-140px)]">
+            <ScrollArea className="border-r">
+              <div className="p-4 space-y-2">
+                {processVersions.map((version) => {
+                  const isDraft = version.version === currentProcess?.currentVersion;
+                  const isPublished = version.version === currentProcess?.publishedVersion;
+                  const isSelected = version.id === selectedComparisonVersionId;
+
+                  return (
+                    <button
+                      key={version.id}
+                      className={cn(
+                        "w-full text-left rounded-xl border p-3 transition-colors",
+                        isSelected ? "border-primary bg-primary/5" : "hover:bg-slate-50"
+                      )}
+                      onClick={() => setSelectedComparisonVersionId(version.id)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900">Version V{version.version}.0</p>
+                        <div className="flex items-center gap-1">
+                          {isDraft && <Badge className="h-5 text-[9px] bg-amber-100 text-amber-800 border-none">Entwurf</Badge>}
+                          {isPublished && <Badge className="h-5 text-[9px] bg-emerald-100 text-emerald-800 border-none">Freigegeben</Badge>}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">{new Date(version.created_at).toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-500">Erstellt von: {version.created_by_user_id || 'system'} • Rev. {version.revision || 0}</p>
+                    </button>
+                  );
+                })}
+                {processVersions.length === 0 && (
+                  <p className="text-xs text-slate-400 italic p-2">Keine Versionen vorhanden.</p>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="rounded-xl border p-4 bg-white">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Vergleich</p>
+                <p className="text-sm font-semibold text-slate-800 mt-1 flex items-center gap-2">
+                  <GitCompare className="w-4 h-4 text-primary" />
+                  Aktueller Entwurf V{currentProcess?.currentVersion || '-'} vs. Version V{selectedComparisonVersion?.version || '-'}
+                </p>
+              </div>
+
+              {!versionDiff ? (
+                <div className="rounded-xl border border-dashed p-6 text-center text-xs text-slate-400">
+                  Version auswählen, um Unterschiede zu sehen.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-3">Prozessschritte</p>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-emerald-50 text-emerald-700 p-2">+ {versionDiff.addedNodes} hinzugefügt</div>
+                      <div className="rounded-lg bg-red-50 text-red-700 p-2">- {versionDiff.removedNodes} entfernt</div>
+                      <div className="rounded-lg bg-amber-50 text-amber-700 p-2">~ {versionDiff.changedNodes} geändert</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-3">Verbindungen</p>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-emerald-50 text-emerald-700 p-2">+ {versionDiff.addedEdges} hinzugefügt</div>
+                      <div className="rounded-lg bg-red-50 text-red-700 p-2">- {versionDiff.removedEdges} entfernt</div>
+                      <div className="rounded-lg bg-amber-50 text-amber-700 p-2">~ {versionDiff.changedEdges} geändert</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isNodeEditorOpen} onOpenChange={setIsNodeEditorOpen}>
         <DialogContent className="max-w-3xl w-[95vw] max-h-[90vh] rounded-2xl p-0 flex flex-col border-none shadow-2xl bg-white overflow-hidden">
@@ -1268,7 +1448,7 @@ function ProcessStepCard({ node, isMapMode = false, activeNodeId, setActiveNodeI
   }, [node.successorIds, gridNodes]);
 
   return (
-    <Card className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px] h-[460px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
+    <Card data-process-step-card="true" className={cn("rounded-2xl border transition-all duration-500 bg-white cursor-pointer relative overflow-hidden", isActive ? "border-primary border-2 shadow-lg z-[100]" : "border-slate-100 shadow-sm hover:border-primary/20", isActive ? "w-[600px] h-[460px]" : "w-64 h-[82px]")} style={isActive ? { transform: 'translateX(-172px)' } : {}} onClick={(e) => { e.stopPropagation(); setActiveNodeId(node.id); }}>
       <CardHeader className={cn("p-4 flex flex-row items-center justify-between gap-4 transition-colors", isActive ? "bg-slate-50 border-b" : "border-b-0")}>
         <div className="flex items-center gap-4 min-w-0">
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border", node.type === 'start' ? "bg-emerald-50 text-emerald-600" : node.type === 'decision' ? "bg-amber-50 text-amber-600" : node.type === 'subprocess' ? "bg-indigo-600 text-white" : "bg-primary/5 text-primary")}>

@@ -114,6 +114,7 @@ export const appSchema: AppSchema = {
       description: 'TEXT', 
       status: 'VARCHAR(20) DEFAULT "active"',
       entitlementIds: 'TEXT', 
+      organizationalRoleIds: 'TEXT',
     }
   },
   positions: {
@@ -719,6 +720,8 @@ export const appSchema: AppSchema = {
       name: 'VARCHAR(255) NOT NULL',
       description: 'TEXT',
       status: 'VARCHAR(20) DEFAULT "active"',
+      targetSystem: 'VARCHAR(50) DEFAULT "other"',
+      externalCollectionIds: 'TEXT',
       userConfigs: 'TEXT',
       entitlementConfigs: 'TEXT',
       userIds: 'TEXT',

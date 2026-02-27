@@ -1,7 +1,7 @@
 'use server';
 
 import { saveCollectionRecord, getCollectionData, getSingleRecord, deleteCollectionRecord } from './mysql-actions';
-import { DataSource, User, Assignment, Entitlement, Resource, Task, TaskComment } from '@/lib/types';
+import { DataSource, User, Assignment, Entitlement, Resource, Task, TaskComment, EntitlementAssignment, UserCapability, UserPosition } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 import { createJiraTicket, getJiraConfigs } from './jira-actions';
 
@@ -24,6 +24,20 @@ export async function startOffboardingAction(
 
     const assignmentsRes = await getCollectionData('assignments', dataSource);
     const userAssignments = assignmentsRes.data?.filter((a: Assignment) => a.userId === userId && a.status === 'active') || [];
+    const entitlementAssignmentsRes = await getCollectionData('entitlementAssignments', dataSource);
+    const userCapabilitiesRes = await getCollectionData('userCapabilities', dataSource);
+    const userPositionsRes = await getCollectionData('userPositions', dataSource);
+
+    const userEntitlementAssignments = (entitlementAssignmentsRes.data || [])
+      .filter((item: EntitlementAssignment) => item.tenantId === targetTenantId)
+      .filter((item: EntitlementAssignment) => item.subjectType === 'person' && item.subjectId === userId)
+      .filter((item: EntitlementAssignment) => item.status === 'active' || item.status === 'approved');
+
+    const activeUserCapabilities = (userCapabilitiesRes.data || [])
+      .filter((item: UserCapability) => item.userId === userId && item.status === 'active');
+
+    const activeUserPositions = (userPositionsRes.data || [])
+      .filter((item: UserPosition) => item.userId === userId && item.status === 'active');
 
     const entitlementsRes = await getCollectionData('entitlements', dataSource);
     const resourcesRes = await getCollectionData('resources', dataSource);
@@ -33,13 +47,21 @@ export async function startOffboardingAction(
     jiraDescription += `- Name: ${user.displayName}\n`;
     jiraDescription += `- E-Mail: ${user.email}\n`;
     jiraDescription += `- Austrittsdatum: ${offboardingDate}\n\n`;
-    jiraDescription += `ZU ENTZIEHENDE BERECHTIGUNGEN (${userAssignments.length}):\n`;
+    jiraDescription += `ZU ENTZIEHENDE BERECHTIGUNGEN (${userAssignments.length + userEntitlementAssignments.length}):\n`;
 
     for (const a of userAssignments) {
       const ent = entitlementsRes.data?.find((e: Entitlement) => e.id === a.entitlementId);
       const res = resourcesRes.data?.find((r: Resource) => r.id === ent?.resourceId);
       if (ent && res) {
         jiraDescription += `- [${res.name}] : ${ent.name}\n`;
+      }
+    }
+
+    for (const a of userEntitlementAssignments) {
+      const ent = entitlementsRes.data?.find((e: Entitlement) => e.id === a.entitlementId);
+      const res = resourcesRes.data?.find((r: Resource) => r.id === ent?.resourceId);
+      if (ent && res) {
+        jiraDescription += `- [${res.name}] : ${ent.name} (Entitlement-Assignment)\n`;
       }
     }
 
@@ -56,6 +78,21 @@ export async function startOffboardingAction(
     for (const a of userAssignments) {
       const updatedAss = { ...a, status: 'pending_removal', jiraIssueKey: jiraKey };
       await saveCollectionRecord('assignments', a.id, updatedAss, dataSource);
+    }
+
+    for (const a of userEntitlementAssignments) {
+      const updatedAss = { ...a, status: 'pending_removal', ticketRef: jiraKey };
+      await saveCollectionRecord('entitlementAssignments', a.id, updatedAss, dataSource);
+    }
+
+    for (const link of activeUserCapabilities) {
+      const updatedLink = { ...link, status: 'archived', validUntil: offboardingDate };
+      await saveCollectionRecord('userCapabilities', link.id, updatedLink, dataSource);
+    }
+
+    for (const link of activeUserPositions) {
+      const updatedLink = { ...link, status: 'archived', validUntil: offboardingDate };
+      await saveCollectionRecord('userPositions', link.id, updatedLink, dataSource);
     }
 
     await logAuditEventAction(dataSource, {
@@ -90,6 +127,28 @@ export async function deleteUserAction(userId: string, dataSource: DataSource = 
     const userAss = assRes.data?.filter((a: Assignment) => a.userId === userId && a.status !== 'removed') || [];
     if (userAss.length > 0) {
       blockers.push(`Der Benutzer hat noch ${userAss.length} aktive oder angeforderte Berechtigungen.`);
+    }
+
+    // 1b. Check EntitlementAssignments (new model)
+    const entitlementAssRes = await getCollectionData('entitlementAssignments', dataSource);
+    const userEntitlementAss = entitlementAssRes.data?.filter(
+      (a: EntitlementAssignment) => a.subjectType === 'person' && a.subjectId === userId && a.status !== 'removed'
+    ) || [];
+    if (userEntitlementAss.length > 0) {
+      blockers.push(`Der Benutzer hat noch ${userEntitlementAss.length} aktive Entitlement-Zuweisungen.`);
+    }
+
+    // 1c. Check capability/position links
+    const userCapabilitiesRes = await getCollectionData('userCapabilities', dataSource);
+    const activeCapabilityLinks = userCapabilitiesRes.data?.filter((link: UserCapability) => link.userId === userId && link.status === 'active') || [];
+    if (activeCapabilityLinks.length > 0) {
+      blockers.push(`Der Benutzer hat noch ${activeCapabilityLinks.length} aktive Zusatzfunktionen.`);
+    }
+
+    const userPositionsRes = await getCollectionData('userPositions', dataSource);
+    const activePositionLinks = userPositionsRes.data?.filter((link: UserPosition) => link.userId === userId && link.status === 'active') || [];
+    if (activePositionLinks.length > 0) {
+      blockers.push(`Der Benutzer hat noch ${activePositionLinks.length} aktive organisatorische Rollen.`);
     }
 
     // 2. Check Tasks

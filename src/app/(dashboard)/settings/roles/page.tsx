@@ -27,7 +27,9 @@ import {
   ListFilter,
   ClipboardList,
   Fingerprint,
-  Workflow
+  Workflow,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';

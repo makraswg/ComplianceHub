@@ -40,7 +40,9 @@ import {
   Crosshair,
   ChevronDown,
   RefreshCw,
-  X
+  X,
+  History,
+  GitCompare
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -93,6 +95,8 @@ function ProcessDetailViewContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);
+  const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
+  const [selectedComparisonVersionId, setSelectedComparisonVersionId] = useState<string | null>(null);
 
   const [scale, setScale] = useState(0.8);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -121,7 +125,17 @@ function ProcessDetailViewContent() {
   const { data: users } = usePluggableCollection<User>('users');
   
   const currentProcess = useMemo(() => processes?.find((p: any) => p.id === id) || null, [processes, id]);
+  const processVersions = useMemo(() => {
+    if (!versions || !currentProcess) return [];
+    return versions
+      .filter((v: ProcessVersion) => v.process_id === currentProcess.id)
+      .sort((a: ProcessVersion, b: ProcessVersion) => b.version - a.version);
+  }, [versions, currentProcess]);
   const activeVersion = useMemo(() => versions?.find((v: any) => v.process_id === id && v.version === currentProcess?.currentVersion), [versions, id, currentProcess]);
+  const selectedComparisonVersion = useMemo(() => {
+    if (!selectedComparisonVersionId || !processVersions.length) return null;
+    return processVersions.find((v: ProcessVersion) => v.id === selectedComparisonVersionId) || null;
+  }, [selectedComparisonVersionId, processVersions]);
   const processType = useMemo(() => processTypes?.find(pt => pt.id === currentProcess?.process_type_id), [processTypes, currentProcess]);
   const owner = useMemo(() => users?.find(u => u.id === currentProcess?.ownerUserId), [users, currentProcess]);
   const emergencyProcess = useMemo(() => processes?.find(p => p.id === currentProcess?.emergencyProcessId), [processes, currentProcess]);
@@ -400,6 +414,58 @@ function ProcessDetailViewContent() {
     refresh();
   };
 
+  useEffect(() => {
+    if (!isVersionDialogOpen || !processVersions.length) return;
+    if (selectedComparisonVersionId) return;
+    const preferred = processVersions.find((v: ProcessVersion) => v.version === currentProcess?.publishedVersion) || processVersions[0];
+    setSelectedComparisonVersionId(preferred?.id || null);
+  }, [isVersionDialogOpen, processVersions, selectedComparisonVersionId, currentProcess]);
+
+  const versionDiff = useMemo(() => {
+    if (!activeVersion || !selectedComparisonVersion) return null;
+
+    const currentNodes = activeVersion.model_json?.nodes || [];
+    const compareNodes = selectedComparisonVersion.model_json?.nodes || [];
+    const currentEdges = activeVersion.model_json?.edges || [];
+    const compareEdges = selectedComparisonVersion.model_json?.edges || [];
+
+    const currentNodeMap = new Map(currentNodes.map((node: any) => [String(node.id), node]));
+    const compareNodeMap = new Map(compareNodes.map((node: any) => [String(node.id), node]));
+
+    const addedNodes = currentNodes.filter((node: any) => !compareNodeMap.has(String(node.id))).length;
+    const removedNodes = compareNodes.filter((node: any) => !currentNodeMap.has(String(node.id))).length;
+
+    let changedNodes = 0;
+    currentNodes.forEach((node: any) => {
+      const baseline = compareNodeMap.get(String(node.id));
+      if (!baseline) return;
+      if (JSON.stringify(node) !== JSON.stringify(baseline)) changedNodes++;
+    });
+
+    const edgeKey = (edge: any) => String(edge.id || `${edge.source}->${edge.target}:${edge.label || ''}`);
+    const currentEdgeMap = new Map(currentEdges.map((edge: any) => [edgeKey(edge), edge]));
+    const compareEdgeMap = new Map(compareEdges.map((edge: any) => [edgeKey(edge), edge]));
+
+    const addedEdges = currentEdges.filter((edge: any) => !compareEdgeMap.has(edgeKey(edge))).length;
+    const removedEdges = compareEdges.filter((edge: any) => !currentEdgeMap.has(edgeKey(edge))).length;
+
+    let changedEdges = 0;
+    currentEdges.forEach((edge: any) => {
+      const baseline = compareEdgeMap.get(edgeKey(edge));
+      if (!baseline) return;
+      if (JSON.stringify(edge) !== JSON.stringify(baseline)) changedEdges++;
+    });
+
+    return {
+      addedNodes,
+      removedNodes,
+      changedNodes,
+      addedEdges,
+      removedEdges,
+      changedEdges
+    };
+  }, [activeVersion, selectedComparisonVersion]);
+
   if (!mounted) return null;
   
   const isTenantsLoading = !tenants;
@@ -425,6 +491,9 @@ function ProcessDetailViewContent() {
           </div>
           <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={handleExportPdf} disabled={isExporting}>
             {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />} PDF Bericht
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase gap-2" onClick={() => setIsVersionDialogOpen(true)}>
+            <History className="w-3.5 h-3.5" /> Versionen
           </Button>
           <Button variant="outline" size="sm" className="h-8 rounded-lg text-[10px] font-bold uppercase gap-2" onClick={() => router.push(`/processhub/${id}`)}><Edit3 className="w-3.5 h-3.5" /> Designer</Button>
         </div>
@@ -680,6 +749,91 @@ function ProcessDetailViewContent() {
           )}
         </main>
       </div>
+
+      <Dialog open={isVersionDialogOpen} onOpenChange={setIsVersionDialogOpen}>
+        <DialogContent className="max-w-5xl w-[95vw] max-h-[88vh] p-0 overflow-hidden">
+          <DialogHeader className="p-5 border-b bg-slate-50">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <History className="w-4 h-4 text-primary" /> Versionen & Unterschiede
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Neue Versionen entstehen erst bei Freigabe. Bis dahin bleibt der Prozess als Entwurf.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-[420px] max-h-[calc(88vh-140px)]">
+            <ScrollArea className="border-r">
+              <div className="p-4 space-y-2">
+                {processVersions.map((version: ProcessVersion) => {
+                  const isDraft = version.version === currentProcess?.currentVersion;
+                  const isPublished = version.version === currentProcess?.publishedVersion;
+                  const isSelected = version.id === selectedComparisonVersionId;
+
+                  return (
+                    <button
+                      key={version.id}
+                      className={cn(
+                        "w-full text-left rounded-xl border p-3 transition-colors",
+                        isSelected ? "border-primary bg-primary/5" : "hover:bg-slate-50"
+                      )}
+                      onClick={() => setSelectedComparisonVersionId(version.id)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-slate-900">Version V{version.version}.0</p>
+                        <div className="flex items-center gap-1">
+                          {isDraft && <Badge className="h-5 text-[9px] bg-amber-100 text-amber-800 border-none">Entwurf</Badge>}
+                          {isPublished && <Badge className="h-5 text-[9px] bg-emerald-100 text-emerald-800 border-none">Freigegeben</Badge>}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">{new Date(version.created_at).toLocaleString()}</p>
+                      <p className="text-[11px] text-slate-500">Erstellt von: {version.created_by_user_id || 'system'} • Rev. {version.revision || 0}</p>
+                    </button>
+                  );
+                })}
+                {processVersions.length === 0 && (
+                  <p className="text-xs text-slate-400 italic p-2">Keine Versionen vorhanden.</p>
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="rounded-xl border p-4 bg-white">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-400">Vergleich</p>
+                <p className="text-sm font-semibold text-slate-800 mt-1 flex items-center gap-2">
+                  <GitCompare className="w-4 h-4 text-primary" />
+                  Aktuelle Ansicht V{currentProcess?.currentVersion || '-'} vs. Version V{selectedComparisonVersion?.version || '-'}
+                </p>
+              </div>
+
+              {!versionDiff ? (
+                <div className="rounded-xl border border-dashed p-6 text-center text-xs text-slate-400">
+                  Version auswählen, um Unterschiede zu sehen.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-3">Prozessschritte</p>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-emerald-50 text-emerald-700 p-2">+ {versionDiff.addedNodes} hinzugefügt</div>
+                      <div className="rounded-lg bg-red-50 text-red-700 p-2">- {versionDiff.removedNodes} entfernt</div>
+                      <div className="rounded-lg bg-amber-50 text-amber-700 p-2">~ {versionDiff.changedNodes} geändert</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border p-4">
+                    <p className="text-xs font-black uppercase text-slate-500 mb-3">Verbindungen</p>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="rounded-lg bg-emerald-50 text-emerald-700 p-2">+ {versionDiff.addedEdges} hinzugefügt</div>
+                      <div className="rounded-lg bg-red-50 text-red-700 p-2">- {versionDiff.removedEdges} entfernt</div>
+                      <div className="rounded-lg bg-amber-50 text-amber-700 p-2">~ {versionDiff.changedEdges} geändert</div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-5xl w-[95vw] h-[85vh] p-0 overflow-hidden">

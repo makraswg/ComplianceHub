@@ -86,7 +86,7 @@ function normalizeRecord(item: any, tableName: string) {
   
   const jsonFields: Record<string, string[]> = {
     users: ['adGroups', 'jobIds'],
-    groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds'],
+    groups: ['entitlementConfigs', 'userConfigs', 'entitlementIds', 'userIds', 'externalCollectionIds'],
     bundles: ['entitlementIds'],
     auditEvents: ['before', 'after'],
     riskMeasures: ['riskIds', 'resourceIds'],
@@ -97,7 +97,7 @@ function normalizeRecord(item: any, tableName: string) {
     ai_sessions: ['context_json'],
     ai_messages: ['structured_json'],
     platformRoles: ['permissions'],
-    jobTitles: ['entitlementIds'],
+    jobTitles: ['entitlementIds', 'organizationalRoleIds'],
     entitlementAssignments: ['scopeResourceContext']
   };
 

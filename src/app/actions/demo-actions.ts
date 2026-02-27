@@ -33,11 +33,16 @@ import {
   OperatingModelOption, 
   RegulatoryOption, 
   Entitlement,
+  EntitlementAssignment,
   ProcessVersion,
   Tenant,
   OrgUnitType,
   OrgUnit,
-  UserOrgUnit
+  UserOrgUnit,
+  Capability,
+  UserCapability,
+  Position,
+  UserPosition
 } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
@@ -192,10 +197,93 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'j-legal-dsb', deptId: 'd-legal', name: 'Datenschutzbeauftragter', ents: ['e-res-docu-user', 'e-res-conf-user', 'e-res-jsm-user'] },
       { id: 'j-gf', deptId: 'd-mgmt', name: 'Geschäftsführer', ents: ['e-res-sap-user', 'e-res-m365-user', 'e-res-graf-user'] }
     ];
+
+    const rolePositionIdsByJob = new Map<string, string>();
     for (const j of jobsList) {
+      const rolePositionId = `pos-role-${j.id}`;
+      rolePositionIdsByJob.set(j.id, rolePositionId);
+
       await saveCollectionRecord('jobTitles', j.id, {
-        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: j.ents
+        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: j.ents, organizationalRoleIds: [rolePositionId]
       }, dataSource);
+
+      const positionPayload: Position = {
+        id: rolePositionId,
+        tenantId: t1Id,
+        name: `${j.name} (Org-Rolle)`,
+        orgUnitId: j.deptId,
+        jobTitleId: j.id,
+        status: 'active',
+      };
+      await saveCollectionRecord('positions', rolePositionId, positionPayload, dataSource);
+
+      if (j.ents.length > 0) {
+        const assignmentId = `ea-pos-${j.id}`;
+        const assignment: EntitlementAssignment = {
+          id: assignmentId,
+          tenantId: t1Id,
+          subjectType: 'position',
+          subjectId: rolePositionId,
+          entitlementId: j.ents[0],
+          status: 'active',
+          assignmentSource: 'position',
+          grantedBy: actorEmail,
+          grantedAt: now,
+        };
+        await saveCollectionRecord('entitlementAssignments', assignmentId, assignment, dataSource);
+      }
+
+      for (const entitlementId of j.ents) {
+        const assignmentId = `ea-jt-${j.id}-${entitlementId}`.substring(0, 64);
+        const assignment: EntitlementAssignment = {
+          id: assignmentId,
+          tenantId: t1Id,
+          subjectType: 'jobTitle',
+          subjectId: j.id,
+          entitlementId,
+          status: 'active',
+          assignmentSource: 'profile',
+          grantedBy: actorEmail,
+          grantedAt: now,
+        };
+        await saveCollectionRecord('entitlementAssignments', assignmentId, assignment, dataSource);
+      }
+    }
+
+    const capabilitiesList: Capability[] = [
+      { id: 'cap-marketing-assist', tenantId: t1Id, name: 'Marketing Assist', code: 'MKT_ASSIST', status: 'active' },
+      { id: 'cap-network-admin', tenantId: t1Id, name: 'Network Operations', code: 'NET_OPS', status: 'active' },
+    ];
+    for (const capability of capabilitiesList) {
+      await saveCollectionRecord('capabilities', capability.id, capability, dataSource);
+    }
+
+    const capabilityAssignments: EntitlementAssignment[] = [
+      {
+        id: 'ea-cap-marketing-assist',
+        tenantId: t1Id,
+        subjectType: 'capability',
+        subjectId: 'cap-marketing-assist',
+        entitlementId: 'e-res-sales-user',
+        status: 'active',
+        assignmentSource: 'function',
+        grantedBy: actorEmail,
+        grantedAt: now,
+      },
+      {
+        id: 'ea-cap-network-admin',
+        tenantId: t1Id,
+        subjectType: 'capability',
+        subjectId: 'cap-network-admin',
+        entitlementId: 'e-res-cisco-admin',
+        status: 'active',
+        assignmentSource: 'function',
+        grantedBy: actorEmail,
+        grantedAt: now,
+      },
+    ];
+    for (const assignment of capabilityAssignments) {
+      await saveCollectionRecord('entitlementAssignments', assignment.id, assignment, dataSource);
     }
 
     // --- 5. BENUTZER & ASSIGNMENTS ---
@@ -237,6 +325,36 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
           validFrom: now,
         };
         await saveCollectionRecord('userOrgUnits', userOrgUnitId, link, dataSource);
+      }
+
+      const primaryJobId = u.jobs[0];
+      const rolePositionId = rolePositionIdsByJob.get(primaryJobId);
+      if (rolePositionId) {
+        const userPositionId = `up-${u.id}-${rolePositionId}`.substring(0, 64);
+        const userPosition: UserPosition = {
+          id: userPositionId,
+          tenantId: t1Id,
+          userId: u.id,
+          positionId: rolePositionId,
+          isPrimary: true,
+          validFrom: today,
+          status: 'active',
+        };
+        await saveCollectionRecord('userPositions', userPositionId, userPosition, dataSource);
+      }
+
+      if (u.id === 'u-15') {
+        const marketingCapabilityLink: UserCapability = {
+          id: `uc-${u.id}-marketing`,
+          tenantId: t1Id,
+          userId: u.id,
+          capabilityId: 'cap-marketing-assist',
+          validFrom: today,
+          status: 'active',
+          approvedBy: actorEmail,
+          approvedAt: now,
+        };
+        await saveCollectionRecord('userCapabilities', marketingCapabilityLink.id, marketingCapabilityLink, dataSource);
       }
 
       for (const resId of ['res-m365', 'res-teams', 'res-jsm']) {

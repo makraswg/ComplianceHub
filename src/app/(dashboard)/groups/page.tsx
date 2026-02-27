@@ -95,6 +95,8 @@ export default function GroupsPage() {
   const [selectedGroup, setSelectedGroup] = useState<AssignmentGroup | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [targetSystem, setTargetSystem] = useState<'vaultwarden' | 'other'>('vaultwarden');
+  const [externalCollectionIdsText, setExternalCollectionIdsText] = useState('');
   const [selectedEntitlementIds, setSelectedEntitlementIds] = useState<string[]>([]);
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
@@ -115,6 +117,8 @@ export default function GroupsPage() {
     setSelectedGroup(null);
     setName('');
     setDescription('');
+    setTargetSystem('vaultwarden');
+    setExternalCollectionIdsText('');
     setSelectedEntitlementIds([]);
     setRoleSearch('');
   };
@@ -161,6 +165,11 @@ export default function GroupsPage() {
       name,
       description,
       status: selectedGroup?.status || 'active',
+      targetSystem,
+      externalCollectionIds: externalCollectionIdsText
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
       entitlementIds: selectedEntitlementIds,
       userConfigs: selectedGroup?.userConfigs || [],
       entitlementConfigs: selectedGroup?.entitlementConfigs || []
@@ -172,7 +181,7 @@ export default function GroupsPage() {
         await logAuditEventAction(dataSource, {
           tenantId: targetTenantId,
           actorUid: user?.email || 'system',
-          action: selectedGroup ? `Zuweisungsgruppe aktualisiert: ${name}` : `Zuweisungsgruppe erstellt: ${name}`,
+          action: selectedGroup ? `Provisioning-Bundle aktualisiert: ${name}` : `Provisioning-Bundle erstellt: ${name}`,
           entityType: 'group',
           entityId: id,
           before: selectedGroup,
@@ -197,7 +206,7 @@ export default function GroupsPage() {
       await logAuditEventAction(dataSource, {
         tenantId: group.tenantId || 'global',
         actorUid: user?.email || 'system',
-        action: `Zuweisungsgruppe ${newStatus === 'archived' ? 'archiviert' : 'reaktiviert'}: ${group.name}`,
+        action: `Provisioning-Bundle ${newStatus === 'archived' ? 'archiviert' : 'reaktiviert'}: ${group.name}`,
         entityType: 'group',
         entityId: group.id,
         before: group,
@@ -218,7 +227,7 @@ export default function GroupsPage() {
         await logAuditEventAction(dataSource, {
           tenantId: 'global',
           actorUid: user?.email || 'system',
-          action: `Zuweisungsgruppe permanent gelöscht: ${deleteTarget.label}`,
+          action: `Provisioning-Bundle permanent gelöscht: ${deleteTarget.label}`,
           entityType: 'group',
           entityId: deleteTarget.id,
           before: existing
@@ -237,6 +246,8 @@ export default function GroupsPage() {
     setSelectedGroup(group);
     setName(group.name);
     setDescription(group.description || '');
+    setTargetSystem((group.targetSystem as 'vaultwarden' | 'other') || 'vaultwarden');
+    setExternalCollectionIdsText((group.externalCollectionIds || []).join(', '));
     setSelectedEntitlementIds(group.entitlementIds || []);
     setIsDialogOpen(true);
   };
@@ -258,8 +269,8 @@ export default function GroupsPage() {
           </div>
           <div>
             <Badge className="mb-1 rounded-full px-2 py-0 bg-primary/10 text-primary text-[9px] font-bold border-none">Lifecycle Management</Badge>
-            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Zuweisungsgruppen</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Regelbasierte Berechtigungen für Abteilungen oder Projekt-Teams.</p>
+            <h1 className="text-2xl font-headline font-bold text-slate-900 dark:text-white">Provisioning-Bundles</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Technische Bündel für Zielsysteme wie Vaultwarden-Collections.</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -268,7 +279,7 @@ export default function GroupsPage() {
             {showArchived ? 'Aktive anzeigen' : 'Archiv'}
           </Button>
           <Button size="sm" className="h-9 font-bold text-xs px-6 shadow-sm" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-            <Plus className="w-3.5 h-3.5 mr-2" /> Gruppe erstellen
+            <Plus className="w-3.5 h-3.5 mr-2" /> Bundle erstellen
           </Button>
         </div>
       </div>
@@ -276,7 +287,7 @@ export default function GroupsPage() {
       <div className="relative group max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
         <Input 
-          placeholder="Nach Gruppen suchen..." 
+          placeholder="Nach Bundles suchen..." 
           className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -290,8 +301,9 @@ export default function GroupsPage() {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
-                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Gruppe</TableHead>
+                <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400">Bundle</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Mandant</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400">Zielsystem</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400">Enthaltene Rollen</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400">Aktionen</TableHead>
               </TableRow>
@@ -313,6 +325,11 @@ export default function GroupsPage() {
                   <TableCell>
                     <Badge variant="outline" className="rounded-full text-[8px] font-bold border-slate-200 text-slate-500 px-2 h-5">
                       {getTenantSlug(group.tenantId)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className="bg-indigo-50 text-indigo-700 border-none rounded-full text-[8px] font-bold px-2 h-5 uppercase">
+                      {group.targetSystem || 'other'}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -364,8 +381,8 @@ export default function GroupsPage() {
                 <Workflow className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold text-slate-900">{selectedGroup ? 'Zuweisungsgruppe bearbeiten' : 'Neue Gruppe erstellen'}</DialogTitle>
-                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5">Automatisierte Rollen-Zuweisung nach Regeln</DialogDescription>
+                <DialogTitle className="text-lg font-bold text-slate-900">{selectedGroup ? 'Provisioning-Bundle bearbeiten' : 'Neues Bundle erstellen'}</DialogTitle>
+                <DialogDescription className="text-[10px] text-slate-400 font-bold mt-0.5">Technische Provisioning-Zuordnung für Zielsysteme</DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -373,12 +390,23 @@ export default function GroupsPage() {
             <div className="p-6 md:p-10 space-y-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Name der Gruppe</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 font-bold" placeholder="z.B. Marketing-Team, IT-Support..." />
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Name des Bundles</Label>
+                  <Input value={name} onChange={e => setName(e.target.value)} className="rounded-md h-11 border-slate-200 font-bold" placeholder="z.B. Network-Admins Secrets" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[11px] font-bold text-slate-400 ml-1">Beschreibung / Zweck</Label>
-                  <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-md h-11 border-slate-200" placeholder="Zuständigkeitsbereich..." />
+                  <Input value={description} onChange={e => setDescription(e.target.value)} className="rounded-md h-11 border-slate-200" placeholder="Technische Provisioning-Zuordnung..." />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Zielsystem</Label>
+                  <Input value={targetSystem} onChange={(event) => setTargetSystem((event.target.value || 'other') as 'vaultwarden' | 'other')} className="rounded-md h-11 border-slate-200 font-bold" placeholder="vaultwarden" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[11px] font-bold text-slate-400 ml-1">Externe Collection IDs (kommagetrennt)</Label>
+                  <Input value={externalCollectionIdsText} onChange={(event) => setExternalCollectionIdsText(event.target.value)} className="rounded-md h-11 border-slate-200" placeholder="col-netadmin, col-switches" />
                 </div>
               </div>
 
@@ -388,12 +416,12 @@ export default function GroupsPage() {
                     <Label className="text-[11px] font-bold text-primary flex items-center gap-2">
                       <Layers className="w-4 h-4" /> Rollen auswählen ({selectedEntitlementIds.length} gewählt)
                     </Label>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Diese Berechtigungen werden Mitgliedern der Gruppe automatisch zugewiesen.</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Diese Berechtigungen bilden das technische Provisioning-Bündel.</p>
                   </div>
                   <div className="relative group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary" />
                     <Input 
-                      placeholder="Rollen filtern..." 
+                      placeholder="Berechtigungen filtern..." 
                       value={roleSearch}
                       onChange={e => setRoleSearch(e.target.value)}
                       className="h-9 pl-9 text-[11px] rounded-md min-w-[220px]"
@@ -440,9 +468,9 @@ export default function GroupsPage() {
                   <Info className="w-4 h-4" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-bold text-slate-800">Automatisierungshinweis</p>
+                  <p className="text-xs font-bold text-slate-800">Provisioning-Hinweis</p>
                   <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                    Mitglieder können Sie später über die Identitäten-Verwaltung oder die LDAP-Filterregeln dieser Gruppe hinzufügen.
+                    Dieses Bundle ist ein technischer Container (z. B. Vaultwarden Collections), nicht die fachliche Rollenquelle.
                   </p>
                 </div>
               </div>
@@ -463,11 +491,11 @@ export default function GroupsPage() {
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle className="w-6 h-6 text-red-600" />
             </div>
-            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Gruppe permanent löschen?</AlertDialogTitle>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-red-600 text-center">Bundle permanent löschen?</AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-2 text-center">
-              Möchten Sie die Zuweisungsgruppe <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
+              Möchten Sie das Provisioning-Bundle <strong>{deleteTarget?.label}</strong> wirklich permanent löschen? 
               <br/><br/>
-              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle regelbasierten Zuweisungen dieser Gruppe werden entfernt.
+              <span className="text-red-600 font-bold">Achtung:</span> Diese Aktion kann nicht rückgängig gemacht werden. Alle technischen Zuordnungen dieses Bundles werden entfernt.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">

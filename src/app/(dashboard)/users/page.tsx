@@ -104,9 +104,11 @@ function UsersPageContent() {
 
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('');
   const [tenantId, setTenantId] = useState('');
+  const [jobSearch, setJobSearch] = useState('');
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [selectedOrgRoleIds, setSelectedOrgRoleIds] = useState<string[]>([]);
+  const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(true);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
@@ -117,10 +119,14 @@ function UsersPageContent() {
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
   const { data: tenants } = usePluggableCollection<any>('tenants');
-  const { data: assignments } = usePluggableCollection<any>('assignments');
+  const { data: entitlementAssignments } = usePluggableCollection<any>('entitlementAssignments');
+  const { data: capabilities } = usePluggableCollection<any>('capabilities');
+  const { data: userCapabilities, refresh: refreshUserCapabilities } = usePluggableCollection<any>('userCapabilities');
+  const { data: positions } = usePluggableCollection<any>('positions');
+  const { data: userPositions, refresh: refreshUserPositions } = usePluggableCollection<any>('userPositions');
   const { data: entitlements } = usePluggableCollection<any>('entitlements');
   const { data: jobTitles } = usePluggableCollection<any>('jobTitles');
-  const { data: departmentsData } = usePluggableCollection<any>('departments');
+  const { data: orgUnits } = usePluggableCollection<any>('orgUnits');
   const { data: syncJobs } = usePluggableCollection<any>('syncJobs');
   const { refresh: refreshAudit } = usePluggableCollection<any>('auditEvents');
 
@@ -139,20 +145,48 @@ function UsersPageContent() {
   const getJobById = (id: string) => jobTitles?.find((j: any) => j.id === id);
 
   const sortedRoles = useMemo(() => {
-    if (!jobTitles || !departmentsData) return [];
+    if (!jobTitles || !orgUnits) return [];
     return [...jobTitles].sort((a, b) => {
-      const deptA = departmentsData.find((d: any) => d.id === a.departmentId)?.name || '';
-      const deptB = departmentsData.find((d: any) => d.id === b.departmentId)?.name || '';
-      if (deptA !== deptB) return deptA.localeCompare(deptB);
+      const orgA = orgUnits.find((d: any) => d.id === a.departmentId)?.name || '';
+      const orgB = orgUnits.find((d: any) => d.id === b.departmentId)?.name || '';
+      if (orgA !== orgB) return orgA.localeCompare(orgB);
       return a.name.localeCompare(b.name);
     });
-  }, [jobTitles, departmentsData]);
+  }, [jobTitles, orgUnits]);
+
+  const getOrgUnitPath = (orgUnitId?: string) => {
+    if (!orgUnitId) return '—';
+    const names: string[] = [];
+    let current = orgUnits?.find((item: any) => item.id === orgUnitId);
+    let guard = 0;
+    while (current && guard < 12) {
+      names.unshift(current.name);
+      if (!current.parentId) break;
+      current = orgUnits?.find((item: any) => item.id === current.parentId);
+      guard += 1;
+    }
+    return names.join(' › ');
+  };
+
+  const selectedPrimaryJob = useMemo(
+    () => sortedRoles.find((item: any) => item.id === selectedJobIds[0]),
+    [sortedRoles, selectedJobIds]
+  );
+
+  const selectableOrgRoles = useMemo(() => {
+    if (!selectedPrimaryJob || !positions) return [];
+    const roleIds = new Set(selectedPrimaryJob.organizationalRoleIds || []);
+    return positions.filter((position: any) => roleIds.has(position.id) && position.status === 'active');
+  }, [selectedPrimaryJob, positions]);
 
   const calculateDrift = (user: any) => {
-    if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
+    if (!user || !entitlements || !entitlementAssignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
 
-    const userAssignments = assignments.filter((a: any) => a.userId === user.id && a.status === 'active');
-    const assignedEntitlementIds = userAssignments.map((a: any) => a.entitlementId);
+    const directEntitlementIds = entitlementAssignments
+      .filter((a: any) => a.tenantId === user.tenantId)
+      .filter((a: any) => a.subjectType === 'person' && a.subjectId === user.id)
+      .filter((a: any) => a.status === 'active' || a.status === 'approved')
+      .map((a: any) => a.entitlementId);
     
     // Aggregieren aller Entitlements aus allen zugewiesenen Job-Blueprints
     const userJobIds = user.jobIds || [];
@@ -168,7 +202,17 @@ function UsersPageContent() {
       legacyJob?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
     }
 
-    const targetEntitlementIds = Array.from(new Set([...assignedEntitlementIds, ...Array.from(blueprintEntitlementIds)]));
+    const activeCapabilityIds = (userCapabilities || [])
+      .filter((item: any) => item.userId === user.id && item.status === 'active')
+      .map((item: any) => item.capabilityId);
+
+    const capabilityEntitlementIds = entitlementAssignments
+      .filter((a: any) => a.tenantId === user.tenantId)
+      .filter((a: any) => a.subjectType === 'capability' && activeCapabilityIds.includes(a.subjectId))
+      .filter((a: any) => a.status === 'active' || a.status === 'approved')
+      .map((a: any) => a.entitlementId);
+
+    const targetEntitlementIds = Array.from(new Set([...directEntitlementIds, ...Array.from(blueprintEntitlementIds), ...capabilityEntitlementIds]));
     const targetGroups = targetEntitlementIds
       .map(eid => entitlements.find((e: any) => e.id === eid)?.externalMapping)
       .filter(Boolean) as string[];
@@ -197,6 +241,8 @@ function UsersPageContent() {
     const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
     const isNew = !selectedUser;
     const normalizedJobIds = selectedJobIds.slice(0, 1);
+    const primaryJob = normalizedJobIds.length > 0 ? jobTitles?.find((j: any) => j.id === normalizedJobIds[0]) : null;
+    const primaryOrgUnitName = primaryJob ? orgUnits?.find((ou: any) => ou.id === primaryJob.departmentId)?.name || '' : '';
     
     // Wir halten 'title' für Kompatibilität auf dem ersten Job-Namen
     const firstJobName = normalizedJobIds.length > 0 
@@ -208,7 +254,7 @@ function UsersPageContent() {
       id: userId,
       displayName,
       email,
-      department,
+      department: primaryOrgUnitName,
       tenantId,
       title: firstJobName,
       jobIds: normalizedJobIds,
@@ -221,6 +267,59 @@ function UsersPageContent() {
       if (dataSource === 'mysql') {
         const res = await saveCollectionRecord('users', userId, userData, dataSource);
         if (!res.success) throw new Error(res.error || "MySQL-Speicherfehler");
+
+        const existingLinks = (userCapabilities || []).filter((item: any) => item.userId === userId);
+        const selectedSet = new Set(selectedCapabilityIds);
+
+        for (const existing of existingLinks) {
+          const shouldBeActive = selectedSet.has(existing.capabilityId);
+          await saveCollectionRecord('userCapabilities', existing.id, {
+            ...existing,
+            tenantId,
+            status: shouldBeActive ? 'active' : 'archived',
+          }, dataSource);
+        }
+
+        for (const capabilityId of selectedCapabilityIds) {
+          if (existingLinks.some((item: any) => item.capabilityId === capabilityId)) continue;
+          const id = `uc-${userId}-${capabilityId}`.substring(0, 60);
+          await saveCollectionRecord('userCapabilities', id, {
+            id,
+            tenantId,
+            userId,
+            capabilityId,
+            status: 'active',
+            validFrom: new Date().toISOString().split('T')[0],
+            approvedBy: authUser?.email || 'system',
+            approvedAt: new Date().toISOString(),
+          }, dataSource);
+        }
+
+        const existingPositionLinks = (userPositions || []).filter((item: any) => item.userId === userId);
+        const selectedPositionSet = new Set(selectedOrgRoleIds);
+
+        for (const existing of existingPositionLinks) {
+          const shouldBeActive = selectedPositionSet.has(existing.positionId);
+          await saveCollectionRecord('userPositions', existing.id, {
+            ...existing,
+            tenantId,
+            status: shouldBeActive ? 'active' : 'archived',
+          }, dataSource);
+        }
+
+        for (const positionId of selectedOrgRoleIds) {
+          if (existingPositionLinks.some((item: any) => item.positionId === positionId)) continue;
+          const id = `up-${userId}-${positionId}`.substring(0, 64);
+          await saveCollectionRecord('userPositions', id, {
+            id,
+            tenantId,
+            userId,
+            positionId,
+            isPrimary: false,
+            validFrom: new Date().toISOString().split('T')[0],
+            status: 'active',
+          }, dataSource);
+        }
       } else {
         setDocumentNonBlocking(doc(db, 'users', userId), userData);
       }
@@ -237,7 +336,7 @@ function UsersPageContent() {
       toast({ title: selectedUser ? "Benutzer aktualisiert" : "Benutzer angelegt" });
       setIsAddOpen(false);
       resetForm();
-      setTimeout(() => { refreshUsers(); refreshAudit(); }, 200);
+      setTimeout(() => { refreshUsers(); refreshAudit(); refreshUserCapabilities(); refreshUserPositions(); }, 200);
     } catch (e: any) {
       toast({ variant: "destructive", title: "Speichern fehlgeschlagen", description: e.message });
     } finally {
@@ -268,8 +367,10 @@ function UsersPageContent() {
     setSelectedUser(null);
     setDisplayName('');
     setEmail('');
-    setDepartment('');
+    setJobSearch('');
     setSelectedJobIds([]);
+    setSelectedOrgRoleIds([]);
+    setSelectedCapabilityIds([]);
     setEnabled(true);
     setTenantId(activeTenantId !== 'all' ? activeTenantId : '');
   };
@@ -278,8 +379,10 @@ function UsersPageContent() {
     setSelectedUser(user);
     setDisplayName(user.displayName);
     setEmail(user.email);
-    setDepartment(user.department || '');
+    setJobSearch('');
     setSelectedJobIds((user.jobIds || []).slice(0, 1));
+    setSelectedOrgRoleIds((userPositions || []).filter((item: any) => item.userId === user.id && item.status === 'active').map((item: any) => item.positionId));
+    setSelectedCapabilityIds((userCapabilities || []).filter((item: any) => item.userId === user.id && item.status === 'active').map((item: any) => item.capabilityId));
     setTenantId(user.tenantId);
     setEnabled(user.enabled === true || user.enabled === 1 || user.enabled === "1");
     setIsAddOpen(true);
@@ -303,7 +406,7 @@ function UsersPageContent() {
 
       return true;
     });
-  }, [users, search, activeTenantId, activeStatusFilter, assignments, entitlements, jobTitles]);
+  }, [users, search, activeTenantId, activeStatusFilter, entitlementAssignments, entitlements, jobTitles, userCapabilities]);
 
   if (!mounted) return null;
 
@@ -526,23 +629,109 @@ function UsersPageContent() {
 
               <div className="space-y-4">
                 <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Stellenprofil</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
-                    <div 
-                      key={j.id} 
-                      className={cn(
-                        "flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all",
-                        selectedJobIds[0] === j.id ? "bg-primary/5 border-primary" : "bg-white hover:bg-slate-50"
-                      )}
-                      onClick={() => setSelectedJobIds(prev => prev[0] === j.id ? [] : [j.id])}
-                    >
-                      <Checkbox checked={selectedJobIds[0] === j.id} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-slate-800 truncate">{j.name}</p>
-                        <p className="text-[9px] text-slate-400 font-medium truncate">{departmentsData?.find((d:any) => d.id === j.departmentId)?.name || '---'}</p>
+                <Input
+                  value={jobSearch}
+                  onChange={(event) => setJobSearch(event.target.value)}
+                  placeholder="Stellenprofil suchen..."
+                  className="h-10 rounded-md border-slate-200"
+                />
+                <Select
+                  value={selectedJobIds[0] || ''}
+                  onValueChange={(value) => {
+                    const nextJobId = value || '';
+                    setSelectedJobIds(nextJobId ? [nextJobId] : []);
+                    const job = sortedRoles.find((item: any) => item.id === nextJobId);
+                    setSelectedOrgRoleIds(job?.organizationalRoleIds || []);
+                  }}
+                >
+                  <SelectTrigger className="h-11 rounded-md border-slate-200">
+                    <SelectValue placeholder="Stellenprofil wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(sortedRoles || [])
+                      .filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId)
+                      .filter((j: any) => {
+                        if (!jobSearch) return true;
+                        const orgPath = getOrgUnitPath(j.departmentId).toLowerCase();
+                        const term = jobSearch.toLowerCase();
+                        return j.name.toLowerCase().includes(term) || orgPath.includes(term);
+                      })
+                      .map((j: any) => (
+                        <SelectItem key={j.id} value={j.id}>
+                          {`${getOrgUnitPath(j.departmentId)} — ${j.name}`}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {selectedPrimaryJob && (
+                  <div className="p-3 border rounded-xl bg-slate-50">
+                    <p className="text-[11px] font-bold text-slate-800">{selectedPrimaryJob.name}</p>
+                    <p className="text-[10px] text-slate-500">{getOrgUnitPath(selectedPrimaryJob.departmentId)}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Organisatorische Rollen</Label>
+                {selectedPrimaryJob ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {selectableOrgRoles.map((role: any) => (
+                      <div
+                        key={role.id}
+                        className={cn(
+                          'flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all',
+                          selectedOrgRoleIds.includes(role.id) ? 'bg-primary/5 border-primary' : 'bg-white hover:bg-slate-50'
+                        )}
+                        onClick={() =>
+                          setSelectedOrgRoleIds((prev) =>
+                            prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
+                          )
+                        }
+                      >
+                        <Checkbox checked={selectedOrgRoleIds.includes(role.id)} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{role.name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium truncate">{getOrgUnitPath(role.orgUnitId)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                    {selectableOrgRoles.length === 0 && (
+                      <div className="text-[10px] text-slate-400 italic">Keine organisatorischen Rollen für dieses Stellenprofil hinterlegt.</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-slate-400 italic">Bitte zuerst ein Stellenprofil auswählen.</div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Zusatzfunktionen (optional)</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(capabilities || [])
+                    .filter((capability: any) => capability.status === 'active')
+                    .filter((capability: any) => tenantId === '' || tenantId === 'all' || capability.tenantId === tenantId)
+                    .map((capability: any) => (
+                      <div
+                        key={capability.id}
+                        className={cn(
+                          'flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all',
+                          selectedCapabilityIds.includes(capability.id) ? 'bg-primary/5 border-primary' : 'bg-white hover:bg-slate-50'
+                        )}
+                        onClick={() =>
+                          setSelectedCapabilityIds((prev) =>
+                            prev.includes(capability.id)
+                              ? prev.filter((id) => id !== capability.id)
+                              : [...prev, capability.id]
+                          )
+                        }
+                      >
+                        <Checkbox checked={selectedCapabilityIds.includes(capability.id)} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 truncate">{capability.name}</p>
+                          <p className="text-[9px] text-slate-400 font-medium truncate">{capability.code || 'Zusatzaufgabe'}</p>
+                        </div>
+                      </div>
+                    ))}
                 </div>
               </div>
 
