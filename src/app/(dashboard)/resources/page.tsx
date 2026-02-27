@@ -108,6 +108,7 @@ function ResourcesPageContent() {
   const [availabilityReq, setAvailabilityReq] = useState<Resource['availabilityReq']>('medium');
   const [hasPersonalData, setHasPersonalData] = useState(false);
   const [isDataRepository, setIsDataRepository] = useState(false);
+  const [gobdRelevant, setGobdRelevant] = useState(false);
   const [isIdentityProvider, setIsIdentityProvider] = useState(false);
   const [identityProviderId, setIdentityProviderId] = useState('none');
   const [dataLocation, setDataLocation] = useState('');
@@ -302,7 +303,7 @@ function ResourcesPageContent() {
       integrityReq: inherited ? inherited.integrityReq : integrityReq,
       availabilityReq: inherited ? inherited.availabilityReq : availabilityReq,
       hasPersonalData: inherited ? inherited.hasPersonalData : hasPersonalData,
-      isDataRepository, isIdentityProvider, backupRequired, updatesRequired,
+      isDataRepository, gobdRelevant, isIdentityProvider, backupRequired, updatesRequired,
       identityProviderId: identityProviderId === 'none' ? undefined : (identityProviderId === 'self' ? id : identityProviderId),
       dataLocation, systemOwnerRoleId: systemOwnerRoleId !== 'none' ? systemOwnerRoleId : undefined,
       riskOwnerRoleId: riskOwnerRoleId !== 'none' ? riskOwnerRoleId : undefined,
@@ -341,6 +342,7 @@ function ResourcesPageContent() {
     setSelectedResource(res); setName(res.name); setAssetType(res.assetType); setCategory(res.category); setOperatingModel(res.operatingModel);
     setDataClassification(res.dataClassification || 'internal'); setConfidentialityReq(res.confidentialityReq || 'medium'); setIntegrityReq(res.integrityReq || 'medium');
     setAvailabilityReq(res.availabilityReq || 'medium'); setHasPersonalData(!!res.hasPersonalData); setIsDataRepository(!!res.isDataRepository); setIsIdentityProvider(!!res.isIdentityProvider);
+    setGobdRelevant(!!res.gobdRelevant);
     setBackupRequired(!!res.backupRequired); setUpdatesRequired(!!res.updatesRequired);
     setLocalBackupJobs(allBackupJobs?.filter(b => b.resourceId === res.id) || []);
     setSelectedUpdateProcessIds(allUpdateLinks?.filter(u => u.resourceId === res.id).map(u => u.processId) || []);
@@ -353,7 +355,7 @@ function ResourcesPageContent() {
   const resetForm = () => {
     setSelectedResource(null); setName(''); setAssetType(''); setCategory('Fachanwendung'); setOperatingModel('');
     setDataClassification('internal'); setConfidentialityReq('medium'); setIntegrityReq('medium'); setAvailabilityReq('medium');
-    setHasPersonalData(false); setIsDataRepository(false); setIsIdentityProvider(false); setIdentityProviderId('none');
+    setHasPersonalData(false); setIsDataRepository(false); setGobdRelevant(false); setIsIdentityProvider(false); setIdentityProviderId('none');
     setDataLocation(''); setSystemOwnerRoleId('none'); setRiskOwnerRoleId('none'); setExternalOwnerPartnerId('none');
     setExternalOwnerContactId('none'); setExternalOwnerAreaId('none'); setBackupRequired(false); setUpdatesRequired(false);
     setLocalBackupJobs([]); setSelectedUpdateProcessIds([]); setNotes(''); setUrl('');
@@ -626,6 +628,14 @@ function ResourcesPageContent() {
                         <p className="text-[8px] text-slate-400 uppercase font-black">Primärer Datenablageort</p>
                       </div>
                       <Switch checked={isDataRepository} onCheckedChange={setIsDataRepository} />
+                    </div>
+
+                    <div className="p-4 bg-white border rounded-xl shadow-sm flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] font-bold uppercase">GoBD relevant</Label>
+                        <p className="text-[8px] text-slate-400 uppercase font-black">Buchführungsrelevantes System</p>
+                      </div>
+                      <Switch checked={gobdRelevant} onCheckedChange={setGobdRelevant} />
                     </div>
                   </div>
                 </TabsContent>

@@ -318,6 +318,15 @@ export default function ResourceDetailPage() {
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center group/row">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">GOBD RELEVANT</span>
+                  <Badge className={cn(
+                    "h-5 px-2 text-[8px] font-black border-none transition-all",
+                    resource.gobdRelevant ? "bg-violet-500 text-white shadow-lg" : "bg-slate-100 text-slate-400"
+                  )}>
+                    {resource.gobdRelevant ? 'JA' : 'NEIN'}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center group/row">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BACKUP PFLICHT</span>
                   <Badge className={cn(
                     "h-5 px-2 text-[8px] font-black border-none transition-all", 

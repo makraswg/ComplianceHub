@@ -117,7 +117,7 @@ function normalizeRecord(item: any, tableName: string) {
     });
   }
 
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'ldapUseTls', 'ldapAllowInvalidSsl', 'scopeIncludeChildren', 'approvalRequired', 'isPrimary'];
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'gobdRelevant', 'ldapUseTls', 'ldapAllowInvalidSsl', 'scopeIncludeChildren', 'approvalRequired', 'isPrimary'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';
