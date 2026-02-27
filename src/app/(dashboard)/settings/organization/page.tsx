@@ -60,6 +60,8 @@ import { usePlatformAuth } from '@/context/auth-context';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { Textarea } from '@/components/ui/textarea';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -99,7 +101,7 @@ export default function UnifiedOrganizationPage() {
   const [newOrgTypeKey, setNewOrgTypeKey] = useState('');
   const [newOrgUnitName, setNewOrgUnitName] = useState('');
   const [newOrgUnitTypeId, setNewOrgUnitTypeId] = useState('');
-  const [newOrgUnitParentId, setNewOrgUnitParentId] = useState('');
+  const [newOrgUnitParentId, setNewOrgUnitParentId] = useState('none');
   const [newRelationFromId, setNewRelationFromId] = useState('');
   const [newRelationToId, setNewRelationToId] = useState('');
   const [newRelationType, setNewRelationType] = useState<'supports' | 'advises' | 'works_for'>('supports');
@@ -138,11 +140,15 @@ export default function UnifiedOrganizationPage() {
       .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   }, [orgUnitTypes, activeTenantId]);
 
+  const orgUnitsInScope = useMemo(() => {
+    return (orgUnits || []).filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all');
+  }, [orgUnits, activeTenantId]);
+
   const filteredOrgUnits = useMemo(() => {
-    const allUnits = (orgUnits || []).filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all');
+    const allUnits = orgUnitsInScope;
     if (selectedOrgTypeFilter === 'all') return allUnits;
     return allUnits.filter((item) => item.typeId === selectedOrgTypeFilter);
-  }, [orgUnits, activeTenantId, selectedOrgTypeFilter]);
+  }, [orgUnitsInScope, selectedOrgTypeFilter]);
 
   const orgTreeRoots = useMemo(() => {
     const unitIds = new Set(filteredOrgUnits.map((item) => item.id));
@@ -152,6 +158,24 @@ export default function UnifiedOrganizationPage() {
   const relationRows = useMemo(() => {
     return (orgUnitRelations || []).filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all');
   }, [orgUnitRelations, activeTenantId]);
+
+  const relationTypeLabel: Record<'supports' | 'advises' | 'works_for', string> = {
+    supports: 'Unterstützt',
+    advises: 'Berät',
+    works_for: 'Arbeitet für',
+  };
+
+  const getWritableTenantId = () => {
+    if (activeTenantId === 'all') {
+      toast({
+        variant: 'destructive',
+        title: 'Mandant auswählen',
+        description: 'Bitte im Header einen konkreten Mandanten wählen, bevor OrgUnit-Einstellungen geändert werden.',
+      });
+      return null;
+    }
+    return activeTenantId;
+  };
 
   const getOrgUnitName = (orgUnitId?: string) => {
     if (!orgUnitId) return '—';
@@ -176,6 +200,8 @@ export default function UnifiedOrganizationPage() {
 
   const handleCreateOrgUnitType = async () => {
     if (!newOrgTypeName) return;
+    const writableTenantId = getWritableTenantId();
+    if (!writableTenantId) return;
     const id = `out-${Math.random().toString(36).substring(2, 8)}`;
     const normalizedKey = (newOrgTypeKey || newOrgTypeName)
       .trim()
@@ -184,7 +210,7 @@ export default function UnifiedOrganizationPage() {
 
     const data = {
       id,
-      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      tenantId: writableTenantId,
       key: normalizedKey,
       name: newOrgTypeName,
       enabled: true,
@@ -210,13 +236,15 @@ export default function UnifiedOrganizationPage() {
 
   const handleCreateOrgUnit = async () => {
     if (!newOrgUnitName || !newOrgUnitTypeId) return;
+    const writableTenantId = getWritableTenantId();
+    if (!writableTenantId) return;
     const id = `ou-${Math.random().toString(36).substring(2, 8)}`;
     const data = {
       id,
-      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      tenantId: writableTenantId,
       name: newOrgUnitName,
       typeId: newOrgUnitTypeId,
-      parentId: newOrgUnitParentId || null,
+      parentId: newOrgUnitParentId === 'none' ? null : newOrgUnitParentId,
       status: 'active',
       sortOrder: 0,
     };
@@ -233,7 +261,7 @@ export default function UnifiedOrganizationPage() {
       });
       setNewOrgUnitName('');
       setNewOrgUnitTypeId('');
-      setNewOrgUnitParentId('');
+      setNewOrgUnitParentId('none');
       refreshOrgUnits();
       toast({ title: 'OrgUnit gespeichert' });
     }
@@ -241,10 +269,12 @@ export default function UnifiedOrganizationPage() {
 
   const handleCreateRelation = async () => {
     if (!newRelationFromId || !newRelationToId || newRelationFromId === newRelationToId) return;
+    const writableTenantId = getWritableTenantId();
+    if (!writableTenantId) return;
     const id = `our-${Math.random().toString(36).substring(2, 8)}`;
     const data = {
       id,
-      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      tenantId: writableTenantId,
       fromOrgUnitId: newRelationFromId,
       toOrgUnitId: newRelationToId,
       relationType: newRelationType,
@@ -267,6 +297,22 @@ export default function UnifiedOrganizationPage() {
       setNewRelationType('supports');
       refreshOrgUnitRelations();
       toast({ title: 'Relation gespeichert' });
+    }
+  };
+
+  const handleDeleteRelation = async (relation: OrgUnitRelation) => {
+    const result = await deleteCollectionRecord('orgUnitRelations', relation.id, dataSource);
+    if (result.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: relation.tenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `Stabsrelation entfernt: ${relation.relationType}`,
+        entityType: 'orgUnitRelation',
+        entityId: relation.id,
+        before: relation,
+      });
+      refreshOrgUnitRelations();
+      toast({ title: 'Relation entfernt' });
     }
   };
 
@@ -409,129 +455,181 @@ export default function UnifiedOrganizationPage() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <Card className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl">
-          <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6">
-            <CardTitle className="text-base font-bold">OrgUnits & Stabsstellen (neu)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Neuer OrgUnit-Typ</Label>
-                <Input value={newOrgTypeName} onChange={(event) => setNewOrgTypeName(event.target.value)} placeholder="z. B. Bereich" className="h-9" />
-                <Input value={newOrgTypeKey} onChange={(event) => setNewOrgTypeKey(event.target.value)} placeholder="Key (optional)" className="h-9" />
-                <Button size="sm" onClick={handleCreateOrgUnitType} className="text-[10px] font-bold">Typ anlegen</Button>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Neue OrgUnit</Label>
-                <Input value={newOrgUnitName} onChange={(event) => setNewOrgUnitName(event.target.value)} placeholder="z. B. Marketing" className="h-9" />
-                <Input value={newOrgUnitTypeId} onChange={(event) => setNewOrgUnitTypeId(event.target.value)} placeholder="OrgUnitType-ID" className="h-9" />
-                <Input value={newOrgUnitParentId} onChange={(event) => setNewOrgUnitParentId(event.target.value)} placeholder="Parent-ID (optional)" className="h-9" />
-                <Button size="sm" onClick={handleCreateOrgUnit} className="text-[10px] font-bold">OrgUnit anlegen</Button>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase text-slate-400">Stabsrelation pflegen</Label>
-                <Input value={newRelationFromId} onChange={(event) => setNewRelationFromId(event.target.value)} placeholder="Von OrgUnit-ID" className="h-9" />
-                <Input value={newRelationToId} onChange={(event) => setNewRelationToId(event.target.value)} placeholder="Zu OrgUnit-ID" className="h-9" />
-                <Input value={newRelationType} onChange={(event) => setNewRelationType(event.target.value as 'supports' | 'advises' | 'works_for')} placeholder="supports | advises | works_for" className="h-9" />
-                <Button size="sm" onClick={handleCreateRelation} className="text-[10px] font-bold">Relation speichern</Button>
-              </div>
-            </div>
+      <Tabs defaultValue="master" className="space-y-4">
+        <TabsList className="h-11 rounded-xl border p-1 bg-slate-50 w-full sm:w-auto">
+          <TabsTrigger value="master" className="text-[11px] font-bold">Stammdaten</TabsTrigger>
+          <TabsTrigger value="orgmodel" className="text-[11px] font-bold">Org-Modell (neu)</TabsTrigger>
+        </TabsList>
 
-            <div className="flex items-center gap-3">
-              <Label className="text-[10px] font-bold uppercase text-slate-400">Typ-Filter</Label>
-              <Button size="sm" variant={selectedOrgTypeFilter === 'all' ? 'default' : 'outline'} className="h-7 text-[10px]" onClick={() => setSelectedOrgTypeFilter('all')}>Alle</Button>
-              {availableOrgTypes.map((type) => (
-                <Button key={type.id} size="sm" variant={selectedOrgTypeFilter === type.id ? 'default' : 'outline'} className="h-7 text-[10px]" onClick={() => setSelectedOrgTypeFilter(type.id)}>
-                  {type.name}
-                </Button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="p-4 border rounded-xl bg-slate-50/40 space-y-2">
-                <p className="text-[10px] font-bold uppercase text-slate-400">OrgUnit-Baumansicht</p>
-                <div className="space-y-2">
-                  {orgTreeRoots.map((root) => renderOrgNode(root))}
-                  {orgTreeRoots.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine OrgUnits vorhanden.</p>}
+        <TabsContent value="master" className="space-y-4">
+          {groupedData.map(tenant => (
+            <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl group">
+              <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm"><Building2 className="w-5 h-5" /></div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-base font-bold">{tenant.name}</CardTitle>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 border rounded-xl bg-slate-50/40 space-y-2">
-                <p className="text-[10px] font-bold uppercase text-slate-400">Fachliche Stabsrelationen</p>
-                <div className="space-y-2">
-                  {relationRows.map((row) => (
-                    <div key={row.id} className="p-2 rounded-lg bg-white border flex items-center justify-between">
-                      <span className="text-xs font-bold">{getOrgUnitName(row.fromOrgUnitId)} → {getOrgUnitName(row.toOrgUnitId)}</span>
-                      <Badge variant="outline" className="text-[8px] uppercase">{row.relationType}</Badge>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}><PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Abteilung</Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
+                    {tenant.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-slate-100">
+                  {tenant.departments.map((dept: any) => (
+                    <div key={dept.id}>
+                      <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 group/dept">
+                        <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
+                        <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
+                          <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3 mr-1" /> Zuweisung</Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50/30 px-8 pb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-10 border-l-2 ml-4">
+                          {dept.jobs?.map((job: any) => (
+                            <div key={job.id} className="p-3 bg-white rounded-xl border flex items-center justify-between group/job hover:border-primary/30 cursor-pointer" onClick={() => openJobEditor(job)}>
+                              <div className="flex items-center gap-3 truncate"><Briefcase className="w-4 h-4 text-slate-400" /><span className="text-[11px] font-bold truncate">{job.name}</span></div>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/job:opacity-100" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                            </div>
+                          ))}
+                          {activeAddParent?.id === dept.id && (
+                            <div className="flex gap-2 p-2 bg-white rounded-lg border-2 border-primary">
+                              <Input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
+                              <Button size="sm" className="h-8 px-4 font-bold text-[10px]" onClick={handleCreateSub}>OK</Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
-                  {relationRows.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine fachlichen Relationen vorhanden.</p>}
+                  {activeAddParent?.id === tenant.id && (
+                    <div className="p-4 px-8 bg-primary/5 flex items-center gap-3">
+                      <Input placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 text-xs rounded-xl" />
+                      <Button size="sm" onClick={handleCreateSub}>Erstellen</Button>
+                      <Button variant="ghost" size="icon" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          ))}
+        </TabsContent>
 
-        {groupedData.map(tenant => (
-          <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl group">
-            <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6 flex flex-row items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shadow-sm"><Building2 className="w-5 h-5" /></div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-base font-bold">{tenant.name}</CardTitle>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => { setEditingTenant(tenant); setTenantName(tenant.name); setTenantDescription(tenant.companyDescription || ''); setIsTenantDialogOpen(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+        <TabsContent value="orgmodel" className="space-y-4">
+          <Card className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl">
+            <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6">
+              <CardTitle className="text-base font-bold">OrgUnits & Stabsstellen</CardTitle>
+              <p className="text-xs text-slate-500">Geführte Pflege: zuerst Typen, dann OrgUnits, danach fachliche Relationen.</p>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div className="space-y-3 p-4 rounded-xl border bg-slate-50/40">
+                  <p className="text-[10px] font-black uppercase text-slate-400">1) OrgUnit-Typen</p>
+                  <Input value={newOrgTypeName} onChange={(event) => setNewOrgTypeName(event.target.value)} placeholder="Bezeichnung (z. B. Bereich)" className="h-9" />
+                  <Input value={newOrgTypeKey} onChange={(event) => setNewOrgTypeKey(event.target.value)} placeholder="Technischer Key (optional)" className="h-9" />
+                  <Button size="sm" onClick={handleCreateOrgUnitType} className="text-[10px] font-bold w-full">Typ anlegen</Button>
+                  <div className="space-y-1">
+                    {availableOrgTypes.map((type) => (
+                      <div key={type.id} className="px-2 py-1.5 rounded-md bg-white border text-xs font-bold flex items-center justify-between">
+                        <span>{type.name}</span>
+                        <span className="text-[10px] text-slate-400">{type.key}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+
+                <div className="space-y-3 p-4 rounded-xl border bg-slate-50/40">
+                  <p className="text-[10px] font-black uppercase text-slate-400">2) OrgUnit anlegen</p>
+                  <Input value={newOrgUnitName} onChange={(event) => setNewOrgUnitName(event.target.value)} placeholder="Name (z. B. Team Marketing)" className="h-9" />
+                  <Select value={newOrgUnitTypeId} onValueChange={setNewOrgUnitTypeId}>
+                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Typ auswählen" /></SelectTrigger>
+                    <SelectContent>
+                      {availableOrgTypes.map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={newOrgUnitParentId} onValueChange={setNewOrgUnitParentId}>
+                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Übergeordnete Einheit (optional)" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine (Root)</SelectItem>
+                      {orgUnitsInScope.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={handleCreateOrgUnit} className="text-[10px] font-bold w-full">OrgUnit anlegen</Button>
+                </div>
+
+                <div className="space-y-3 p-4 rounded-xl border bg-slate-50/40">
+                  <p className="text-[10px] font-black uppercase text-slate-400">3) Stabsstellen-Relation</p>
+                  <Select value={newRelationFromId} onValueChange={setNewRelationFromId}>
+                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Von OrgUnit" /></SelectTrigger>
+                    <SelectContent>
+                      {orgUnitsInScope.map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Select value={newRelationType} onValueChange={(value) => setNewRelationType(value as 'supports' | 'advises' | 'works_for')}>
+                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Relationstyp" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="supports">Unterstützt</SelectItem>
+                      <SelectItem value="advises">Berät</SelectItem>
+                      <SelectItem value="works_for">Arbeitet für</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={newRelationToId} onValueChange={setNewRelationToId}>
+                    <SelectTrigger className="h-9 bg-white"><SelectValue placeholder="Ziel-OrgUnit" /></SelectTrigger>
+                    <SelectContent>
+                      {orgUnitsInScope.filter((unit) => unit.id !== newRelationFromId).map((unit) => <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" onClick={handleCreateRelation} className="text-[10px] font-bold w-full">Relation speichern</Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="ghost" className="h-8 text-[10px] font-black" onClick={() => setActiveAddParent({ id: tenant.id, type: 'tenant' })}><PlusCircle className="w-3.5 h-3.5 mr-1.5" /> Abteilung</Button>
-                <Button variant="ghost" size="icon" onClick={() => handleStatusChange('tenants', tenant, tenant.status === 'active' ? 'archived' : 'active')}>
-                  {tenant.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-slate-100">
-                {tenant.departments.map((dept: any) => (
-                  <div key={dept.id}>
-                    <div className="flex items-center justify-between p-4 px-8 hover:bg-slate-50 group/dept">
-                      <div className="flex items-center gap-3"><Layers className="w-4 h-4 text-emerald-600" /><h4 className="text-xs font-bold">{dept.name}</h4></div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover/dept:opacity-100">
-                        <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black" onClick={() => setActiveAddParent({ id: dept.id, type: 'dept' })}><Plus className="w-3 h-3 mr-1" /> Zuweisung</Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleStatusChange('departments', dept, dept.status === 'active' ? 'archived' : 'active')}><Archive className="w-3.5 h-3.5" /></Button>
-                      </div>
-                    </div>
-                    <div className="bg-slate-50/30 px-8 pb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pl-10 border-l-2 ml-4">
-                        {dept.jobs?.map((job: any) => (
-                          <div key={job.id} className="p-3 bg-white rounded-xl border flex items-center justify-between group/job hover:border-primary/30 cursor-pointer" onClick={() => openJobEditor(job)}>
-                            <div className="flex items-center gap-3 truncate"><Briefcase className="w-4 h-4 text-slate-400" /><span className="text-[11px] font-bold truncate">{job.name}</span></div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover/job:opacity-100" onClick={(e) => { e.stopPropagation(); openJobEditor(job); }}><Pencil className="w-3.5 h-3.5" /></Button>
-                          </div>
-                        ))}
-                        {activeAddParent?.id === dept.id && (
-                          <div className="flex gap-2 p-2 bg-white rounded-lg border-2 border-primary">
-                            <Input value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-8 border-none shadow-none text-[11px] font-bold" />
-                            <Button size="sm" className="h-8 px-4 font-bold text-[10px]" onClick={handleCreateSub}>OK</Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="p-4 border rounded-xl bg-slate-50/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">OrgUnit-Baumansicht</p>
+                    <Select value={selectedOrgTypeFilter} onValueChange={setSelectedOrgTypeFilter}>
+                      <SelectTrigger className="h-8 w-[180px] bg-white text-xs"><SelectValue placeholder="Typ filtern" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Alle Typen</SelectItem>
+                        {availableOrgTypes.map((type) => <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
-                {activeAddParent?.id === tenant.id && (
-                  <div className="p-4 px-8 bg-primary/5 flex items-center gap-3">
-                    <Input placeholder="Abteilungsname..." value={newName} onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreateSub()} className="h-10 text-xs rounded-xl" />
-                    <Button size="sm" onClick={handleCreateSub}>Erstellen</Button>
-                    <Button variant="ghost" size="icon" onClick={() => setActiveAddParent(null)}><X className="w-4 h-4" /></Button>
+                  <div className="space-y-2">
+                    {orgTreeRoots.map((root) => renderOrgNode(root))}
+                    {orgTreeRoots.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine OrgUnits vorhanden.</p>}
                   </div>
-                )}
+                </div>
+                <div className="p-4 border rounded-xl bg-slate-50/40 space-y-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">Fachliche Relationen</p>
+                  <div className="space-y-2 max-h-[280px] overflow-auto pr-1">
+                    {relationRows.map((row) => (
+                      <div key={row.id} className="p-2 rounded-lg bg-white border flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold">{getOrgUnitName(row.fromOrgUnitId)} → {getOrgUnitName(row.toOrgUnitId)}</p>
+                          <p className="text-[10px] text-slate-500">{relationTypeLabel[(row.relationType as 'supports' | 'advises' | 'works_for')] || row.relationType}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500" onClick={() => handleDeleteRelation(row)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                    {relationRows.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine fachlichen Relationen vorhanden.</p>}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isTenantDialogOpen} onOpenChange={(v) => !v && setIsTenantDialogOpen(false)}>
         <DialogContent className="max-w-xl rounded-2xl p-0 overflow-hidden shadow-2xl border-none">
