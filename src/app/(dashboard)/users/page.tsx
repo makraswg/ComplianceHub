@@ -84,7 +84,6 @@ import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { deleteUserAction } from '@/app/actions/user-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { exportUsersExcel } from '@/lib/export-utils';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Switch } from '@/components/ui/switch';
@@ -106,6 +105,7 @@ function UsersPageContent() {
   const [email, setEmail] = useState('');
   const [tenantId, setTenantId] = useState('');
   const [jobSearch, setJobSearch] = useState('');
+  const [selectedJobOrgUnitId, setSelectedJobOrgUnitId] = useState('all');
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
   const [selectedOrgRoleIds, setSelectedOrgRoleIds] = useState<string[]>([]);
   const [selectedCapabilityIds, setSelectedCapabilityIds] = useState<string[]>([]);
@@ -172,6 +172,26 @@ function UsersPageContent() {
     () => sortedRoles.find((item: any) => item.id === selectedJobIds[0]),
     [sortedRoles, selectedJobIds]
   );
+
+  const selectableJobOrgUnits = useMemo(() => {
+    const relevantJobs = (sortedRoles || []).filter((job: any) => tenantId === '' || tenantId === 'all' || job.tenantId === tenantId);
+    const ids = Array.from(new Set(relevantJobs.map((job: any) => job.departmentId)));
+    return ids
+      .map((id) => orgUnits?.find((unit: any) => unit.id === id))
+      .filter(Boolean)
+      .sort((a: any, b: any) => getOrgUnitPath(a.id).localeCompare(getOrgUnitPath(b.id)));
+  }, [sortedRoles, tenantId, orgUnits]);
+
+  const selectableJobProfiles = useMemo(() => {
+    return (sortedRoles || [])
+      .filter((job: any) => tenantId === '' || tenantId === 'all' || job.tenantId === tenantId)
+      .filter((job: any) => selectedJobOrgUnitId === 'all' || job.departmentId === selectedJobOrgUnitId)
+      .filter((job: any) => {
+        if (!jobSearch) return true;
+        const term = jobSearch.toLowerCase();
+        return job.name.toLowerCase().includes(term);
+      });
+  }, [sortedRoles, tenantId, selectedJobOrgUnitId, jobSearch]);
 
   const selectableOrgRoles = useMemo(() => {
     if (!selectedPrimaryJob || !positions) return [];
@@ -368,6 +388,7 @@ function UsersPageContent() {
     setDisplayName('');
     setEmail('');
     setJobSearch('');
+    setSelectedJobOrgUnitId('all');
     setSelectedJobIds([]);
     setSelectedOrgRoleIds([]);
     setSelectedCapabilityIds([]);
@@ -381,6 +402,8 @@ function UsersPageContent() {
     setEmail(user.email);
     setJobSearch('');
     setSelectedJobIds((user.jobIds || []).slice(0, 1));
+    const primaryJob = sortedRoles.find((item: any) => item.id === (user.jobIds || [])[0]);
+    setSelectedJobOrgUnitId(primaryJob?.departmentId || 'all');
     setSelectedOrgRoleIds((userPositions || []).filter((item: any) => item.userId === user.id && item.status === 'active').map((item: any) => item.positionId));
     setSelectedCapabilityIds((userCapabilities || []).filter((item: any) => item.userId === user.id && item.status === 'active').map((item: any) => item.capabilityId));
     setTenantId(user.tenantId);
@@ -596,7 +619,7 @@ function UsersPageContent() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(val) => { if(!val && !isSaving) setIsAddOpen(false); }}>
-        <DialogContent className="max-w-xl w-[95vw] h-[90vh] md:h-auto md:max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
+        <DialogContent className="max-w-xl w-[95vw] h-[85vh] max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
@@ -607,7 +630,7 @@ function UsersPageContent() {
               </DialogTitle>
             </div>
           </DialogHeader>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <Label required className="text-[11px] font-bold text-slate-400 ml-1">Anzeigename</Label>
@@ -619,7 +642,12 @@ function UsersPageContent() {
               </div>
               <div className="space-y-2">
                 <Label required className="text-[11px] font-bold text-slate-400 ml-1">Mandant</Label>
-                <Select value={tenantId} onValueChange={setTenantId} disabled={isSaving}>
+                <Select value={tenantId} onValueChange={(value) => {
+                  setTenantId(value);
+                  setSelectedJobOrgUnitId('all');
+                  setSelectedJobIds([]);
+                  setSelectedOrgRoleIds([]);
+                }} disabled={isSaving}>
                   <SelectTrigger className="h-11 rounded-md border-slate-200"><SelectValue placeholder="Wählen..." /></SelectTrigger>
                   <SelectContent>
                     {tenants?.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -628,7 +656,29 @@ function UsersPageContent() {
               </div>
 
               <div className="space-y-4">
-                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Stellenprofil</Label>
+                <div className="flex items-center justify-between gap-2 border-b pb-2">
+                  <Label className="text-[11px] font-bold text-primary ml-1 block">Stellenprofil</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[10px]"
+                    onClick={() => router.push('/settings/organization')}
+                  >
+                    Stellenprofile & Org-Rollen verwalten
+                  </Button>
+                </div>
+                <Select value={selectedJobOrgUnitId} onValueChange={setSelectedJobOrgUnitId}>
+                  <SelectTrigger className="h-11 rounded-md border-slate-200">
+                    <SelectValue placeholder="Organisationseinheit eingrenzen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Organisationseinheiten</SelectItem>
+                    {selectableJobOrgUnits.map((orgUnit: any) => (
+                      <SelectItem key={orgUnit.id} value={orgUnit.id}>{getOrgUnitPath(orgUnit.id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   value={jobSearch}
                   onChange={(event) => setJobSearch(event.target.value)}
@@ -637,32 +687,24 @@ function UsersPageContent() {
                 />
                 <Select
                   value={selectedJobIds[0] || ''}
-                  onValueChange={(value) => {
-                    const nextJobId = value || '';
-                    setSelectedJobIds(nextJobId ? [nextJobId] : []);
-                    const job = sortedRoles.find((item: any) => item.id === nextJobId);
-                    setSelectedOrgRoleIds(job?.organizationalRoleIds || []);
+                  onValueChange={(jobId) => {
+                    const selectedJob = selectableJobProfiles.find((job: any) => job.id === jobId);
+                    setSelectedJobIds(jobId ? [jobId] : []);
+                    setSelectedOrgRoleIds(selectedJob?.organizationalRoleIds || []);
                   }}
                 >
                   <SelectTrigger className="h-11 rounded-md border-slate-200">
                     <SelectValue placeholder="Stellenprofil wählen..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {(sortedRoles || [])
-                      .filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId)
-                      .filter((j: any) => {
-                        if (!jobSearch) return true;
-                        const orgPath = getOrgUnitPath(j.departmentId).toLowerCase();
-                        const term = jobSearch.toLowerCase();
-                        return j.name.toLowerCase().includes(term) || orgPath.includes(term);
-                      })
-                      .map((j: any) => (
-                        <SelectItem key={j.id} value={j.id}>
-                          {`${getOrgUnitPath(j.departmentId)} — ${j.name}`}
-                        </SelectItem>
-                      ))}
+                    {selectableJobProfiles.map((job: any) => (
+                      <SelectItem key={job.id} value={job.id}>{`${job.name} — ${getOrgUnitPath(job.departmentId)}`}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {selectableJobProfiles.length === 0 && (
+                  <div className="px-3 py-2 text-[10px] text-slate-400 italic border rounded-md bg-slate-50">Keine passenden Stellenprofile gefunden.</div>
+                )}
                 {selectedPrimaryJob && (
                   <div className="p-3 border rounded-xl bg-slate-50">
                     <p className="text-[11px] font-bold text-slate-800">{selectedPrimaryJob.name}</p>
@@ -745,7 +787,7 @@ function UsersPageContent() {
                 </div>
               </div>
             </div>
-          </ScrollArea>
+            </div>
           <DialogFooter className="p-4 bg-slate-50 border-t shrink-0 flex flex-col sm:flex-row gap-2">
             <Button variant="ghost" onClick={() => setIsAddOpen(false)} disabled={isSaving} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSaveUser} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-sm">

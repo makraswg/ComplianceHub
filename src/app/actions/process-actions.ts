@@ -373,7 +373,52 @@ export async function applyProcessOpsAction(
 }
 
 /**
- * Erstellt einen Audit-Eintrag.
+ * Speichert den aktuellen Stand als Entwurf (ohne Freigabe / neue Version).
+ */
+export async function saveProcessDraftAction(
+  processId: string,
+  versionNum: number,
+  actorUid: string,
+  dataSource: DataSource = 'mysql'
+) {
+  const processRes = await getSingleRecord('processes', processId, dataSource);
+  const process = processRes.data as Process | null;
+  if (!process) throw new Error("Prozess nicht gefunden.");
+
+  const draftVersionNum = versionNum || process.currentVersion;
+  const draftVersionId = `ver-${processId}-${draftVersionNum}`;
+  const versionRes = await getSingleRecord('process_versions', draftVersionId, dataSource);
+  const draftVersion = versionRes.data as ProcessVersion | null;
+  if (!draftVersion) throw new Error("Entwurfs-Version nicht gefunden.");
+
+  const timestamp = new Date().toISOString();
+  const processUpdateRes = await updateProcessMetadataAction(processId, {
+    status: 'draft',
+    updatedAt: timestamp
+  }, dataSource);
+
+  if (!processUpdateRes.success) {
+    throw new Error(`Entwurf konnte nicht gespeichert werden: ${processUpdateRes.error}`);
+  }
+
+  await logAuditEventAction(dataSource, {
+    tenantId: process.tenantId || 'global',
+    actorUid,
+    action: `Entwurf gespeichert: V${draftVersionNum}.0 (Revision ${draftVersion.revision || 0})`,
+    entityType: 'process',
+    entityId: processId,
+    after: {
+      currentVersion: draftVersionNum,
+      revision: draftVersion.revision || 0,
+      savedAt: timestamp
+    }
+  });
+
+  return { success: true };
+}
+
+/**
+ * Gibt den Entwurf frei und erstellt eine neue Prozessversion.
  */
 export async function commitProcessVersionAction(
   processId: string,

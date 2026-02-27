@@ -74,7 +74,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { usePlatformAuth } from '@/context/auth-context';
-import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction, cloneProcessAsEmergencyAction } from '@/app/actions/process-actions';
+import { applyProcessOpsAction, updateProcessMetadataAction, commitProcessVersionAction, cloneProcessAsEmergencyAction, saveProcessDraftAction } from '@/app/actions/process-actions';
 import { saveMediaAction, deleteMediaAction } from '@/app/actions/media-actions';
 import { toast } from '@/hooks/use-toast';
 import { ProcessModel, ProcessLayout, Process, JobTitle, ProcessNode, ProcessOperation, ProcessVersion, Department, Resource, Feature, UiConfig, ProcessType, MediaFile } from '@/lib/types';
@@ -145,6 +145,7 @@ function ProcessDesignerContent() {
   // UI States
   const [isApplying, setIsApplying] = useState(false);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [isCloning, setIsCloning] = useState(false);
   const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
@@ -358,8 +359,22 @@ function ProcessDesignerContent() {
       const availableHeight = Math.max(200, containerHeight - 8);
       targetScale = Math.min(1.6, Math.max(0.2, availableHeight / spanHeight));
       const nodeTopY = node.y + OFFSET_Y;
-      const desiredTopOffset = Math.max(72, Math.min(140, containerHeight * 0.14));
-      nodeCenterY = nodeTopY + ((containerHeight / 2 - desiredTopOffset) / targetScale);
+
+      const predecessorNodes = edges
+        .filter((edge: any) => edge.target === nodeId)
+        .map((edge: any) => gridNodes.find((n) => n.id === edge.source))
+        .filter(Boolean) as typeof gridNodes;
+
+      if (predecessorNodes.length > 0) {
+        const nearestPredecessor = predecessorNodes.reduce((best, current) => (current.y > best.y ? current : best));
+        const predecessorBottomY = nearestPredecessor.y + OFFSET_Y + COLLAPSED_NODE_HEIGHT;
+        const justVisiblePx = 18;
+        const topAnchorY = predecessorBottomY - justVisiblePx;
+        nodeCenterY = topAnchorY + ((containerHeight / 2) / targetScale);
+      } else {
+        const desiredTopOffset = Math.max(48, Math.min(96, containerHeight * 0.1));
+        nodeCenterY = nodeTopY + ((containerHeight / 2 - desiredTopOffset) / targetScale);
+      }
     }
 
     const nodeWidth = isExpanded ? 600 : 256;
@@ -371,7 +386,7 @@ function ProcessDesignerContent() {
     });
     setScale(targetScale);
     setTimeout(() => setIsProgrammaticMove(false), 850);
-  }, [gridNodes]);
+  }, [gridNodes, selectedNodeId, activeVersion]);
 
   useEffect(() => {
     setMounted(true);
@@ -746,6 +761,21 @@ function ProcessDesignerContent() {
     } finally { setIsCommitting(false); }
   };
 
+  const handleSaveDraft = async () => {
+    if (!activeVersion || !currentProcess || !user) return;
+    setIsSavingDraft(true);
+    try {
+      const res = await saveProcessDraftAction(currentProcess.id, activeVersion.version, user.email || user.id, dataSource);
+      if (res.success) {
+        toast({ title: "Entwurf gespeichert" });
+        refreshVersion();
+        refreshProc();
+      }
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   useEffect(() => {
     if (!isVersionDialogOpen || !processVersions.length) return;
     if (selectedComparisonVersionId) return;
@@ -826,6 +856,9 @@ function ProcessDesignerContent() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold px-4 gap-2" onClick={() => setIsVersionDialogOpen(true)}>
             <History className="w-3.5 h-3.5" /> Versionen
+          </Button>
+          <Button variant="outline" size="sm" className="rounded-md h-8 text-[10px] font-bold px-4 gap-2" onClick={handleSaveDraft} disabled={isSavingDraft}>
+            {isSavingDraft ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Entwurf speichern
           </Button>
           <Button size="sm" className="rounded-md h-8 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white px-6 shadow-sm gap-2" onClick={handleCommitVersion} disabled={isCommitting}>
             {isCommitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <SaveIcon className="w-3.5 h-3.5" />} Freigeben (neue Version)

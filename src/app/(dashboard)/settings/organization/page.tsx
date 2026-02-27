@@ -50,6 +50,8 @@ export default function UnifiedOrganizationPage() {
   const [jobEntitlementIds, setJobEntitlementIds] = useState<string[]>([]);
   const [jobOrganizationalRoleIds, setJobOrganizationalRoleIds] = useState<string[]>([]);
   const [newOrgRoleName, setNewOrgRoleName] = useState('');
+  const [editingOrgRoleId, setEditingOrgRoleId] = useState<string | null>(null);
+  const [editingOrgRoleName, setEditingOrgRoleName] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
 
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
@@ -329,6 +331,55 @@ export default function UnifiedOrganizationPage() {
     setNewOrgRoleName('');
     refreshPositions();
     toast({ title: 'Organisatorische Rolle angelegt' });
+  };
+
+  const beginEditOrganizationalRole = (role: Position) => {
+    setEditingOrgRoleId(role.id);
+    setEditingOrgRoleName(role.name);
+  };
+
+  const saveOrganizationalRoleEdit = async () => {
+    if (!editingOrgRoleId || !editingOrgRoleName.trim()) return;
+    const role = (positions || []).find((item) => item.id === editingOrgRoleId);
+    if (!role) return;
+
+    const payload = { ...role, name: editingOrgRoleName.trim() };
+    const res = await saveCollectionRecord('positions', role.id, payload, dataSource);
+    if (!res.success) return;
+
+    await logAuditEventAction(dataSource, {
+      tenantId: role.tenantId,
+      actorUid: authPlatformUser?.email || 'system',
+      action: `Organisatorische Rolle aktualisiert: ${payload.name}`,
+      entityType: 'position',
+      entityId: role.id,
+      after: payload,
+    });
+
+    setEditingOrgRoleId(null);
+    setEditingOrgRoleName('');
+    refreshPositions();
+    toast({ title: 'Organisatorische Rolle aktualisiert' });
+  };
+
+  const toggleOrganizationalRoleStatus = async (role: Position) => {
+    const nextStatus = role.status === 'active' ? 'archived' : 'active';
+    const payload = { ...role, status: nextStatus };
+    const res = await saveCollectionRecord('positions', role.id, payload, dataSource);
+    if (!res.success) return;
+
+    await logAuditEventAction(dataSource, {
+      tenantId: role.tenantId,
+      actorUid: authPlatformUser?.email || 'system',
+      action: `Organisatorische Rolle ${nextStatus === 'archived' ? 'archiviert' : 'reaktiviert'}: ${role.name}`,
+      entityType: 'position',
+      entityId: role.id,
+      after: payload,
+    });
+
+    setJobOrganizationalRoleIds((prev) => (nextStatus === 'archived' ? prev.filter((id) => id !== role.id) : prev));
+    refreshPositions();
+    toast({ title: nextStatus === 'archived' ? 'Organisatorische Rolle archiviert' : 'Organisatorische Rolle reaktiviert' });
   };
 
   const saveJobEdits = async () => {
@@ -654,6 +705,7 @@ export default function UnifiedOrganizationPage() {
 
             <div className="pt-6 border-t space-y-4">
               <Label className="text-xs font-bold text-primary block">Organisatorische Rollen ({jobOrganizationalRoleIds.length})</Label>
+              <p className="text-[10px] text-slate-500">Hier erstellen, bearbeiten und weisen Sie organisatorische Rollen dem Stellenprofil zu.</p>
 
               <div className="flex gap-2">
                 <Input
@@ -672,17 +724,37 @@ export default function UnifiedOrganizationPage() {
                     <div
                       key={role.id}
                       className={cn(
-                        'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
+                        'p-3 border rounded-xl flex items-center gap-3',
                         jobOrganizationalRoleIds.includes(role.id) ? 'border-primary bg-primary/5' : 'bg-white'
                       )}
-                      onClick={() =>
-                        setJobOrganizationalRoleIds((prev) =>
-                          prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
-                        )
-                      }
                     >
-                      <Checkbox checked={jobOrganizationalRoleIds.includes(role.id)} />
-                      <span className="text-[11px] font-bold truncate">{role.name}</span>
+                      <Checkbox
+                        checked={jobOrganizationalRoleIds.includes(role.id)}
+                        onCheckedChange={() =>
+                          setJobOrganizationalRoleIds((prev) =>
+                            prev.includes(role.id) ? prev.filter((id) => id !== role.id) : [...prev, role.id]
+                          )
+                        }
+                      />
+                      <div className="flex-1 min-w-0">
+                        {editingOrgRoleId === role.id ? (
+                          <Input value={editingOrgRoleName} onChange={(event) => setEditingOrgRoleName(event.target.value)} className="h-8 text-xs" />
+                        ) : (
+                          <span className="text-[11px] font-bold truncate block">{role.name}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {editingOrgRoleId === role.id ? (
+                          <Button type="button" size="sm" className="h-7 text-[10px]" onClick={saveOrganizationalRoleEdit}>Speichern</Button>
+                        ) : (
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => beginEditOrganizationalRole(role)}>
+                            <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                          </Button>
+                        )}
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleOrganizationalRoleStatus(role)}>
+                          {role.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                        </Button>
+                      </div>
                     </div>
                   ))}
               </div>
