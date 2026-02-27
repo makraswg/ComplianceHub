@@ -35,7 +35,9 @@ import {
   Entitlement,
   ProcessVersion,
   Tenant,
-  Department
+  OrgUnitType,
+  OrgUnit,
+  UserOrgUnit
 } from '@/lib/types';
 import { logAuditEventAction } from './audit-actions';
 
@@ -75,7 +77,40 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'd-tech', name: 'Technik / Instandhaltung' },
       { id: 'd-legal', name: 'Recht & Datenschutz' }
     ];
+
+    const orgUnitTypes: OrgUnitType[] = [
+      { id: 'out-company', tenantId: t1Id, key: 'company', name: 'Firma', enabled: true, sortOrder: 0 },
+      { id: 'out-department', tenantId: t1Id, key: 'department', name: 'Abteilung', enabled: true, sortOrder: 10 },
+      { id: 'out-team', tenantId: t1Id, key: 'team', name: 'Team', enabled: true, sortOrder: 20 },
+    ];
+    for (const type of orgUnitTypes) {
+      await saveCollectionRecord('orgUnitTypes', type.id, type, dataSource);
+    }
+
+    const tenantRootOrgUnit: OrgUnit = {
+      id: `ou-${t1Id}`,
+      tenantId: t1Id,
+      name: 'Wohnbau Nord GmbH',
+      typeId: 'out-company',
+      parentId: undefined,
+      status: 'active',
+      externalId: t1Id,
+      sortOrder: 0,
+    };
+    await saveCollectionRecord('orgUnits', tenantRootOrgUnit.id, tenantRootOrgUnit, dataSource);
+
     for (const d of depts) {
+      await saveCollectionRecord('orgUnits', d.id, {
+        id: d.id,
+        tenantId: t1Id,
+        name: d.name,
+        typeId: 'out-department',
+        parentId: tenantRootOrgUnit.id,
+        status: 'active',
+        externalId: d.id,
+        sortOrder: 0,
+      }, dataSource);
+
       await saveCollectionRecord('departments', d.id, { ...d, tenantId: t1Id, status: 'active' }, dataSource);
     }
 
@@ -182,10 +217,27 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       { id: 'u-15', name: 'Vera Vermieterin', email: 'v.verm@wohnbau.de', dept: 'Bestandsmanagement', jobs: ['j-immo-kfm'] }
     ];
 
+    const deptNameToId = new Map(depts.map((dept) => [dept.name, dept.id]));
+
     for (const u of usersList) {
       await saveCollectionRecord('users', u.id, {
         id: u.id, tenantId: t1Id, externalId: `ad-${u.id}`, displayName: u.name, email: u.email, department: u.dept, enabled: true, status: 'active', authSource: 'ldap', lastSyncedAt: now, jobIds: u.jobs, adGroups: ['DOMAIN_USERS', 'VPN_ACCESS']
       }, dataSource);
+
+      const orgUnitId = deptNameToId.get(u.dept);
+      if (orgUnitId) {
+        const userOrgUnitId = `uou-${u.id}-${orgUnitId}`;
+        const link: UserOrgUnit = {
+          id: userOrgUnitId,
+          tenantId: t1Id,
+          userId: u.id,
+          orgUnitId,
+          roleType: 'member',
+          status: 'active',
+          validFrom: now,
+        };
+        await saveCollectionRecord('userOrgUnits', userOrgUnitId, link, dataSource);
+      }
 
       for (const resId of ['res-m365', 'res-teams', 'res-jsm']) {
         const assId = `ass-demo-${u.id}-${resId}`;

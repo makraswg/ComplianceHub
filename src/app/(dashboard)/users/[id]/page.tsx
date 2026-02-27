@@ -218,18 +218,19 @@ export default function UserDetailPage() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Organisatorische Rollen</p>
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Stellenprofil</p>
                   <div className="flex flex-col gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
-                    {user.jobIds && user.jobIds.length > 0 ? user.jobIds.map(jid => {
-                      const job = jobs?.find(j => j.id === jid);
+                    {user.jobIds && user.jobIds.length > 0 ? (() => {
+                      const primaryJobId = user.jobIds[0];
+                      const job = jobs?.find(j => j.id === primaryJobId);
                       return (
-                        <div key={jid} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
-                          <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> {job?.name || jid}
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> {job?.name || primaryJobId}
                         </div>
                       );
-                    }) : (
+                    })() : (
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-400 italic">
-                        <Briefcase className="w-3.5 h-3.5 opacity-30" /> {user.title || 'Keine Rolle'}
+                        <Briefcase className="w-3.5 h-3.5 opacity-30" /> {user.title || 'Kein Stellenprofil'}
                       </div>
                     )}
                   </div>

@@ -92,6 +92,10 @@ function ResourcesPageContent() {
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [assetTypeFilter, setAssetTypeFilter] = useState('all');
+  const [operatingModelFilter, setOperatingModelFilter] = useState('all');
+  const [gobdFilter, setGobdFilter] = useState('all');
+  const [identityProviderFilter, setIdentityProviderFilter] = useState('all');
+  const [dataRepositoryFilter, setDataRepositoryFilter] = useState('all');
 
   // Form State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -388,15 +392,65 @@ function ResourcesPageContent() {
 
   const filteredResources = useMemo(() => {
     if (!resources) return [];
+    const toBool = (value: boolean | number | undefined) => value === true || value === 1;
+
     return resources.filter(res => {
       const isGlobal = res.tenantId === 'global' || !res.tenantId;
       if (activeTenantId !== 'all' && !isGlobal && res.tenantId !== activeTenantId) return false;
       const matchSearch = res.name.toLowerCase().includes(search.toLowerCase());
       const matchStatus = showArchived ? res.status === 'archived' : res.status !== 'archived';
-      const matchType = assetTypeFilter === 'all' || res.assetType === assetTypeFilter;
-      return matchSearch && matchStatus && matchType;
+      const matchType =
+        assetTypeFilter === 'all'
+          ? true
+          : assetTypeFilter === '__empty__'
+            ? !res.assetType
+            : res.assetType === assetTypeFilter;
+      const matchOperatingModel =
+        operatingModelFilter === 'all'
+          ? true
+          : operatingModelFilter === '__empty__'
+            ? !res.operatingModel
+            : res.operatingModel === operatingModelFilter;
+      const matchGobd =
+        gobdFilter === 'all' ? true : gobdFilter === 'yes' ? toBool(res.gobdRelevant) : !toBool(res.gobdRelevant);
+      const matchIdentityProvider =
+        identityProviderFilter === 'all'
+          ? true
+          : identityProviderFilter === 'yes'
+            ? toBool(res.isIdentityProvider)
+            : !toBool(res.isIdentityProvider);
+      const matchDataRepository =
+        dataRepositoryFilter === 'all'
+          ? true
+          : dataRepositoryFilter === 'yes'
+            ? toBool(res.isDataRepository)
+            : !toBool(res.isDataRepository);
+
+      return matchSearch && matchStatus && matchType && matchOperatingModel && matchGobd && matchIdentityProvider && matchDataRepository;
     });
-  }, [resources, search, activeTenantId, showArchived, assetTypeFilter]);
+  }, [resources, search, activeTenantId, showArchived, assetTypeFilter, operatingModelFilter, gobdFilter, identityProviderFilter, dataRepositoryFilter]);
+
+  const assetTypeFilterOptions = useMemo(() => {
+    const fromSettings = (assetTypeOptions || [])
+      .filter(o => o.enabled)
+      .map(o => o.name)
+      .filter(Boolean);
+    const fromResources = (resources || []).map(r => r.assetType).filter(Boolean);
+    return Array.from(new Set([...fromSettings, ...fromResources])).sort((a, b) => a.localeCompare(b));
+  }, [assetTypeOptions, resources]);
+
+  const hasEmptyAssetType = useMemo(() => (resources || []).some(r => !r.assetType), [resources]);
+
+  const operatingModelFilterOptions = useMemo(() => {
+    const fromSettings = (operatingModelOptions || [])
+      .filter(o => o.enabled)
+      .map(o => o.name)
+      .filter(Boolean);
+    const fromResources = (resources || []).map(r => r.operatingModel).filter(Boolean);
+    return Array.from(new Set([...fromSettings, ...fromResources])).sort((a, b) => a.localeCompare(b));
+  }, [operatingModelOptions, resources]);
+
+  const hasEmptyOperatingModel = useMemo(() => (resources || []).some(r => !r.operatingModel), [resources]);
 
   const backupProcesses = useMemo(() => 
     allProcesses?.filter(p => p.process_type_id === 'pt-backup' && p.title.toLowerCase().includes(backupProcSearch.toLowerCase())),
@@ -439,7 +493,7 @@ function ResourcesPageContent() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-900 p-2 rounded-xl border shadow-sm">
         <div className="relative flex-1 group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 group-focus-within:text-primary transition-colors" />
           <Input placeholder="Systeme filtern..." className="pl-9 h-9 rounded-md border-slate-200 bg-slate-50/50 focus:bg-white transition-all shadow-none text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -452,7 +506,60 @@ function ResourcesPageContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Typen</SelectItem>
-              {assetTypeOptions?.filter(o => o.enabled).map(o => <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>)}
+              {assetTypeFilterOptions.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+              {hasEmptyAssetType && <SelectItem value="__empty__">Ohne Typ</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 h-9 shrink-0">
+          <Select value={operatingModelFilter} onValueChange={setOperatingModelFilter}>
+            <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[160px] bg-transparent">
+              <Briefcase className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Betriebsmodell" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Modelle</SelectItem>
+              {operatingModelFilterOptions.map(model => <SelectItem key={model} value={model}>{model}</SelectItem>)}
+              {hasEmptyOperatingModel && <SelectItem value="__empty__">Ohne Modell</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 h-9 shrink-0">
+          <Select value={gobdFilter} onValueChange={setGobdFilter}>
+            <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[120px] bg-transparent">
+              <ShieldCheck className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="GoBD" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">GoBD: Alle</SelectItem>
+              <SelectItem value="yes">GoBD: Ja</SelectItem>
+              <SelectItem value="no">GoBD: Nein</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 h-9 shrink-0">
+          <Select value={identityProviderFilter} onValueChange={setIdentityProviderFilter}>
+            <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[140px] bg-transparent">
+              <Fingerprint className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Identitätsanbieter" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">IDP: Alle</SelectItem>
+              <SelectItem value="yes">IDP: Ja</SelectItem>
+              <SelectItem value="no">IDP: Nein</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 h-9 shrink-0">
+          <Select value={dataRepositoryFilter} onValueChange={setDataRepositoryFilter}>
+            <SelectTrigger className="h-full border-none shadow-none text-[10px] font-bold min-w-[130px] bg-transparent">
+              <Database className="w-3 h-3 mr-1.5 text-slate-400" />
+              <SelectValue placeholder="Daten-Repo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Repo: Alle</SelectItem>
+              <SelectItem value="yes">Repo: Ja</SelectItem>
+              <SelectItem value="no">Repo: Nein</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -196,10 +196,11 @@ function UsersPageContent() {
     setIsSaving(true);
     const userId = selectedUser?.id || `u-${Math.random().toString(36).substring(2, 9)}`;
     const isNew = !selectedUser;
+    const normalizedJobIds = selectedJobIds.slice(0, 1);
     
     // Wir halten 'title' für Kompatibilität auf dem ersten Job-Namen
-    const firstJobName = selectedJobIds.length > 0 
-      ? jobTitles?.find((j: any) => j.id === selectedJobIds[0])?.name || ''
+    const firstJobName = normalizedJobIds.length > 0 
+      ? jobTitles?.find((j: any) => j.id === normalizedJobIds[0])?.name || ''
       : '';
 
     const userData = {
@@ -210,7 +211,7 @@ function UsersPageContent() {
       department,
       tenantId,
       title: firstJobName,
-      jobIds: selectedJobIds,
+      jobIds: normalizedJobIds,
       enabled: enabled ? 1 : 0,
       authSource: selectedUser?.authSource || 'local',
       lastSyncedAt: new Date().toISOString()
@@ -278,7 +279,7 @@ function UsersPageContent() {
     setDisplayName(user.displayName);
     setEmail(user.email);
     setDepartment(user.department || '');
-    setSelectedJobIds(user.jobIds || []);
+    setSelectedJobIds((user.jobIds || []).slice(0, 1));
     setTenantId(user.tenantId);
     setEnabled(user.enabled === true || user.enabled === 1 || user.enabled === "1");
     setIsAddOpen(true);
@@ -376,7 +377,7 @@ function UsersPageContent() {
             <TableHeader className="bg-slate-50/50">
               <TableRow className="hover:bg-transparent border-b">
                 <TableHead className="py-4 px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Identität / Quelle</TableHead>
-                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Organisatorische Rollen</TableHead>
+                <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Stellenprofil</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 uppercase tracking-widest">Integrität (AD Sync)</TableHead>
                 <TableHead className="font-bold text-[11px] text-slate-400 text-center uppercase tracking-widest">Status</TableHead>
                 <TableHead className="text-right px-6 font-bold text-[11px] text-slate-400 uppercase tracking-widest">Aktionen</TableHead>
@@ -415,12 +416,12 @@ function UsersPageContent() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1 max-w-[300px]">
-                        {userJobIds.length > 0 ? userJobIds.map((jid: string) => (
-                          <Badge key={jid} variant="secondary" className="text-[8px] font-bold h-4 px-1.5 bg-slate-100 text-slate-600 border-none">
-                            {jobTitles?.find((j: any) => j.id === jid)?.name || jid}
+                        {userJobIds.length > 0 ? (
+                          <Badge variant="secondary" className="text-[8px] font-bold h-4 px-1.5 bg-slate-100 text-slate-600 border-none">
+                            {jobTitles?.find((j: any) => j.id === userJobIds[0])?.name || userJobIds[0]}
                           </Badge>
-                        )) : (
-                          <span className="text-[10px] text-slate-400 italic">Keine Rolle</span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">Kein Stellenprofil</span>
                         )}
                       </div>
                     </TableCell>
@@ -524,18 +525,18 @@ function UsersPageContent() {
               </div>
 
               <div className="space-y-4">
-                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Organisatorische Rollen (Blueprints)</Label>
+                <Label className="text-[11px] font-bold text-primary ml-1 block border-b pb-2">Stellenprofil</Label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {sortedRoles?.filter((j: any) => tenantId === '' || tenantId === 'all' || j.tenantId === tenantId).map((j: any) => (
                     <div 
                       key={j.id} 
                       className={cn(
                         "flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all",
-                        selectedJobIds.includes(j.id) ? "bg-primary/5 border-primary" : "bg-white hover:bg-slate-50"
+                        selectedJobIds[0] === j.id ? "bg-primary/5 border-primary" : "bg-white hover:bg-slate-50"
                       )}
-                      onClick={() => setSelectedJobIds(prev => prev.includes(j.id) ? prev.filter(id => id !== j.id) : [...prev, j.id])}
+                      onClick={() => setSelectedJobIds(prev => prev[0] === j.id ? [] : [j.id])}
                     >
-                      <Checkbox checked={selectedJobIds.includes(j.id)} />
+                      <Checkbox checked={selectedJobIds[0] === j.id} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] font-bold text-slate-800 truncate">{j.name}</p>
                         <p className="text-[9px] text-slate-400 font-medium truncate">{departmentsData?.find((d:any) => d.id === j.departmentId)?.name || '---'}</p>
