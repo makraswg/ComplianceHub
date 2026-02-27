@@ -553,7 +553,7 @@ export default function RolesManagementPage() {
       </Dialog>
 
       <Dialog open={isQuickAddOpen} onOpenChange={(v) => { if (!v) { setIsQuickAddOpen(false); setQuickRole(null); } }}>
-        <DialogContent className="max-w-xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
+        <DialogContent className="max-w-xl w-[95vw] max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-8">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
@@ -568,7 +568,7 @@ export default function RolesManagementPage() {
             </div>
           </DialogHeader>
 
-          <div className="p-4 border-b bg-slate-50">
+          <div className="p-4 border-b bg-slate-50 shrink-0">
             <div className="relative group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <Input
@@ -580,7 +580,7 @@ export default function RolesManagementPage() {
             </div>
           </div>
 
-          <ScrollArea className="max-h-[52vh]">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-4 space-y-2">
               {selectableUsers.map((u) => {
                 const checked = selectedQuickUserIds.includes(u.id);
@@ -607,7 +607,7 @@ export default function RolesManagementPage() {
             </div>
           </ScrollArea>
 
-          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2 shrink-0">
             <Button variant="ghost" onClick={() => { setIsQuickAddOpen(false); setQuickRole(null); }} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleQuickAssignUsers} disabled={isQuickSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
               {isQuickSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Ausgewählte hinzufügen
