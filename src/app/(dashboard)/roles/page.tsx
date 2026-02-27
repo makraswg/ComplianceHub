@@ -580,8 +580,7 @@ export default function RolesManagementPage() {
             </div>
           </div>
 
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-4 space-y-2">
+          <div className="h-[52vh] overflow-y-auto p-4 space-y-2">
               {selectableUsers.map((u) => {
                 const checked = selectedQuickUserIds.includes(u.id);
                 const alreadyAssigned = activeAssignedUserIds.has(u.id);
@@ -604,8 +603,7 @@ export default function RolesManagementPage() {
               {selectableUsers.length === 0 && (
                 <p className="text-xs text-slate-400 text-center py-8">Keine User gefunden</p>
               )}
-            </div>
-          </ScrollArea>
+          </div>
 
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2 shrink-0">
             <Button variant="ghost" onClick={() => { setIsQuickAddOpen(false); setQuickRole(null); }} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
