@@ -112,6 +112,8 @@ function UsersPageContent() {
   const [enabled, setEnabled] = useState(true);
 
   const [activeStatusFilter, setActiveStatusFilter] = useState<'all' | 'active' | 'disabled' | 'drift'>('all');
+  const [selectedTenantFilter, setSelectedTenantFilter] = useState('all');
+  const [selectedOrgUnitFilter, setSelectedOrgUnitFilter] = useState('all');
 
   // Deletion state
   const [isDeleting, setIsDeleting] = useState(false);
@@ -172,6 +174,60 @@ function UsersPageContent() {
     () => sortedRoles.find((item: any) => item.id === selectedJobIds[0]),
     [sortedRoles, selectedJobIds]
   );
+
+  const effectiveTenantFilter = activeTenantId !== 'all' ? activeTenantId : selectedTenantFilter;
+
+  useEffect(() => {
+    if (activeTenantId !== 'all') {
+      setSelectedTenantFilter(activeTenantId);
+      return;
+    }
+    setSelectedTenantFilter('all');
+  }, [activeTenantId]);
+
+  const getOrgUnitAndChildrenIds = (orgUnitId: string) => {
+    if (!orgUnits || !orgUnitId || orgUnitId === 'all') return new Set<string>();
+    const ids = new Set<string>([orgUnitId]);
+    const queue: string[] = [orgUnitId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!currentId) continue;
+      const children = orgUnits.filter((unit: any) => unit.parentId === currentId);
+      for (const child of children) {
+        if (ids.has(child.id)) continue;
+        ids.add(child.id);
+        queue.push(child.id);
+      }
+    }
+
+    return ids;
+  };
+
+  const availableOrgUnitFilters = useMemo(() => {
+    if (!users || !jobTitles || !orgUnits) return [];
+
+    const userJobIds = new Set<string>();
+    users
+      .filter((user: any) => effectiveTenantFilter === 'all' || user.tenantId === effectiveTenantFilter)
+      .forEach((user: any) => {
+        (user.jobIds || []).forEach((jobId: string) => userJobIds.add(jobId));
+      });
+
+    const orgUnitIds = Array.from(
+      new Set(
+        jobTitles
+          .filter((job: any) => userJobIds.has(job.id))
+          .map((job: any) => job.departmentId)
+          .filter(Boolean)
+      )
+    );
+
+    return orgUnitIds
+      .map((id) => orgUnits.find((unit: any) => unit.id === id))
+      .filter(Boolean)
+      .sort((a: any, b: any) => getOrgUnitPath(a.id).localeCompare(getOrgUnitPath(b.id)));
+  }, [users, jobTitles, orgUnits, effectiveTenantFilter]);
 
   const selectableJobOrgUnits = useMemo(() => {
     const relevantJobs = (sortedRoles || []).filter((job: any) => tenantId === '' || tenantId === 'all' || job.tenantId === tenantId);
@@ -417,7 +473,17 @@ function UsersPageContent() {
   const filteredUsers = useMemo(() => {
     if (!users) return [];
     return users.filter((user: any) => {
-      if (activeTenantId !== 'all' && user.tenantId !== activeTenantId) return false;
+      if (effectiveTenantFilter !== 'all' && user.tenantId !== effectiveTenantFilter) return false;
+
+      if (selectedOrgUnitFilter !== 'all') {
+        const allowedOrgUnitIds = getOrgUnitAndChildrenIds(selectedOrgUnitFilter);
+        const hasMatchingOrgUnit = (user.jobIds || []).some((jobId: string) => {
+          const job = jobTitles?.find((item: any) => item.id === jobId);
+          return !!job?.departmentId && allowedOrgUnitIds.has(job.departmentId);
+        });
+        if (!hasMatchingOrgUnit) return false;
+      }
+
       const matchesSearch = (user.displayName || '').toLowerCase().includes(search.toLowerCase()) || (user.email || '').toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
       
@@ -432,7 +498,7 @@ function UsersPageContent() {
 
       return true;
     });
-  }, [users, search, activeTenantId, activeStatusFilter, entitlementAssignments, entitlements, jobTitles, userCapabilities]);
+  }, [users, search, activeStatusFilter, entitlementAssignments, entitlements, jobTitles, selectedOrgUnitFilter, userCapabilities, effectiveTenantFilter, orgUnits]);
 
   if (!mounted) return null;
 
@@ -476,6 +542,37 @@ function UsersPageContent() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        <Select
+          value={selectedTenantFilter}
+          onValueChange={(value) => {
+            setSelectedTenantFilter(value);
+            setSelectedOrgUnitFilter('all');
+          }}
+          disabled={activeTenantId !== 'all'}
+        >
+          <SelectTrigger className="w-[220px] h-9 rounded-lg border-slate-200 bg-slate-50/50 text-xs">
+            <SelectValue placeholder="Mandant" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle Mandanten</SelectItem>
+            {(tenants || []).map((tenant: any) => (
+              <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedOrgUnitFilter} onValueChange={setSelectedOrgUnitFilter}>
+          <SelectTrigger className="w-[260px] h-9 rounded-lg border-slate-200 bg-slate-50/50 text-xs">
+            <SelectValue placeholder="Organisationseinheit" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Alle Organisationseinheiten</SelectItem>
+            {availableOrgUnitFilters.map((orgUnit: any) => (
+              <SelectItem key={orgUnit.id} value={orgUnit.id}>{getOrgUnitPath(orgUnit.id)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         
         <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700 h-9 shrink-0">
           {[

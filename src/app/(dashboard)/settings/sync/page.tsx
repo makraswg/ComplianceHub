@@ -49,7 +49,8 @@ import {
   triggerSyncJobAction, 
   testLdapConnectionAction, 
   getAdUsersAction,
-  importUsersAction 
+  importUsersAction,
+  repairLdapTenantAssignmentsAction
 } from '@/app/actions/sync-actions';
 import { Tenant, SyncJob, User } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -87,6 +88,7 @@ export default function SyncSettingsPage() {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isFetchingAd, setIsFetchingAd] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const [adUsers, setAdUsers] = useState<any[]>([]);
   const [selectedAdUsers, setSelectedAdUsers] = useState<any[]>([]);
   const [adSearch, setAdSearch] = useState('');
@@ -200,6 +202,28 @@ export default function SyncSettingsPage() {
       }
     } finally {
       setIsJobRunning(null);
+    }
+  };
+
+  const handleRepairTenantAssignments = async () => {
+    setIsRepairing(true);
+    try {
+      const res = await repairLdapTenantAssignmentsAction(dataSource, authUser?.email || 'system');
+      if (res.success) {
+        toast({
+          title: 'Debug-Korrektur abgeschlossen',
+          description: `${res.moved} verschoben, ${res.updatedProfiles} Stellenprofile aktualisiert (${res.checked} geprüft).`
+        });
+        refreshLogs();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Debug-Korrektur fehlgeschlagen',
+          description: res.message
+        });
+      }
+    } finally {
+      setIsRepairing(false);
     }
   };
 
@@ -489,6 +513,29 @@ export default function SyncSettingsPage() {
               </p>
             </div>
           </div>
+
+          <Card className="rounded-2xl border border-amber-200 bg-amber-50/40 dark:bg-amber-900/10 shadow-sm overflow-hidden">
+            <CardHeader className="p-4 border-b border-amber-100 dark:border-amber-900/30">
+              <CardTitle className="text-xs font-black uppercase tracking-widest text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                <Bug className="w-4 h-4" /> Debug-Korrektur
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <p className="text-[10px] text-amber-800/80 dark:text-amber-100/80 leading-relaxed">
+                Korrigiert falsch zugeordnete LDAP-Benutzer auf den passenden Mandanten und aktualisiert Stellenprofile anhand der AD-Daten.
+                Das Firmen-Matching berücksichtigt auch Unterschiede wie "ae" und "ä".
+              </p>
+              <Button
+                variant="outline"
+                className="w-full h-9 rounded-md font-bold text-[10px] uppercase border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={handleRepairTenantAssignments}
+                disabled={isRepairing}
+              >
+                {isRepairing ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : <Bug className="w-3.5 h-3.5 mr-2" />}
+                Falsche Mandantenzuordnung korrigieren
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
 

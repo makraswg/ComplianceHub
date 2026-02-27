@@ -11,12 +11,25 @@ import { Client } from 'ldapts';
 function normalizeForMatch(str: string): string {
   if (!str) return '';
   return str.toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/ä/g, 'a').replace(/ae/g, 'a')
     .replace(/ö/g, 'o').replace(/oe/g, 'o')
     .replace(/ü/g, 'u').replace(/ue/g, 'u')
     .replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]/g, '') 
     .trim();
+}
+
+function findTenantByCompany(company: string, tenants: Tenant[]): Tenant | undefined {
+  const normalizedCompany = normalizeForMatch(company);
+  if (!normalizedCompany) return undefined;
+
+  return tenants.find((tenant) => {
+    const normalizedName = normalizeForMatch(tenant.name || '');
+    const normalizedSlug = normalizeForMatch(tenant.slug || '');
+    return normalizedName === normalizedCompany || normalizedSlug === normalizedCompany;
+  });
 }
 
 /**
@@ -222,8 +235,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
 
     return searchEntries.map((entry: any) => {
       const company = safeGetAttribute(entry, config.ldapAttrCompany || 'company', '');
-      const normAdCompany = normalizeForMatch(company);
-      let matchedTenant = allTenants.find(t => normalizeForMatch(t.name) === normAdCompany || normalizeForMatch(t.slug) === normAdCompany);
+      const matchedTenant = findTenantByCompany(company, allTenants);
 
       const username = safeGetAttribute(entry, config.ldapAttrUsername || 'sAMAccountName', '');
       const isDisabled = isUserAccountDisabled(entry.userAccountControl);
@@ -249,6 +261,119 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
     throw new Error("LDAP Abfrage fehlgeschlagen: " + e.message);
   } finally {
     try { await client.unbind(); } catch (e) {}
+  }
+}
+
+/**
+ * Repariert fehlerhafte Mandantenzuordnung bereits importierter LDAP-Benutzer.
+ * Nützlich, wenn Mandanten erst nach einem Erstimport angelegt wurden.
+ */
+export async function repairLdapTenantAssignmentsAction(
+  dataSource: DataSource = 'mysql',
+  actorUid: string = 'system'
+): Promise<{ success: boolean; moved: number; updatedProfiles: number; checked: number; message: string }> {
+  try {
+    const tenantsRes = await getCollectionData('tenants', dataSource);
+    const usersRes = await getCollectionData('users', dataSource);
+
+    const allTenants = (tenantsRes.data || []) as Tenant[];
+    const hubUsers = (usersRes.data || []) as User[];
+    const ldapTenants = allTenants.filter((tenant) => tenant.ldapEnabled);
+
+    if (ldapTenants.length === 0) {
+      return {
+        success: true,
+        moved: 0,
+        updatedProfiles: 0,
+        checked: 0,
+        message: 'Keine LDAP-fähigen Mandanten gefunden.'
+      };
+    }
+
+    const adUsersByExternalId = new Map<string, any>();
+    const adUsersByEmail = new Map<string, any>();
+
+    for (const tenant of ldapTenants) {
+      try {
+        const adUsers = await getAdUsersAction(tenant, dataSource);
+        for (const adUser of adUsers) {
+          const externalKey = String(adUser.username || '').toLowerCase();
+          const emailKey = String(adUser.email || '').toLowerCase();
+          if (externalKey) adUsersByExternalId.set(externalKey, adUser);
+          if (emailKey) adUsersByEmail.set(emailKey, adUser);
+        }
+      } catch (error: any) {
+        await logLdapInteraction(
+          dataSource,
+          tenant.id,
+          'Repair Tenant Assignment',
+          'error',
+          error?.message || 'Unbekannter Fehler beim AD-Lesen',
+          { tenantId: tenant.id, tenantName: tenant.name }
+        );
+      }
+    }
+
+    let moved = 0;
+    let updatedProfiles = 0;
+    let checked = 0;
+
+    for (const hubUser of hubUsers) {
+      if (hubUser.authSource !== 'ldap' && !hubUser.externalId) continue;
+      checked++;
+
+      const externalKey = String(hubUser.externalId || '').toLowerCase();
+      const emailKey = String(hubUser.email || '').toLowerCase();
+      const adMatch = (externalKey && adUsersByExternalId.get(externalKey)) || (emailKey && adUsersByEmail.get(emailKey));
+
+      if (!adMatch?.matchedTenantId) continue;
+
+      const shouldMoveTenant = hubUser.tenantId !== adMatch.matchedTenantId;
+      const titleFromAd = String(adMatch.title || '').trim();
+      const shouldUpdateTitle = !!titleFromAd && titleFromAd !== hubUser.title;
+
+      if (!shouldMoveTenant && !shouldUpdateTitle) continue;
+
+      const updatedUser: User = {
+        ...hubUser,
+        tenantId: shouldMoveTenant ? adMatch.matchedTenantId : hubUser.tenantId,
+        title: shouldUpdateTitle ? titleFromAd : hubUser.title,
+        lastSyncedAt: new Date().toISOString()
+      };
+
+      const saveRes = await saveCollectionRecord('users', hubUser.id, updatedUser, dataSource);
+      if (!saveRes.success) continue;
+
+      if (shouldMoveTenant) moved++;
+      if (shouldUpdateTitle) updatedProfiles++;
+
+      await logAuditEventAction(dataSource, {
+        tenantId: updatedUser.tenantId,
+        actorUid,
+        action: `Debug-Korrektur LDAP-Zuordnung: ${hubUser.displayName}`,
+        entityType: 'user',
+        entityId: hubUser.id,
+        before: hubUser,
+        after: updatedUser
+      });
+    }
+
+    const message = `Korrektur abgeschlossen: ${moved} Benutzer verschoben, ${updatedProfiles} Stellenprofile aktualisiert, ${checked} LDAP-Benutzer geprüft.`;
+    await logLdapInteraction(dataSource, 'global', 'Repair Tenant Assignment', 'success', message, {
+      moved,
+      updatedProfiles,
+      checked
+    }, actorUid);
+
+    return { success: true, moved, updatedProfiles, checked, message };
+  } catch (error: any) {
+    return {
+      success: false,
+      moved: 0,
+      updatedProfiles: 0,
+      checked: 0,
+      message: error?.message || 'Unbekannter Fehler bei der Debug-Korrektur.'
+    };
   }
 }
 
