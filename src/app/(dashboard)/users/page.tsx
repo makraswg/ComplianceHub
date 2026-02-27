@@ -117,6 +117,8 @@ function UsersPageContent() {
 
   // Deletion state
   const [isDeleting, setIsDeleting] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [blockerInfo, setBlockerInfo] = useState<{ title: string, items: string[], targetId?: string } | null>(null);
 
   const { data: users, isLoading, refresh: refreshUsers } = usePluggableCollection<any>('users');
@@ -424,17 +426,25 @@ function UsersPageContent() {
   };
 
   const handleDeleteClick = async (user: any) => {
+    setUserToDelete(user);
+    setDeleteConfirmationText('');
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
     setIsDeleting(true);
     try {
-      const res = await deleteUserAction(user.id, dataSource, authUser?.email || 'system');
+      const res = await deleteUserAction(userToDelete.id, dataSource, authUser?.email || 'system');
       if (res.success) {
         toast({ title: "Benutzer permanent gelöscht" });
+        setUserToDelete(null);
+        setDeleteConfirmationText('');
         refreshUsers();
       } else {
         setBlockerInfo({
           title: "Löschen nicht möglich",
           items: res.blockers || [res.error || "Unbekannte Abhängigkeit"],
-          targetId: user.id
+          targetId: userToDelete.id
         });
       }
     } finally {
@@ -897,6 +907,60 @@ function UsersPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={!!userToDelete}
+        onOpenChange={(val) => {
+          if (!val && !isDeleting) {
+            setUserToDelete(null);
+            setDeleteConfirmationText('');
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">
+          <AlertDialogHeader>
+            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <AlertDialogTitle className="text-xl font-headline font-bold text-center text-red-600">Benutzer permanent löschen?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-slate-500 font-medium leading-relaxed pt-3 text-center" asChild>
+              <div className="space-y-4">
+                <p>
+                  Diese Aktion kann nicht rückgängig gemacht werden. Bitte geben Sie <span className="font-black text-red-600">LOESCHEN</span> ein, um den Benutzer
+                  <span className="font-bold text-slate-700"> {userToDelete?.displayName}</span> endgültig zu entfernen.
+                </p>
+                <Input
+                  value={deleteConfirmationText}
+                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                  placeholder="LOESCHEN"
+                  className="h-11 rounded-xl border-slate-200 text-center font-bold tracking-wider"
+                  disabled={isDeleting}
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-6 gap-3 sm:justify-center">
+            <AlertDialogCancel
+              className="rounded-xl font-bold text-xs h-11 px-10 border-slate-200"
+              disabled={isDeleting}
+            >
+              Abbrechen
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteConfirmationText.trim().toUpperCase() !== 'LOESCHEN') return;
+                handleConfirmDelete();
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs h-11 px-10 gap-2 shadow-lg shadow-red-200"
+              disabled={isDeleting || deleteConfirmationText.trim().toUpperCase() !== 'LOESCHEN'}
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              Endgültig löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!blockerInfo} onOpenChange={(val) => { if(!val) setBlockerInfo(null); }}>
         <AlertDialogContent className="rounded-2xl border-none shadow-2xl p-8 max-w-lg">

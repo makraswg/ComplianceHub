@@ -58,9 +58,98 @@ const getAttributeArray = (entry: any, attributeName: string | undefined): strin
  * Prüft anhand des userAccountControl Bitmask-Wertes, ob ein AD-Konto deaktiviert ist.
  */
 function isUserAccountDisabled(uac: any): boolean {
-  const val = parseInt(String(uac || '0'), 10);
-  if (isNaN(val)) return false;
+  const val = extractNumericAttribute(uac);
+  if (val === null) return false;
   return (val & 2) === 2;
+}
+
+/**
+ * Normalisiert LDAP-Attributwerte in eine Zahl (unterstützt String, Array, Buffer).
+ */
+function extractNumericAttribute(value: any): number | null {
+  if (value === null || value === undefined) return null;
+
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
+  if (normalizedValue === null || normalizedValue === undefined) return null;
+
+  if (typeof normalizedValue === 'number') {
+    return Number.isFinite(normalizedValue) ? normalizedValue : null;
+  }
+
+  if (typeof normalizedValue === 'string') {
+    const parsed = parseInt(normalizedValue, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+
+  if (Buffer.isBuffer(normalizedValue)) {
+    if (normalizedValue.length === 0) return null;
+    try {
+      let parsed = 0;
+      for (let index = 0; index < normalizedValue.length; index++) {
+        parsed += normalizedValue[index] * Math.pow(256, index);
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalisiert typische LDAP-Bool-Werte (TRUE/FALSE, 1/0, yes/no).
+ */
+function parseBooleanLike(value: any): boolean | null {
+  if (value === null || value === undefined) return null;
+
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
+  if (normalizedValue === null || normalizedValue === undefined) return null;
+
+  if (typeof normalizedValue === 'boolean') return normalizedValue;
+  if (typeof normalizedValue === 'number') return normalizedValue !== 0;
+
+  const stringValue = String(normalizedValue).trim().toLowerCase();
+  if (!stringValue) return null;
+
+  if (['true', '1', 'yes', 'y', 'on'].includes(stringValue)) return true;
+  if (['false', '0', 'no', 'n', 'off'].includes(stringValue)) return false;
+  return null;
+}
+
+/**
+ * Ermittelt den Deaktiviert-Status möglichst robust über mehrere AD/LDAP-Attribute.
+ */
+function isAdUserDisabled(entry: any): boolean {
+  const accountEnabled = parseBooleanLike(entry.accountEnabled);
+  if (accountEnabled !== null) {
+    return !accountEnabled;
+  }
+
+  const msDsDisabled = parseBooleanLike(entry['msDS-UserAccountDisabled']);
+  if (msDsDisabled !== null) {
+    return msDsDisabled;
+  }
+
+  const accountDisabled = parseBooleanLike(entry.accountDisabled);
+  if (accountDisabled !== null) {
+    return accountDisabled;
+  }
+
+  const nsAccountLock = parseBooleanLike(entry.nsAccountLock);
+  if (nsAccountLock !== null) {
+    return nsAccountLock;
+  }
+
+  return isUserAccountDisabled(entry.userAccountControl);
+}
+
+function isEnabledValue(value: unknown): boolean {
+  if (value === true || value === 1 || value === '1') return true;
+  if (typeof value === 'string') {
+    return value.trim().toLowerCase() === 'true';
+  }
+  return false;
 }
 
 /**
@@ -226,7 +315,11 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
         config.ldapAttrGroups || 'memberOf',
         'displayName',
         'title',
-        'userAccountControl'
+        'userAccountControl',
+        'msDS-UserAccountDisabled',
+        'accountDisabled',
+        'accountEnabled',
+        'nsAccountLock'
       ]
     });
 
@@ -238,7 +331,7 @@ export async function getAdUsersAction(config: Partial<Tenant>, dataSource: Data
       const matchedTenant = findTenantByCompany(company, allTenants);
 
       const username = safeGetAttribute(entry, config.ldapAttrUsername || 'sAMAccountName', '');
-      const isDisabled = isUserAccountDisabled(entry.userAccountControl);
+      const isDisabled = isAdUserDisabled(entry);
       const groups = getAttributeArray(entry, config.ldapAttrGroups || 'memberOf');
 
       return {
@@ -454,7 +547,7 @@ export async function triggerSyncJobAction(jobId: string, dataSource: DataSource
           
           if (adMatch) {
             const shouldBeEnabled = !adMatch.isDisabled;
-            const currentEnabled = hubUser.enabled === true || hubUser.enabled === 1;
+            const currentEnabled = isEnabledValue(hubUser.enabled);
             
             const adGroupsJson = JSON.stringify((adMatch.adGroups || []).sort());
             const hubGroupsJson = JSON.stringify((hubUser.adGroups || []).sort());
