@@ -379,10 +379,11 @@ function ProcessDesignerContent() {
 
     const nodeWidth = isExpanded ? 600 : 256;
     const nodeCenterX = node.x + OFFSET_X + (nodeWidth / 2);
+    const expandedUpwardOffsetPx = isExpanded ? 100 : 0;
 
     setPosition({
       x: -(nodeCenterX * targetScale) + (containerWidth / 2),
-      y: -(nodeCenterY * targetScale) + (containerHeight / 2)
+      y: -(nodeCenterY * targetScale) + (containerHeight / 2) - expandedUpwardOffsetPx
     });
     setScale(targetScale);
     setTimeout(() => setIsProgrammaticMove(false), 850);
