@@ -41,7 +41,7 @@ import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { toast } from '@/hooks/use-toast';
-import { Tenant, Department, JobTitle, Entitlement, Resource } from '@/lib/types';
+import { Tenant, Department, JobTitle, Entitlement, OrgUnitType, OrgUnit, OrgUnitRelation } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -90,6 +90,19 @@ export default function UnifiedOrganizationPage() {
   const { data: departments, refresh: refreshDepts } = usePluggableCollection<Department>('departments');
   const { data: jobTitles, refresh: refreshJobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: orgUnitTypes, refresh: refreshOrgUnitTypes } = usePluggableCollection<OrgUnitType>('orgUnitTypes');
+  const { data: orgUnits, refresh: refreshOrgUnits } = usePluggableCollection<OrgUnit>('orgUnits');
+  const { data: orgUnitRelations, refresh: refreshOrgUnitRelations } = usePluggableCollection<OrgUnitRelation>('orgUnitRelations');
+
+  const [selectedOrgTypeFilter, setSelectedOrgTypeFilter] = useState('all');
+  const [newOrgTypeName, setNewOrgTypeName] = useState('');
+  const [newOrgTypeKey, setNewOrgTypeKey] = useState('');
+  const [newOrgUnitName, setNewOrgUnitName] = useState('');
+  const [newOrgUnitTypeId, setNewOrgUnitTypeId] = useState('');
+  const [newOrgUnitParentId, setNewOrgUnitParentId] = useState('');
+  const [newRelationFromId, setNewRelationFromId] = useState('');
+  const [newRelationToId, setNewRelationToId] = useState('');
+  const [newRelationType, setNewRelationType] = useState<'supports' | 'advises' | 'works_for'>('supports');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -117,6 +130,145 @@ export default function UnifiedOrganizationPage() {
       })
       .filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase()));
   }, [tenants, departments, jobTitles, search, showArchived]);
+
+  const availableOrgTypes = useMemo(() => {
+    return (orgUnitTypes || [])
+      .filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all')
+      .filter((item) => item.enabled === true || item.enabled === 1)
+      .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  }, [orgUnitTypes, activeTenantId]);
+
+  const filteredOrgUnits = useMemo(() => {
+    const allUnits = (orgUnits || []).filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all');
+    if (selectedOrgTypeFilter === 'all') return allUnits;
+    return allUnits.filter((item) => item.typeId === selectedOrgTypeFilter);
+  }, [orgUnits, activeTenantId, selectedOrgTypeFilter]);
+
+  const orgTreeRoots = useMemo(() => {
+    const unitIds = new Set(filteredOrgUnits.map((item) => item.id));
+    return filteredOrgUnits.filter((item) => !item.parentId || !unitIds.has(item.parentId));
+  }, [filteredOrgUnits]);
+
+  const relationRows = useMemo(() => {
+    return (orgUnitRelations || []).filter((item) => item.tenantId === activeTenantId || activeTenantId === 'all');
+  }, [orgUnitRelations, activeTenantId]);
+
+  const getOrgUnitName = (orgUnitId?: string) => {
+    if (!orgUnitId) return '—';
+    return orgUnits?.find((item) => item.id === orgUnitId)?.name || orgUnitId;
+  };
+
+  const renderOrgNode = (node: OrgUnit, level: number = 0): JSX.Element => {
+    const children = filteredOrgUnits.filter((item) => item.parentId === node.id);
+    const typeName = availableOrgTypes.find((item) => item.id === node.typeId)?.name || node.typeId;
+
+    return (
+      <div key={node.id} className="space-y-2">
+        <div className="flex items-center gap-2" style={{ marginLeft: `${level * 16}px` }}>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{node.name}</span>
+          <Badge variant="outline" className="text-[8px] uppercase">{typeName}</Badge>
+        </div>
+        {children.map((child) => renderOrgNode(child, level + 1))}
+      </div>
+    );
+  };
+
+  const handleCreateOrgUnitType = async () => {
+    if (!newOrgTypeName) return;
+    const id = `out-${Math.random().toString(36).substring(2, 8)}`;
+    const normalizedKey = (newOrgTypeKey || newOrgTypeName)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_');
+
+    const data = {
+      id,
+      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      key: normalizedKey,
+      name: newOrgTypeName,
+      enabled: true,
+      sortOrder: availableOrgTypes.length,
+    };
+
+    const result = await saveCollectionRecord('orgUnitTypes', id, data, dataSource);
+    if (result.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: data.tenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `OrgUnit-Typ angelegt: ${newOrgTypeName}`,
+        entityType: 'orgUnitType',
+        entityId: id,
+        after: data,
+      });
+      setNewOrgTypeName('');
+      setNewOrgTypeKey('');
+      refreshOrgUnitTypes();
+      toast({ title: 'OrgUnit-Typ gespeichert' });
+    }
+  };
+
+  const handleCreateOrgUnit = async () => {
+    if (!newOrgUnitName || !newOrgUnitTypeId) return;
+    const id = `ou-${Math.random().toString(36).substring(2, 8)}`;
+    const data = {
+      id,
+      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      name: newOrgUnitName,
+      typeId: newOrgUnitTypeId,
+      parentId: newOrgUnitParentId || null,
+      status: 'active',
+      sortOrder: 0,
+    };
+
+    const result = await saveCollectionRecord('orgUnits', id, data, dataSource);
+    if (result.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: data.tenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `OrgUnit angelegt: ${newOrgUnitName}`,
+        entityType: 'orgUnit',
+        entityId: id,
+        after: data,
+      });
+      setNewOrgUnitName('');
+      setNewOrgUnitTypeId('');
+      setNewOrgUnitParentId('');
+      refreshOrgUnits();
+      toast({ title: 'OrgUnit gespeichert' });
+    }
+  };
+
+  const handleCreateRelation = async () => {
+    if (!newRelationFromId || !newRelationToId || newRelationFromId === newRelationToId) return;
+    const id = `our-${Math.random().toString(36).substring(2, 8)}`;
+    const data = {
+      id,
+      tenantId: activeTenantId === 'all' ? 'global' : activeTenantId,
+      fromOrgUnitId: newRelationFromId,
+      toOrgUnitId: newRelationToId,
+      relationType: newRelationType,
+      status: 'active',
+      validFrom: new Date().toISOString(),
+    };
+
+    const result = await saveCollectionRecord('orgUnitRelations', id, data, dataSource);
+    if (result.success) {
+      await logAuditEventAction(dataSource, {
+        tenantId: data.tenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: `Stabsrelation gepflegt: ${newRelationType}`,
+        entityType: 'orgUnitRelation',
+        entityId: id,
+        after: data,
+      });
+      setNewRelationFromId('');
+      setNewRelationToId('');
+      setNewRelationType('supports');
+      refreshOrgUnitRelations();
+      toast({ title: 'Relation gespeichert' });
+    }
+  };
 
   const handleSaveTenant = async () => {
     if (!tenantName) return;
@@ -258,6 +410,68 @@ export default function UnifiedOrganizationPage() {
       </div>
 
       <div className="space-y-4">
+        <Card className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl">
+          <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6">
+            <CardTitle className="text-base font-bold">OrgUnits & Stabsstellen (neu)</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Neuer OrgUnit-Typ</Label>
+                <Input value={newOrgTypeName} onChange={(event) => setNewOrgTypeName(event.target.value)} placeholder="z. B. Bereich" className="h-9" />
+                <Input value={newOrgTypeKey} onChange={(event) => setNewOrgTypeKey(event.target.value)} placeholder="Key (optional)" className="h-9" />
+                <Button size="sm" onClick={handleCreateOrgUnitType} className="text-[10px] font-bold">Typ anlegen</Button>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Neue OrgUnit</Label>
+                <Input value={newOrgUnitName} onChange={(event) => setNewOrgUnitName(event.target.value)} placeholder="z. B. Marketing" className="h-9" />
+                <Input value={newOrgUnitTypeId} onChange={(event) => setNewOrgUnitTypeId(event.target.value)} placeholder="OrgUnitType-ID" className="h-9" />
+                <Input value={newOrgUnitParentId} onChange={(event) => setNewOrgUnitParentId(event.target.value)} placeholder="Parent-ID (optional)" className="h-9" />
+                <Button size="sm" onClick={handleCreateOrgUnit} className="text-[10px] font-bold">OrgUnit anlegen</Button>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-[10px] font-bold uppercase text-slate-400">Stabsrelation pflegen</Label>
+                <Input value={newRelationFromId} onChange={(event) => setNewRelationFromId(event.target.value)} placeholder="Von OrgUnit-ID" className="h-9" />
+                <Input value={newRelationToId} onChange={(event) => setNewRelationToId(event.target.value)} placeholder="Zu OrgUnit-ID" className="h-9" />
+                <Input value={newRelationType} onChange={(event) => setNewRelationType(event.target.value as 'supports' | 'advises' | 'works_for')} placeholder="supports | advises | works_for" className="h-9" />
+                <Button size="sm" onClick={handleCreateRelation} className="text-[10px] font-bold">Relation speichern</Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Label className="text-[10px] font-bold uppercase text-slate-400">Typ-Filter</Label>
+              <Button size="sm" variant={selectedOrgTypeFilter === 'all' ? 'default' : 'outline'} className="h-7 text-[10px]" onClick={() => setSelectedOrgTypeFilter('all')}>Alle</Button>
+              {availableOrgTypes.map((type) => (
+                <Button key={type.id} size="sm" variant={selectedOrgTypeFilter === type.id ? 'default' : 'outline'} className="h-7 text-[10px]" onClick={() => setSelectedOrgTypeFilter(type.id)}>
+                  {type.name}
+                </Button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="p-4 border rounded-xl bg-slate-50/40 space-y-2">
+                <p className="text-[10px] font-bold uppercase text-slate-400">OrgUnit-Baumansicht</p>
+                <div className="space-y-2">
+                  {orgTreeRoots.map((root) => renderOrgNode(root))}
+                  {orgTreeRoots.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine OrgUnits vorhanden.</p>}
+                </div>
+              </div>
+              <div className="p-4 border rounded-xl bg-slate-50/40 space-y-2">
+                <p className="text-[10px] font-bold uppercase text-slate-400">Fachliche Stabsrelationen</p>
+                <div className="space-y-2">
+                  {relationRows.map((row) => (
+                    <div key={row.id} className="p-2 rounded-lg bg-white border flex items-center justify-between">
+                      <span className="text-xs font-bold">{getOrgUnitName(row.fromOrgUnitId)} → {getOrgUnitName(row.toOrgUnitId)}</span>
+                      <Badge variant="outline" className="text-[8px] uppercase">{row.relationType}</Badge>
+                    </div>
+                  ))}
+                  {relationRows.length === 0 && <p className="text-xs text-slate-500 italic">Noch keine fachlichen Relationen vorhanden.</p>}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {groupedData.map(tenant => (
           <Card key={tenant.id} className="border shadow-sm bg-white dark:bg-slate-900 overflow-hidden rounded-2xl group">
             <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b p-4 px-6 flex flex-row items-center justify-between">

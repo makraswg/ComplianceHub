@@ -40,12 +40,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { User, Assignment, Entitlement, Resource, Tenant, JobTitle, Department } from '@/lib/types';
+import { User, Assignment, Entitlement, Resource, Tenant, JobTitle, Department, EntitlementAssignment, UserPosition, Position, UserCapability, Capability, UserOrgUnit, OrgUnit } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { computeEffectiveAccess } from '@/lib/effective-access';
 
 export default function UserDetailPage() {
   const { id } = useParams();
@@ -61,6 +62,13 @@ export default function UserDetailPage() {
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: departments } = usePluggableCollection<Department>('departments');
   const { data: auditLogs } = usePluggableCollection<any>('auditEvents');
+  const { data: entitlementAssignments } = usePluggableCollection<EntitlementAssignment>('entitlementAssignments');
+  const { data: userPositions } = usePluggableCollection<UserPosition>('userPositions');
+  const { data: positions } = usePluggableCollection<Position>('positions');
+  const { data: userCapabilities } = usePluggableCollection<UserCapability>('userCapabilities');
+  const { data: capabilities } = usePluggableCollection<Capability>('capabilities');
+  const { data: userOrgUnits } = usePluggableCollection<UserOrgUnit>('userOrgUnits');
+  const { data: orgUnits } = usePluggableCollection<OrgUnit>('orgUnits');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -111,6 +119,36 @@ export default function UserDetailPage() {
     const integrity = Math.max(0, 100 - (missing.length * 10) - (extra.length * 20));
     return { hasDrift: missing.length > 0 || extra.length > 0, missing, extra, integrity };
   }, [user, userAssignments, entitlements, jobs, assignments]);
+
+  const userPositionLinks = useMemo(
+    () => userPositions?.filter((item) => item.userId === id && item.status === 'active') || [],
+    [userPositions, id]
+  );
+
+  const userCapabilityLinks = useMemo(
+    () => userCapabilities?.filter((item) => item.userId === id && item.status === 'active') || [],
+    [userCapabilities, id]
+  );
+
+  const userOrgUnitLinks = useMemo(
+    () => userOrgUnits?.filter((item) => item.userId === id && item.status === 'active') || [],
+    [userOrgUnits, id]
+  );
+
+  const effectiveGrants = useMemo(() => {
+    if (!user || !entitlements) return [];
+
+    const scopedAssignments = (entitlementAssignments || []).filter((item) => item.tenantId === user.tenantId);
+    return computeEffectiveAccess({
+      userId: user.id,
+      userJobTitleIds: user.jobIds || [],
+      userPositionIds: userPositionLinks.map((item) => item.positionId),
+      userCapabilityIds: userCapabilityLinks.map((item) => item.capabilityId),
+      directAssignments: scopedAssignments.filter((item) => item.subjectType === 'person'),
+      inheritedAssignments: scopedAssignments.filter((item) => item.subjectType !== 'person'),
+      entitlements,
+    });
+  }, [user, entitlements, entitlementAssignments, userPositionLinks, userCapabilityLinks]);
 
   if (!mounted) return null;
 
@@ -193,6 +231,43 @@ export default function UserDetailPage() {
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-400 italic">
                         <Briefcase className="w-3.5 h-3.5 opacity-30" /> {user.title || 'Keine Rolle'}
                       </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">OrgUnit-Zuordnungen</p>
+                  <div className="flex flex-col gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                    {userOrgUnitLinks.length > 0 ? userOrgUnitLinks.map((link) => {
+                      const orgUnit = orgUnits?.find((item) => item.id === link.orgUnitId);
+                      return (
+                        <div key={link.id} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <Building2 className="w-3.5 h-3.5 text-emerald-600" /> {orgUnit?.name || link.orgUnitId}
+                        </div>
+                      );
+                    }) : <div className="text-xs font-bold text-slate-400 italic">Keine OrgUnit-Zuordnung</div>}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Positionen & Functions</p>
+                  <div className="flex flex-col gap-1.5 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800 shadow-inner">
+                    {userPositionLinks.map((link) => {
+                      const position = positions?.find((item) => item.id === link.positionId);
+                      return (
+                        <div key={link.id} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> {position?.name || link.positionId}
+                        </div>
+                      );
+                    })}
+                    {userCapabilityLinks.map((link) => {
+                      const capability = capabilities?.find((item) => item.id === link.capabilityId);
+                      return (
+                        <div key={link.id} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                          <Target className="w-3.5 h-3.5 text-primary" /> {capability?.name || link.capabilityId}
+                        </div>
+                      );
+                    })}
+                    {userPositionLinks.length === 0 && userCapabilityLinks.length === 0 && (
+                      <div className="text-xs font-bold text-slate-400 italic">Keine Position/Function gepflegt</div>
                     )}
                   </div>
                 </div>
@@ -306,6 +381,48 @@ export default function UserDetailPage() {
                       })}
                       {userAssignments.filter(a => a.status === 'active').length === 0 && (
                         <TableRow><TableCell colSpan={5} className="py-16 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Berechtigungen zugewiesen</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border shadow-xl bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6">
+                  <CardTitle className="text-sm font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Effective Access (neu)</CardTitle>
+                  <CardDescription className="text-[10px] font-bold uppercase text-slate-400">Quelle + Scope aus Entitlement-Assignments</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
+                      <TableRow className="border-b last:border-0">
+                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Ressource</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Rolle</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Quelle</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Scope</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {effectiveGrants.map((grant, index) => {
+                        const entitlement = entitlements?.find((item) => item.id === grant.entitlementId);
+                        const resource = resources?.find((item) => item.id === grant.resourceId);
+                        const scopeLabel = grant.scopeOrgUnitId
+                          ? `${orgUnits?.find((item) => item.id === grant.scopeOrgUnitId)?.name || grant.scopeOrgUnitId}${grant.scopeIncludeChildren ? ' (+Untereinheiten)' : ''}`
+                          : 'Global';
+
+                        return (
+                          <TableRow key={`${grant.entitlementId}-${grant.sourceType}-${grant.sourceId}-${index}`} className="border-b last:border-0">
+                            <TableCell className="px-6 text-xs font-bold">{resource?.name || grant.resourceId}</TableCell>
+                            <TableCell className="text-xs">{entitlement?.name || grant.entitlementId}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[8px] uppercase">{grant.sourceLabel}</Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-500">{scopeLabel}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {effectiveGrants.length === 0 && (
+                        <TableRow><TableCell colSpan={4} className="py-12 text-center opacity-30 italic text-xs uppercase tracking-widest">Keine Effective-Access-Daten vorhanden</TableCell></TableRow>
                       )}
                     </TableBody>
                   </Table>

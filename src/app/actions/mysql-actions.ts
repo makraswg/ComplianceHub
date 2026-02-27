@@ -40,7 +40,16 @@ const collectionToTableMap: { [key: string]: string } = {
   dataSubjectGroups: 'dataSubjectGroups',
   dataCategories: 'dataCategories',
   departments: 'departments',
+  orgUnitTypes: 'orgUnitTypes',
+  orgUnits: 'orgUnits',
+  orgUnitRelations: 'orgUnitRelations',
   jobTitles: 'jobTitles',
+  positions: 'positions',
+  userPositions: 'userPositions',
+  userOrgUnits: 'userOrgUnits',
+  capabilities: 'capabilities',
+  userCapabilities: 'userCapabilities',
+  entitlementAssignments: 'entitlementAssignments',
   servicePartners: 'service_partners',
   servicePartnerContacts: 'service_partner_contacts',
   servicePartnerAreas: 'service_partner_areas',
@@ -88,7 +97,8 @@ function normalizeRecord(item: any, tableName: string) {
     ai_sessions: ['context_json'],
     ai_messages: ['structured_json'],
     platformRoles: ['permissions'],
-    jobTitles: ['entitlementIds']
+    jobTitles: ['entitlementIds'],
+    entitlementAssignments: ['scopeResourceContext']
   };
 
   if (jsonFields[tableName]) {
@@ -107,7 +117,7 @@ function normalizeRecord(item: any, tableName: string) {
     });
   }
 
-  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'ldapUseTls', 'ldapAllowInvalidSsl'];
+  const boolFields = ['enabled', 'isAdmin', 'isSharedAccount', 'ldapEnabled', 'isTom', 'isEffective', 'isComplianceRelevant', 'isDataRepository', 'isGdprRelevant', 'ldapUseTls', 'ldapAllowInvalidSsl', 'scopeIncludeChildren', 'approvalRequired', 'isPrimary'];
   boolFields.forEach(f => {
     if (normalized[f] !== undefined) {
       normalized[f] = normalized[f] === 1 || normalized[f] === true || normalized[f] === '1';

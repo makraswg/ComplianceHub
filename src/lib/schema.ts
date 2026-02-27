@@ -69,6 +69,42 @@ export const appSchema: AppSchema = {
       status: 'VARCHAR(20) DEFAULT "active"',
     }
   },
+  orgUnitTypes: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      key: 'VARCHAR(100) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      description: 'TEXT',
+      enabled: 'BOOLEAN DEFAULT TRUE',
+      sortOrder: 'INT DEFAULT 0',
+    }
+  },
+  orgUnits: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      typeId: 'VARCHAR(255) NOT NULL',
+      parentId: 'VARCHAR(255)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      externalId: 'VARCHAR(255)',
+      sortOrder: 'INT DEFAULT 0',
+    }
+  },
+  orgUnitRelations: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      fromOrgUnitId: 'VARCHAR(255) NOT NULL',
+      toOrgUnitId: 'VARCHAR(255) NOT NULL',
+      relationType: 'VARCHAR(50) NOT NULL',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      notes: 'TEXT',
+    }
+  },
   jobTitles: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
@@ -78,6 +114,66 @@ export const appSchema: AppSchema = {
       description: 'TEXT', 
       status: 'VARCHAR(20) DEFAULT "active"',
       entitlementIds: 'TEXT', 
+    }
+  },
+  positions: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      orgUnitId: 'VARCHAR(255)',
+      jobTitleId: 'VARCHAR(255)',
+      description: 'TEXT',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  userPositions: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      userId: 'VARCHAR(255) NOT NULL',
+      positionId: 'VARCHAR(255) NOT NULL',
+      isPrimary: 'BOOLEAN DEFAULT FALSE',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  userOrgUnits: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      userId: 'VARCHAR(255) NOT NULL',
+      orgUnitId: 'VARCHAR(255) NOT NULL',
+      roleType: 'VARCHAR(50) DEFAULT "member"',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  capabilities: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      code: 'VARCHAR(100)',
+      description: 'TEXT',
+      approvalRequired: 'BOOLEAN DEFAULT FALSE',
+      status: 'VARCHAR(20) DEFAULT "active"',
+    }
+  },
+  userCapabilities: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      userId: 'VARCHAR(255) NOT NULL',
+      capabilityId: 'VARCHAR(255) NOT NULL',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      approvedBy: 'VARCHAR(255)',
+      approvedAt: 'VARCHAR(50)',
+      notes: 'TEXT',
     }
   },
   service_partners: {
@@ -660,6 +756,27 @@ export const appSchema: AppSchema = {
       reviewedBy: 'VARCHAR(255)',
       tenantId: 'VARCHAR(255)',
       syncSource: 'VARCHAR(50)'
+    }
+  },
+  entitlementAssignments: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      subjectType: 'VARCHAR(50) NOT NULL',
+      subjectId: 'VARCHAR(255) NOT NULL',
+      entitlementId: 'VARCHAR(255) NOT NULL',
+      status: 'VARCHAR(50) NOT NULL',
+      assignmentSource: 'VARCHAR(50) DEFAULT "manual"',
+      reason: 'TEXT',
+      validFrom: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      scopeOrgUnitId: 'VARCHAR(255)',
+      scopeIncludeChildren: 'BOOLEAN DEFAULT FALSE',
+      scopeResourceContext: 'LONGTEXT',
+      grantedBy: 'VARCHAR(255)',
+      grantedAt: 'VARCHAR(50)',
+      ticketRef: 'VARCHAR(255)',
+      notes: 'TEXT',
     }
   },
   uiConfigs: {

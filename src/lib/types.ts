@@ -39,6 +39,41 @@ export interface Department {
   description?: string;
 }
 
+export interface OrgUnitType {
+  id: string;
+  tenantId: string;
+  key: string;
+  name: string;
+  description?: string;
+  enabled: boolean | number;
+  sortOrder?: number;
+}
+
+export interface OrgUnit {
+  id: string;
+  tenantId: string;
+  name: string;
+  typeId: string;
+  parentId?: string;
+  status: 'active' | 'archived';
+  externalId?: string;
+  sortOrder?: number;
+}
+
+export type OrgUnitRelationType = 'supports' | 'advises' | 'works_for' | string;
+
+export interface OrgUnitRelation {
+  id: string;
+  tenantId: string;
+  fromOrgUnitId: string;
+  toOrgUnitId: string;
+  relationType: OrgUnitRelationType;
+  status: 'active' | 'archived';
+  validFrom?: string;
+  validUntil?: string;
+  notes?: string;
+}
+
 export interface JobTitle {
   id: string;
   tenantId: string;
@@ -47,6 +82,61 @@ export interface JobTitle {
   description?: string; 
   status: 'active' | 'archived';
   entitlementIds?: string[];
+}
+
+export interface Position {
+  id: string;
+  tenantId: string;
+  name: string;
+  orgUnitId?: string;
+  jobTitleId?: string;
+  description?: string;
+  status: 'active' | 'archived';
+}
+
+export interface UserPosition {
+  id: string;
+  tenantId: string;
+  userId: string;
+  positionId: string;
+  isPrimary?: boolean | number;
+  validFrom?: string;
+  validUntil?: string;
+  status: 'active' | 'archived';
+}
+
+export interface UserOrgUnit {
+  id: string;
+  tenantId: string;
+  userId: string;
+  orgUnitId: string;
+  roleType?: string;
+  validFrom?: string;
+  validUntil?: string;
+  status: 'active' | 'archived';
+}
+
+export interface Capability {
+  id: string;
+  tenantId: string;
+  name: string;
+  code?: string;
+  description?: string;
+  approvalRequired?: boolean | number;
+  status: 'active' | 'archived';
+}
+
+export interface UserCapability {
+  id: string;
+  tenantId: string;
+  userId: string;
+  capabilityId: string;
+  validFrom?: string;
+  validUntil?: string;
+  status: 'active' | 'archived';
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
 }
 
 export interface User {
@@ -662,4 +752,37 @@ export interface Assignment {
   reviewedBy?: string;
   tenantId: string;
   syncSource?: 'manual' | 'group' | 'blueprint' | 'ldap';
+}
+
+export type EntitlementAssignmentSubjectType = 'person' | 'position' | 'jobTitle' | 'capability';
+
+export interface EntitlementAssignment {
+  id: string;
+  tenantId: string;
+  subjectType: EntitlementAssignmentSubjectType;
+  subjectId: string;
+  entitlementId: string;
+  status: 'requested' | 'approved' | 'active' | 'removed' | 'pending_removal';
+  assignmentSource?: 'manual' | 'profile' | 'position' | 'function' | 'exception' | string;
+  reason?: string;
+  validFrom?: string;
+  validUntil?: string;
+  scopeOrgUnitId?: string;
+  scopeIncludeChildren?: boolean | number;
+  scopeResourceContext?: Record<string, any>;
+  grantedBy?: string;
+  grantedAt?: string;
+  ticketRef?: string;
+  notes?: string;
+}
+
+export interface EffectiveAccessGrant {
+  entitlementId: string;
+  resourceId: string;
+  sourceType: EntitlementAssignmentSubjectType | 'direct';
+  sourceId: string;
+  sourceLabel: string;
+  scopeOrgUnitId?: string;
+  scopeIncludeChildren?: boolean;
+  scopeResourceContext?: Record<string, any>;
 }
