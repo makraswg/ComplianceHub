@@ -278,7 +278,9 @@ export async function repairLdapTenantAssignmentsAction(
 
     const allTenants = (tenantsRes.data || []) as Tenant[];
     const hubUsers = (usersRes.data || []) as User[];
-    const ldapTenants = allTenants.filter((tenant) => tenant.ldapEnabled);
+    const ldapTenants = allTenants.filter(
+      (tenant) => !!tenant.ldapUrl && !!tenant.ldapPort && !!tenant.ldapBindDn && !!tenant.ldapBindPassword
+    );
 
     if (ldapTenants.length === 0) {
       return {
@@ -319,7 +321,7 @@ export async function repairLdapTenantAssignmentsAction(
     let checked = 0;
 
     for (const hubUser of hubUsers) {
-      if (hubUser.authSource !== 'ldap' && !hubUser.externalId) continue;
+      if (hubUser.authSource !== 'ldap') continue;
       checked++;
 
       const externalKey = String(hubUser.externalId || '').toLowerCase();
@@ -359,11 +361,15 @@ export async function repairLdapTenantAssignmentsAction(
     }
 
     const message = `Korrektur abgeschlossen: ${moved} Benutzer verschoben, ${updatedProfiles} Stellenprofile aktualisiert, ${checked} LDAP-Benutzer geprüft.`;
-    await logLdapInteraction(dataSource, 'global', 'Repair Tenant Assignment', 'success', message, {
-      moved,
-      updatedProfiles,
-      checked
-    }, actorUid);
+    try {
+      await logLdapInteraction(dataSource, 'global', 'Repair Tenant Assignment', 'success', message, {
+        moved,
+        updatedProfiles,
+        checked
+      }, actorUid);
+    } catch (logError) {
+      console.error('Repair log write failed:', logError);
+    }
 
     return { success: true, moved, updatedProfiles, checked, message };
   } catch (error: any) {

@@ -222,6 +222,12 @@ export default function SyncSettingsPage() {
           description: res.message
         });
       }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Debug-Korrektur fehlgeschlagen',
+        description: error?.message || 'Unbekannter Fehler beim Ausführen der Korrektur.'
+      });
     } finally {
       setIsRepairing(false);
     }
