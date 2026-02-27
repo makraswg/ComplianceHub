@@ -22,7 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 
-import { Entitlement, JobTitle, OrgUnit, OrgUnitType, Position, Tenant } from '@/lib/types';
+import { Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Position, Tenant } from '@/lib/types';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -47,12 +47,17 @@ export default function UnifiedOrganizationPage() {
   const [editingJob, setEditingJob] = useState<JobTitle | null>(null);
   const [jobName, setJobName] = useState('');
   const [jobDesc, setJobDesc] = useState('');
-  const [jobEntitlementIds, setJobEntitlementIds] = useState<string[]>([]);
   const [jobOrganizationalRoleIds, setJobOrganizationalRoleIds] = useState<string[]>([]);
-  const [newOrgRoleName, setNewOrgRoleName] = useState('');
-  const [editingOrgRoleId, setEditingOrgRoleId] = useState<string | null>(null);
-  const [editingOrgRoleName, setEditingOrgRoleName] = useState('');
   const [isSavingJob, setIsSavingJob] = useState(false);
+
+  const [isRoleEditorOpen, setIsRoleEditorOpen] = useState(false);
+  const [roleEditorTenantId, setRoleEditorTenantId] = useState<string | null>(null);
+  const [editingRole, setEditingRole] = useState<Position | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [roleOrgUnitId, setRoleOrgUnitId] = useState('');
+  const [roleEntitlementIds, setRoleEntitlementIds] = useState<string[]>([]);
+  const [isSavingRole, setIsSavingRole] = useState(false);
 
   const { data: tenants, refresh: refreshTenants } = usePluggableCollection<Tenant>('tenants');
   const { data: orgUnits, refresh: refreshOrgUnits } = usePluggableCollection<OrgUnit>('orgUnits');
@@ -60,6 +65,7 @@ export default function UnifiedOrganizationPage() {
   const { data: jobTitles, refresh: refreshJobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: positions, refresh: refreshPositions } = usePluggableCollection<Position>('positions');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: entitlementAssignments, refresh: refreshEntitlementAssignments } = usePluggableCollection<EntitlementAssignment>('entitlementAssignments');
 
   useEffect(() => setMounted(true), []);
 
@@ -296,70 +302,112 @@ export default function UnifiedOrganizationPage() {
     setEditingJob(job);
     setJobName(job.name);
     setJobDesc(job.description || '');
-    setJobEntitlementIds(job.entitlementIds || []);
     setJobOrganizationalRoleIds(job.organizationalRoleIds || []);
-    setNewOrgRoleName('');
     setIsEditorOpen(true);
   };
 
-  const createOrganizationalRole = async () => {
-    if (!editingJob || !newOrgRoleName.trim()) return;
+  const openRoleEditor = (tenantId: string) => {
+    setRoleEditorTenantId(tenantId);
+    setEditingRole(null);
+    setRoleName('');
+    setRoleDescription('');
+    setRoleOrgUnitId('');
+    setRoleEntitlementIds([]);
+    setIsRoleEditorOpen(true);
+  };
 
-    const id = `pos-${Math.random().toString(36).substring(2, 8)}`;
-    const payload = {
-      id,
-      tenantId: editingJob.tenantId,
-      name: newOrgRoleName.trim(),
-      orgUnitId: editingJob.departmentId,
-      jobTitleId: editingJob.id,
-      status: 'active' as const,
+  const editRole = (role: Position) => {
+    setEditingRole(role);
+    setRoleName(role.name);
+    setRoleDescription(role.description || '');
+    setRoleOrgUnitId(role.orgUnitId || '');
+
+    const selectedEntitlements = (entitlementAssignments || [])
+      .filter((assignment) => assignment.tenantId === role.tenantId)
+      .filter((assignment) => assignment.subjectType === 'position' && assignment.subjectId === role.id)
+      .filter((assignment) => assignment.status === 'active' || assignment.status === 'approved')
+      .map((assignment) => assignment.entitlementId);
+
+    setRoleEntitlementIds(Array.from(new Set(selectedEntitlements)));
+  };
+
+  const saveRole = async () => {
+    if (!roleEditorTenantId || !roleName.trim()) return;
+
+    setIsSavingRole(true);
+    const roleId = editingRole?.id || `pos-${Math.random().toString(36).substring(2, 8)}`;
+    const rolePayload: Position = {
+      id: roleId,
+      tenantId: roleEditorTenantId,
+      name: roleName.trim(),
+      description: roleDescription || undefined,
+      orgUnitId: roleOrgUnitId || undefined,
+      status: editingRole?.status || 'active',
     };
 
-    const res = await saveCollectionRecord('positions', id, payload, dataSource);
-    if (!res.success) return;
+    try {
+      const roleSave = await saveCollectionRecord('positions', roleId, rolePayload, dataSource);
+      if (!roleSave.success) return;
 
-    await logAuditEventAction(dataSource, {
-      tenantId: editingJob.tenantId,
-      actorUid: authPlatformUser?.email || 'system',
-      action: `Organisatorische Rolle angelegt: ${newOrgRoleName}`,
-      entityType: 'position',
-      entityId: id,
-      after: payload,
-    });
+      const existingAssignments = (entitlementAssignments || [])
+        .filter((assignment) => assignment.tenantId === roleEditorTenantId)
+        .filter((assignment) => assignment.subjectType === 'position' && assignment.subjectId === roleId);
 
-    setJobOrganizationalRoleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    setNewOrgRoleName('');
-    refreshPositions();
-    toast({ title: 'Organisatorische Rolle angelegt' });
-  };
+      const selectedSet = new Set(roleEntitlementIds);
+      const existingByEntitlement = new Map(existingAssignments.map((assignment) => [assignment.entitlementId, assignment]));
 
-  const beginEditOrganizationalRole = (role: Position) => {
-    setEditingOrgRoleId(role.id);
-    setEditingOrgRoleName(role.name);
-  };
+      for (const existing of existingAssignments) {
+        const shouldBeActive = selectedSet.has(existing.entitlementId);
+        const nextStatus = shouldBeActive ? 'active' : 'archived';
+        if (existing.status === nextStatus) continue;
 
-  const saveOrganizationalRoleEdit = async () => {
-    if (!editingOrgRoleId || !editingOrgRoleName.trim()) return;
-    const role = (positions || []).find((item) => item.id === editingOrgRoleId);
-    if (!role) return;
+        await saveCollectionRecord('entitlementAssignments', existing.id, {
+          ...existing,
+          status: nextStatus,
+          grantedBy: authPlatformUser?.email || 'system',
+          grantedAt: new Date().toISOString(),
+        }, dataSource);
+      }
 
-    const payload = { ...role, name: editingOrgRoleName.trim() };
-    const res = await saveCollectionRecord('positions', role.id, payload, dataSource);
-    if (!res.success) return;
+      for (const entitlementId of roleEntitlementIds) {
+        if (existingByEntitlement.has(entitlementId)) continue;
 
-    await logAuditEventAction(dataSource, {
-      tenantId: role.tenantId,
-      actorUid: authPlatformUser?.email || 'system',
-      action: `Organisatorische Rolle aktualisiert: ${payload.name}`,
-      entityType: 'position',
-      entityId: role.id,
-      after: payload,
-    });
+        const assignmentId = `eas-pos-${roleId}-${entitlementId}`.substring(0, 64);
+        const payload: EntitlementAssignment = {
+          id: assignmentId,
+          tenantId: roleEditorTenantId,
+          subjectType: 'position',
+          subjectId: roleId,
+          entitlementId,
+          status: 'active',
+          assignmentSource: 'position',
+          grantedBy: authPlatformUser?.email || 'system',
+          grantedAt: new Date().toISOString(),
+        };
+        await saveCollectionRecord('entitlementAssignments', assignmentId, payload, dataSource);
+      }
 
-    setEditingOrgRoleId(null);
-    setEditingOrgRoleName('');
-    refreshPositions();
-    toast({ title: 'Organisatorische Rolle aktualisiert' });
+      await logAuditEventAction(dataSource, {
+        tenantId: roleEditorTenantId,
+        actorUid: authPlatformUser?.email || 'system',
+        action: editingRole ? `Organisatorische Rolle aktualisiert: ${rolePayload.name}` : `Organisatorische Rolle angelegt: ${rolePayload.name}`,
+        entityType: 'position',
+        entityId: roleId,
+        after: rolePayload,
+      });
+
+      refreshPositions();
+      refreshEntitlementAssignments();
+      toast({ title: editingRole ? 'Organisatorische Rolle aktualisiert' : 'Organisatorische Rolle angelegt' });
+
+      setEditingRole(null);
+      setRoleName('');
+      setRoleDescription('');
+      setRoleOrgUnitId('');
+      setRoleEntitlementIds([]);
+    } finally {
+      setIsSavingRole(false);
+    }
   };
 
   const toggleOrganizationalRoleStatus = async (role: Position) => {
@@ -377,7 +425,6 @@ export default function UnifiedOrganizationPage() {
       after: payload,
     });
 
-    setJobOrganizationalRoleIds((prev) => (nextStatus === 'archived' ? prev.filter((id) => id !== role.id) : prev));
     refreshPositions();
     toast({ title: nextStatus === 'archived' ? 'Organisatorische Rolle archiviert' : 'Organisatorische Rolle reaktiviert' });
   };
@@ -390,7 +437,7 @@ export default function UnifiedOrganizationPage() {
       ...editingJob,
       name: jobName,
       description: jobDesc,
-      entitlementIds: jobEntitlementIds,
+      entitlementIds: [],
       organizationalRoleIds: jobOrganizationalRoleIds,
     };
 
@@ -591,6 +638,14 @@ export default function UnifiedOrganizationPage() {
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
+                    variant="outline"
+                    className="h-8 text-[10px] font-black"
+                    onClick={() => openRoleEditor(tenant.id)}
+                  >
+                    Org-Rollen
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="ghost"
                     className="h-8 text-[10px] font-black"
                     onClick={() => {
@@ -666,7 +721,7 @@ export default function UnifiedOrganizationPage() {
         <DialogContent className="max-w-4xl rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white h-[85vh]">
           <DialogHeader className="p-6 bg-slate-900 text-white">
             <DialogTitle>Rollen-Blueprint bearbeiten</DialogTitle>
-            <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">Standard-Berechtigungen für dieses Profil definieren</DialogDescription>
+            <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">Profilstammdaten und organisatorische Rollen-Zuordnung</DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1 p-8 space-y-10">
@@ -678,43 +733,18 @@ export default function UnifiedOrganizationPage() {
               <Textarea value={jobDesc} onChange={(event) => setJobDesc(event.target.value)} className="min-h-[100px] text-xs" />
             </div>
 
-            <div className="pt-6 border-t">
-              <Label className="text-xs font-bold text-primary mb-4 block">Enthaltene Berechtigungen ({jobEntitlementIds.length})</Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {(entitlements || [])
-                  .filter((ent) => activeTenantId === 'all' || ent.tenantId === activeTenantId || ent.tenantId === 'global')
-                  .map((ent) => (
-                    <div
-                      key={ent.id}
-                      className={cn(
-                        'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
-                        jobEntitlementIds.includes(ent.id) ? 'border-primary bg-primary/5' : 'bg-white'
-                      )}
-                      onClick={() =>
-                        setJobEntitlementIds((prev) =>
-                          prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
-                        )
-                      }
-                    >
-                      <Checkbox checked={jobEntitlementIds.includes(ent.id)} />
-                      <span className="text-[11px] font-bold truncate">{ent.name}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-
             <div className="pt-6 border-t space-y-4">
               <Label className="text-xs font-bold text-primary block">Organisatorische Rollen ({jobOrganizationalRoleIds.length})</Label>
-              <p className="text-[10px] text-slate-500">Hier erstellen, bearbeiten und weisen Sie organisatorische Rollen dem Stellenprofil zu.</p>
-
-              <div className="flex gap-2">
-                <Input
-                  value={newOrgRoleName}
-                  onChange={(event) => setNewOrgRoleName(event.target.value)}
-                  placeholder="Neue organisatorische Rolle..."
-                  className="h-10 text-xs"
-                />
-                <Button type="button" onClick={createOrganizationalRole} className="h-10">Anlegen</Button>
+              <p className="text-[10px] text-slate-500">Berechtigungen werden ausschließlich an organisatorischen Rollen gepflegt. Stellenprofile weisen nur Rollen zu.</p>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9 text-[10px]"
+                  onClick={() => editingJob && openRoleEditor(editingJob.tenantId)}
+                >
+                  Org-Rollen verwalten
+                </Button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -737,23 +767,7 @@ export default function UnifiedOrganizationPage() {
                         }
                       />
                       <div className="flex-1 min-w-0">
-                        {editingOrgRoleId === role.id ? (
-                          <Input value={editingOrgRoleName} onChange={(event) => setEditingOrgRoleName(event.target.value)} className="h-8 text-xs" />
-                        ) : (
-                          <span className="text-[11px] font-bold truncate block">{role.name}</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {editingOrgRoleId === role.id ? (
-                          <Button type="button" size="sm" className="h-7 text-[10px]" onClick={saveOrganizationalRoleEdit}>Speichern</Button>
-                        ) : (
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => beginEditOrganizationalRole(role)}>
-                            <Pencil className="w-3.5 h-3.5 text-slate-400" />
-                          </Button>
-                        )}
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleOrganizationalRoleStatus(role)}>
-                          {role.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                        </Button>
+                        <span className="text-[11px] font-bold truncate block">{role.name}</span>
                       </div>
                     </div>
                   ))}
@@ -765,6 +779,116 @@ export default function UnifiedOrganizationPage() {
             <Button variant="ghost" onClick={() => setIsEditorOpen(false)}>Abbrechen</Button>
             <Button onClick={saveJobEdits} disabled={isSavingJob}>
               {isSavingJob ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRoleEditorOpen} onOpenChange={(open) => !open && setIsRoleEditorOpen(false)}>
+        <DialogContent className="max-w-5xl rounded-2xl p-0 overflow-hidden flex flex-col shadow-2xl bg-white h-[85vh]">
+          <DialogHeader className="p-6 bg-slate-900 text-white">
+            <DialogTitle>Organisatorische Rollen verwalten</DialogTitle>
+            <DialogDescription className="text-[10px] text-white/50 font-bold uppercase">Rollenstammdaten und Ressourcenrollen-Zuweisungen</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-0 flex-1 min-h-0">
+            <div className="border-r p-4 space-y-2 overflow-y-auto">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full h-9 text-[10px]"
+                onClick={() => {
+                  setEditingRole(null);
+                  setRoleName('');
+                  setRoleDescription('');
+                  setRoleOrgUnitId('');
+                  setRoleEntitlementIds([]);
+                }}
+              >
+                Neue Rolle
+              </Button>
+              {(positions || [])
+                .filter((role) => !roleEditorTenantId || role.tenantId === roleEditorTenantId)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((role) => (
+                  <div key={role.id} className="border rounded-lg p-2.5 bg-white space-y-2">
+                    <button type="button" className="w-full text-left" onClick={() => editRole(role)}>
+                      <p className="text-[11px] font-bold truncate">{role.name}</p>
+                      <p className="text-[9px] text-slate-500 truncate">{getOrgUnitPath(role.orgUnitId)}</p>
+                    </button>
+                    <div className="flex justify-end gap-1">
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => editRole(role)}>
+                        <Pencil className="w-3.5 h-3.5 text-slate-400" />
+                      </Button>
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleOrganizationalRoleStatus(role)}>
+                        {role.status === 'archived' ? <RotateCcw className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <ScrollArea className="p-6">
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Rollenname</Label>
+                  <Input value={roleName} onChange={(event) => setRoleName(event.target.value)} className="h-10 text-xs" placeholder="Name der organisatorischen Rolle" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Organisationseinheit</Label>
+                  <select
+                    value={roleOrgUnitId}
+                    onChange={(event) => setRoleOrgUnitId(event.target.value)}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-xs"
+                  >
+                    <option value="">Keine Zuordnung</option>
+                    {(orgUnits || [])
+                      .filter((unit) => !roleEditorTenantId || unit.tenantId === roleEditorTenantId)
+                      .sort((a, b) => getOrgUnitPath(a.id).localeCompare(getOrgUnitPath(b.id)))
+                      .map((unit) => (
+                        <option key={unit.id} value={unit.id}>{getOrgUnitPath(unit.id)}</option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-[10px] font-bold uppercase text-slate-400">Beschreibung</Label>
+                  <Textarea value={roleDescription} onChange={(event) => setRoleDescription(event.target.value)} className="min-h-[80px] text-xs" />
+                </div>
+
+                <div className="pt-3 border-t space-y-3">
+                  <Label className="text-xs font-bold text-primary block">Ressourcenrollen ({roleEntitlementIds.length})</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {(entitlements || [])
+                      .filter((ent) => !roleEditorTenantId || ent.tenantId === roleEditorTenantId || ent.tenantId === 'global')
+                      .map((ent) => (
+                        <div
+                          key={ent.id}
+                          className={cn(
+                            'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
+                            roleEntitlementIds.includes(ent.id) ? 'border-primary bg-primary/5' : 'bg-white'
+                          )}
+                          onClick={() =>
+                            setRoleEntitlementIds((prev) =>
+                              prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
+                            )
+                          }
+                        >
+                          <Checkbox checked={roleEntitlementIds.includes(ent.id)} />
+                          <span className="text-[11px] font-bold truncate">{ent.name}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t">
+            <Button variant="ghost" onClick={() => setIsRoleEditorOpen(false)}>Schließen</Button>
+            <Button onClick={saveRole} disabled={isSavingRole || !roleName.trim()}>
+              {isSavingRole ? <Loader2 className="w-4 h-4 animate-spin" /> : <SaveIcon className="w-4 h-4" />} Rolle speichern
             </Button>
           </DialogFooter>
         </DialogContent>

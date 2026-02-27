@@ -215,10 +215,12 @@ export default function LifecyclePage() {
       
       const allEntitlementIds = new Set<string>();
       
-      selectedJobIds.forEach(jid => {
-        const job = jobs?.find(j => j.id === jid);
-        job?.entitlementIds?.forEach(id => allEntitlementIds.add(id));
-      });
+      const activeRoleEntitlements = (entitlementAssignments || [])
+        .filter((item) => item.tenantId === targetTenantId)
+        .filter((item) => item.subjectType === 'position' && selectedOrgRoleIds.includes(item.subjectId))
+        .filter((item) => item.status === 'active' || item.status === 'approved')
+        .map((item) => item.entitlementId);
+      activeRoleEntitlements.forEach((id) => allEntitlementIds.add(id));
 
       const capabilityEntitlements = getCapabilityEntitlementIds(selectedCapabilityIds, targetTenantId);
       capabilityEntitlements.forEach((id) => allEntitlementIds.add(id));

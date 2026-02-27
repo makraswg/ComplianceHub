@@ -41,7 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
-import { User, Assignment, Entitlement, Resource, JobTitle } from '@/lib/types';
+import { User, Assignment, Entitlement, EntitlementAssignment, UserPosition, UserCapability, JobTitle } from '@/lib/types';
 
 export default function AccessHubDashboard() {
   const router = useRouter();
@@ -50,13 +50,16 @@ export default function AccessHubDashboard() {
 
   const { data: users, isLoading: uLoad } = usePluggableCollection<User>('users');
   const { data: assignments, isLoading: aLoad } = usePluggableCollection<Assignment>('assignments');
+  const { data: entitlementAssignments } = usePluggableCollection<EntitlementAssignment>('entitlementAssignments');
+  const { data: userPositions } = usePluggableCollection<UserPosition>('userPositions');
+  const { data: userCapabilities } = usePluggableCollection<UserCapability>('userCapabilities');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
   const { data: jobs } = usePluggableCollection<JobTitle>('jobTitles');
 
   useEffect(() => { setMounted(true); }, []);
 
   const stats = useMemo(() => {
-    if (!users || !assignments || !entitlements) return { totalUsers: 0, activeAss: 0, admins: 0, driftCount: 0, reviewPercent: 0 };
+    if (!users || !assignments || !entitlements || !entitlementAssignments) return { totalUsers: 0, activeAss: 0, admins: 0, driftCount: 0, reviewPercent: 0 };
 
     const tFilter = (item: any) => activeTenantId === 'all' || item.tenantId === activeTenantId;
     const fUsers = users.filter(tFilter);
@@ -72,24 +75,36 @@ export default function AccessHubDashboard() {
     let driftCount = 0;
     fUsers.forEach(u => {
       const uAss = activeAssignments.filter(a => a.userId === u.id);
-      
-      // Sammeln aller Gruppen aus allen zugewiesenen Job-Blueprints
-      const userJobIds = u.jobIds || [];
-      const blueprintEntitlementIds = new Set<string>();
-      userJobIds.forEach((jid: string) => {
-        const job = jobs?.find(jt => jt.id === jid);
-        job?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
+      const directEntitlementIds = uAss.map(a => a.entitlementId);
+
+      const inheritedRoleIds = new Set<string>();
+      (u.jobIds || []).forEach((jobId: string) => {
+        const job = jobs?.find((jt) => jt.id === jobId);
+        (job?.organizationalRoleIds || []).forEach((roleId) => inheritedRoleIds.add(roleId));
       });
 
-      // Legacy fallback
-      if (userJobIds.length === 0 && u.title) {
-        const legacyJob = jobs?.find(jt => jt.name === u.title && jt.tenantId === u.tenantId);
-        legacyJob?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
-      }
+      const activeUserRoleIds = (userPositions || [])
+        .filter((item) => item.userId === u.id && item.status === 'active')
+        .map((item) => item.positionId)
+        .filter((positionId) => inheritedRoleIds.size === 0 || inheritedRoleIds.has(positionId));
 
-      const assignedEntitlementIds = uAss.map(a => a.entitlementId);
-      
-      const targetIds = Array.from(new Set([...assignedEntitlementIds, ...Array.from(blueprintEntitlementIds)]));
+      const roleEntitlementIds = entitlementAssignments
+        .filter((item) => item.tenantId === u.tenantId)
+        .filter((item) => item.subjectType === 'position' && activeUserRoleIds.includes(item.subjectId))
+        .filter((item) => item.status === 'active' || item.status === 'approved')
+        .map((item) => item.entitlementId);
+
+      const activeCapabilityIds = (userCapabilities || [])
+        .filter((item) => item.userId === u.id && item.status === 'active')
+        .map((item) => item.capabilityId);
+
+      const capabilityEntitlementIds = entitlementAssignments
+        .filter((item) => item.tenantId === u.tenantId)
+        .filter((item) => item.subjectType === 'capability' && activeCapabilityIds.includes(item.subjectId))
+        .filter((item) => item.status === 'active' || item.status === 'approved')
+        .map((item) => item.entitlementId);
+
+      const targetIds = Array.from(new Set([...directEntitlementIds, ...roleEntitlementIds, ...capabilityEntitlementIds]));
       const targetGroups = targetIds.map(eid => entitlements.find(e => e.id === eid)?.externalMapping).filter(Boolean);
       const actualGroups = u.adGroups || [];
       
@@ -102,7 +117,7 @@ export default function AccessHubDashboard() {
     const reviewPercent = activeAssignments.length > 0 ? Math.floor((reviewed * 100) / activeAssignments.length) : 100;
 
     return { totalUsers: fUsers.length, activeAss: activeAssignments.length, admins, driftCount, reviewPercent };
-  }, [users, assignments, entitlements, jobs, activeTenantId]);
+  }, [users, assignments, entitlements, entitlementAssignments, userPositions, userCapabilities, jobs, activeTenantId]);
 
   const sourceData = useMemo(() => {
     if (!assignments) return [];

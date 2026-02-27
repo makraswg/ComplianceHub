@@ -325,30 +325,33 @@ export async function runEntitlementBackfillMigrationAction(
       counters.positionsCreated += 1;
 
       const blueprintEntitlements = dedupe(jobTitle.entitlementIds || []);
-      for (const entitlementId of blueprintEntitlements) {
-        const assignmentKey = `${jobTitle.tenantId}|jobTitle|${jobTitle.id}|${entitlementId}`;
-        if (existingEntitlementAssignment.has(assignmentKey)) {
-          counters.skippedExisting += 1;
-          continue;
-        }
+      const roleIds = dedupe(jobTitle.organizationalRoleIds || []).filter(Boolean);
+      for (const roleId of roleIds) {
+        for (const entitlementId of blueprintEntitlements) {
+          const assignmentKey = `${jobTitle.tenantId}|position|${roleId}|${entitlementId}`;
+          if (existingEntitlementAssignment.has(assignmentKey)) {
+            counters.skippedExisting += 1;
+            continue;
+          }
 
-        const id = `eas-jt-${jobTitle.id}-${entitlementId}`;
-        const payload: EntitlementAssignment = {
-          id,
-          tenantId: jobTitle.tenantId,
-          subjectType: 'jobTitle',
-          subjectId: jobTitle.id,
-          entitlementId,
-          status: 'active',
-          assignmentSource: 'profile',
-          reason: 'Backfill aus Stellenprofil-Standardberechtigungen',
-          grantedBy: actorEmail,
-          grantedAt: now,
-          validFrom: now,
-        };
-        await saveCollectionRecord('entitlementAssignments', id, payload, dataSource);
-        existingEntitlementAssignment.add(assignmentKey);
-        counters.entitlementAssignmentsCreated += 1;
+          const id = `eas-pos-${roleId}-${entitlementId}`.substring(0, 64);
+          const payload: EntitlementAssignment = {
+            id,
+            tenantId: jobTitle.tenantId,
+            subjectType: 'position',
+            subjectId: roleId,
+            entitlementId,
+            status: 'active',
+            assignmentSource: 'position',
+            reason: 'Backfill aus Stellenprofil-Standardberechtigungen auf organisatorische Rolle',
+            grantedBy: actorEmail,
+            grantedAt: now,
+            validFrom: now,
+          };
+          await saveCollectionRecord('entitlementAssignments', id, payload, dataSource);
+          existingEntitlementAssignment.add(assignmentKey);
+          counters.entitlementAssignmentsCreated += 1;
+        }
       }
     }
 
@@ -519,10 +522,17 @@ export async function compareEffectiveAccessBeforeAfterAction(
         .map((item) => item.entitlementId);
 
       const blueprintIds: string[] = [];
+      const userJobRoleIds = new Set<string>();
       for (const jobId of user.jobIds || []) {
         const jobTitle = jobTitles.find((item) => item.id === jobId);
-        if (jobTitle?.entitlementIds?.length) blueprintIds.push(...jobTitle.entitlementIds);
+        (jobTitle?.organizationalRoleIds || []).forEach((roleId) => userJobRoleIds.add(roleId));
       }
+
+      newAssignments
+        .filter((item) => item.tenantId === user.tenantId)
+        .filter((item) => item.subjectType === 'position' && userJobRoleIds.has(item.subjectId))
+        .filter((item) => item.status === 'active' || item.status === 'approved')
+        .forEach((item) => blueprintIds.push(item.entitlementId));
 
       const beforeSet = toSet(dedupe([...activeLegacyAssignmentIds, ...blueprintIds]));
 

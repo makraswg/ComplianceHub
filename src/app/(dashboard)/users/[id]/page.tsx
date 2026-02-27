@@ -88,22 +88,25 @@ export default function UserDetailPage() {
     if (!user || !entitlements || !assignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
 
     const activeAssignedIds = userAssignments.filter(a => a.status === 'active').map(a => a.entitlementId);
-    
-    // Aggregieren aller Entitlements aus allen zugeordneten Jobs
-    const userJobIds = user.jobIds || [];
-    const blueprintEntitlementIds = new Set<string>();
-    userJobIds.forEach(jid => {
+
+    const inheritedRoleIds = new Set<string>();
+    (user.jobIds || []).forEach((jid: string) => {
       const job = jobs?.find(j => j.id === jid);
-      job?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
+      (job?.organizationalRoleIds || []).forEach((roleId: string) => inheritedRoleIds.add(roleId));
     });
 
-    // Fallback Legacy
-    if (userJobIds.length === 0 && user.title) {
-      const legacyJob = jobs?.find(j => j.name === user.title && j.tenantId === user.tenantId);
-      legacyJob?.entitlementIds?.forEach(eid => blueprintEntitlementIds.add(eid));
-    }
-    
-    const targetIds = Array.from(new Set([...activeAssignedIds, ...Array.from(blueprintEntitlementIds)]));
+    const activeUserRoleIds = (userPositions || [])
+      .filter((item) => item.userId === user.id && item.status === 'active')
+      .map((item) => item.positionId)
+      .filter((positionId) => inheritedRoleIds.size === 0 || inheritedRoleIds.has(positionId));
+
+    const roleEntitlementIds = (entitlementAssignments || [])
+      .filter((item) => item.tenantId === user.tenantId)
+      .filter((item) => item.subjectType === 'position' && activeUserRoleIds.includes(item.subjectId))
+      .filter((item) => item.status === 'active' || item.status === 'approved')
+      .map((item) => item.entitlementId);
+
+    const targetIds = Array.from(new Set([...activeAssignedIds, ...roleEntitlementIds]));
     const targetGroups = targetIds
       .map(eid => entitlements.find(e => e.id === eid)?.externalMapping)
       .filter(Boolean) as string[];
@@ -117,7 +120,7 @@ export default function UserDetailPage() {
 
     const integrity = Math.max(0, 100 - (missing.length * 10) - (extra.length * 20));
     return { hasDrift: missing.length > 0 || extra.length > 0, missing, extra, integrity };
-  }, [user, userAssignments, entitlements, jobs, assignments]);
+  }, [user, userAssignments, entitlements, jobs, assignments, userPositions, entitlementAssignments]);
 
   const userPositionLinks = useMemo(
     () => userPositions?.filter((item) => item.userId === id && item.status === 'active') || [],

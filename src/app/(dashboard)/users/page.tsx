@@ -202,25 +202,28 @@ function UsersPageContent() {
   const calculateDrift = (user: any) => {
     if (!user || !entitlements || !entitlementAssignments) return { hasDrift: false, missing: [], extra: [], integrity: 100 };
 
+    const inheritedRoleIds = new Set<string>();
+    (user.jobIds || []).forEach((jobId: string) => {
+      const job = jobTitles?.find((jt: any) => jt.id === jobId);
+      (job?.organizationalRoleIds || []).forEach((roleId: string) => inheritedRoleIds.add(roleId));
+    });
+
+    const activeUserPositionIds = (userPositions || [])
+      .filter((item: any) => item.userId === user.id && item.status === 'active')
+      .map((item: any) => item.positionId)
+      .filter((positionId: string) => inheritedRoleIds.size === 0 || inheritedRoleIds.has(positionId));
+
     const directEntitlementIds = entitlementAssignments
       .filter((a: any) => a.tenantId === user.tenantId)
       .filter((a: any) => a.subjectType === 'person' && a.subjectId === user.id)
       .filter((a: any) => a.status === 'active' || a.status === 'approved')
       .map((a: any) => a.entitlementId);
-    
-    // Aggregieren aller Entitlements aus allen zugewiesenen Job-Blueprints
-    const userJobIds = user.jobIds || [];
-    const blueprintEntitlementIds = new Set<string>();
-    userJobIds.forEach((jid: string) => {
-      const job = jobTitles?.find((jt: any) => jt.id === jid);
-      job?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
-    });
-    
-    // Fallback: Wenn jobIds leer ist, prüfe das legacy 'title' Feld
-    if (userJobIds.length === 0 && user.title) {
-      const legacyJob = jobTitles?.find((jt: any) => jt.name === user.title && jt.tenantId === user.tenantId);
-      legacyJob?.entitlementIds?.forEach((eid: string) => blueprintEntitlementIds.add(eid));
-    }
+
+    const roleEntitlementIds = entitlementAssignments
+      .filter((a: any) => a.tenantId === user.tenantId)
+      .filter((a: any) => a.subjectType === 'position' && activeUserPositionIds.includes(a.subjectId))
+      .filter((a: any) => a.status === 'active' || a.status === 'approved')
+      .map((a: any) => a.entitlementId);
 
     const activeCapabilityIds = (userCapabilities || [])
       .filter((item: any) => item.userId === user.id && item.status === 'active')
@@ -232,7 +235,7 @@ function UsersPageContent() {
       .filter((a: any) => a.status === 'active' || a.status === 'approved')
       .map((a: any) => a.entitlementId);
 
-    const targetEntitlementIds = Array.from(new Set([...directEntitlementIds, ...Array.from(blueprintEntitlementIds), ...capabilityEntitlementIds]));
+    const targetEntitlementIds = Array.from(new Set([...directEntitlementIds, ...roleEntitlementIds, ...capabilityEntitlementIds]));
     const targetGroups = targetEntitlementIds
       .map(eid => entitlements.find((e: any) => e.id === eid)?.externalMapping)
       .filter(Boolean) as string[];

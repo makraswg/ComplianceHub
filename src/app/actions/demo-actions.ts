@@ -204,7 +204,7 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       rolePositionIdsByJob.set(j.id, rolePositionId);
 
       await saveCollectionRecord('jobTitles', j.id, {
-        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: j.ents, organizationalRoleIds: [rolePositionId]
+        id: j.id, tenantId: t1Id, departmentId: j.deptId, name: j.name, status: 'active', entitlementIds: [], organizationalRoleIds: [rolePositionId]
       }, dataSource);
 
       const positionPayload: Position = {
@@ -217,32 +217,16 @@ export async function seedDemoDataAction(dataSource: DataSource = 'mysql', actor
       };
       await saveCollectionRecord('positions', rolePositionId, positionPayload, dataSource);
 
-      if (j.ents.length > 0) {
-        const assignmentId = `ea-pos-${j.id}`;
+      for (const entitlementId of j.ents) {
+        const assignmentId = `ea-pos-${rolePositionId}-${entitlementId}`.substring(0, 64);
         const assignment: EntitlementAssignment = {
           id: assignmentId,
           tenantId: t1Id,
           subjectType: 'position',
           subjectId: rolePositionId,
-          entitlementId: j.ents[0],
-          status: 'active',
-          assignmentSource: 'position',
-          grantedBy: actorEmail,
-          grantedAt: now,
-        };
-        await saveCollectionRecord('entitlementAssignments', assignmentId, assignment, dataSource);
-      }
-
-      for (const entitlementId of j.ents) {
-        const assignmentId = `ea-jt-${j.id}-${entitlementId}`.substring(0, 64);
-        const assignment: EntitlementAssignment = {
-          id: assignmentId,
-          tenantId: t1Id,
-          subjectType: 'jobTitle',
-          subjectId: j.id,
           entitlementId,
           status: 'active',
-          assignmentSource: 'profile',
+          assignmentSource: 'position',
           grantedBy: actorEmail,
           grantedAt: now,
         };
