@@ -429,37 +429,53 @@ export default function GroupsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredEntitlements.map((ent) => {
-                    const res = resources?.find(r => r.id === ent.resourceId);
-                    return (
-                      <div 
-                        key={ent.id} 
-                        className={cn(
-                          "p-4 border rounded-xl cursor-pointer transition-all flex items-center gap-3 group shadow-sm",
-                          selectedEntitlementIds.includes(ent.id) 
-                            ? "border-primary bg-primary/5 ring-2 ring-primary/5" 
-                            : "bg-white border-slate-100 hover:border-slate-200"
-                        )} 
-                        onClick={() => toggleEntitlement(ent.id)}
-                      >
-                        <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm h-4 w-4" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-800 truncate">{ent.name}</p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9px] font-bold text-slate-400 truncate max-w-[100px]">{res?.name}</span>
-                            {ent.isAdmin && <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[7px] font-bold h-3 px-1">Admin</Badge>}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {filteredEntitlements.length === 0 && (
-                    <div className="col-span-full py-10 text-center border-2 border-dashed rounded-xl opacity-30">
-                      <Shield className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-xs font-bold">Keine Rollen für diese Auswahl gefunden</p>
-                    </div>
-                  )}
+                <div className="border rounded-xl overflow-hidden bg-white">
+                  <Table>
+                    <TableHeader className="bg-slate-50/60">
+                      <TableRow>
+                        <TableHead className="w-12" />
+                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Rolle</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Ressource</TableHead>
+                        <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Typ</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEntitlements.map((ent) => {
+                        const res = resources?.find(r => r.id === ent.resourceId);
+                        return (
+                          <TableRow
+                            key={ent.id}
+                            className={cn(
+                              "cursor-pointer",
+                              selectedEntitlementIds.includes(ent.id) ? "bg-primary/5" : ""
+                            )}
+                            onClick={() => toggleEntitlement(ent.id)}
+                          >
+                            <TableCell className="py-2">
+                              <Checkbox checked={selectedEntitlementIds.includes(ent.id)} className="rounded-sm h-4 w-4" />
+                            </TableCell>
+                            <TableCell className="py-2 text-xs font-bold text-slate-800">{ent.name}</TableCell>
+                            <TableCell className="py-2 text-[11px] text-slate-500">{res?.name || ent.resourceId}</TableCell>
+                            <TableCell className="py-2">
+                              {ent.isAdmin ? (
+                                <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] font-bold h-4 px-2">Admin</Badge>
+                              ) : (
+                                <Badge variant="outline" className="rounded-full text-[8px] h-4 px-2">Standard</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {filteredEntitlements.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-10 text-center opacity-40">
+                            <Shield className="w-6 h-6 mx-auto mb-2" />
+                            <p className="text-xs font-bold">Keine Rollen für diese Auswahl gefunden</p>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
               

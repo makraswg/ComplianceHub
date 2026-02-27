@@ -84,6 +84,27 @@ export default function JiraGatewayHubPage() {
   const { data: resources, refresh: refreshResources } = usePluggableCollection<Resource>('resources');
   const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
+  const normalize = (value?: string) => (value || '').toLowerCase().trim();
+
+  const detectResourceFromSummary = (summary: string) => {
+    const normalizedSummary = normalize(summary);
+    const scopedResources = (resources || [])
+      .filter((resource) => activeTenantId === 'all' || resource.tenantId === activeTenantId || resource.tenantId === 'global')
+      .sort((a, b) => b.name.length - a.name.length);
+
+    return scopedResources.find((resource) => normalizedSummary.includes(normalize(resource.name)));
+  };
+
+  const detectRoleForResource = (summary: string, resourceId?: string) => {
+    if (!resourceId) return undefined;
+    const normalizedSummary = normalize(summary);
+    const scopedEntitlements = (entitlements || [])
+      .filter((entitlement) => entitlement.resourceId === resourceId)
+      .sort((a, b) => b.name.length - a.name.length);
+
+    return scopedEntitlements.find((entitlement) => normalizedSummary.includes(normalize(entitlement.name)));
+  };
+
   useEffect(() => {
     setMounted(true);
     loadSyncData();
@@ -112,12 +133,16 @@ export default function JiraGatewayHubPage() {
         
         setApprovedTickets((approvedRes.items || []).map(t => {
           const existingAssignment = assignments?.find(a => a.jiraIssueKey === t.key);
-          const matchedRole = entitlements?.find(e => t.summary.toLowerCase().includes(e.name.toLowerCase()));
+          const matchedResource = detectResourceFromSummary(t.summary || '');
+          const matchedRole = detectRoleForResource(t.summary || '', matchedResource?.id);
+          const existingRole = existingAssignment ? entitlements?.find(e => e.id === existingAssignment.entitlementId) : undefined;
+          const existingResource = existingRole ? resources?.find((resource) => resource.id === existingRole.resourceId) : undefined;
           
           return {
             ...t,
             existingAssignment,
-            matchedRole: existingAssignment ? entitlements?.find(e => e.id === existingAssignment.entitlementId) : matchedRole
+            matchedResource: existingAssignment ? existingResource : matchedResource,
+            matchedRole: existingAssignment ? existingRole : matchedRole
           };
         }));
         
@@ -381,9 +406,12 @@ export default function JiraGatewayHubPage() {
                       </TableCell>
                       <TableCell>
                         {ticket.matchedRole ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none rounded-full text-[9px] font-bold px-3 h-5">{ticket.matchedRole.name}</Badge>
+                          <div className="space-y-1">
+                            <div className="text-[10px] font-bold text-slate-700">{ticket.matchedResource?.name || 'Unbekannte Ressource'}</div>
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-none rounded-full text-[9px] font-bold px-3 h-5">{ticket.matchedRole.name}</Badge>
+                          </div>
                         ) : (
-                          <span className="text-[10px] text-slate-400 italic">Kein Mapping</span>
+                          <span className="text-[10px] text-slate-400 italic">Kein Ressource/Rollen-Mapping</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right px-6">

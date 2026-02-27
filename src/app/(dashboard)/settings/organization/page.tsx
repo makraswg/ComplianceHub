@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Archive, Building2, ChevronRight, Loader2, Pencil, PlusCircle, RotateCcw, Save as SaveIcon, X } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -922,27 +923,43 @@ export default function UnifiedOrganizationPage() {
                         <div className="px-1">
                           <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{group.resourceName}</p>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {group.items.map((ent) => (
-                            <div
-                              key={ent.id}
-                              className={cn(
-                                'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
-                                roleEntitlementIds.includes(ent.id) ? 'border-primary bg-primary/5' : 'bg-white'
-                              )}
-                              onClick={() =>
-                                setRoleEntitlementIds((prev) =>
-                                  prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
-                                )
-                              }
-                            >
-                              <Checkbox checked={roleEntitlementIds.includes(ent.id)} />
-                              <div className="min-w-0 flex-1">
-                                <span className="text-[11px] font-bold truncate block">{ent.name}</span>
-                                <span className="text-[9px] text-slate-500 truncate block">{group.resourceName}</span>
-                              </div>
-                            </div>
-                          ))}
+                        <div className="border rounded-xl overflow-hidden">
+                          <Table>
+                            <TableHeader className="bg-slate-50/60">
+                              <TableRow>
+                                <TableHead className="w-12" />
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Rolle</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider text-slate-500">Typ</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {group.items.map((ent) => (
+                                <TableRow
+                                  key={ent.id}
+                                  className="cursor-pointer"
+                                  onClick={() =>
+                                    setRoleEntitlementIds((prev) =>
+                                      prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
+                                    )
+                                  }
+                                >
+                                  <TableCell className="py-2">
+                                    <Checkbox checked={roleEntitlementIds.includes(ent.id)} />
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    <span className="text-xs font-bold text-slate-800">{ent.name}</span>
+                                  </TableCell>
+                                  <TableCell className="py-2">
+                                    {!!(ent.isAdmin === true || ent.isAdmin === 1 || ent.isAdmin === '1') ? (
+                                      <Badge className="bg-red-50 text-red-600 border-none rounded-full text-[8px] font-bold px-2 h-4">Admin</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[8px] rounded-full px-2 h-4">Standard</Badge>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
                     ))}
