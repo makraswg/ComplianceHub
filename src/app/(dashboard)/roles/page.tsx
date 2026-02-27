@@ -272,6 +272,14 @@ export default function RolesManagementPage() {
     setIsQuickAddOpen(true);
   };
 
+  const closeQuickAddDialog = () => {
+    setIsQuickAddOpen(false);
+    setQuickRole(null);
+    if (typeof document !== 'undefined') {
+      document.body.style.pointerEvents = '';
+    }
+  };
+
   const toggleQuickUser = (userId: string, checked: boolean) => {
     setSelectedQuickUserIds(prev => {
       if (checked) {
@@ -294,7 +302,7 @@ export default function RolesManagementPage() {
 
     if (toCreate.length === 0) {
       toast({ title: 'Keine neuen User ausgewählt' });
-      setIsQuickAddOpen(false);
+      closeQuickAddDialog();
       return;
     }
 
@@ -336,8 +344,7 @@ export default function RolesManagementPage() {
       );
 
       toast({ title: `${toCreate.length} User hinzugefügt` });
-      setIsQuickAddOpen(false);
-      setQuickRole(null);
+      closeQuickAddDialog();
       refreshAssignments();
     } finally {
       setIsQuickSaving(false);
@@ -552,7 +559,7 @@ export default function RolesManagementPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isQuickAddOpen} onOpenChange={(v) => { if (!v) { setIsQuickAddOpen(false); setQuickRole(null); } }}>
+      <Dialog open={isQuickAddOpen} onOpenChange={(v) => { if (!v) closeQuickAddDialog(); }}>
         <DialogContent className="max-w-xl w-[95vw] max-h-[85vh] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
           <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-8">
             <div className="flex items-center gap-4">
@@ -606,7 +613,7 @@ export default function RolesManagementPage() {
           </div>
 
           <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2 shrink-0">
-            <Button variant="ghost" onClick={() => { setIsQuickAddOpen(false); setQuickRole(null); }} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
+            <Button variant="ghost" onClick={closeQuickAddDialog} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleQuickAssignUsers} disabled={isQuickSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
               {isQuickSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Ausgewählte hinzufügen
             </Button>
