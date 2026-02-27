@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { 
   Table, 
   TableBody, 
@@ -65,23 +65,31 @@ import { useSettings } from '@/context/settings-context';
 import { saveCollectionRecord, deleteCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 import { toast } from '@/hooks/use-toast';
-import { Entitlement, Resource, Tenant } from '@/lib/types';
+import { Entitlement, Resource, Tenant, User, Assignment } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AiFormAssistant } from '@/components/ai/form-assistant';
 import { usePlatformAuth } from '@/context/auth-context';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function RolesManagementPage() {
   const { dataSource, activeTenantId } = useSettings();
   const { user } = usePlatformAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState('');
+  const [resourceFilterId, setResourceFilterId] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Entitlement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string, label: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [quickRole, setQuickRole] = useState<Entitlement | null>(null);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [quickUserSearch, setQuickUserSearch] = useState('');
+  const [selectedQuickUserIds, setSelectedQuickUserIds] = useState<string[]>([]);
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -94,10 +102,33 @@ export default function RolesManagementPage() {
   const { data: roles, isLoading, refresh } = usePluggableCollection<Entitlement>('entitlements');
   const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: tenants } = usePluggableCollection<Tenant>('tenants');
+  const { data: users } = usePluggableCollection<User>('users');
+  const { data: assignments, refresh: refreshAssignments } = usePluggableCollection<Assignment>('assignments');
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    const resourceIdParam = searchParams.get('resourceId');
+    const shouldOpenNew = searchParams.get('new') === 'true';
+
+    if (resourceIdParam) {
+      setResourceFilterId(resourceIdParam);
+    }
+
+    if (shouldOpenNew) {
+      resetForm();
+      if (resourceIdParam) setResourceId(resourceIdParam);
+      setIsDialogOpen(true);
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('new');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [mounted, searchParams]);
 
   const isSuperAdmin = user?.role === 'superAdmin';
 
@@ -202,11 +233,116 @@ export default function RolesManagementPage() {
     return roles.filter(r => {
       const resource = resources?.find(res => res.id === r.resourceId);
       if (activeTenantId !== 'all' && resource?.tenantId !== activeTenantId) return false;
+      if (resourceFilterId !== 'all' && r.resourceId !== resourceFilterId) return false;
       const matchSearch = r.name.toLowerCase().includes(search.toLowerCase()) || 
                           resource?.name.toLowerCase().includes(search.toLowerCase());
       return matchSearch;
     });
-  }, [roles, resources, search, activeTenantId]);
+  }, [roles, resources, search, activeTenantId, resourceFilterId]);
+
+  const activeAssignedUserIds = useMemo(() => {
+    if (!quickRole || !assignments) return new Set<string>();
+    return new Set(
+      assignments
+        .filter(a => a.entitlementId === quickRole.id && a.status === 'active')
+        .map(a => a.userId)
+    );
+  }, [quickRole, assignments]);
+
+  const selectableUsers = useMemo(() => {
+    const list = (users || []).filter(u => {
+      const enabled = u.enabled === true || u.enabled === 1;
+      const activeStatus = !u.status || u.status === 'active';
+      if (!enabled || !activeStatus) return false;
+      if (activeTenantId !== 'all' && u.tenantId !== activeTenantId) return false;
+      const q = quickUserSearch.trim().toLowerCase();
+      if (!q) return true;
+      return u.displayName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    });
+    return list.sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [users, activeTenantId, quickUserSearch]);
+
+  const openQuickAddUsers = (role: Entitlement) => {
+    const existing = (assignments || [])
+      .filter(a => a.entitlementId === role.id && a.status === 'active')
+      .map(a => a.userId);
+    setQuickRole(role);
+    setQuickUserSearch('');
+    setSelectedQuickUserIds(existing);
+    setIsQuickAddOpen(true);
+  };
+
+  const toggleQuickUser = (userId: string, checked: boolean) => {
+    setSelectedQuickUserIds(prev => {
+      if (checked) {
+        if (prev.includes(userId)) return prev;
+        return [...prev, userId];
+      }
+      return prev.filter(id => id !== userId);
+    });
+  };
+
+  const handleQuickAssignUsers = async () => {
+    if (!quickRole) return;
+
+    const existingIds = new Set(
+      (assignments || [])
+        .filter(a => a.entitlementId === quickRole.id && a.status === 'active')
+        .map(a => a.userId)
+    );
+    const toCreate = selectedQuickUserIds.filter(uid => !existingIds.has(uid));
+
+    if (toCreate.length === 0) {
+      toast({ title: 'Keine neuen User ausgewählt' });
+      setIsQuickAddOpen(false);
+      return;
+    }
+
+    setIsQuickSaving(true);
+    try {
+      await Promise.all(
+        toCreate.map(async (userId) => {
+          const targetUser = users?.find(u => u.id === userId);
+          const assignmentId = `ass-${Math.random().toString(36).substring(2, 9)}`;
+          const assignmentData: Assignment = {
+            id: assignmentId,
+            userId,
+            entitlementId: quickRole.id,
+            status: 'active',
+            grantedBy: user?.email || 'system',
+            grantedAt: new Date().toISOString(),
+            validFrom: new Date().toISOString().split('T')[0],
+            validUntil: '',
+            ticketRef: 'manuell',
+            notes: 'Manuell über Rollenverwaltung angelegt.',
+            tenantId: targetUser?.tenantId || quickRole.tenantId || activeTenantId || 'global',
+            syncSource: 'manual'
+          };
+
+          const saveRes = await saveCollectionRecord('assignments', assignmentId, assignmentData, dataSource);
+          if (!saveRes.success) {
+            throw new Error(saveRes.error || 'Fehler beim Anlegen der Zuweisung.');
+          }
+
+          await logAuditEventAction(dataSource, {
+            tenantId: assignmentData.tenantId || 'global',
+            actorUid: user?.email || 'system',
+            action: `Einzelzuweisung erstellt: ${targetUser?.displayName || userId} -> ${quickRole.name}`,
+            entityType: 'assignment',
+            entityId: assignmentId,
+            after: assignmentData
+          });
+        })
+      );
+
+      toast({ title: `${toCreate.length} User hinzugefügt` });
+      setIsQuickAddOpen(false);
+      setQuickRole(null);
+      refreshAssignments();
+    } finally {
+      setIsQuickSaving(false);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -308,6 +444,7 @@ export default function RolesManagementPage() {
                           <DropdownMenuContent align="end" className="rounded-xl w-56 p-1 shadow-2xl border">
                             <DropdownMenuItem onSelect={() => router.push(`/roles/${role.id}`)} className="rounded-md py-2 gap-2 text-xs font-bold"><Eye className="w-3.5 h-3.5 text-primary" /> Details ansehen</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => openEdit(role)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Pencil className="w-3.5 h-3.5 text-slate-400" /> Bearbeiten</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => openQuickAddUsers(role)} className="rounded-lg py-2 gap-2 text-xs font-bold"><Plus className="w-3.5 h-3.5 text-primary" /> User hinzufügen</DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1" />
                             <DropdownMenuItem className="text-red-600 font-bold" onSelect={() => { 
                               if (isSuperAdmin) {
@@ -410,6 +547,70 @@ export default function RolesManagementPage() {
             <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
             <Button onClick={handleSave} disabled={isSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
               {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Rolle speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQuickAddOpen} onOpenChange={(v) => { if (!v) { setIsQuickAddOpen(false); setQuickRole(null); } }}>
+        <DialogContent className="max-w-xl w-[95vw] rounded-xl p-0 overflow-hidden flex flex-col border shadow-2xl bg-white dark:bg-slate-950">
+          <DialogHeader className="p-6 bg-slate-800 text-white shrink-0 pr-8">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="text-lg font-bold text-white">User hinzufügen</DialogTitle>
+                <DialogDescription className="text-[10px] text-white/50 font-bold mt-0.5">
+                  Rolle: {quickRole?.name || '—'}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="p-4 border-b bg-slate-50">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+              <Input
+                placeholder="User suchen..."
+                className="pl-9 h-10 rounded-md border-slate-200 bg-white shadow-sm"
+                value={quickUserSearch}
+                onChange={(e) => setQuickUserSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="max-h-[52vh]">
+            <div className="p-4 space-y-2">
+              {selectableUsers.map((u) => {
+                const checked = selectedQuickUserIds.includes(u.id);
+                const alreadyAssigned = activeAssignedUserIds.has(u.id);
+                return (
+                  <label key={u.id} className="flex items-center justify-between p-3 rounded-md border bg-white hover:bg-slate-50 cursor-pointer">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) => toggleQuickUser(u.id, value === true)}
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-slate-800 truncate">{u.displayName}</div>
+                        <div className="text-[10px] text-slate-500 truncate">{u.email}</div>
+                      </div>
+                    </div>
+                    {alreadyAssigned && <Badge variant="outline" className="text-[8px] font-bold">Bereits zugewiesen</Badge>}
+                  </label>
+                );
+              })}
+              {selectableUsers.length === 0 && (
+                <p className="text-xs text-slate-400 text-center py-8">Keine User gefunden</p>
+              )}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="p-4 bg-slate-50 border-t flex flex-col sm:flex-row gap-2">
+            <Button variant="ghost" onClick={() => { setIsQuickAddOpen(false); setQuickRole(null); }} className="rounded-md h-10 px-6 font-bold text-[11px]">Abbrechen</Button>
+            <Button onClick={handleQuickAssignUsers} disabled={isQuickSaving} className="rounded-md h-10 px-8 bg-primary text-white font-bold text-[11px] gap-2 shadow-lg shadow-primary/20">
+              {isQuickSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Ausgewählte hinzufügen
             </Button>
           </DialogFooter>
         </DialogContent>

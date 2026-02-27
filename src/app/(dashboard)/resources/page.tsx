@@ -624,6 +624,24 @@ function ResourcesPageContent() {
                     </TableCell>
                     <TableCell className="text-right px-6">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ressourcenrollen anzeigen"
+                          className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/roles?resourceId=${res.id}`); }}
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Ressourcenrolle anlegen"
+                          className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/roles?new=true&resourceId=${res.id}`); }}
+                        >
+                          <Plus className="w-3.5 h-3.5 text-slate-500" />
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => openEdit(res)}><Pencil className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm" onClick={() => router.push(`/resources/${res.id}`)}><Eye className="w-3.5 h-3.5" /></Button>
                         <Button 
