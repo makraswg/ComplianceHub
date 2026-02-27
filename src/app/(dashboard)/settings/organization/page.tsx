@@ -22,7 +22,7 @@ import { toast } from '@/hooks/use-toast';
 import { saveCollectionRecord } from '@/app/actions/mysql-actions';
 import { logAuditEventAction } from '@/app/actions/audit-actions';
 
-import { Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Position, Tenant } from '@/lib/types';
+import { Entitlement, EntitlementAssignment, JobTitle, OrgUnit, OrgUnitType, Position, Resource, Tenant } from '@/lib/types';
 
 export default function UnifiedOrganizationPage() {
   const { dataSource, activeTenantId } = useSettings();
@@ -56,6 +56,7 @@ export default function UnifiedOrganizationPage() {
   const [roleName, setRoleName] = useState('');
   const [roleDescription, setRoleDescription] = useState('');
   const [roleOrgUnitId, setRoleOrgUnitId] = useState('');
+  const [roleEntitlementSearch, setRoleEntitlementSearch] = useState('');
   const [roleEntitlementIds, setRoleEntitlementIds] = useState<string[]>([]);
   const [isSavingRole, setIsSavingRole] = useState(false);
 
@@ -65,6 +66,7 @@ export default function UnifiedOrganizationPage() {
   const { data: jobTitles, refresh: refreshJobs } = usePluggableCollection<JobTitle>('jobTitles');
   const { data: positions, refresh: refreshPositions } = usePluggableCollection<Position>('positions');
   const { data: entitlements } = usePluggableCollection<Entitlement>('entitlements');
+  const { data: resources } = usePluggableCollection<Resource>('resources');
   const { data: entitlementAssignments, refresh: refreshEntitlementAssignments } = usePluggableCollection<EntitlementAssignment>('entitlementAssignments');
 
   useEffect(() => setMounted(true), []);
@@ -312,6 +314,7 @@ export default function UnifiedOrganizationPage() {
     setRoleName('');
     setRoleDescription('');
     setRoleOrgUnitId('');
+    setRoleEntitlementSearch('');
     setRoleEntitlementIds([]);
     setIsRoleEditorOpen(true);
   };
@@ -404,6 +407,7 @@ export default function UnifiedOrganizationPage() {
       setRoleName('');
       setRoleDescription('');
       setRoleOrgUnitId('');
+      setRoleEntitlementSearch('');
       setRoleEntitlementIds([]);
     } finally {
       setIsSavingRole(false);
@@ -475,6 +479,39 @@ export default function UnifiedOrganizationPage() {
     }
     return names.length > 0 ? names.join(' › ') : '—';
   };
+
+  const resourceById = useMemo(() => {
+    const map = new Map<string, Resource>();
+    (resources || []).forEach((resource) => map.set(resource.id, resource));
+    return map;
+  }, [resources]);
+
+  const groupedEntitlementsForRoleEditor = useMemo(() => {
+    const searchTerm = roleEntitlementSearch.trim().toLowerCase();
+    const filtered = (entitlements || [])
+      .filter((ent) => !roleEditorTenantId || ent.tenantId === roleEditorTenantId || ent.tenantId === 'global')
+      .filter((ent) => {
+        if (!searchTerm) return true;
+        const resourceName = resourceById.get(ent.resourceId || '')?.name || '';
+        return ent.name.toLowerCase().includes(searchTerm) || resourceName.toLowerCase().includes(searchTerm);
+      });
+
+    const groups = new Map<string, Entitlement[]>();
+    for (const entitlement of filtered) {
+      const key = entitlement.resourceId || 'unmapped';
+      const existing = groups.get(key) || [];
+      existing.push(entitlement);
+      groups.set(key, existing);
+    }
+
+    return Array.from(groups.entries())
+      .map(([resourceId, items]) => ({
+        resourceId,
+        resourceName: resourceById.get(resourceId)?.name || resourceId || 'Unbekannte Ressource',
+        items: items.sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .sort((a, b) => a.resourceName.localeCompare(b.resourceName));
+  }, [entitlements, roleEditorTenantId, roleEntitlementSearch, resourceById]);
 
   const renderOrgNode = (node: OrgUnit, level = 0): JSX.Element => {
     const children = orgUnitsInScope.filter((item) => item.parentId === node.id);
@@ -873,26 +910,45 @@ export default function UnifiedOrganizationPage() {
 
                 <div className="pt-3 border-t space-y-3">
                   <Label className="text-xs font-bold text-primary block">Ressourcenrollen ({roleEntitlementIds.length})</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {(entitlements || [])
-                      .filter((ent) => !roleEditorTenantId || ent.tenantId === roleEditorTenantId || ent.tenantId === 'global')
-                      .map((ent) => (
-                        <div
-                          key={ent.id}
-                          className={cn(
-                            'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
-                            roleEntitlementIds.includes(ent.id) ? 'border-primary bg-primary/5' : 'bg-white'
-                          )}
-                          onClick={() =>
-                            setRoleEntitlementIds((prev) =>
-                              prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
-                            )
-                          }
-                        >
-                          <Checkbox checked={roleEntitlementIds.includes(ent.id)} />
-                          <span className="text-[11px] font-bold truncate">{ent.name}</span>
+                  <Input
+                    value={roleEntitlementSearch}
+                    onChange={(event) => setRoleEntitlementSearch(event.target.value)}
+                    placeholder="Nach Ressource oder Rollenname suchen..."
+                    className="h-9 text-xs"
+                  />
+                  <div className="space-y-4">
+                    {groupedEntitlementsForRoleEditor.map((group) => (
+                      <div key={group.resourceId} className="space-y-2">
+                        <div className="px-1">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{group.resourceName}</p>
                         </div>
-                      ))}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {group.items.map((ent) => (
+                            <div
+                              key={ent.id}
+                              className={cn(
+                                'p-3 border rounded-xl flex items-center gap-3 cursor-pointer',
+                                roleEntitlementIds.includes(ent.id) ? 'border-primary bg-primary/5' : 'bg-white'
+                              )}
+                              onClick={() =>
+                                setRoleEntitlementIds((prev) =>
+                                  prev.includes(ent.id) ? prev.filter((id) => id !== ent.id) : [...prev, ent.id]
+                                )
+                              }
+                            >
+                              <Checkbox checked={roleEntitlementIds.includes(ent.id)} />
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[11px] font-bold truncate block">{ent.name}</span>
+                                <span className="text-[9px] text-slate-500 truncate block">{group.resourceName}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {groupedEntitlementsForRoleEditor.length === 0 && (
+                      <p className="text-[10px] text-slate-500 italic">Keine Ressourcenrollen für die aktuelle Suche gefunden.</p>
+                    )}
                   </div>
                 </div>
               </div>
