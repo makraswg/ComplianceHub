@@ -325,7 +325,7 @@ export default function ServiceAccountsPage() {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Servicekonto bearbeiten' : 'Servicekonto anlegen'}</DialogTitle>
             <DialogDescription>Technische Identität dokumentieren und mit Rollen verknüpfen.</DialogDescription>
