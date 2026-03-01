@@ -53,7 +53,7 @@ import { Label } from '@/components/ui/label';
 import { usePluggableCollection } from '@/hooks/data/use-pluggable-collection';
 import { useSettings } from '@/context/settings-context';
 import { 
-  Resource, Process, ProcessVersion, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, ServicePartnerArea, Department, Entitlement, BackupJob, ResourceUpdateProcess, Task, PlatformUser 
+  Resource, Process, ProcessVersion, Risk, RiskMeasure, ProcessingActivity, Feature, JobTitle, ServicePartner, ServicePartnerContact, ServicePartnerArea, Department, Entitlement, BackupJob, ResourceUpdateProcess, Task, PlatformUser, Assignment, User, ServiceAccount
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -99,12 +99,16 @@ export default function ResourceDetailPage() {
   const { data: featureLinks } = usePluggableCollection<any>('feature_process_steps');
   const { data: tasks, refresh: refreshTasks } = usePluggableCollection<Task>('tasks');
   const { data: pUsers } = usePluggableCollection<PlatformUser>('platformUsers');
+  const { data: assignments } = usePluggableCollection<Assignment>('assignments');
+  const { data: users } = usePluggableCollection<User>('users');
+  const { data: serviceAccounts } = usePluggableCollection<ServiceAccount>('serviceAccounts');
 
   useEffect(() => { setMounted(true); }, []);
 
   const resource = useMemo(() => resources?.find(r => r.id === id), [resources, id]);
   const resourceRoles = useMemo(() => entitlements?.filter(e => e.resourceId === id) || [], [entitlements, id]);
   const resourceBackups = useMemo(() => backupJobs?.filter(b => b.resourceId === id) || [], [backupJobs, id]);
+  const resourceServiceAccounts = useMemo(() => serviceAccounts?.filter(s => s.resourceId === id) || [], [serviceAccounts, id]);
   const resourceUpdates = useMemo(() => {
     const linkIds = updateLinks?.filter(u => u.resourceId === id).map(u => u.processId) || [];
     return processes?.filter(p => linkIds.includes(p.id)) || [];
@@ -112,6 +116,24 @@ export default function ResourceDetailPage() {
 
   const resourceRisks = useMemo(() => risks?.filter(r => r.assetId === id) || [], [risks, id]);
   const resourceTasks = useMemo(() => tasks?.filter(t => t.entityId === id && t.entityType === 'resource') || [], [tasks, id]);
+  const roleUsersByEntitlementId = useMemo(() => {
+    if (!assignments || !users || resourceRoles.length === 0) return new Map<string, User[]>();
+    const roleIds = new Set(resourceRoles.map(role => role.id));
+    const mapping = new Map<string, User[]>();
+
+    assignments
+      .filter(a => a.status === 'active' && roleIds.has(a.entitlementId))
+      .forEach((assignment) => {
+        const assignedUser = users.find(u => u.id === assignment.userId);
+        if (!assignedUser) return;
+        const existing = mapping.get(assignment.entitlementId) || [];
+        if (!existing.some(u => u.id === assignedUser.id)) {
+          mapping.set(assignment.entitlementId, [...existing, assignedUser]);
+        }
+      });
+
+    return mapping;
+  }, [assignments, users, resourceRoles]);
   
   const inheritedData = useMemo(() => {
     if (!resource || !versions || !featureLinks || !features) return null;
@@ -506,25 +528,102 @@ export default function ResourceDetailPage() {
                     <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
                       <TableRow className="border-b last:border-0">
                         <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Rollenbezeichnung</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Aktuell berechtigte Benutzer</TableHead>
                         <TableHead className="font-black text-[10px] uppercase text-slate-400 text-center tracking-widest">Risiko</TableHead>
                         <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Details</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {resourceRoles.map(role => (
-                        <TableRow key={role.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
-                          <TableCell className="py-4 px-6">
-                            <div className="font-black text-sm text-slate-800 dark:text-slate-100">{role.name}</div>
-                            {role.isAdmin && <Badge className="bg-red-600 text-white border-none rounded-full text-[7px] font-black h-4 px-1.5 mt-1 uppercase">Privilegiert</Badge>}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline" className={cn("text-[9px] font-black h-5 border-none uppercase shadow-sm", role.riskLevel === 'high' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>{role.riskLevel}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right px-6">
-                            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"><ArrowRight className="w-4 h-4" /></Button>
-                          </TableCell>
+                      {resourceRoles.map(role => {
+                        const assignedRoleUsers = roleUsersByEntitlementId.get(role.id) || [];
+                        return (
+                          <TableRow key={role.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/roles/${role.id}`)}>
+                            <TableCell className="py-4 px-6">
+                              <div className="font-black text-sm text-slate-800 dark:text-slate-100">{role.name}</div>
+                              {role.isAdmin && <Badge className="bg-red-600 text-white border-none rounded-full text-[7px] font-black h-4 px-1.5 mt-1 uppercase">Privilegiert</Badge>}
+                            </TableCell>
+                            <TableCell>
+                              <div className="space-y-1.5">
+                                <Badge className="bg-blue-50 text-blue-700 border-none text-[8px] font-black h-5 px-2 uppercase tracking-wider rounded-full">
+                                  {assignedRoleUsers.length} Benutzer
+                                </Badge>
+                                {assignedRoleUsers.length > 0 ? (
+                                  <p className="text-[10px] text-slate-600 dark:text-slate-300 font-medium truncate max-w-[280px]">
+                                    {assignedRoleUsers.slice(0, 3).map(u => u.displayName || u.email).join(', ')}
+                                    {assignedRoleUsers.length > 3 ? ` +${assignedRoleUsers.length - 3}` : ''}
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] text-slate-400 italic">Keine aktiven Zuweisungen</p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className={cn("text-[9px] font-black h-5 border-none uppercase shadow-sm", role.riskLevel === 'high' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500")}>{role.riskLevel}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right px-6">
+                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"><ArrowRight className="w-4 h-4" /></Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border bg-white dark:bg-slate-900 overflow-hidden">
+                <CardHeader className="bg-slate-50 dark:bg-slate-800 border-b p-6 flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg font-headline font-bold uppercase tracking-tight text-slate-900 dark:text-white">Servicekonten</CardTitle>
+                  <Button size="sm" variant="outline" className="rounded-xl text-[10px] font-black uppercase" onClick={() => router.push(`/service-accounts?new=1&resourceId=${resource.id}`)}>
+                    <Plus className="w-3.5 h-3.5 mr-2" /> Neues Servicekonto
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader className="bg-slate-50/30 dark:bg-slate-950/30">
+                      <TableRow className="border-b last:border-0">
+                        <TableHead className="py-3 px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Name</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Owner</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase text-slate-400 tracking-widest">Rotation</TableHead>
+                        <TableHead className="text-right px-6 font-black text-[10px] uppercase text-slate-400 tracking-widest">Details</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {resourceServiceAccounts.map((account) => {
+                        const hasRotation = !!account.lastRotatedAt && !!account.rotationIntervalDays && account.rotationIntervalDays > 0;
+                        const nextRotation = hasRotation ? (() => {
+                          const date = new Date(account.lastRotatedAt as string);
+                          if (Number.isNaN(date.getTime())) return null;
+                          date.setDate(date.getDate() + (account.rotationIntervalDays as number));
+                          return date;
+                        })() : null;
+                        const isDue = nextRotation ? nextRotation.getTime() <= Date.now() : false;
+
+                        return (
+                          <TableRow key={account.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors border-b last:border-0 cursor-pointer" onClick={() => router.push(`/service-accounts/${account.id}`)}>
+                            <TableCell className="py-4 px-6">
+                              <div className="font-black text-sm text-slate-800 dark:text-slate-100">{account.name}</div>
+                              <p className="text-[10px] text-slate-500 mt-1">{account.username || '---'}</p>
+                            </TableCell>
+                            <TableCell>
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{account.owner || 'Nicht gesetzt'}</p>
+                            </TableCell>
+                            <TableCell>
+                              {!hasRotation && <Badge variant="outline" className="text-[9px]">Nicht geplant</Badge>}
+                              {hasRotation && isDue && <Badge className="bg-red-100 text-red-700 border-none text-[9px]">Fällig</Badge>}
+                              {hasRotation && !isDue && <Badge className="bg-emerald-100 text-emerald-700 border-none text-[9px]">OK</Badge>}
+                            </TableCell>
+                            <TableCell className="text-right px-6">
+                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-all hover:bg-white shadow-sm"><ArrowRight className="w-4 h-4" /></Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {resourceServiceAccounts.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-12 text-center text-slate-400 text-xs uppercase tracking-widest">Keine Servicekonten für diese Ressource</TableCell>
                         </TableRow>
-                      ))}
+                      )}
                     </TableBody>
                   </Table>
                 </CardContent>

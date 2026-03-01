@@ -467,6 +467,26 @@ export interface ResourceUpdateProcess {
   updatedAt: string;
 }
 
+export interface ServiceAccount {
+  id: string;
+  tenantId: string;
+  resourceId: string;
+  name: string;
+  username?: string;
+  system?: string;
+  owner?: string;
+  purpose?: string;
+  credentialType?: 'password' | 'token' | 'certificate' | 'key' | 'managed_identity' | string;
+  entitlementIds?: string[];
+  rotationIntervalDays?: number;
+  lastRotatedAt?: string;
+  validUntil?: string;
+  status: 'active' | 'archived' | 'disabled';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Resource {
   id: string;
   tenantId: string;
@@ -809,7 +829,7 @@ export interface EntitlementAssignment {
 export interface EffectiveAccessGrant {
   entitlementId: string;
   resourceId: string;
-  sourceType: EntitlementAssignmentSubjectType | 'direct';
+  sourceType: EntitlementAssignmentSubjectType | 'direct' | 'serviceAccount';
   sourceId: string;
   sourceLabel: string;
   scopeOrgUnitId?: string;

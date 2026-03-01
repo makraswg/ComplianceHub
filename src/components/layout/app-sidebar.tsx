@@ -140,6 +140,7 @@ export function AppSidebar() {
   const accessHubItems = [
     { name: 'Dashboard', href: '/access/dashboard', icon: LayoutDashboard },
     { name: 'Benutzerverzeichnis', href: '/users', icon: Users },
+    { name: 'Servicekonten', href: '/service-accounts', icon: KeyRound },
     { name: 'Rollenverwaltung', href: '/roles', icon: ShieldCheck },
     { name: 'Provisioning-Bundles', href: '/groups', icon: Workflow },
     { name: 'Einzelzuweisungen', href: '/assignments', icon: Shield },

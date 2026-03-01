@@ -1,6 +1,6 @@
 'use client';
 
-import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department, Feature, ProcessNode } from './types';
+import { Process, ProcessVersion, Tenant, JobTitle, ProcessingActivity, Resource, RiskMeasure, Policy, PolicyVersion, Department, Feature, ProcessNode, ServiceAccount, Entitlement } from './types';
 
 /**
  * Utility-Modul für den Export von Daten (PDF & Excel).
@@ -46,6 +46,56 @@ export async function exportResourcesExcel(resources: any[], tenants: any[]) {
     'Status': r.status || 'active'
   }));
   await exportToExcel(data, `Ressourcenkatalog_${new Date().toISOString().split('T')[0]}`);
+}
+
+export async function exportServiceAccountsExcel(
+  serviceAccounts: ServiceAccount[],
+  resources: Resource[],
+  entitlements: Entitlement[],
+  tenants: Tenant[]
+) {
+  const now = new Date();
+  const data = serviceAccounts.map((account) => {
+    const resource = resources.find((item) => item.id === account.resourceId);
+    const nextRotationDate = account.lastRotatedAt && account.rotationIntervalDays
+      ? (() => {
+          const date = new Date(account.lastRotatedAt);
+          if (Number.isNaN(date.getTime())) return null;
+          date.setDate(date.getDate() + account.rotationIntervalDays);
+          return date;
+        })()
+      : null;
+
+    const entitlementNames = (account.entitlementIds || [])
+      .map((id) => entitlements.find((item) => item.id === id)?.name || id)
+      .join(', ');
+
+    const rotationStatus = !nextRotationDate
+      ? 'Nicht geplant'
+      : nextRotationDate.getTime() <= now.getTime()
+        ? 'Fällig'
+        : 'OK';
+
+    return {
+      'Name': account.name,
+      'Benutzername': account.username || '---',
+      'System': account.system || '---',
+      'Ressource': resource?.name || account.resourceId,
+      'Owner': account.owner || '---',
+      'Zweck': account.purpose || '---',
+      'Credential-Typ': account.credentialType || '---',
+      'Verknüpfte Rollen': entitlementNames || '---',
+      'Rotationsintervall (Tage)': account.rotationIntervalDays || '---',
+      'Letzte Rotation': account.lastRotatedAt ? new Date(account.lastRotatedAt).toLocaleDateString() : '---',
+      'Nächste Rotation': nextRotationDate ? nextRotationDate.toLocaleDateString() : '---',
+      'Rotationsstatus': rotationStatus,
+      'Gültig bis': account.validUntil ? new Date(account.validUntil).toLocaleDateString() : '---',
+      'Status': account.status,
+      'Mandant': tenants.find((item) => item.id === account.tenantId)?.name || account.tenantId,
+    };
+  });
+
+  await exportToExcel(data, `Servicekonten_${new Date().toISOString().split('T')[0]}`);
 }
 
 export async function exportRisksExcel(risks: any[], resources: any[]) {

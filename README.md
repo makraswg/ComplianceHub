@@ -3,6 +3,18 @@
 
 Der ComplianceHub ist eine mandantenfähige Plattform zur Verwaltung von IT-Berechtigungen (IAM), Risikomanagement nach BSI IT-Grundschutz und Datenschutz-Compliance (DSGVO).
 
+## 🧩 Servicekonten (neu)
+
+Ressourcen können jetzt um dokumentierte Servicekonten erweitert werden.
+
+*   **Modul:** `Servicekonten` im AccessHub
+*   **Verknüpfung:** Jedes Servicekonto gehört genau einer Ressource (1:n)
+*   **Felder:** Owner, Zweck, Credential-Typ, Rotationsintervall, letzte Rotation, Gültigkeit
+*   **Governance:** Audit-Logging bei Erstellen/Ändern/Löschen
+*   **Reporting:** Export als Excel inkl. Rotationsstatus (fällig/ok)
+
+Nach einem Deployment bitte wie gewohnt über `Setup -> Initialisieren` die Datenbankstruktur aktualisieren.
+
 ## 🚀 Installation & Hosting (Docker)
 
 Die Plattform ist für den Betrieb in einer Docker-Umgebung optimiert und nutzt standardmäßig eine MySQL-Datenbank.

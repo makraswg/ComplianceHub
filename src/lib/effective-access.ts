@@ -72,3 +72,29 @@ export function computeEffectiveAccess(input: EffectiveAccessInput): EffectiveAc
 
   return grants;
 }
+
+export function computeEffectiveAccessForServiceAccount(
+  serviceAccountId: string,
+  entitlementIds: string[],
+  entitlements: Entitlement[]
+): EffectiveAccessGrant[] {
+  if (!serviceAccountId || !Array.isArray(entitlementIds) || entitlementIds.length === 0) return [];
+
+  const entitlementById = new Map(entitlements.map((entitlement) => [entitlement.id, entitlement]));
+  const uniqueEntitlementIds = Array.from(new Set(entitlementIds.filter(Boolean)));
+
+  return uniqueEntitlementIds
+    .map((entitlementId) => {
+      const entitlement = entitlementById.get(entitlementId);
+      if (!entitlement) return null;
+
+      return {
+        entitlementId,
+        resourceId: entitlement.resourceId,
+        sourceType: 'serviceAccount' as const,
+        sourceId: serviceAccountId,
+        sourceLabel: 'Servicekonto',
+      };
+    })
+    .filter((item): item is EffectiveAccessGrant => item !== null);
+}

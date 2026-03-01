@@ -619,6 +619,27 @@ export const appSchema: AppSchema = {
       updatesRequired: 'BOOLEAN DEFAULT FALSE',
     }
   },
+  serviceAccounts: {
+    columns: {
+      id: 'VARCHAR(255) PRIMARY KEY',
+      tenantId: 'VARCHAR(255) NOT NULL',
+      resourceId: 'VARCHAR(255) NOT NULL',
+      name: 'VARCHAR(255) NOT NULL',
+      username: 'VARCHAR(255)',
+      system: 'VARCHAR(255)',
+      owner: 'VARCHAR(255)',
+      purpose: 'TEXT',
+      credentialType: 'VARCHAR(50)',
+      entitlementIds: 'TEXT',
+      rotationIntervalDays: 'INT',
+      lastRotatedAt: 'VARCHAR(50)',
+      validUntil: 'VARCHAR(50)',
+      status: 'VARCHAR(20) DEFAULT "active"',
+      notes: 'TEXT',
+      createdAt: 'VARCHAR(50) NOT NULL',
+      updatedAt: 'VARCHAR(50) NOT NULL',
+    }
+  },
   auditEvents: {
     columns: {
       id: 'VARCHAR(255) PRIMARY KEY',
