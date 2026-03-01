@@ -47,6 +47,7 @@ import {
   HardDrive,
   Map,
   UserCircle,
+  KeyRound,
   Fingerprint,
   Save as SaveIcon,
   ShieldAlert,
